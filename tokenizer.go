@@ -64,8 +64,8 @@ const (
 	HashToken      // #abc
 	StringToken
 	BadStringToken
-	UrlToken
-	BadUrlToken
+	URLToken
+	BadURLToken
 	DelimToken      // any unmatched character
 	NumberToken     // 5
 	PercentageToken // 5%
@@ -104,10 +104,10 @@ func (t TokenType) String() string {
 		return "String"
 	case BadStringToken:
 		return "BadString"
-	case UrlToken:
-		return "Url"
-	case BadUrlToken:
-		return "BadUrl"
+	case URLToken:
+		return "URL"
+	case BadURLToken:
+		return "BadURL"
 	case DelimToken:
 		return "Delim"
 	case NumberToken:
@@ -567,7 +567,7 @@ func (z *Tokenizer) consumeColumnToken() bool {
 	return false
 }
 
-func (z *Tokenizer) consumeCdoToken() bool {
+func (z *Tokenizer) consumeCDOToken() bool {
 	end := z.end
 	if z.readRune() == '<' && z.readRune() == '!' && z.readRune() == '-' && z.readRune() == '-' {
 		return true
@@ -576,7 +576,7 @@ func (z *Tokenizer) consumeCdoToken() bool {
 	return false
 }
 
-func (z *Tokenizer) consumeCdcToken() bool {
+func (z *Tokenizer) consumeCDCToken() bool {
 	end := z.end
 	if z.readRune() == '-' && z.readRune() == '-' && z.readRune() == '>' {
 		return true
@@ -656,7 +656,7 @@ func (z *Tokenizer) consumeString() (bool, TokenType) {
 }
 
 // consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
-func (z *Tokenizer) consumeRemnantsBadUrl() {
+func (z *Tokenizer) consumeRemnantsBadURL() {
 	for {
 		if !z.consumeEscape() {
 			if z.readRune() == ')' || z.err != nil {
@@ -681,8 +681,8 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		}
 		if y, t := z.consumeString(); y {
 			if t == BadStringToken {
-				z.consumeRemnantsBadUrl()
-				return true, BadUrlToken
+				z.consumeRemnantsBadURL()
+				return true, BadURLToken
 			}
 		} else {
 			for {
@@ -697,8 +697,8 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 						break
 					}
 					if z.err != nil || r == '"' || r == '\'' || r == '(' || r == '\\' || (r >= 0 && r <= 8) || r == 0x0B || (r >= 0x0E && r <= 0x1F) || r == 0x7F {
-						z.consumeRemnantsBadUrl()
-						return true, BadUrlToken
+						z.consumeRemnantsBadURL()
+						return true, BadURLToken
 					}
 				}
 			}
@@ -706,10 +706,10 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		for z.consumeWhitespace() {
 		}
 		if !z.tryReadRune(')') && z.err != io.EOF {
-			z.consumeRemnantsBadUrl()
-			return true, BadUrlToken
+			z.consumeRemnantsBadURL()
+			return true, BadURLToken
 		}
-		return true, UrlToken
+		return true, URLToken
 	}
 	return false, ErrorToken
 }
@@ -761,7 +761,7 @@ func (z *Tokenizer) Next() TokenType {
 		if y, t := z.consumeIdentlike(); y {
 			return t
 		}
-		if z.consumeCdcToken() {
+		if z.consumeCDCToken() {
 			return CDCToken
 		}
 	case '.':
@@ -779,7 +779,7 @@ func (z *Tokenizer) Next() TokenType {
 		z.end++
 		return SemicolonToken
 	case '<':
-		if z.consumeCdoToken() {
+		if z.consumeCDOToken() {
 			return CDOToken
 		}
 	case '@':
