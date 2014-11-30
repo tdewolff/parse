@@ -41,12 +41,14 @@ import (
 	"unicode/utf8"
 )
 
-// minBuf and maxBuf are the initial and maximal internal buffer size
+// minBuf and maxBuf are the initial and maximal internal buffer size.
 var minBuf = 1024
 var maxBuf = 4096
 
 // ErrBufferExceeded is returned when the internal buffer exceeds 4096 bytes, a string or comment must thus be smaller than 4kB!
 var ErrBufferExceeded = errors.New("max buffer exceeded")
+
+// ErrBadEscape is returned when an escaped sequence contains a newline.
 var ErrBadEscape = errors.New("bad escape")
 
 ////////////////////////////////////////////////////////////////
@@ -55,34 +57,34 @@ var ErrBadEscape = errors.New("bad escape")
 type TokenType uint32
 
 const (
-	ErrorToken TokenType = iota
+	ErrorToken TokenType = iota // non-official token, returned when errors occur
 	IdentToken
-	FunctionToken
-	AtKeywordToken
-	HashToken
+	FunctionToken		// rgb( rgba( ...
+	AtKeywordToken		// @abc
+	HashToken			// #abc
 	StringToken
 	BadStringToken
 	UrlToken
 	BadUrlToken
-	DelimToken
-	NumberToken
-	PercentageToken
-	DimensionToken
+	DelimToken			// any unmatched character
+	NumberToken			// 5
+	PercentageToken		// 5%
+	DimensionToken		// 5em
 	UnicodeRangeToken
-	IncludeMatchToken
-	DashMatchToken
-	PrefixMatchToken
-	SuffixMatchToken
-	SubstringMatchToken
-	ColumnToken
+	IncludeMatchToken	// ~=
+	DashMatchToken		// |=
+	PrefixMatchToken	// ^=
+	SuffixMatchToken	// $=
+	SubstringMatchToken // *=
+	ColumnToken			// ||
 	WhitespaceToken
-	CDOToken
-	CDCToken
+	CDOToken 			// &lt;!--
+	CDCToken 			// --&gt;
 	ColonToken
 	SemicolonToken
 	CommaToken
-	BracketToken
-	CommentToken
+	BracketToken 		// ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
+	CommentToken		// non-official token
 )
 
 // String returns the string representation of a TokenType.
@@ -177,11 +179,12 @@ func (z *Tokenizer) Line() int {
 	return z.line
 }
 
-// Err returns the error encountered during tokenization, this is mostly io.EOF but also other read or tokenization errors can be returned.
+// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
 func (z *Tokenizer) Err() error {
 	return z.err
 }
 
+// Data returns the unescaped string that matches the last token.
 func (z *Tokenizer) Data() string {
 	return strings.Replace(string(z.buf[z.start:z.end]), "\\", "", -1)
 }
@@ -231,7 +234,6 @@ func (z *Tokenizer) readByte() byte {
 }
 
 // readRune returns the next rune and may use readByte up to 4 times.
-// It sets the lastRuneSize to the size of the rune.
 func (z *Tokenizer) readRune() rune {
 	r := rune(z.readByte())
 	if r == 0 {
@@ -271,7 +273,7 @@ func (z *Tokenizer) backup(end int) {
 	}
 }
 
-// tryReadRune reads a rune and returns true if it matches, else it backs-up
+// tryReadRune reads a rune and returns true if it matches, else it backs-up.
 func (z *Tokenizer) tryReadRune(r rune) bool {
 	end := z.end
 	if z.readRune() == r {
@@ -285,7 +287,6 @@ func (z *Tokenizer) tryReadRune(r rune) bool {
 
 /*
 The following functions follow the railroad diagrams in http://www.w3.org/TR/css3-syntax/
-They can be used to pass to consume.
 */
 
 func (z *Tokenizer) consumeComment() bool {
@@ -347,7 +348,7 @@ func (z *Tokenizer) consumeHexDigit() bool {
 }
 
 
-// TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point"
+// TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
 func (z *Tokenizer) consumeEscape() bool {
 	end := z.end
 	if !z.tryReadRune('\\') {
@@ -584,7 +585,7 @@ func (z *Tokenizer) consumeCdcToken() bool {
 
 ////////////////////////////////////////////////////////////////
 
-// consumeMatch consumes any MatchToken
+// consumeMatch consumes any MatchToken.
 func (z *Tokenizer) consumeMatch() (bool, TokenType) {
 	end := z.end
 	r0 := z.readRune()
@@ -602,7 +603,7 @@ func (z *Tokenizer) consumeMatch() (bool, TokenType) {
 	return false, ErrorToken
 }
 
-// consumeNumeric consumes NumberToken, PercentageToken or DimensionToken
+// consumeNumeric consumes NumberToken, PercentageToken or DimensionToken.
 func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 	if z.consumeNumberToken() {
 		if z.tryReadRune('%') {
@@ -616,6 +617,8 @@ func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 	return false, ErrorToken
 }
 
+
+// consumeString consumes a string and may return BadStringToken when a newline is encountered.
 func (z *Tokenizer) consumeString() (bool, TokenType) {
 	end := z.end
 	delim := z.readRune()
@@ -646,6 +649,7 @@ func (z *Tokenizer) consumeString() (bool, TokenType) {
 	return true, StringToken
 }
 
+// consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
 func (z *Tokenizer) consumeRemnantsBadUrl() {
 	for {
 		if !z.consumeEscape() {
@@ -656,7 +660,7 @@ func (z *Tokenizer) consumeRemnantsBadUrl() {
 	}
 }
 
-// consumeIdentlike consumes IdentToken, FunctionToken or UrlToken
+// consumeIdentlike consumes IdentToken, FunctionToken or UrlToken.
 func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 	if z.consumeIdentToken() {
 		if !z.tryReadRune('(') {
@@ -704,8 +708,7 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 
 ////////////////////////////////////////////////////////////////
 
-// Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err one can retrieve the error message.
-// Be aware that Err may return a non-nil value while Next will still return valid tokens.
+// Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() TokenType {
 	z.start = z.end
 

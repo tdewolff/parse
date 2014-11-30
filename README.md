@@ -27,7 +27,7 @@ for {
 	tt := z.Next()
 	switch tt {
 	case css.ErrorToken:
-		// error or EOF
+		// error or EOF set in z.Err()
 		return
 	// ...
 	}
@@ -36,34 +36,34 @@ for {
 
 All tokens (see [CSS Syntax Module Level 3](http://www.w3.org/TR/css3-syntax/)):
 ``` go
-ErrorToken
+ErrorToken			// non-official token, returned when errors occur
 IdentToken
-FunctionToken
-AtKeywordToken
-HashToken
+FunctionToken		// rgb( rgba( ...
+AtKeywordToken		// @abc
+HashToken			// #abc
 StringToken
 BadStringToken
 UrlToken
 BadUrlToken
-DelimToken
-NumberToken
-PercentageToken
-DimensionToken
+DelimToken			// any unmatched character
+NumberToken			// 5
+PercentageToken		// 5%
+DimensionToken		// 5em
 UnicodeRangeToken
-IncludeMatchToken
-DashMatchToken
-PrefixMatchToken
-SuffixMatchToken
-SubstringMatchToken
-ColumnToken
+IncludeMatchToken	// ~=
+DashMatchToken		// |=
+PrefixMatchToken	// ^=
+SuffixMatchToken	// $=
+SubstringMatchToken // *=
+ColumnToken			// ||
 WhitespaceToken
-CDOToken
-CDCToken
+CDOToken 			// &lt;!--
+CDCToken 			// --&gt;
 ColonToken
 SemicolonToken
 CommaToken
-BracketToken // all bracket tokens use this, with Data() one can get the actual bracket
-CommentToken
+BracketToken 		// ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
+CommentToken		// non-official token
 ```
 
 ### Examples
