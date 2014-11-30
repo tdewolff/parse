@@ -78,8 +78,8 @@ const (
 	SubstringMatchToken // *=
 	ColumnToken         // ||
 	WhitespaceToken
-	CDOToken // &lt;!--
-	CDCToken // --&gt;
+	CDOToken // <!--
+	CDCToken // -->
 	ColonToken
 	SemicolonToken
 	CommaToken
