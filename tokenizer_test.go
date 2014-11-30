@@ -55,12 +55,12 @@ func helperString(t *testing.T, input string) string {
 	for i := 0; i < 10; i++ {
 		tt := z.Next()
 		if tt == ErrorToken {
-			s += tt.String()+"('"+z.Err().Error()+"')]"
+			s += tt.String() + "('" + z.Err().Error() + "')]"
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		} else {
-			s += tt.String()+"('"+z.Data()+"'), "
+			s += tt.String() + "('" + z.Data() + "'), "
 		}
 	}
 	return s

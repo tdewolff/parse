@@ -59,32 +59,32 @@ type TokenType uint32
 const (
 	ErrorToken TokenType = iota // non-official token, returned when errors occur
 	IdentToken
-	FunctionToken		// rgb( rgba( ...
-	AtKeywordToken		// @abc
-	HashToken			// #abc
+	FunctionToken  // rgb( rgba( ...
+	AtKeywordToken // @abc
+	HashToken      // #abc
 	StringToken
 	BadStringToken
 	UrlToken
 	BadUrlToken
-	DelimToken			// any unmatched character
-	NumberToken			// 5
-	PercentageToken		// 5%
-	DimensionToken		// 5em
+	DelimToken      // any unmatched character
+	NumberToken     // 5
+	PercentageToken // 5%
+	DimensionToken  // 5em
 	UnicodeRangeToken
-	IncludeMatchToken	// ~=
-	DashMatchToken		// |=
-	PrefixMatchToken	// ^=
-	SuffixMatchToken	// $=
+	IncludeMatchToken   // ~=
+	DashMatchToken      // |=
+	PrefixMatchToken    // ^=
+	SuffixMatchToken    // $=
 	SubstringMatchToken // *=
-	ColumnToken			// ||
+	ColumnToken         // ||
 	WhitespaceToken
-	CDOToken 			// &lt;!--
-	CDCToken 			// --&gt;
+	CDOToken // &lt;!--
+	CDCToken // --&gt;
 	ColonToken
 	SemicolonToken
 	CommaToken
-	BracketToken 		// ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
-	CommentToken		// non-official token
+	BracketToken // ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
+	CommentToken // non-official token
 )
 
 // String returns the string representation of a TokenType.
@@ -161,16 +161,16 @@ type Tokenizer struct {
 	start int
 	end   int
 
-	err   error // not-nil for immediate errors
+	err     error // not-nil for immediate errors
 	readErr error
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		r:      r,
-		line:	1,
-		buf:    make([]byte, 0, minBuf),
+		r:    r,
+		line: 1,
+		buf:  make([]byte, 0, minBuf),
 	}
 }
 
@@ -347,7 +347,6 @@ func (z *Tokenizer) consumeHexDigit() bool {
 	return false
 }
 
-
 // TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
 func (z *Tokenizer) consumeEscape() bool {
 	end := z.end
@@ -384,7 +383,8 @@ func (z *Tokenizer) consumeDigit() bool {
 
 func (z *Tokenizer) consumeWhitespaceToken() bool {
 	if z.consumeWhitespace() {
-		for z.consumeWhitespace() {}
+		for z.consumeWhitespace() {
+		}
 		return true
 	}
 	return false
@@ -467,13 +467,15 @@ func (z *Tokenizer) consumeNumberToken() bool {
 	}
 	firstDigid := z.consumeDigit()
 	if firstDigid {
-		for z.consumeDigit() {}
+		for z.consumeDigit() {
+		}
 	}
 
 	pos := z.end
 	if z.tryReadRune('.') {
 		if z.consumeDigit() {
-			for z.consumeDigit() {}
+			for z.consumeDigit() {
+			}
 		} else if firstDigid {
 			// . could belong to next token
 			z.backup(pos)
@@ -592,11 +594,16 @@ func (z *Tokenizer) consumeMatch() (bool, TokenType) {
 	r1 := z.readRune()
 	if r1 == '=' {
 		switch r0 {
-			case '~': return true, IncludeMatchToken
-			case '|': return true, DashMatchToken
-			case '^': return true, PrefixMatchToken
-			case '$': return true, SuffixMatchToken
-			case '*': return true, SubstringMatchToken
+		case '~':
+			return true, IncludeMatchToken
+		case '|':
+			return true, DashMatchToken
+		case '^':
+			return true, PrefixMatchToken
+		case '$':
+			return true, SuffixMatchToken
+		case '*':
+			return true, SubstringMatchToken
 		}
 	}
 	z.backup(end)
@@ -616,7 +623,6 @@ func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 	}
 	return false, ErrorToken
 }
-
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
 func (z *Tokenizer) consumeString() (bool, TokenType) {
@@ -671,7 +677,8 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		}
 
 		// consume url
-		for z.consumeWhitespace() {}
+		for z.consumeWhitespace() {
+		}
 		if y, t := z.consumeString(); y {
 			if t == BadStringToken {
 				z.consumeRemnantsBadUrl()
@@ -696,7 +703,8 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 				}
 			}
 		}
-		for z.consumeWhitespace() {}
+		for z.consumeWhitespace() {
+		}
 		if !z.tryReadRune(')') && z.err != io.EOF {
 			z.consumeRemnantsBadUrl()
 			return true, BadUrlToken
