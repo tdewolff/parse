@@ -34,10 +34,10 @@ Using example:
 package css
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
-	"strings"
 	"unicode/utf8"
 )
 
@@ -57,7 +57,7 @@ var ErrBadEscape = errors.New("bad escape")
 type TokenType uint32
 
 const (
-	ErrorToken TokenType = iota // non-official token, returned when errors occur
+	ErrorToken TokenType = iota // extra token when errors occur
 	IdentToken
 	FunctionToken  // rgb( rgba( ...
 	AtKeywordToken // @abc
@@ -66,25 +66,30 @@ const (
 	BadStringToken
 	URLToken
 	BadURLToken
-	DelimToken      // any unmatched character
-	NumberToken     // 5
-	PercentageToken // 5%
-	DimensionToken  // 5em
-	UnicodeRangeToken
-	IncludeMatchToken   // ~=
-	DashMatchToken      // |=
-	PrefixMatchToken    // ^=
-	SuffixMatchToken    // $=
-	SubstringMatchToken // *=
-	ColumnToken         // ||
-	WhitespaceToken
-	CDOToken // <!--
-	CDCToken // -->
-	ColonToken
-	SemicolonToken
-	CommaToken
-	BracketToken // ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
-	CommentToken // non-official token
+	DelimToken            // any unmatched character
+	NumberToken           // 5
+	PercentageToken       // 5%
+	DimensionToken        // 5em
+	UnicodeRangeToken     // U+554A
+	IncludeMatchToken     // ~=
+	DashMatchToken        // |=
+	PrefixMatchToken      // ^=
+	SuffixMatchToken      // $=
+	SubstringMatchToken   // *=
+	ColumnToken           // ||
+	WhitespaceToken       // space \t \r \n \f
+	CDOToken              // <!--
+	CDCToken              // -->
+	ColonToken            // :
+	SemicolonToken        // ;
+	CommaToken            // ,
+	LeftBracketToken      // [
+	RightBracketToken     // ]
+	LeftParenthesisToken  // (
+	RightParenthesisToken // )
+	LeftBraceToken        // {
+	RightBraceToken       // }
+	CommentToken          // extra token for comments
 )
 
 // String returns the string representation of a TokenType.
@@ -142,8 +147,18 @@ func (t TokenType) String() string {
 		return "Semicolon"
 	case CommaToken:
 		return "Comma"
-	case BracketToken:
-		return "Bracket"
+	case LeftBracketToken:
+		return "LeftBracket"
+	case RightBracketToken:
+		return "RightBracket"
+	case LeftParenthesisToken:
+		return "LeftParenthesis"
+	case RightParenthesisToken:
+		return "RightParenthesis"
+	case LeftBraceToken:
+		return "LeftBrace"
+	case RightBraceToken:
+		return "RightBrace"
 	case CommentToken:
 		return "Comment"
 	}
@@ -184,9 +199,14 @@ func (z *Tokenizer) Err() error {
 	return z.err
 }
 
-// Data returns the unescaped string that matches the last token.
-func (z *Tokenizer) Data() string {
-	return strings.Replace(string(z.buf[z.start:z.end]), "\\", "", -1)
+// Bytes returns the bytes that match to the last token.
+func (z *Tokenizer) Bytes() []byte {
+	return bytes.Replace(z.buf[z.start:z.end], []byte("\\"), []byte(""), -1)
+}
+
+// String returns the string that matches to the last token.
+func (z *Tokenizer) String() string {
+	return string(z.Bytes())
 }
 
 ////////////////////////////////////////////////////////////////
@@ -610,6 +630,27 @@ func (z *Tokenizer) consumeMatch() (bool, TokenType) {
 	return false, ErrorToken
 }
 
+// consumeBracket consumes any bracket token.
+func (z *Tokenizer) consumeBracket() (bool, TokenType) {
+	end := z.end
+	switch z.readRune() {
+	case '(':
+		return true, LeftParenthesisToken
+	case ')':
+		return true, RightParenthesisToken
+	case '[':
+		return true, LeftBracketToken
+	case ']':
+		return true, RightBracketToken
+	case '{':
+		return true, LeftBraceToken
+	case '}':
+		return true, RightBraceToken
+	}
+	z.backup(end)
+	return false, ErrorToken
+}
+
 // consumeNumeric consumes NumberToken, PercentageToken or DimensionToken.
 func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 	if z.consumeNumberToken() {
@@ -672,7 +713,7 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		if !z.tryReadRune('(') {
 			return true, IdentToken
 		}
-		if z.Data() != "url(" {
+		if z.String() != "url(" {
 			return true, FunctionToken
 		}
 
@@ -745,8 +786,9 @@ func (z *Tokenizer) Next() TokenType {
 			return t
 		}
 	case '(', ')', '[', ']', '{', '}':
-		z.end++
-		return BracketToken
+		if y, t := z.consumeBracket(); y {
+			return t
+		}
 	case '+':
 		if y, t := z.consumeNumeric(); y {
 			return t
