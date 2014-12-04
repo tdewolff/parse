@@ -1,5 +1,5 @@
 /*
-A CSS3 tokenizer written in Go. Implemented using the specifications at http://www.w3.org/TR/css3-syntax/
+A CSS3 tokenizer written in Go. Implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
 
 Using example:
 
@@ -207,6 +207,113 @@ func (z *Tokenizer) Bytes() []byte {
 // String returns the string that matches to the last token.
 func (z *Tokenizer) String() string {
 	return string(z.Bytes())
+}
+
+// Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
+func (z *Tokenizer) Next() TokenType {
+	z.start = z.end
+
+	end := z.end
+	r := z.readRune()
+	z.end = end
+	switch r {
+	case ' ', '\t', '\n', '\r', '\f':
+		if z.consumeWhitespaceToken() {
+			return WhitespaceToken
+		}
+	case '"':
+		if y, t := z.consumeString(); y {
+			return t
+		}
+	case '#':
+		if z.consumeHashToken() {
+			return HashToken
+		}
+	case '$', '*', '^', '~':
+		if y, t := z.consumeMatch(); y {
+			return t
+		}
+	case '\'':
+		if y, t := z.consumeString(); y {
+			return t
+		}
+	case '(', ')', '[', ']', '{', '}':
+		if y, t := z.consumeBracket(); y {
+			return t
+		}
+	case '+':
+		if y, t := z.consumeNumeric(); y {
+			return t
+		}
+	case ',':
+		z.end++
+		return CommaToken
+	case '-':
+		if y, t := z.consumeNumeric(); y {
+			return t
+		}
+		if y, t := z.consumeIdentlike(); y {
+			return t
+		}
+		if z.consumeCDCToken() {
+			return CDCToken
+		}
+	case '.':
+		if y, t := z.consumeNumeric(); y {
+			return t
+		}
+	case '/':
+		if z.consumeComment() {
+			return CommentToken
+		}
+	case ':':
+		z.end++
+		return ColonToken
+	case ';':
+		z.end++
+		return SemicolonToken
+	case '<':
+		if z.consumeCDOToken() {
+			return CDOToken
+		}
+	case '@':
+		if z.consumeAtKeywordToken() {
+			return AtKeywordToken
+		}
+	case '\\':
+		if y, t := z.consumeIdentlike(); y {
+			return t
+		}
+		if z.err == nil {
+			z.err = ErrBadEscape
+		}
+	case 'u', 'U':
+		if z.consumeUnicodeRangeToken() {
+			return UnicodeRangeToken
+		}
+		if y, t := z.consumeIdentlike(); y {
+			return t
+		}
+	case '|':
+		if y, t := z.consumeMatch(); y {
+			return t
+		}
+		if z.consumeColumnToken() {
+			return ColumnToken
+		}
+	default:
+		if y, t := z.consumeNumeric(); y {
+			return t
+		}
+		if y, t := z.consumeIdentlike(); y {
+			return t
+		}
+	}
+	if z.err != nil {
+		return ErrorToken
+	}
+	z.end++
+	return DelimToken
 }
 
 ////////////////////////////////////////////////////////////////
@@ -753,113 +860,4 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		return true, URLToken
 	}
 	return false, ErrorToken
-}
-
-////////////////////////////////////////////////////////////////
-
-// Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (z *Tokenizer) Next() TokenType {
-	z.start = z.end
-
-	end := z.end
-	r := z.readRune()
-	z.end = end
-	switch r {
-	case ' ', '\t', '\n', '\r', '\f':
-		if z.consumeWhitespaceToken() {
-			return WhitespaceToken
-		}
-	case '"':
-		if y, t := z.consumeString(); y {
-			return t
-		}
-	case '#':
-		if z.consumeHashToken() {
-			return HashToken
-		}
-	case '$', '*', '^', '~':
-		if y, t := z.consumeMatch(); y {
-			return t
-		}
-	case '\'':
-		if y, t := z.consumeString(); y {
-			return t
-		}
-	case '(', ')', '[', ']', '{', '}':
-		if y, t := z.consumeBracket(); y {
-			return t
-		}
-	case '+':
-		if y, t := z.consumeNumeric(); y {
-			return t
-		}
-	case ',':
-		z.end++
-		return CommaToken
-	case '-':
-		if y, t := z.consumeNumeric(); y {
-			return t
-		}
-		if y, t := z.consumeIdentlike(); y {
-			return t
-		}
-		if z.consumeCDCToken() {
-			return CDCToken
-		}
-	case '.':
-		if y, t := z.consumeNumeric(); y {
-			return t
-		}
-	case '/':
-		if z.consumeComment() {
-			return CommentToken
-		}
-	case ':':
-		z.end++
-		return ColonToken
-	case ';':
-		z.end++
-		return SemicolonToken
-	case '<':
-		if z.consumeCDOToken() {
-			return CDOToken
-		}
-	case '@':
-		if z.consumeAtKeywordToken() {
-			return AtKeywordToken
-		}
-	case '\\':
-		if y, t := z.consumeIdentlike(); y {
-			return t
-		}
-		if z.err == nil {
-			z.err = ErrBadEscape
-		}
-	case 'u', 'U':
-		if z.consumeUnicodeRangeToken() {
-			return UnicodeRangeToken
-		}
-		if y, t := z.consumeIdentlike(); y {
-			return t
-		}
-	case '|':
-		if y, t := z.consumeMatch(); y {
-			return t
-		}
-		if z.consumeColumnToken() {
-			return ColumnToken
-		}
-	default:
-		if y, t := z.consumeNumeric(); y {
-			return t
-		}
-		if y, t := z.consumeIdentlike(); y {
-			return t
-		}
-	}
-	if z.err != nil {
-		return ErrorToken
-	}
-	z.end++
-	return DelimToken
 }
