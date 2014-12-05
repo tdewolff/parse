@@ -199,18 +199,8 @@ func (z *Tokenizer) Err() error {
 	return z.err
 }
 
-// Bytes returns the bytes that match to the last token.
-func (z *Tokenizer) Bytes() []byte {
-	return bytes.Replace(z.buf[z.start:z.end], []byte("\\"), []byte(""), -1)
-}
-
-// String returns the string that matches to the last token.
-func (z *Tokenizer) String() string {
-	return string(z.Bytes())
-}
-
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (z *Tokenizer) Next() TokenType {
+func (z *Tokenizer) Next() (TokenType, []byte) {
 	z.start = z.end
 
 	end := z.end
@@ -219,101 +209,101 @@ func (z *Tokenizer) Next() TokenType {
 	switch r {
 	case ' ', '\t', '\n', '\r', '\f':
 		if z.consumeWhitespaceToken() {
-			return WhitespaceToken
+			return WhitespaceToken, z.buffered()
 		}
 	case '"':
 		if y, t := z.consumeString(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '#':
 		if z.consumeHashToken() {
-			return HashToken
+			return HashToken, z.buffered()
 		}
 	case '$', '*', '^', '~':
 		if y, t := z.consumeMatch(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '\'':
 		if y, t := z.consumeString(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '(', ')', '[', ']', '{', '}':
 		if y, t := z.consumeBracket(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '+':
 		if y, t := z.consumeNumeric(); y {
-			return t
+			return t, z.buffered()
 		}
 	case ',':
 		z.end++
-		return CommaToken
+		return CommaToken, z.buffered()
 	case '-':
 		if y, t := z.consumeNumeric(); y {
-			return t
+			return t, z.buffered()
 		}
 		if y, t := z.consumeIdentlike(); y {
-			return t
+			return t, z.buffered()
 		}
 		if z.consumeCDCToken() {
-			return CDCToken
+			return CDCToken, z.buffered()
 		}
 	case '.':
 		if y, t := z.consumeNumeric(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '/':
 		if z.consumeComment() {
-			return CommentToken
+			return CommentToken, z.buffered()
 		}
 	case ':':
 		z.end++
-		return ColonToken
+		return ColonToken, z.buffered()
 	case ';':
 		z.end++
-		return SemicolonToken
+		return SemicolonToken, z.buffered()
 	case '<':
 		if z.consumeCDOToken() {
-			return CDOToken
+			return CDOToken, z.buffered()
 		}
 	case '@':
 		if z.consumeAtKeywordToken() {
-			return AtKeywordToken
+			return AtKeywordToken, z.buffered()
 		}
 	case '\\':
 		if y, t := z.consumeIdentlike(); y {
-			return t
+			return t, z.buffered()
 		}
 		if z.err == nil {
 			z.err = ErrBadEscape
 		}
 	case 'u', 'U':
 		if z.consumeUnicodeRangeToken() {
-			return UnicodeRangeToken
+			return UnicodeRangeToken, z.buffered()
 		}
 		if y, t := z.consumeIdentlike(); y {
-			return t
+			return t, z.buffered()
 		}
 	case '|':
 		if y, t := z.consumeMatch(); y {
-			return t
+			return t, z.buffered()
 		}
 		if z.consumeColumnToken() {
-			return ColumnToken
+			return ColumnToken, z.buffered()
 		}
 	default:
 		if y, t := z.consumeNumeric(); y {
-			return t
+			return t, z.buffered()
 		}
 		if y, t := z.consumeIdentlike(); y {
-			return t
+			return t, z.buffered()
 		}
 	}
 	if z.err != nil {
-		return ErrorToken
+		return ErrorToken, z.buffered()
 	}
 	z.end++
-	return DelimToken
+	return DelimToken, z.buffered()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -408,6 +398,11 @@ func (z *Tokenizer) tryReadRune(r rune) bool {
 	}
 	z.backup(end)
 	return false
+}
+
+// buffered returns the unescaped text of the current token.
+func (z *Tokenizer) buffered() []byte {
+	return bytes.Replace(z.buf[z.start:z.end], []byte("\\"), []byte(""), -1)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -820,7 +815,7 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		if !z.tryReadRune('(') {
 			return true, IdentToken
 		}
-		if z.String() != "url(" {
+		if string(z.buffered()) != "url(" {
 			return true, FunctionToken
 		}
 

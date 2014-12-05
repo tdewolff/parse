@@ -10,7 +10,7 @@ func helperTokens(t *testing.T, input string, tokentypes ...TokenType) {
 	z := NewTokenizer(bytes.NewBufferString(input))
 	i := 0
 	for {
-		tt := z.Next()
+		tt, _ := z.Next()
 		if tt == ErrorToken {
 			if z.Err() != io.EOF {
 				t.Error(z.Err(), helperString(t, input))
@@ -38,7 +38,7 @@ func helperTokens(t *testing.T, input string, tokentypes ...TokenType) {
 func helperTest(t *testing.T, input string, expErr error) {
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for {
-		tt := z.Next()
+		tt, _ := z.Next()
 		if tt == ErrorToken {
 			if z.Err() != expErr {
 				t.Error(z.Err(), "!=", expErr, "for", string(z.buf))
@@ -53,14 +53,14 @@ func helperString(t *testing.T, input string) string {
 	s := "\n["
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt := z.Next()
+		tt, text := z.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + z.Err().Error() + "')]"
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		} else {
-			s += tt.String() + "('" + z.Data() + "'), "
+			s += tt.String() + "('" + string(text) + "'), "
 		}
 	}
 	return s
@@ -70,11 +70,11 @@ func TestTokenizer(t *testing.T) {
 	helperTokens(t, " ")
 	helperTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
 	helperTokens(t, "background: url(\"http://x\");", IdentToken, ColonToken, URLToken, SemicolonToken)
-	helperTokens(t, "color: rgb(4, 0%, 5em);", IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, BracketToken, SemicolonToken)
-	helperTokens(t, "body { \"string\" }", IdentToken, BracketToken, StringToken, BracketToken)
-	helperTokens(t, ".class { }", DelimToken, IdentToken, BracketToken, BracketToken)
-	helperTokens(t, "#class { }", HashToken, BracketToken, BracketToken)
-	helperTokens(t, "@media print { }", AtKeywordToken, IdentToken, BracketToken, BracketToken)
+	helperTokens(t, "color: rgb(4, 0%, 5em);", IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, RightParenthesisToken, SemicolonToken)
+	helperTokens(t, "body { \"string\" }", IdentToken, LeftBraceToken, StringToken, RightBraceToken)
+	helperTokens(t, ".class { }", DelimToken, IdentToken, LeftBraceToken, RightBraceToken)
+	helperTokens(t, "#class { }", HashToken, LeftBraceToken, RightBraceToken)
+	helperTokens(t, "@media print { }", AtKeywordToken, IdentToken, LeftBraceToken, RightBraceToken)
 	helperTokens(t, "/*comment*/", CommentToken)
 	helperTokens(t, "~= |= ^= $= *=", IncludeMatchToken, DashMatchToken, PrefixMatchToken, SuffixMatchToken, SubstringMatchToken)
 	helperTokens(t, "||", ColumnToken)
@@ -100,8 +100,8 @@ func TestTokenizer(t *testing.T) {
 	helperTokens(t, `\-\mo\z\-b\i\nd\in\g:\url(//business\i\nfo.co.uk\/labs\/xbl\/xbl\.xml\#xss);`, IdentToken, ColonToken, URLToken, SemicolonToken)
 	helperTokens(t, "width/**/:/**/ 40em;", IdentToken, CommentToken, ColonToken, CommentToken, DimensionToken, SemicolonToken)
 	helperTokens(t, ":root *> #quince", ColonToken, IdentToken, DelimToken, DelimToken, HashToken)
-	helperTokens(t, "html[xmlns*=\"\"]:root", IdentToken, BracketToken, IdentToken, SubstringMatchToken, StringToken, BracketToken, ColonToken, IdentToken)
-	helperTokens(t, "body:nth-of-type(1)", IdentToken, ColonToken, FunctionToken, NumberToken, BracketToken)
+	helperTokens(t, "html[xmlns*=\"\"]:root", IdentToken, LeftBracketToken, IdentToken, SubstringMatchToken, StringToken, RightBracketToken, ColonToken, IdentToken)
+	helperTokens(t, "body:nth-of-type(1)", IdentToken, ColonToken, FunctionToken, NumberToken, RightParenthesisToken)
 	helperTokens(t, "color/*\\**/: blue\\9;", IdentToken, CommentToken, ColonToken, IdentToken, SemicolonToken)
 	helperTokens(t, "color: blue !ie;", IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken)
 

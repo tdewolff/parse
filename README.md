@@ -24,7 +24,7 @@ The following initializes a new tokenizer with io.Reader `r`:
 To tokenize until EOF an error, use:
 ``` go
 for {
-	tt := z.Next()
+	tt, text := z.Next()
 	switch tt {
 	case css.ErrorToken:
 		// error or EOF set in z.Err()
@@ -81,7 +81,7 @@ import (
 func main() {
 	z := css.NewTokenizer(os.Stdin)
 	for {
-		tt := z.Next()
+		tt, text := z.Next()
 		switch tt {
 		case css.ErrorToken:
 			if z.Err() != io.EOF {
@@ -89,9 +89,9 @@ func main() {
 			}
 			return
 		case css.IdentToken:
-			fmt.Println("Identifier", z.Data())
+			fmt.Println("Identifier", string(text))
 		case css.NumberToken:
-			fmt.Println("Number", z.Data())
+			fmt.Println("Number", string(text))
 		// ...
 		}
 	}
