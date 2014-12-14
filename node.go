@@ -2,6 +2,7 @@ package css
 
 import (
 	"bytes"
+	"reflect"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -13,8 +14,9 @@ const (
 	ErrorNode NodeType = iota // extra node when errors occur
 	StylesheetNode
 	RulesetNode
+	SelectorGroupNode
 	SelectorNode
-	DeclarationBlockNode
+	DeclarationListNode
 	DeclarationNode
 	FunctionNode
 	AtRuleNode
@@ -38,42 +40,38 @@ type Node interface {
 
 type NodeError struct {
 	NodeType
-	err error
+	Err error
 }
 
-func newError(err error) *NodeError {
+func NewError(err error) *NodeError {
 	return &NodeError{
 		NodeType: ErrorNode,
-		err: err,
+		Err: err,
 	}
 }
 
 func (n NodeError) String() string {
-	return n.err.Error()
+	return n.Err.Error()
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeToken struct {
 	NodeType
-	tt TokenType
-	data string
+	TokenType
+	Data string
 }
 
-func newToken(tt TokenType, data string) *NodeToken {
+func NewToken(tt TokenType, data string) *NodeToken {
 	return &NodeToken{
 		NodeType: TokenNode,
-		tt: tt,
-		data: data,
+		TokenType: tt,
+		Data: data,
 	}
 }
 
 func (n NodeToken) String() string {
-	return n.data
-}
-
-func (n NodeToken) Token() (TokenType, string) {
-	return n.tt, n.data
+	return n.Data
 }
 
 ////////////////////////////////////////////////////////////////
@@ -83,80 +81,97 @@ type NodeStylesheet struct {
 	Nodes []Node
 }
 
-func newStylesheet() *NodeStylesheet {
+func NewStylesheet() *NodeStylesheet {
 	return &NodeStylesheet{
 		NodeType: StylesheetNode,
 	}
 }
 
 func (n NodeStylesheet) String() string {
-	return listString(n.Nodes)
+	return NodesString(n.Nodes, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeRuleset struct {
 	NodeType
-	Selectors []Node
-	Decl Node
+	SelGroups []*NodeSelectorGroup
+	DeclList *NodeDeclarationList
 }
 
-func newRuleset() *NodeRuleset {
+func NewRuleset() *NodeRuleset {
 	return &NodeRuleset{
 		NodeType: RulesetNode,
 	}
 }
 
 func (n NodeRuleset) String() string {
-	if n.Decl == nil {
-		return listString(n.Selectors)
+	if n.DeclList == nil {
+		return NodesString(n.SelGroups, ",") + "{}"
 	}
-	return listString(n.Selectors) + "=" + n.Decl.String()
+	return NodesString(n.SelGroups, ",") + "{" + n.DeclList.String() + "}"
+}
+
+////////////////////////////////////////////////////////////////
+
+type NodeSelectorGroup struct {
+	NodeType
+	Selectors []*NodeSelector
+}
+
+func NewSelectorGroup() *NodeSelectorGroup {
+	return &NodeSelectorGroup{
+		NodeType: SelectorGroupNode,
+	}
+}
+
+func (n NodeSelectorGroup) String() string {
+	return NodesString(n.Selectors, " ")
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeSelector struct {
 	NodeType
-	Selector []Node
+	Nodes []*NodeToken
 }
 
-func newSelector() *NodeSelector {
+func NewSelector() *NodeSelector {
 	return &NodeSelector{
 		NodeType: SelectorNode,
 	}
 }
 
 func (n NodeSelector) String() string {
-	return listString(n.Selector)
+	return NodesString(n.Nodes, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
-type NodeDeclarationBlock struct {
+type NodeDeclarationList struct {
 	NodeType
-	Decls []Node
+	Decls []*NodeDeclaration
 }
 
-func newDeclarationBlock() *NodeDeclarationBlock {
-	return &NodeDeclarationBlock{
-		NodeType: DeclarationBlockNode,
+func NewDeclarationList() *NodeDeclarationList {
+	return &NodeDeclarationList{
+		NodeType: DeclarationListNode,
 	}
 }
 
-func (n NodeDeclarationBlock) String() string {
-	return listString(n.Decls)
+func (n NodeDeclarationList) String() string {
+	return NodesString(n.Decls, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeDeclaration struct {
 	NodeType
-	Prop Node
-	Val []Node
+	Prop *NodeToken
+	Vals []Node
 }
 
-func newDeclaration(prop Node) *NodeDeclaration {
+func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	return &NodeDeclaration{
 		NodeType: DeclarationNode,
 		Prop: prop,
@@ -167,21 +182,18 @@ func (n NodeDeclaration) String() string {
 	if n.Prop == nil {
 		return ""
 	}
-	if len(n.Val) > 0 {
-		return n.Prop.String() + ":" + listString(n.Val)
-	}
-	return n.Prop.String()
+	return n.Prop.String() + ":" + NodesString(n.Vals, " ") + ";"
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeFunction struct {
 	NodeType
-	Func Node
-	Arg []Node
+	Func *NodeToken
+	Args []*NodeToken
 }
 
-func newFunction(f Node) *NodeFunction {
+func NewFunction(f *NodeToken) *NodeFunction {
 	return &NodeFunction{
 		NodeType: FunctionNode,
 		Func: f,
@@ -192,22 +204,19 @@ func (n NodeFunction) String() string {
 	if n.Func == nil {
 		return ""
 	}
-	if len(n.Arg) > 0 {
-		return n.Func.String() + ":" + listString(n.Arg)
-	}
-	return n.Func.String()
+	return n.Func.String() + NodesString(n.Args, ",") + ")"
 }
 
 ////////////////////////////////////////////////////////////////
 
 type NodeAtRule struct {
 	NodeType
-	At Node
-	Nodes []Node
+	At *NodeToken
+	Nodes []*NodeToken
 	Block []Node
 }
 
-func newAtRule(at Node) *NodeAtRule {
+func NewAtRule(at *NodeToken) *NodeAtRule {
 	return &NodeAtRule{
 		NodeType: AtRuleNode,
 		At: at,
@@ -216,30 +225,35 @@ func newAtRule(at Node) *NodeAtRule {
 
 func (n NodeAtRule) String() string {
 	if len(n.Block) > 0 {
-		return n.At.String() + ":" + listString(n.Nodes) + ":" + listString(n.Block)
+		return n.At.String() + " " + NodesString(n.Nodes, " ") + "{" + NodesString(n.Block, "") + "}"
 	}
 	if len(n.Nodes) > 0 {
-		return n.At.String() + ":" + listString(n.Nodes)
+		return n.At.String() + " " + NodesString(n.Nodes, " ") + ";"
 	}
-	return n.At.String()
+	return n.At.String() + ";"
 }
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
-func listString(nodes []Node) string {
-	if len(nodes) == 0 {
+func NodesString(inodes interface{}, delim string) string {
+	if reflect.TypeOf(inodes).Kind() != reflect.Slice {
+		panic("can only print a _slice_ of Node")
+	}
+	nodes := reflect.ValueOf(inodes)
+	if nodes.Len() == 0 {
 		return ""
-	} else if len(nodes) == 1 {
-		return nodes[0].String()
 	}
 
 	b := &bytes.Buffer{}
-	b.WriteByte('[')
-	for _, n := range nodes {
-		b.WriteString(n.String()+" ")
+	for i := 0; i < nodes.Len(); i++ {
+		if n, ok := nodes.Index(i).Interface().(Node); ok {
+			b.WriteString(n.String()+delim)
+		} else {
+			panic("can only print a slice of _Node_")
+		}
 	}
 	s := b.String()
-	return s[:len(s)-1] + "]"
+	return s[:len(s)-len(delim)]
 }

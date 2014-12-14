@@ -36,5 +36,6 @@ func TestParser(t *testing.T) {
 
 	helperTestParseString(t, "color: red;;", "color:red")
 	helperTestParseString(t, "@import;;", "@import")
-	helperTestParseString(t, ".a, .b {position:relative;}", "")
+	helperTestParseString(t, ".a .b#c, .d<.e {}", "[[[. a] [. b #c]] [. d < . e]]=")
+	helperTestParseString(t, ".a[b~=c]d {}", "[. a [ b ~= c ] d]=")
 }
