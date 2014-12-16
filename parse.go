@@ -1,6 +1,3 @@
-/*
-A CSS3 parser written in Go. Implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
-*/
 package css
 
 import (
@@ -14,6 +11,8 @@ type parser struct {
 	buf []*NodeToken
 }
 
+// Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
+// The returned NodeStylesheet is the root node. All leaf nodes are NodeToken's.
 func Parse(r io.Reader) (*NodeStylesheet, error) {
 	p := &parser{
 		z:   NewTokenizer(r),
@@ -102,12 +101,24 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 		} else if cn := p.parseRuleset(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
 		} else {
-			n.Nodes = append(n.Nodes, p.shift())
+			//n.Nodes = append(n.Nodes, p.shift())
+			p.shift()
 		}
 	}
 }
 
 func (p *parser) parseRuleset() *NodeRuleset {
+	i := 0
+	for p.index(i) != LeftBraceToken {
+		if p.index(i) == ErrorToken || p.index(i) == AtKeywordToken || p.index(i) == FunctionToken || p.index(i) == SemicolonToken {
+			return nil
+		}
+		i++
+	}
+	if i == 0 {
+		return nil
+	}
+
 	n := NewRuleset()
 	for {
 		if cn := p.parseSelectorGroup(); cn != nil {
@@ -115,9 +126,6 @@ func (p *parser) parseRuleset() *NodeRuleset {
 		} else {
 			break
 		}
-	}
-	if len(n.SelGroups) == 0 {
-		return nil
 	}
 	if cn := p.parseDeclarationList(); cn != nil {
 		n.DeclList = cn
@@ -147,7 +155,7 @@ func (p *parser) parseSelector() *NodeSelector {
 	n := NewSelector()
 	for p.index(0) != WhitespaceToken && p.index(0) != CommaToken && p.index(0) != LeftBraceToken && p.index(0) != ErrorToken {
 		if p.index(0) == CommentToken {
-			p.shift()
+			p.buf = p.buf[1:]
 			continue
 		}
 		n.Nodes = append(n.Nodes, p.shift())
@@ -168,7 +176,7 @@ func (p *parser) parseDeclarationList() *NodeDeclarationList {
 	for {
 		if cn := p.parseDeclaration(); cn != nil {
 			n.Decls = append(n.Decls, cn)
-		} else {
+		} else if p.at(RightBraceToken) {
 			break
 		}
 	}
@@ -194,6 +202,7 @@ func (p *parser) parseDeclaration() *NodeDeclaration {
 		}
 	}
 	if len(n.Vals) == 0 {
+		p.skipWhile(SemicolonToken)
 		return nil
 	}
 	p.skipWhile(SemicolonToken)
@@ -235,7 +244,7 @@ func (p *parser) parseAtRule() *NodeAtRule {
 			} else if cn := p.parseRuleset(); cn != nil {
 				n.Block = append(n.Block, cn)
 			} else {
-				break
+				p.shift()
 			}
 		}
 		p.skipUntil(RightBraceToken)

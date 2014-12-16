@@ -57,6 +57,7 @@ var ErrBadEscape = errors.New("bad escape")
 // TokenType determines the type of token, eg. a number or a semicolon.
 type TokenType uint32
 
+// TokenType values
 const (
 	ErrorToken TokenType = iota // extra token when errors occur
 	IdentToken
@@ -869,7 +870,7 @@ func SplitDimensionToken(s string) (string, string) {
 	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
 		i++
 	}
-	if i + 1 < len(s) && s[i] == '.' && s[i+1] >= '0' && s[i+1] <= '9' {
+	if i+1 < len(s) && s[i] == '.' && s[i+1] >= '0' && s[i+1] <= '9' {
 		i += 2
 		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
 			i++

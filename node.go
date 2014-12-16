@@ -10,6 +10,7 @@ import (
 // NodeType determines the type of node, eg. a block or a declaration.
 type NodeType uint32
 
+// NodeType values, it is safe to cast a node to the referred node type
 const (
 	ErrorNode NodeType = iota // extra node when errors occur
 	StylesheetNode
@@ -23,45 +24,29 @@ const (
 	TokenNode // extra node for simple tokens
 )
 
+// Type returns the node type, it implements the function in interface Node for all nodes
 func (t NodeType) Type() NodeType {
 	return t
 }
 
 ////////////////////////////////////////////////////////////////
 
+// Node is an interface that all nodes implement
 type Node interface {
 	Type() NodeType
 	String() string
 }
 
 ////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////
 
-type NodeError struct {
-	NodeType
-	Err error
-}
-
-func NewError(err error) *NodeError {
-	return &NodeError{
-		NodeType: ErrorNode,
-		Err:      err,
-	}
-}
-
-func (n NodeError) String() string {
-	return n.Err.Error()
-}
-
-////////////////////////////////////////////////////////////////
-
+// NodeToken is a leaf node of a single token
 type NodeToken struct {
 	NodeType
 	TokenType
 	Data string
 }
 
+// NewToken returns a new NodeToken
 func NewToken(tt TokenType, data string) *NodeToken {
 	return &NodeToken{
 		NodeType:  TokenNode,
@@ -70,107 +55,122 @@ func NewToken(tt TokenType, data string) *NodeToken {
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeToken) String() string {
 	return n.Data
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeStylesheet is the apex node of the whole stylesheet
 type NodeStylesheet struct {
 	NodeType
 	Nodes []Node
 }
 
+// NewStylesheet returns a new NodeStylesheet
 func NewStylesheet() *NodeStylesheet {
 	return &NodeStylesheet{
 		NodeType: StylesheetNode,
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeStylesheet) String() string {
 	return NodesString(n.Nodes, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeRuleset consists of selector groups (separated by commas) and a declaration list
 type NodeRuleset struct {
 	NodeType
 	SelGroups []*NodeSelectorGroup
 	DeclList  *NodeDeclarationList
 }
 
+// NewRuleset returns a new NodeRuleset
 func NewRuleset() *NodeRuleset {
 	return &NodeRuleset{
 		NodeType: RulesetNode,
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeRuleset) String() string {
-	if n.DeclList == nil {
-		return NodesString(n.SelGroups, ",") + "{}"
-	}
 	return NodesString(n.SelGroups, ",") + "{" + n.DeclList.String() + "}"
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeSelectorGroup contains selectors separated by whitespace
 type NodeSelectorGroup struct {
 	NodeType
 	Selectors []*NodeSelector
 }
 
+// NewSelectorGroup returns a new NodeSelectorGroup
 func NewSelectorGroup() *NodeSelectorGroup {
 	return &NodeSelectorGroup{
 		NodeType: SelectorGroupNode,
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeSelectorGroup) String() string {
 	return NodesString(n.Selectors, " ")
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeSelector contains thee tokens of a single selector
 type NodeSelector struct {
 	NodeType
 	Nodes []*NodeToken
 }
 
+// NewSelector returns a new NodeSelector
 func NewSelector() *NodeSelector {
 	return &NodeSelector{
 		NodeType: SelectorNode,
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeSelector) String() string {
 	return NodesString(n.Nodes, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeDeclarationList represents a list of declarations
 type NodeDeclarationList struct {
 	NodeType
 	Decls []*NodeDeclaration
 }
 
+// NewDeclarationList returns a new NodeDeclarationList
 func NewDeclarationList() *NodeDeclarationList {
 	return &NodeDeclarationList{
 		NodeType: DeclarationListNode,
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeDeclarationList) String() string {
 	return NodesString(n.Decls, "")
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeDeclaration represents a property declaration
 type NodeDeclaration struct {
 	NodeType
 	Prop *NodeToken
 	Vals []Node
 }
 
+// NewDeclaration returns a new NodeDeclaration
 func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	return &NodeDeclaration{
 		NodeType: DeclarationNode,
@@ -178,21 +178,21 @@ func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeDeclaration) String() string {
-	if n.Prop == nil {
-		return ""
-	}
 	return n.Prop.String() + ":" + NodesString(n.Vals, " ") + ";"
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeFunction represents a function and its arguments
 type NodeFunction struct {
 	NodeType
 	Func *NodeToken
 	Args []*NodeToken
 }
 
+// NewFunction returns a new NodeFunction
 func NewFunction(f *NodeToken) *NodeFunction {
 	return &NodeFunction{
 		NodeType: FunctionNode,
@@ -200,15 +200,14 @@ func NewFunction(f *NodeToken) *NodeFunction {
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeFunction) String() string {
-	if n.Func == nil {
-		return ""
-	}
 	return n.Func.String() + NodesString(n.Args, ",") + ")"
 }
 
 ////////////////////////////////////////////////////////////////
 
+// NodeAtRule contains several nodes and/or a brace-block with nodes
 type NodeAtRule struct {
 	NodeType
 	At    *NodeToken
@@ -216,6 +215,7 @@ type NodeAtRule struct {
 	Block []Node
 }
 
+// NewAtRule returns a new NodeAtRule
 func NewAtRule(at *NodeToken) *NodeAtRule {
 	return &NodeAtRule{
 		NodeType: AtRuleNode,
@@ -223,30 +223,29 @@ func NewAtRule(at *NodeToken) *NodeAtRule {
 	}
 }
 
+// String returns the string representation of the node
 func (n NodeAtRule) String() string {
-	if len(n.Block) > 0 {
-		return n.At.String() + " " + NodesString(n.Nodes, " ") + "{" + NodesString(n.Block, "") + "}"
-	}
+	s := n.At.String()
 	if len(n.Nodes) > 0 {
-		return n.At.String() + " " + NodesString(n.Nodes, " ") + ";"
+		s += " " + NodesString(n.Nodes, " ")
 	}
-	return n.At.String() + ";"
+	if len(n.Block) > 0 {
+		return s + "{" + NodesString(n.Block, "") + "}"
+	}
+	return s + ";"
 }
 
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////
 
+// NodesString returns the joined node String()s by delim
 func NodesString(inodes interface{}, delim string) string {
 	if reflect.TypeOf(inodes).Kind() != reflect.Slice {
 		panic("can only print a _slice_ of Node")
 	}
-	nodes := reflect.ValueOf(inodes)
-	if nodes.Len() == 0 {
-		return ""
-	}
-
 	b := &bytes.Buffer{}
+	nodes := reflect.ValueOf(inodes)
 	for i := 0; i < nodes.Len(); i++ {
 		if n, ok := nodes.Index(i).Interface().(Node); ok {
 			b.WriteString(n.String() + delim)

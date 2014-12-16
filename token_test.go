@@ -66,6 +66,14 @@ func helperStringToken(t *testing.T, input string) string {
 	return s
 }
 
+func helperTestSplit(t *testing.T, s, q string) {
+	s1, s2 := SplitDimensionToken(s)
+	s = s1 + " " + s2
+	if s != q {
+		t.Error(s, "!=", q)
+	}
+}
+
 func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, " ")
 	helperTestTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
@@ -110,6 +118,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "U+?????? U+ABCD?? U+ABC-DEF", UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken)
 	helperTestTokens(t, "U+? U+A?", IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken)
 	helperTestTokens(t, "-5.23 -moz", NumberToken, IdentToken)
+	helperTestTokens(t, "()", LeftParenthesisToken, RightParenthesisToken)
 	helperTestTokens(t, "url( //url  )", URLToken)
 	helperTestTokens(t, "url( ", URLToken)
 	helperTestTokens(t, "url( //url", URLToken)
@@ -139,4 +148,9 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokenError(t, "U+???", ErrBufferExceeded)
 	helperTestTokenError(t, "url((", ErrBufferExceeded)
 	helperTestTokenError(t, "id\u554a", ErrBufferExceeded)
+
+	helperTestSplit(t, "5em", "5 em")
+	helperTestSplit(t, "-5.01em", "-5.01 em")
+	helperTestSplit(t, ".2em", ".2 em")
+	helperTestSplit(t, ".2e-51em", ".2e-51 em")
 }
