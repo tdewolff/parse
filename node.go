@@ -46,7 +46,7 @@ type NodeError struct {
 func NewError(err error) *NodeError {
 	return &NodeError{
 		NodeType: ErrorNode,
-		Err: err,
+		Err:      err,
 	}
 }
 
@@ -64,9 +64,9 @@ type NodeToken struct {
 
 func NewToken(tt TokenType, data string) *NodeToken {
 	return &NodeToken{
-		NodeType: TokenNode,
+		NodeType:  TokenNode,
 		TokenType: tt,
-		Data: data,
+		Data:      data,
 	}
 }
 
@@ -96,7 +96,7 @@ func (n NodeStylesheet) String() string {
 type NodeRuleset struct {
 	NodeType
 	SelGroups []*NodeSelectorGroup
-	DeclList *NodeDeclarationList
+	DeclList  *NodeDeclarationList
 }
 
 func NewRuleset() *NodeRuleset {
@@ -174,7 +174,7 @@ type NodeDeclaration struct {
 func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	return &NodeDeclaration{
 		NodeType: DeclarationNode,
-		Prop: prop,
+		Prop:     prop,
 	}
 }
 
@@ -196,7 +196,7 @@ type NodeFunction struct {
 func NewFunction(f *NodeToken) *NodeFunction {
 	return &NodeFunction{
 		NodeType: FunctionNode,
-		Func: f,
+		Func:     f,
 	}
 }
 
@@ -211,7 +211,7 @@ func (n NodeFunction) String() string {
 
 type NodeAtRule struct {
 	NodeType
-	At *NodeToken
+	At    *NodeToken
 	Nodes []*NodeToken
 	Block []Node
 }
@@ -219,7 +219,7 @@ type NodeAtRule struct {
 func NewAtRule(at *NodeToken) *NodeAtRule {
 	return &NodeAtRule{
 		NodeType: AtRuleNode,
-		At: at,
+		At:       at,
 	}
 }
 
@@ -249,7 +249,7 @@ func NodesString(inodes interface{}, delim string) string {
 	b := &bytes.Buffer{}
 	for i := 0; i < nodes.Len(); i++ {
 		if n, ok := nodes.Index(i).Interface().(Node); ok {
-			b.WriteString(n.String()+delim)
+			b.WriteString(n.String() + delim)
 		} else {
 			panic("can only print a slice of _Node_")
 		}

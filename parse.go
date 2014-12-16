@@ -10,13 +10,13 @@ import (
 ////////////////////////////////////////////////////////////////
 
 type parser struct {
-	z *Tokenizer
+	z   *Tokenizer
 	buf []*NodeToken
 }
 
 func Parse(r io.Reader) (*NodeStylesheet, error) {
 	p := &parser{
-		z: NewTokenizer(r),
+		z:   NewTokenizer(r),
 		buf: []*NodeToken{},
 	}
 
