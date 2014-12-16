@@ -1,5 +1,6 @@
 /*
-A CSS3 tokenizer written in Go. Implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
+Package css is a CSS3 tokenizer and parser written in Go. The tokenizer is implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
+The parser is not, because documentation is lacking.
 
 Using example:
 
@@ -855,4 +856,38 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		return true, URLToken
 	}
 	return false, ErrorToken
+}
+
+////////////////////////////////////////////////////////////////
+
+// SplitDimensionToken splits teh data of a dimension token into the number and dimension parts
+func SplitDimensionToken(s string) (string, string) {
+	i := 0
+	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+		i++
+	}
+	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		i++
+	}
+	if i + 1 < len(s) && s[i] == '.' && s[i+1] >= '0' && s[i+1] <= '9' {
+		i += 2
+		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+		}
+	}
+	j := i
+	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+		i++
+		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+			i++
+		}
+		if i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			i++
+			for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+				i++
+			}
+			return s[:i], s[i:]
+		}
+	}
+	return s[:j], s[j:]
 }
