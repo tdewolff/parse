@@ -1,37 +1,3 @@
-/*
-Package css is a CSS3 tokenizer and parser written in Go. The tokenizer is implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
-The parser is not, because documentation is lacking.
-
-Using example:
-
-	package main
-
-	import (
-		"os"
-
-		"github.com/tdewolff/css"
-	)
-
-	// Tokenize CSS3 from stdin.
-	func main() {
-		z := css.NewTokenizer(os.Stdin)
-		for {
-			tt := z.Next()
-			switch tt {
-			case css.ErrorToken:
-				if z.Err() != io.EOF {
-					fmt.Println("Error on line", z.Line(), ":", z.Err())
-				}
-				return
-			case css.IdentToken:
-				fmt.Println("Identifier", z.Data())
-			case css.NumberToken:
-				fmt.Println("Number", z.Data())
-			// ...
-			}
-		}
-	}
-*/
 package css
 
 import (

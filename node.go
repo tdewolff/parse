@@ -63,6 +63,7 @@ func (n NodeToken) String() string {
 ////////////////////////////////////////////////////////////////
 
 // NodeStylesheet is the apex node of the whole stylesheet
+// Nodes contains NodeToken, NodeAtRule, NodeDeclaration and NodeRuleset nodes
 type NodeStylesheet struct {
 	NodeType
 	Nodes []Node
@@ -86,7 +87,7 @@ func (n NodeStylesheet) String() string {
 type NodeRuleset struct {
 	NodeType
 	SelGroups []*NodeSelectorGroup
-	DeclList  *NodeDeclarationList
+	Decls     []*NodeDeclaration
 }
 
 // NewRuleset returns a new NodeRuleset
@@ -98,7 +99,7 @@ func NewRuleset() *NodeRuleset {
 
 // String returns the string representation of the node
 func (n NodeRuleset) String() string {
-	return NodesString(n.SelGroups, ",") + "{" + n.DeclList.String() + "}"
+	return NodesString(n.SelGroups, ",") + "{" + NodesString(n.Decls, "") + "}"
 }
 
 ////////////////////////////////////////////////////////////////
@@ -143,27 +144,8 @@ func (n NodeSelector) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeDeclarationList represents a list of declarations
-type NodeDeclarationList struct {
-	NodeType
-	Decls []*NodeDeclaration
-}
-
-// NewDeclarationList returns a new NodeDeclarationList
-func NewDeclarationList() *NodeDeclarationList {
-	return &NodeDeclarationList{
-		NodeType: DeclarationListNode,
-	}
-}
-
-// String returns the string representation of the node
-func (n NodeDeclarationList) String() string {
-	return NodesString(n.Decls, "")
-}
-
-////////////////////////////////////////////////////////////////
-
 // NodeDeclaration represents a property declaration
+// Vals contains NodeFunction and NodeToken nodes
 type NodeDeclaration struct {
 	NodeType
 	Prop *NodeToken
@@ -208,6 +190,7 @@ func (n NodeFunction) String() string {
 ////////////////////////////////////////////////////////////////
 
 // NodeAtRule contains several nodes and/or a brace-block with nodes
+// Block contains NodeDeclaration and NodeRuleset nodes
 type NodeAtRule struct {
 	NodeType
 	At    *NodeToken
@@ -242,15 +225,17 @@ func (n NodeAtRule) String() string {
 // NodesString returns the joined node String()s by delim
 func NodesString(inodes interface{}, delim string) string {
 	if reflect.TypeOf(inodes).Kind() != reflect.Slice {
-		panic("can only print a _slice_ of Node")
+		return ""
 	}
 	b := &bytes.Buffer{}
 	nodes := reflect.ValueOf(inodes)
 	for i := 0; i < nodes.Len(); i++ {
 		if n, ok := nodes.Index(i).Interface().(Node); ok {
-			b.WriteString(n.String() + delim)
+			if _, err:= b.WriteString(n.String() + delim); err != nil {
+				break
+			}
 		} else {
-			panic("can only print a slice of _Node_")
+			break
 		}
 	}
 	s := b.String()

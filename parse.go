@@ -1,3 +1,73 @@
+/*
+Package css is a CSS3 tokenizer and parser written in Go. The tokenizer is implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
+The parser is not, because documentation is lacking.
+
+Tokenizer using example:
+
+	package main
+
+	import (
+		"fmt"
+		"io"
+		"os"
+
+		"github.com/tdewolff/css"
+	)
+
+	// Tokenize CSS3 from stdin.
+	func main() {
+		z := css.NewTokenizer(os.Stdin)
+		for {
+			tt, data := z.Next()
+			switch tt {
+			case css.ErrorToken:
+				if z.Err() != io.EOF {
+					fmt.Println("Error on line", z.Line(), ":", z.Err())
+				}
+				return
+			case css.IdentToken:
+				fmt.Println("Identifier", data)
+			case css.NumberToken:
+				fmt.Println("Number", data)
+			// ...
+			}
+		}
+	}
+
+Parser using example:
+
+	package main
+
+	import (
+		"fmt"
+		"os"
+
+		"github.com/tdewolff/css"
+	)
+
+	// Parse CSS3 from stdin.
+	func main() {
+		stylesheet, err := css.Parse(os.Stdin)
+		if err != nil {
+			panic(err)
+		}
+
+		for _, node := range stylesheet.Nodes {
+			switch node.Type() {
+			case css.TokenNode:
+				fmt.Println("Token", node.String())
+			case css.DeclarationNode:
+				fmt.Println("Declaration", node.String())
+			case css.RulesetNode:
+				ruleset := node.(*css.NodeRuleset)
+				fmt.Println("Ruleset with", len(ruleset.Decls), "declarations")
+				fmt.Println("Ruleset", node.String())
+			case css.AtRuleNode:
+				fmt.Println("AtRule", node.String())
+			}
+		}
+	}
+*/
 package css
 
 import (
@@ -108,6 +178,7 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 }
 
 func (p *parser) parseRuleset() *NodeRuleset {
+	// check if left brace appears, which is the only check if this is a valid ruleset
 	i := 0
 	for p.index(i) != LeftBraceToken {
 		if p.index(i) == ErrorToken || p.index(i) == AtKeywordToken || p.index(i) == FunctionToken || p.index(i) == SemicolonToken {
@@ -127,9 +198,22 @@ func (p *parser) parseRuleset() *NodeRuleset {
 			break
 		}
 	}
-	if cn := p.parseDeclarationList(); cn != nil {
-		n.DeclList = cn
-	} else {
+
+	// declarations
+	if !p.at(LeftBraceToken) {
+		return nil
+	}
+	p.shift()
+	for {
+		if cn := p.parseDeclaration(); cn != nil {
+			n.Decls = append(n.Decls, cn)
+		} else if p.at(RightBraceToken) {
+			break
+		}
+	}
+	p.skipUntil(RightBraceToken)
+	p.shift()
+	if len(n.Decls) == 0 {
 		return nil
 	}
 	return n
@@ -162,27 +246,6 @@ func (p *parser) parseSelector() *NodeSelector {
 	}
 	p.skipWhitespace()
 	if len(n.Nodes) == 0 {
-		return nil
-	}
-	return n
-}
-
-func (p *parser) parseDeclarationList() *NodeDeclarationList {
-	if !p.at(LeftBraceToken) {
-		return nil
-	}
-	p.shift()
-	n := NewDeclarationList()
-	for {
-		if cn := p.parseDeclaration(); cn != nil {
-			n.Decls = append(n.Decls, cn)
-		} else if p.at(RightBraceToken) {
-			break
-		}
-	}
-	p.skipUntil(RightBraceToken)
-	p.shift()
-	if len(n.Decls) == 0 {
 		return nil
 	}
 	return n
