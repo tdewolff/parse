@@ -4,7 +4,7 @@
 
 # CSS
 
-This package is a CSS3 tokenizer and parser written in [Go][1]. The tokenizer follows the specification at [CSS Syntax Module Level 3](http://www.w3.org/TR/css-syntax-3/). It takes an io.Reader and converts it into tokens until the EOF. The parser does not follow the specifications because the documentation is subpar. The parser return a parse tree of the full io.Reader input stream.
+This package is a CSS3 tokenizer and parser written in [Go][1]. The tokenizer follows the specification at [CSS Syntax Module Level 3](http://www.w3.org/TR/css-syntax-3/). It takes an io.Reader and converts it into tokens until the EOF. The parser does not follow the CSS3 specifications because the documentation is subpar or lacking. The parser returns a parse tree of the full io.Reader input stream.
 
 ## Installation
 
