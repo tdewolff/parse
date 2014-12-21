@@ -170,9 +170,9 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 			n.Nodes = append(n.Nodes, p.shift())
 		} else if cn := p.parseAtRule(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
-		} else if cn := p.parseDeclaration(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
 		} else if cn := p.parseRuleset(); cn != nil {
+			n.Nodes = append(n.Nodes, cn)
+		} else if cn := p.parseDeclaration(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
 		} else {
 			p.shift()
