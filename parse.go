@@ -49,7 +49,8 @@ Parser using example:
 	func main() {
 		stylesheet, err := css.Parse(os.Stdin)
 		if err != nil {
-			panic(err)
+			fmt.Println("Error:", err)
+			return
 		}
 
 		for _, node := range stylesheet.Nodes {
