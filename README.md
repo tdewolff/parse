@@ -16,10 +16,13 @@ or add the following import and run project with `go get`
 
 	import "github.com/tdewolff/css"
 
-## Usage
+## Tokenizer
+### Usage
 The following initializes a new tokenizer with io.Reader `r`:
 
-	z := css.NewTokenizer(r)
+``` go
+z := css.NewTokenizer(r)
+```
 
 To tokenize until EOF an error, use:
 ``` go
@@ -67,7 +70,6 @@ CommentToken		// non-official token
 ```
 
 ### Examples
-Basic example:
 ``` go
 package main
 
@@ -93,6 +95,89 @@ func main() {
 		case css.NumberToken:
 			fmt.Println("Number", string(text))
 		// ...
+		}
+	}
+}
+```
+
+## Parser
+### Usage
+The following parses until EOF with io.Reader `r`:
+
+``` go
+stylesheet, err := css.Parse(r)
+if err != nil {
+	fmt.Println("Error", err)
+	return
+}
+```
+
+To iterate over the stylesheet, use:
+``` go
+for _, node := range stylesheet.Nodes {
+	switch node.Type() {
+	case css.TokenNode:
+		// ...
+	}
+}
+```
+
+Grammer:
+
+	NodeStylesheet.Nodes := (NodeRuleset | NodeDeclaration | NodeAtRule | NodeToken)*
+
+	NodeRuleset.SelGroups := NodeSelectorGroup*
+	NodeRuleset.Decls := NodeDeclaration*
+
+	NodeSelectorGroup.Selectors := NodeSelector*
+
+	NodeSelector.Nodes := NodeToken*
+
+	NodeDeclaration.Prop := NodeToken
+	NodeDeclaration.Vals := (NodeFunction | NodeToken)*
+
+	NodeFunction.Func := NodeToken
+	NodeFunction.Args := NodeToken*
+
+	NodeAtRule.At := NodeToken
+	NodeAtRule.Nodes := NodeToken*
+	NodeAtRule.Block := (NodeRuleset | NodeDeclaration)*
+
+	NodeToken.TokenType := TokenType
+	NodeToken.Data := string
+
+All nodes contain `NodeType` which is an enum to determine the type for node interface lists. It's equal to the type name above but with `Node` at the end: `NodeSelectorGroup` -> `SelectorGroupNode`.
+
+### Examples
+``` go
+package main
+
+import (
+	"fmt"
+	"os"
+
+	"github.com/tdewolff/css"
+)
+
+// Parse CSS3 from stdin.
+func main() {
+	stylesheet, err := css.Parse(os.Stdin)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, node := range stylesheet.Nodes {
+		switch node.Type() {
+		case css.TokenNode:
+			fmt.Println("Token", node.String())
+		case css.DeclarationNode:
+			fmt.Println("Declaration", node.String())
+		case css.RulesetNode:
+			ruleset := node.(*css.NodeRuleset)
+			fmt.Println("Ruleset with", len(ruleset.Decls), "declarations")
+			fmt.Println("Ruleset", node.String())
+		case css.AtRuleNode:
+			fmt.Println("AtRule", node.String())
 		}
 	}
 }
