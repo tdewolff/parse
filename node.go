@@ -231,7 +231,7 @@ func NodesString(inodes interface{}, delim string) string {
 	nodes := reflect.ValueOf(inodes)
 	for i := 0; i < nodes.Len(); i++ {
 		if n, ok := nodes.Index(i).Interface().(Node); ok {
-			if _, err:= b.WriteString(n.String() + delim); err != nil {
+			if _, err := b.WriteString(n.String() + delim); err != nil {
 				break
 			}
 		} else {
