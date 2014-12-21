@@ -103,10 +103,10 @@ func (p *parser) index(i int) TokenType {
 	if i >= len(p.buf) {
 		for j := len(p.buf); j <= i; j++ {
 			tt, text := p.z.Next()
-			p.buf = append(p.buf, NewToken(tt, string(text)))
 			if tt == ErrorToken {
 				return ErrorToken
 			}
+			p.buf = append(p.buf, NewToken(tt, string(text)))
 		}
 	}
 	return p.buf[i].TokenType
@@ -131,9 +131,12 @@ func (p *parser) at(tts ...TokenType) bool {
 
 func (p *parser) shift() *NodeToken {
 	p.skipWhitespace()
-	token := p.buf[0]
-	p.buf = p.buf[1:]
-	return token
+	if len(p.buf) > 0 {
+		token := p.buf[0]
+		p.buf = p.buf[1:]
+		return token
+	}
+	return nil
 }
 
 func (p *parser) skipWhitespace() {
@@ -172,7 +175,6 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 		} else if cn := p.parseRuleset(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
 		} else {
-			//n.Nodes = append(n.Nodes, p.shift())
 			p.shift()
 		}
 	}
@@ -208,7 +210,7 @@ func (p *parser) parseRuleset() *NodeRuleset {
 	for {
 		if cn := p.parseDeclaration(); cn != nil {
 			n.Decls = append(n.Decls, cn)
-		} else if p.at(RightBraceToken) {
+		} else if p.at(ErrorToken) || p.at(RightBraceToken) {
 			break
 		}
 	}
@@ -301,7 +303,7 @@ func (p *parser) parseAtRule() *NodeAtRule {
 	if p.at(LeftBraceToken) {
 		p.shift()
 		for {
-			if p.at(RightBraceToken) {
+			if p.at(ErrorToken) || p.at(RightBraceToken) {
 				break
 			} else if cn := p.parseDeclaration(); cn != nil {
 				n.Block = append(n.Block, cn)

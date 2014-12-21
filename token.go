@@ -135,6 +135,11 @@ func (t TokenType) String() string {
 
 ////////////////////////////////////////////////////////////////
 
+type state struct {
+	end int
+	err error
+}
+
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
 	r    io.Reader
@@ -146,6 +151,8 @@ type Tokenizer struct {
 
 	err     error // not-nil for immediate errors
 	readErr error
+
+	stack []state
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
@@ -308,11 +315,17 @@ func (z *Tokenizer) readByte() byte {
 			z.err = z.readErr
 			return 0
 		}
+
+		// shift all end values on the stack
+		for i := range z.stack {
+			z.stack[i].end -= z.start
+		}
 		z.start, z.end, z.buf = 0, d, buf1[:d+n]
 	}
 	x := z.buf[z.end]
 	z.end++
 	if z.end >= maxBuf {
+		z.err = ErrBufferExceeded
 		return 0
 	}
 	return x
@@ -349,22 +362,28 @@ func (z *Tokenizer) readRune() rune {
 
 // backup moves the end of the buffer back and reverses EOFs.
 // Nilling EOFs is allowed because we move back and will encounter the EOF at a later time.
-func (z *Tokenizer) backup(end int) {
-	if z.end != end {
-		if z.err == io.EOF {
-			z.err = nil
-		}
-		z.end = end
-	}
+func (z *Tokenizer) revertState() {
+	z.end = z.stack[len(z.stack)-1].end
+	z.err = z.stack[len(z.stack)-1].err
+}
+
+func (z *Tokenizer) pushState() {
+	z.stack = append(z.stack, state{z.end, z.err})
+}
+
+func (z *Tokenizer) popState() {
+	z.stack = z.stack[:len(z.stack)-1]
 }
 
 // tryReadRune reads a rune and returns true if it matches, else it backs-up.
 func (z *Tokenizer) tryReadRune(r rune) bool {
-	end := z.end
+	z.pushState()
 	if z.readRune() == r {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
@@ -380,11 +399,13 @@ The following functions follow the railroad diagrams in http://www.w3.org/TR/css
 */
 
 func (z *Tokenizer) consumeComment() bool {
-	end := z.end
+	z.pushState()
 	if z.readRune() != '/' || z.readRune() != '*' {
-		z.backup(end)
+		z.revertState()
+		z.popState()
 		return false
 	}
+	z.popState()
 
 	afterStar := false
 	for {
@@ -403,7 +424,9 @@ func (z *Tokenizer) consumeComment() bool {
 }
 
 func (z *Tokenizer) consumeNewline() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	switch z.readRune() {
 	case '\n', '\f':
 		return true
@@ -411,41 +434,46 @@ func (z *Tokenizer) consumeNewline() bool {
 		z.tryReadRune('\n')
 		return true
 	default:
-		z.backup(end)
+		z.revertState()
 		return false
 	}
 }
 
 func (z *Tokenizer) consumeWhitespace() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	switch z.readRune() {
 	case ' ', '\t', '\n', '\r', '\f':
 		return true
 	default:
-		z.backup(end)
+		z.revertState()
 		return false
 	}
 }
 
 func (z *Tokenizer) consumeHexDigit() bool {
-	end := z.end
+	z.pushState()
 	r := z.readRune()
 	if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F') {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
 // TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
 func (z *Tokenizer) consumeEscape() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	if !z.tryReadRune('\\') {
 		return false
 	}
-
 	if z.consumeNewline() {
-		z.backup(end)
+		z.revertState()
 		return false
 	}
 	if z.consumeHexDigit() {
@@ -462,12 +490,14 @@ func (z *Tokenizer) consumeEscape() bool {
 }
 
 func (z *Tokenizer) consumeDigit() bool {
-	end := z.end
+	z.pushState()
 	r := z.readRune()
 	if r >= '0' && r <= '9' {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
@@ -481,47 +511,57 @@ func (z *Tokenizer) consumeWhitespaceToken() bool {
 }
 
 func (z *Tokenizer) consumeIdentToken() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	z.tryReadRune('-')
 	if !z.consumeEscape() {
 		r := z.readRune()
 		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || r >= 0x80) {
-			z.backup(end)
+			z.revertState()
 			return false
 		}
 	}
 
 	for {
 		if !z.consumeEscape() {
-			end = z.end
+			z.pushState()
 			r := z.readRune()
 			if z.err != nil && z.err != io.EOF {
+				z.popState()
 				return false
 			}
 			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-				z.backup(end)
+				z.revertState()
+				z.popState()
 				break
 			}
+			z.popState()
 		}
 	}
 	return true
 }
 
 func (z *Tokenizer) consumeAtKeywordToken() bool {
-	end := z.end
+	z.pushState()
 	if !z.tryReadRune('@') {
+		z.popState()
 		return false
 	}
 
 	if !z.consumeIdentToken() {
-		z.backup(end)
+		z.revertState()
+		z.popState()
 		return false
 	}
+	z.popState()
 	return true
 }
 
 func (z *Tokenizer) consumeHashToken() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	if !z.tryReadRune('#') {
 		return false
 	}
@@ -529,29 +569,34 @@ func (z *Tokenizer) consumeHashToken() bool {
 	if !z.consumeEscape() {
 		r := z.readRune()
 		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-			z.backup(end)
+			z.revertState()
 			return false
 		}
 	}
 
 	for {
 		if !z.consumeEscape() {
-			end = z.end
+			z.pushState()
 			r := z.readRune()
 			if z.err != nil && z.err != io.EOF {
+				z.popState()
 				return false
 			}
 			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-				z.backup(end)
+				z.revertState()
+				z.popState()
 				break
 			}
+			z.popState()
 		}
 	}
 	return true
 }
 
 func (z *Tokenizer) consumeNumberToken() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	if !z.tryReadRune('+') {
 		z.tryReadRune('-')
 	}
@@ -561,40 +606,48 @@ func (z *Tokenizer) consumeNumberToken() bool {
 		}
 	}
 
-	pos := z.end
+	z.pushState()
 	if z.tryReadRune('.') {
 		if z.consumeDigit() {
 			for z.consumeDigit() {
 			}
 		} else if firstDigid {
 			// . could belong to next token
-			z.backup(pos)
+			z.revertState()
+			z.popState()
 			return true
 		} else {
-			z.backup(end)
+			z.popState()
+			z.revertState()
 			return false
 		}
 	} else if !firstDigid {
-		z.backup(end)
+		z.popState()
+		z.revertState()
 		return false
 	}
+	z.popState()
 
-	pos = z.end
+	z.pushState()
 	if z.tryReadRune('e') || z.tryReadRune('E') {
 		if !z.tryReadRune('+') {
 			z.tryReadRune('-')
 		}
 		if !z.consumeDigit() {
 			// e could belong to dimensiontoken (em)
-			z.backup(pos)
+			z.revertState()
+			z.popState()
 			return true
 		}
 	}
+	z.popState()
 	return true
 }
 
 func (z *Tokenizer) consumeUnicodeRangeToken() bool {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	if !z.tryReadRune('u') && !z.tryReadRune('U') {
 		return false
 	}
@@ -621,7 +674,7 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 					}
 				}
 			} else {
-				z.backup(end)
+				z.revertState()
 				return false
 			}
 		} else {
@@ -630,7 +683,7 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 				i++
 				for ; i < 6; i++ {
 					if z.readRune() != '?' {
-						z.backup(end)
+						z.revertState()
 						return false
 					}
 				}
@@ -640,7 +693,7 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 		// consume 6 question marks
 		for i := 0; i < 6; i++ {
 			if z.readRune() != '?' {
-				z.backup(end)
+				z.revertState()
 				return false
 			}
 		}
@@ -649,29 +702,35 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 }
 
 func (z *Tokenizer) consumeColumnToken() bool {
-	end := z.end
+	z.pushState()
 	if z.readRune() == '|' && z.readRune() == '|' {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
 func (z *Tokenizer) consumeCDOToken() bool {
-	end := z.end
+	z.pushState()
 	if z.readRune() == '<' && z.readRune() == '!' && z.readRune() == '-' && z.readRune() == '-' {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
 func (z *Tokenizer) consumeCDCToken() bool {
-	end := z.end
+	z.pushState()
 	if z.readRune() == '-' && z.readRune() == '-' && z.readRune() == '>' {
+		z.popState()
 		return true
 	}
-	z.backup(end)
+	z.revertState()
+	z.popState()
 	return false
 }
 
@@ -679,7 +738,9 @@ func (z *Tokenizer) consumeCDCToken() bool {
 
 // consumeMatch consumes any MatchToken.
 func (z *Tokenizer) consumeMatch() (bool, TokenType) {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	r0 := z.readRune()
 	r1 := z.readRune()
 	if r1 == '=' {
@@ -696,13 +757,15 @@ func (z *Tokenizer) consumeMatch() (bool, TokenType) {
 			return true, SubstringMatchToken
 		}
 	}
-	z.backup(end)
+	z.revertState()
 	return false, ErrorToken
 }
 
 // consumeBracket consumes any bracket token.
 func (z *Tokenizer) consumeBracket() (bool, TokenType) {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	switch z.readRune() {
 	case '(':
 		return true, LeftParenthesisToken
@@ -717,7 +780,7 @@ func (z *Tokenizer) consumeBracket() (bool, TokenType) {
 	case '}':
 		return true, RightBraceToken
 	}
-	z.backup(end)
+	z.revertState()
 	return false, ErrorToken
 }
 
@@ -737,10 +800,12 @@ func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
 func (z *Tokenizer) consumeString() (bool, TokenType) {
-	end := z.end
+	z.pushState()
+	defer z.popState()
+
 	delim := z.readRune()
 	if delim != '"' && delim != '\'' {
-		z.backup(end)
+		z.revertState()
 		return false, ErrorToken
 	}
 
@@ -758,7 +823,7 @@ func (z *Tokenizer) consumeString() (bool, TokenType) {
 				z.consumeNewline()
 			}
 			if z.err != nil {
-				z.backup(end)
+				z.revertState()
 				return false, ErrorToken
 			}
 		}
@@ -801,22 +866,27 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 					if z.consumeWhitespace() {
 						break
 					}
-					end := z.end
+					z.pushState()
 					r := z.readRune()
 					if r == ')' || z.err == io.EOF {
-						z.backup(end)
+						z.revertState()
+						z.popState()
 						break
 					}
 					if z.err != nil || r == '"' || r == '\'' || r == '(' || r == '\\' || (r >= 0 && r <= 8) || r == 0x0B || (r >= 0x0E && r <= 0x1F) || r == 0x7F {
 						z.consumeRemnantsBadURL()
+						z.popState()
 						return true, BadURLToken
 					}
+					z.popState()
 				}
 			}
 		}
 		for z.consumeWhitespace() {
 		}
-		if !z.tryReadRune(')') && z.err != io.EOF {
+
+		r := z.readRune()
+		if r != ')' && z.err != io.EOF {
 			z.consumeRemnantsBadURL()
 			return true, BadURLToken
 		}
