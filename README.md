@@ -1,6 +1,6 @@
 [![GoDoc](http://godoc.org/github.com/tdewolff/css?status.svg)](http://godoc.org/github.com/tdewolff/css)
 
-~90% test coverage
+~92% test coverage
 
 # CSS
 
