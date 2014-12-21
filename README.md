@@ -146,7 +146,7 @@ Grammer:
 	NodeToken.TokenType := TokenType
 	NodeToken.Data := string
 
-All nodes contain `NodeType` which is an enum to determine the type for node interface lists. It's equal to the type name above but with `Node` at the end: `NodeSelectorGroup` => `SelectorGroupNode`.
+All nodes contain `NodeType` which is an enum to determine the type for node interface lists. It's equal to the type name above but with `Node` at the end: `NodeSelectorGroup` &#8594; `SelectorGroupNode`.
 
 ### Examples
 ``` go
