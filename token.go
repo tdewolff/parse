@@ -314,6 +314,7 @@ func (z *Tokenizer) readByte() byte {
 		var n int
 		n, z.readErr = z.r.Read(buf1[d:cap(buf1)])
 		if n == 0 {
+			copy(z.buf[z.start:z.end], buf1) // copy back
 			z.err = z.readErr
 			return 0
 		}
