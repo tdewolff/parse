@@ -416,6 +416,8 @@ func (z *Tokenizer) consumeComment() bool {
 			if afterStar {
 				return true
 			}
+		default:
+			afterStar = false
 		}
 		if z.err != nil {
 			return true

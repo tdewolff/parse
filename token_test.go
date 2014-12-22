@@ -84,6 +84,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "#class { }", HashToken, LeftBraceToken, RightBraceToken)
 	helperTestTokens(t, "@media print { }", AtKeywordToken, IdentToken, LeftBraceToken, RightBraceToken)
 	helperTestTokens(t, "/*comment*/", CommentToken)
+	helperTestTokens(t, "/*com* /ment*/", CommentToken)
 	helperTestTokens(t, "~= |= ^= $= *=", IncludeMatchToken, DashMatchToken, PrefixMatchToken, SuffixMatchToken, SubstringMatchToken)
 	helperTestTokens(t, "||", ColumnToken)
 	helperTestTokens(t, "<!-- -->", CDOToken, CDCToken)
