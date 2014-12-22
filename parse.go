@@ -184,7 +184,7 @@ func (p *parser) parseRuleset() *NodeRuleset {
 	// check if left brace appears, which is the only check if this is a valid ruleset
 	i := 0
 	for p.index(i) != LeftBraceToken {
-		if p.index(i) == ErrorToken || p.index(i) == AtKeywordToken || p.index(i) == FunctionToken || p.index(i) == SemicolonToken {
+		if p.index(i) == SemicolonToken || p.index(i) == ErrorToken {
 			return nil
 		}
 		i++
@@ -210,7 +210,7 @@ func (p *parser) parseRuleset() *NodeRuleset {
 	for {
 		if cn := p.parseDeclaration(); cn != nil {
 			n.Decls = append(n.Decls, cn)
-		} else if p.at(ErrorToken) || p.at(RightBraceToken) {
+		} else if p.at(RightBraceToken) || p.at(ErrorToken) {
 			break
 		}
 	}
@@ -244,6 +244,14 @@ func (p *parser) parseSelector() *NodeSelector {
 		if p.index(0) == CommentToken {
 			p.buf = p.buf[1:]
 			continue
+		} else if p.index(0) == LeftParenthesisToken {
+			for p.index(0) != RightParenthesisToken && p.index(0) != ErrorToken {
+				n.Nodes = append(n.Nodes, p.shift())
+			}
+		} else if p.index(0) == LeftBracketToken {
+			for p.index(0) != RightBracketToken && p.index(0) != ErrorToken {
+				n.Nodes = append(n.Nodes, p.shift())
+			}
 		}
 		n.Nodes = append(n.Nodes, p.shift())
 	}
@@ -303,7 +311,7 @@ func (p *parser) parseAtRule() *NodeAtRule {
 	if p.at(LeftBraceToken) {
 		p.shift()
 		for {
-			if p.at(ErrorToken) || p.at(RightBraceToken) {
+			if p.at(RightBraceToken) || p.at(ErrorToken) {
 				break
 			} else if cn := p.parseDeclaration(); cn != nil {
 				n.Block = append(n.Block, cn)
