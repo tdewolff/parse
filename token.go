@@ -178,9 +178,11 @@ func (z *Tokenizer) Err() error {
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	z.start = z.end
 
-	end := z.end
+	z.pushState()
 	r := z.readRune()
-	z.end = end
+	z.end = z.stack[len(z.stack)-1].end // don't revert err
+	z.popState()
+
 	switch r {
 	case ' ', '\t', '\n', '\r', '\f':
 		if z.consumeWhitespaceToken() {
