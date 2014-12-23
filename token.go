@@ -932,12 +932,12 @@ func SplitDimensionToken(s string) (string, string) {
 	if i < len(s) && (s[i] == '+' || s[i] == '-') {
 		i++
 	}
-	for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+	for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
 		i++
 	}
-	if i+1 < len(s) && s[i] == '.' && s[i+1] >= '0' && s[i+1] <= '9' {
+	if i+1 < len(s) && s[i] == '.' && (s[i+1] >= '0' && s[i+1] <= '9') {
 		i += 2
-		for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
 			i++
 		}
 	}
@@ -947,13 +947,66 @@ func SplitDimensionToken(s string) (string, string) {
 		if i < len(s) && (s[i] == '+' || s[i] == '-') {
 			i++
 		}
-		if i < len(s) && s[i] >= '0' && s[i] <= '9' {
+		if i < len(s) && (s[i] >= '0' && s[i] <= '9') {
 			i++
-			for i < len(s) && s[i] >= '0' && s[i] <= '9' {
+			for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
 				i++
 			}
 			return s[:i], s[i:]
 		}
 	}
 	return s[:j], s[j:]
+}
+
+// lenEscape returns the length of an escape sequence
+func lenEscape(s string) int {
+	i := 0
+	if i < len(s) && s[i] == '\\' {
+		i++
+		if i < len(s) && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
+			i++
+			j := 1
+			for i < len(s) && j < 6 && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
+				i++
+				j++
+			}
+			if i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
+				i++
+			}
+		} else if i < len(s) && !(s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
+			i++
+		}
+	}
+	return i
+}
+
+// IsIdent returns true if string is a valid sequence for an identifier
+func IsIdent(s string) bool {
+	i := 0
+	if i < len(s) && s[i] == '-' {
+		i++
+	}
+	if i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || s[i] == '_' || s[i] >= 0x80 || s[i] == '\\') {
+		if s[i] == '\\' {
+			if n := lenEscape(s[i:]); n > 0 {
+				i += n
+			} else {
+				return false
+			}
+		} else {
+			i++
+		}
+	}
+	for i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '_' || s[i] == '-' || s[i] >= 0x80 || s[i] == '\\') {
+		if s[i] == '\\' {
+			if n := lenEscape(s[i:]); n > 0 {
+				i += n
+			} else {
+				return false
+			}
+		} else {
+			i++
+		}
+	}
+	return i == len(s)
 }
