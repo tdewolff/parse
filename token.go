@@ -1,6 +1,7 @@
 package css
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
@@ -391,24 +392,7 @@ func (z *Tokenizer) tryReadRune(r rune) bool {
 
 // buffered returns the text of the current token.
 func (z *Tokenizer) buffered() []byte {
-	n := z.end-z.start
-	b := make([]byte, n)
-	i := 0
-	for j := 0; j < n; j++ {
-		// remove backslash for non-sense escapes
-		if z.buf[z.start+j] == '\\' && z.start+j+1 < z.end {
-			c := z.buf[z.start+j+1]
-			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') && (c < '!' || c > '/' || c == ',') && (c < ':' || c > '@') && (c < '[' || c > '`' || c == '_') && (c < '{' || c > '~') && c != '\n' && c != '\r' && c != '\f' {
-				b[i] = c
-				i++
-				j++
-				continue
-			}
-		}
-		b[i] = z.buf[z.start+j]
-		i++
-	}
-	return b[:i]
+	return z.buf[z.start:z.end]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -893,7 +877,7 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		if !z.tryReadRune('(') {
 			return true, IdentToken
 		}
-		if string(z.buffered()) != "url(" {
+		if string(bytes.Replace(z.buffered(), []byte{'\\'}, []byte{}, -1)) != "url(" {
 			return true, FunctionToken
 		}
 

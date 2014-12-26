@@ -137,11 +137,18 @@ Grammer:
 	NodeDeclaration.Vals := (NodeFunction | NodeToken)*
 
 	NodeFunction.Func := NodeToken
-	NodeFunction.Args := NodeToken*
+	NodeFunction.Args := NodeArgument*
+
+	NodeArgument.Key := NodeToken | nil
+	NodeArgument.Val := NodeToken
 
 	NodeAtRule.At := NodeToken
 	NodeAtRule.Nodes := NodeToken*
-	NodeAtRule.Block := (NodeRuleset | NodeDeclaration)*
+	NodeAtRule.Block := NodeBlock | nil
+
+	NodeBlock.Open := NodeToken
+	NodeBlock.Nodes := (NodeRuleset | NodeDeclaration | NodeAtRule | NodeToken)*
+	NodeBlock.Close := NodeToken
 
 	NodeToken.TokenType := TokenType
 	NodeToken.Data := string

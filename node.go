@@ -19,7 +19,9 @@ const (
 	SelectorNode
 	DeclarationListNode
 	DeclarationNode
+	ArgumentNode
 	FunctionNode
+	BlockNode
 	AtRuleNode
 	TokenNode // extra node for simple tokens
 )
@@ -168,10 +170,36 @@ func (n NodeDeclaration) String() string {
 ////////////////////////////////////////////////////////////////
 
 // NodeFunction represents a function and its arguments
+type NodeArgument struct {
+	NodeType
+	Key *NodeToken
+	Val *NodeToken
+}
+
+// NewArgument returns a new NodeArgument
+func NewArgument(key, val *NodeToken) *NodeArgument {
+	return &NodeArgument{
+		NodeType: ArgumentNode,
+		Key: key,
+		Val: val,
+	}
+}
+
+// String returns the string representation of the node
+func (n NodeArgument) String() string {
+	if n.Key == nil {
+		return n.Val.String()
+	}
+	return n.Key.String() + "=" + n.Val.String()
+}
+
+////////////////////////////////////////////////////////////////
+
+// NodeFunction represents a function and its arguments
 type NodeFunction struct {
 	NodeType
 	Func *NodeToken
-	Args []*NodeToken
+	Args []*NodeArgument
 }
 
 // NewFunction returns a new NodeFunction
@@ -189,13 +217,39 @@ func (n NodeFunction) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeAtRule contains several nodes and/or a brace-block with nodes
-// Block contains NodeDeclaration and NodeRuleset nodes
+// NodeBlock contains the contents of a block (brace, bracket or parenthesis blocks)
+// Nodes contains NodeAtRule, NodeDeclaration, NodeRuleset and NodeBlock nodes
+type NodeBlock struct {
+	NodeType
+	Open  *NodeToken
+	Nodes []Node
+	Close *NodeToken
+}
+
+// NewBlock returns a new NodeBlock
+func NewBlock(open *NodeToken) *NodeBlock {
+	return &NodeBlock{
+		NodeType: BlockNode,
+		Open:     open,
+	}
+}
+
+// String returns the string representation of the node
+func (n NodeBlock) String() string {
+	if len(n.Nodes) > 0 {
+		return n.Open.String() + NodesString(n.Nodes, " ") + n.Close.String()
+	}
+	return ""
+}
+
+////////////////////////////////////////////////////////////////
+
+// NodeAtRule contains several nodes and/or a block node
 type NodeAtRule struct {
 	NodeType
 	At    *NodeToken
 	Nodes []*NodeToken
-	Block []Node
+	Block *NodeBlock
 }
 
 // NewAtRule returns a new NodeAtRule
@@ -212,8 +266,8 @@ func (n NodeAtRule) String() string {
 	if len(n.Nodes) > 0 {
 		s += " " + NodesString(n.Nodes, " ")
 	}
-	if len(n.Block) > 0 {
-		return s + "{" + NodesString(n.Block, "") + "}"
+	if n.Block != nil {
+		return s + " " + n.Block.String()
 	}
 	return s + ";"
 }

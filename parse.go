@@ -174,8 +174,8 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 			n.Nodes = append(n.Nodes, cn)
 		} else if cn := p.parseDeclaration(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
-		} else {
-			p.shift()
+		} else if !p.at(ErrorToken) {
+			n.Nodes = append(n.Nodes, p.shift())
 		}
 	}
 }
@@ -283,6 +283,15 @@ func (p *parser) parseDeclaration() *NodeDeclaration {
 	return n
 }
 
+func (p *parser) parseArgument() *NodeArgument {
+	first := p.shift()
+	if p.at(DelimToken) && p.buf[0].Data == "=" {
+		p.shift()
+		return NewArgument(first, p.shift())
+	}
+	return NewArgument(nil, first)
+}
+
 func (p *parser) parseFunction() *NodeFunction {
 	if !p.at(FunctionToken) {
 		return nil
@@ -293,10 +302,34 @@ func (p *parser) parseFunction() *NodeFunction {
 			p.shift()
 			continue
 		}
-		n.Args = append(n.Args, p.shift())
+		n.Args = append(n.Args, p.parseArgument())
 	}
 	p.skipUntil(RightParenthesisToken)
 	p.shift()
+	return n
+}
+
+func (p *parser) parseBlock() *NodeBlock {
+	if !p.at(LeftBraceToken) && !p.at(LeftParenthesisToken) && !p.at(LeftBracketToken) {
+		return nil
+	}
+	n := NewBlock(p.shift())
+	for {
+		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
+			break
+		} else if cn := p.parseAtRule(); cn != nil {
+			n.Nodes = append(n.Nodes, cn)
+		} else if cn := p.parseRuleset(); cn != nil {
+			n.Nodes = append(n.Nodes, cn)
+		} else if cn := p.parseDeclaration(); cn != nil {
+			n.Nodes = append(n.Nodes, cn)
+		} else if !p.at(ErrorToken) {
+			n.Nodes = append(n.Nodes, p.shift())
+		}
+	}
+	if !p.at(ErrorToken) {
+		n.Close = p.shift()
+	}
 	return n
 }
 
@@ -309,21 +342,12 @@ func (p *parser) parseAtRule() *NodeAtRule {
 		n.Nodes = append(n.Nodes, p.shift())
 	}
 	if p.at(LeftBraceToken) {
-		p.shift()
-		for {
-			if p.at(RightBraceToken) || p.at(ErrorToken) {
-				break
-			} else if cn := p.parseDeclaration(); cn != nil {
-				n.Block = append(n.Block, cn)
-			} else if cn := p.parseRuleset(); cn != nil {
-				n.Block = append(n.Block, cn)
-			} else {
-				// TODO: parse nested blocks too
-				p.shift()
-			}
+		if cn := p.parseBlock(); cn != nil {
+			n.Block = cn
+		} else {
+			p.skipUntil(RightBraceToken)
+			p.shift()
 		}
-		p.skipUntil(RightBraceToken)
-		p.shift()
 	}
 	p.skipWhile(SemicolonToken)
 	return n
