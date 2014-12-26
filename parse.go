@@ -106,7 +106,7 @@ func (p *parser) index(i int) TokenType {
 			if tt == ErrorToken {
 				return ErrorToken
 			}
-			p.buf = append(p.buf, NewToken(tt, string(text)))
+			p.buf = append(p.buf, NewToken(tt, text))
 		}
 	}
 	return p.buf[i].TokenType

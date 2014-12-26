@@ -1,10 +1,10 @@
 package css
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"strconv"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -175,7 +175,7 @@ func (z *Tokenizer) Err() error {
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (z *Tokenizer) Next() (TokenType, []byte) {
+func (z *Tokenizer) Next() (TokenType, string) {
 	z.start = z.end
 
 	z.pushState()
@@ -391,8 +391,8 @@ func (z *Tokenizer) tryReadRune(r rune) bool {
 }
 
 // buffered returns the text of the current token.
-func (z *Tokenizer) buffered() []byte {
-	return z.buf[z.start:z.end]
+func (z *Tokenizer) buffered() string {
+	return string(z.buf[z.start:z.end]) // copy is required to ensure consequent Next() calls don't reallocate z.buf
 }
 
 ////////////////////////////////////////////////////////////////
@@ -877,7 +877,7 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 		if !z.tryReadRune('(') {
 			return true, IdentToken
 		}
-		if string(bytes.Replace(z.buffered(), []byte{'\\'}, []byte{}, -1)) != "url(" {
+		if strings.Replace(z.buffered(), "\\", "", -1) != "url(" {
 			return true, FunctionToken
 		}
 
