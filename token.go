@@ -1,7 +1,6 @@
 package css
 
 import (
-	"bytes"
 	"errors"
 	"io"
 	"strconv"
@@ -390,9 +389,26 @@ func (z *Tokenizer) tryReadRune(r rune) bool {
 	return false
 }
 
-// buffered returns the unescaped text of the current token.
+// buffered returns the text of the current token.
 func (z *Tokenizer) buffered() []byte {
-	return bytes.Replace(z.buf[z.start:z.end], []byte("\\"), []byte(""), -1)
+	n := z.end-z.start
+	b := make([]byte, n)
+	i := 0
+	for j := 0; j < n; j++ {
+		// remove backslash for non-sense escapes
+		if z.buf[z.start+j] == '\\' && z.start+j+1 < z.end {
+			c := z.buf[z.start+j+1]
+			if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') && (c < '!' || c > '/' || c == ',') && (c < ':' || c > '@') && (c < '[' || c > '`' || c == '_') && (c < '{' || c > '~') && c != '\n' && c != '\r' && c != '\f' {
+				b[i] = c
+				i++
+				j++
+				continue
+			}
+		}
+		b[i] = z.buf[z.start+j]
+		i++
+	}
+	return b[:i]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -998,6 +1014,21 @@ func IsIdent(s string) bool {
 		}
 	}
 	for i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '_' || s[i] == '-' || s[i] >= 0x80 || s[i] == '\\') {
+		if s[i] == '\\' {
+			if n := lenEscape(s[i:]); n > 0 {
+				i += n
+			} else {
+				return false
+			}
+		} else {
+			i++
+		}
+	}
+	return i == len(s)
+}
+func IsUrlUnquoted(s string) bool {
+	i := 0
+	for i < len(s) && s[i] != '"' && s[i] != '\'' && s[i] != '(' && s[i] != ')' && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' && s[i] != '\r' && s[i] != '\f' && s[i] != 0x00 && s[i] != 0x08 && s[i] != 0x0B && (s[i] < 0x0E || s[i] > 0x1F) && s[i] != 0x7F {
 		if s[i] == '\\' {
 			if n := lenEscape(s[i:]); n > 0 {
 				i += n

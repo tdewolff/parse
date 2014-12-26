@@ -318,6 +318,7 @@ func (p *parser) parseAtRule() *NodeAtRule {
 			} else if cn := p.parseRuleset(); cn != nil {
 				n.Block = append(n.Block, cn)
 			} else {
+				// TODO: parse nested blocks too
 				p.shift()
 			}
 		}
