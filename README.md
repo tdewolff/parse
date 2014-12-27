@@ -1,6 +1,4 @@
-[![GoDoc](http://godoc.org/github.com/tdewolff/css?status.svg)](http://godoc.org/github.com/tdewolff/css)
-
-~92% test coverage
+[![GoDoc](http://godoc.org/github.com/tdewolff/css?status.svg)](http://godoc.org/github.com/tdewolff/css) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/css)](http://gocover.io/github.com/tdewolff/css)
 
 # CSS
 
