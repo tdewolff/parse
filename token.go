@@ -553,6 +553,8 @@ func (z *Tokenizer) consumeNumberToken() bool {
 			z.n = nOld
 			return true
 		}
+		for z.consumeDigit() {
+		}
 	}
 	return true
 }
@@ -735,6 +737,29 @@ func (z *Tokenizer) consumeString() TokenType {
 	return StringToken
 }
 
+func (z *Tokenizer) consumeUnquotedURL() bool {
+	for {
+		if !z.consumeEscape() {
+			if z.consumeWhitespace() {
+				break
+			}
+			if z.consumeByte(')') {
+				z.n--
+				break
+			}
+			c := z.read(0)
+			if z.err == io.EOF {
+				break
+			}
+			if z.err != nil || c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
+				return false
+			}
+			z.consumeRune()
+		}
+	}
+	return true
+}
+
 // consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
 func (z *Tokenizer) consumeRemnantsBadURL() {
 	for {
@@ -765,27 +790,9 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 				z.consumeRemnantsBadURL()
 				return BadURLToken
 			}
-		} else {
-			for {
-				if !z.consumeEscape() {
-					if z.consumeWhitespace() {
-						break
-					}
-					if z.consumeByte(')') {
-						z.n--
-						break
-					}
-					c := z.read(0)
-					if z.err == io.EOF {
-						break
-					}
-					if z.err != nil || c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
-						z.consumeRemnantsBadURL()
-						return BadURLToken
-					}
-					z.consumeRune()
-				}
-			}
+		} else if !z.consumeUnquotedURL() {
+			z.consumeRemnantsBadURL()
+			return BadURLToken
 		}
 		for z.consumeWhitespace() {
 		}
@@ -800,102 +807,21 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 ////////////////////////////////////////////////////////////////
 
-// SplitDimensionToken splits teh data of a dimension token into the number and dimension parts
-// func SplitDimensionToken(s string) (string, string) {
-// 	i := 0
-// 	if i < len(s) && (s[i] == '+' || s[i] == '-') {
-// 		i++
-// 	}
-// 	for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-// 		i++
-// 	}
-// 	if i+1 < len(s) && s[i] == '.' && (s[i+1] >= '0' && s[i+1] <= '9') {
-// 		i += 2
-// 		for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-// 			i++
-// 		}
-// 	}
-// 	j := i
-// 	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
-// 		i++
-// 		if i < len(s) && (s[i] == '+' || s[i] == '-') {
-// 			i++
-// 		}
-// 		if i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-// 			i++
-// 			for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-// 				i++
-// 			}
-// 			return s[:i], s[i:]
-// 		}
-// 	}
-// 	return s[:j], s[j:]
-// }
+// SplitDimensionToken splits the data of a dimension token into the number and dimension parts
+func SplitDimensionToken(s string) (string, string) {
+	z := NewTokenizer(bytes.NewBufferString(s))
+	z.consumeNumberToken()
+	return s[:z.n], s[z.n:]
+}
 
-// // lenEscape returns the length of an escape sequence
-// func lenEscape(s string) int {
-// 	i := 0
-// 	if i < len(s) && s[i] == '\\' {
-// 		i++
-// 		if i < len(s) && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
-// 			i++
-// 			j := 1
-// 			for i < len(s) && j < 6 && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
-// 				i++
-// 				j++
-// 			}
-// 			if i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
-// 				i++
-// 			}
-// 		} else if i < len(s) && !(s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
-// 			i++
-// 		}
-// 	}
-// 	return i
-// }
+func IsIdent(s string) bool {
+	z := NewTokenizer(bytes.NewBufferString(s))
+	z.consumeIdentToken()
+	return z.n == len(s)
+}
 
-// // IsIdent returns true if string is a valid sequence for an identifier
-// func IsIdent(s string) bool {
-// 	i := 0
-// 	if i < len(s) && s[i] == '-' {
-// 		i++
-// 	}
-// 	if i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || s[i] == '_' || s[i] >= 0x80 || s[i] == '\\') {
-// 		if s[i] == '\\' {
-// 			if n := lenEscape(s[i:]); n > 0 {
-// 				i += n
-// 			} else {
-// 				return false
-// 			}
-// 		} else {
-// 			i++
-// 		}
-// 	}
-// 	for i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '_' || s[i] == '-' || s[i] >= 0x80 || s[i] == '\\') {
-// 		if s[i] == '\\' {
-// 			if n := lenEscape(s[i:]); n > 0 {
-// 				i += n
-// 			} else {
-// 				return false
-// 			}
-// 		} else {
-// 			i++
-// 		}
-// 	}
-// 	return i == len(s)
-// }
-// func IsUrlUnquoted(s string) bool {
-// 	i := 0
-// 	for i < len(s) && s[i] != '"' && s[i] != '\'' && s[i] != '(' && s[i] != ')' && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' && s[i] != '\r' && s[i] != '\f' && s[i] != 0x00 && s[i] != 0x08 && s[i] != 0x0B && (s[i] < 0x0E || s[i] > 0x1F) && s[i] != 0x7F {
-// 		if s[i] == '\\' {
-// 			if n := lenEscape(s[i:]); n > 0 {
-// 				i += n
-// 			} else {
-// 				return false
-// 			}
-// 		} else {
-// 			i++
-// 		}
-// 	}
-// 	return i == len(s)
-// }
+func IsUrlUnquoted(s string) bool {
+	z := NewTokenizer(bytes.NewBufferString(s))
+	z.consumeUnquotedURL()
+	return z.n == len(s)
+}

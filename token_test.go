@@ -66,13 +66,20 @@ func helperStringToken(t *testing.T, input string) string {
 	return s
 }
 
-// func helperTestSplit(t *testing.T, s, q string) {
-// 	s1, s2 := SplitDimensionToken(s)
-// 	s = s1 + " " + s2
-// 	if s != q {
-// 		t.Error(s, "!=", q)
-// 	}
-// }
+func helperTestSplit(t *testing.T, s, q string) {
+	s1, s2 := SplitDimensionToken(s)
+	s = s1 + " " + s2
+	if s != q {
+		t.Error(s, "!=", q)
+	}
+}
+
+func helperTestIdent(t *testing.T, s string, q bool) {
+	p := IsIdent(s)
+	if p != q {
+		t.Error(p, "!=", q)
+	}
+}
 
 func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, " ")
@@ -94,7 +101,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "U+1234", UnicodeRangeToken)
 	helperTestTokens(t, "5.2 .4", NumberToken, NumberToken)
 
-	// // unexpected ending
+	// unexpected ending
 	helperTestTokens(t, "ident", IdentToken)
 	helperTestTokens(t, "123.", NumberToken, DelimToken)
 	helperTestTokens(t, "\"string", StringToken)
@@ -136,7 +143,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "\"s\n", BadStringToken)
 	helperTestTokenError(t, "\\\n", ErrBadEscape)
 
-	// // small buffer
+	// small buffer
 	minBuf = 2
 	maxBuf = 4
 	helperTestTokenError(t, "\"abcd", ErrBufferExceeded)
@@ -158,8 +165,10 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	helperTestTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 
-	// helperTestSplit(t, "5em", "5 em")
-	// helperTestSplit(t, "-5.01em", "-5.01 em")
-	// helperTestSplit(t, ".2em", ".2 em")
-	// helperTestSplit(t, ".2e-51em", ".2e-51 em")
+	helperTestSplit(t, "5em", "5 em")
+	helperTestSplit(t, "-5.01em", "-5.01 em")
+	helperTestSplit(t, ".2em", ".2 em")
+	helperTestSplit(t, ".2e-51em", ".2e-51 em")
+	helperTestIdent(t, "color", true)
+	helperTestIdent(t, "4.5", false)
 }
