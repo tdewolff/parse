@@ -208,10 +208,15 @@ func (p *parser) parseRuleset() *NodeRuleset {
 	}
 	p.shift()
 	for {
-		if cn := p.parseDeclaration(); cn != nil {
-			n.Decls = append(n.Decls, cn)
+		if p.at(IdentToken, ColonToken) {
+			if cn := p.parseDeclaration(); cn != nil {
+				n.Decls = append(n.Decls, cn)
+			}
 		} else if p.at(RightBraceToken) || p.at(ErrorToken) {
 			break
+		} else {
+			p.skipUntil(SemicolonToken)
+			p.shift()
 		}
 	}
 	p.skipUntil(RightBraceToken)

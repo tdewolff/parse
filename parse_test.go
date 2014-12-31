@@ -42,4 +42,8 @@ func TestParser(t *testing.T) {
 	helperTestParseString(t, "a:not([controls]){x:y;}", "a:not([controls]){x:y;}")
 	helperTestParseString(t, "color:#c0c0c0", "color:#c0c0c0;")
 	helperTestParseString(t, "a: b:c(d=1);", "a:b : c(d=1);")
+
+	// hacks
+	helperTestParseString(t, "*zoom:5;", "*zoom:5;")
+	helperTestParseString(t, "a{*zoom:5;}", "")
 }
