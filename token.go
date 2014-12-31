@@ -1,11 +1,10 @@
 package css
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
-	"strings"
-	"unicode/utf8"
 )
 
 // minBuf and maxBuf are the initial and maximal internal buffer size.
@@ -145,14 +144,11 @@ type Tokenizer struct {
 	r    io.Reader
 	line int
 
-	buf   []byte
-	start int
-	end   int
+	buf []byte
+	pos int
 
-	err     error // not-nil for immediate errors
+	//err     error // not-nil for immediate errors
 	readErr error
-
-	stack []state
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
@@ -171,228 +167,156 @@ func (z *Tokenizer) Line() int {
 
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
 func (z *Tokenizer) Err() error {
-	return z.err
+	return z.readErr
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, string) {
-	z.start = z.end
-
-	z.pushState()
-	r := z.readRune()
-	z.end = z.stack[len(z.stack)-1].end // don't revert err
-	z.popState()
-
-	switch r {
+	i := 0
+	switch z.read(0) {
 	case ' ', '\t', '\n', '\r', '\f':
-		if z.consumeWhitespaceToken() {
-			return WhitespaceToken, z.buffered()
+		if z.consumeWhitespaceToken(&i) {
+			return WhitespaceToken, z.popString(i)
 		}
 	case '"':
-		if y, t := z.consumeString(); y {
-			return t, z.buffered()
+		if y, t := z.consumeString(&i); y {
+			return t, z.popString(i)
 		}
 	case '#':
-		if z.consumeHashToken() {
-			return HashToken, z.buffered()
+		if z.consumeHashToken(&i) {
+			return HashToken, z.popString(i)
 		}
 	case '$', '*', '^', '~':
-		if y, t := z.consumeMatch(); y {
-			return t, z.buffered()
+		if y, t := z.consumeMatch(&i); y {
+			return t, z.popString(i)
 		}
 	case '\'':
-		if y, t := z.consumeString(); y {
-			return t, z.buffered()
+		if y, t := z.consumeString(&i); y {
+			return t, z.popString(i)
 		}
 	case '(', ')', '[', ']', '{', '}':
-		if y, t := z.consumeBracket(); y {
-			return t, z.buffered()
+		if y, t := z.consumeBracket(&i); y {
+			return t, z.popString(i)
 		}
 	case '+':
-		if y, t := z.consumeNumeric(); y {
-			return t, z.buffered()
+		if y, t := z.consumeNumeric(&i); y {
+			return t, z.popString(i)
 		}
 	case ',':
-		z.end++
-		return CommaToken, z.buffered()
+		i++
+		return CommaToken, z.popString(i)
 	case '-':
-		if y, t := z.consumeNumeric(); y {
-			return t, z.buffered()
+		if y, t := z.consumeNumeric(&i); y {
+			return t, z.popString(i)
 		}
-		if y, t := z.consumeIdentlike(); y {
-			return t, z.buffered()
+		if y, t := z.consumeIdentlike(&i); y {
+			return t, z.popString(i)
 		}
-		if z.consumeCDCToken() {
-			return CDCToken, z.buffered()
+		if z.consumeCDCToken(&i) {
+			return CDCToken, z.popString(i)
 		}
 	case '.':
-		if y, t := z.consumeNumeric(); y {
-			return t, z.buffered()
+		if y, t := z.consumeNumeric(&i); y {
+			return t, z.popString(i)
 		}
 	case '/':
-		if z.consumeComment() {
-			return CommentToken, z.buffered()
+		if z.consumeComment(&i) {
+			return CommentToken, z.popString(i)
 		}
 	case ':':
-		z.end++
-		return ColonToken, z.buffered()
+		i++
+		return ColonToken, z.popString(i)
 	case ';':
-		z.end++
-		return SemicolonToken, z.buffered()
+		i++
+		return SemicolonToken, z.popString(i)
 	case '<':
-		if z.consumeCDOToken() {
-			return CDOToken, z.buffered()
+		if z.consumeCDOToken(&i) {
+			return CDOToken, z.popString(i)
 		}
 	case '@':
-		if z.consumeAtKeywordToken() {
-			return AtKeywordToken, z.buffered()
+		if z.consumeAtKeywordToken(&i) {
+			return AtKeywordToken, z.popString(i)
 		}
 	case '\\':
-		if y, t := z.consumeIdentlike(); y {
-			return t, z.buffered()
+		if y, t := z.consumeIdentlike(&i); y {
+			return t, z.popString(i)
 		}
-		if z.err == nil {
-			z.err = ErrBadEscape
+		if z.readErr == nil {
+			z.readErr = ErrBadEscape
 		}
 	case 'u', 'U':
-		if z.consumeUnicodeRangeToken() {
-			return UnicodeRangeToken, z.buffered()
+		if z.consumeUnicodeRangeToken(&i) {
+			return UnicodeRangeToken, z.popString(i)
 		}
-		if y, t := z.consumeIdentlike(); y {
-			return t, z.buffered()
+		if y, t := z.consumeIdentlike(&i); y {
+			return t, z.popString(i)
 		}
 	case '|':
-		if y, t := z.consumeMatch(); y {
-			return t, z.buffered()
+		if y, t := z.consumeMatch(&i); y {
+			return t, z.popString(i)
 		}
-		if z.consumeColumnToken() {
-			return ColumnToken, z.buffered()
+		if z.consumeColumnToken(&i) {
+			return ColumnToken, z.popString(i)
 		}
 	default:
-		if y, t := z.consumeNumeric(); y {
-			return t, z.buffered()
+		if y, t := z.consumeNumeric(&i); y {
+			return t, z.popString(i)
 		}
-		if y, t := z.consumeIdentlike(); y {
-			return t, z.buffered()
+		if y, t := z.consumeIdentlike(&i); y {
+			return t, z.popString(i)
 		}
 	}
-	if z.err != nil {
-		return ErrorToken, z.buffered()
+	if z.readErr != nil && (z.read(0) == 0 || z.readErr != io.EOF) {
+		return ErrorToken, ""
 	}
-	z.end++
-	return DelimToken, z.buffered()
+	i++
+	return DelimToken, z.popString(i)
 }
 
 ////////////////////////////////////////////////////////////////
 
-// readByte returns the next byte of data from the reader.
-// It also manages the internal buffer size and expands it or reallocates it when needed.
-// When an error occurs, it sets z.err and returns 0.
-func (z *Tokenizer) readByte() byte {
-	if z.end >= len(z.buf) {
+func (z *Tokenizer) read(i int) byte {
+	if z.pos + i >= len(z.buf) {
 		if z.readErr != nil {
-			z.err = z.readErr
 			return 0
 		}
 
 		// reallocate a new buffer (possibly larger)
 		c := cap(z.buf)
-		d := z.end - z.start
+		d := i
 		var buf1 []byte
 		if 2*d > c {
 			if 2*c > maxBuf {
-				z.err = ErrBufferExceeded
+				z.readErr = ErrBufferExceeded
 				return 0
 			}
 			buf1 = make([]byte, d, 2*c)
 		} else {
 			buf1 = z.buf[:d]
 		}
-		copy(buf1, z.buf[z.start:z.end])
+		copy(buf1, z.buf[z.pos:z.pos+i])
 
 		// Read in to fill the buffer till capacity
 		var n int
 		n, z.readErr = z.r.Read(buf1[d:cap(buf1)])
-		if n == 0 {
-			copy(z.buf[z.start:z.end], buf1) // copy back
-			z.err = z.readErr
+		z.pos, z.buf = 0, buf1[:d+n]
+
+		if i >= d+n {
 			return 0
 		}
-
-		// shift all end values on the stack
-		for i := range z.stack {
-			z.stack[i].end -= z.start
-		}
-		z.start, z.end, z.buf = 0, d, buf1[:d+n]
 	}
-	x := z.buf[z.end]
-	z.end++
-	if z.end >= maxBuf {
-		z.err = ErrBufferExceeded
-		return 0
-	}
-	return x
-}
-
-// readRune returns the next rune and may use readByte up to 4 times.
-func (z *Tokenizer) readRune() rune {
-	r := rune(z.readByte())
-	if r == 0 {
-		if z.err != nil {
-			// error
-			return 0
-		}
-		// replacement character
-		return 0xFFFD
-	}
-	if r >= 0x80 {
-		// rune of more than one byte
-		cs := []byte{byte(r)}
-		for i := 1; i < utf8.UTFMax; i++ {
-			c := z.readByte()
-			if z.err != nil {
-				break
-			}
-			cs = append(cs, c)
-		}
-
-		var n int
-		r, n = utf8.DecodeRune(cs)
-		z.end -= utf8.UTFMax - n
-	}
-	return r
-}
-
-// backup moves the end of the buffer back and reverses EOFs.
-// Nilling EOFs is allowed because we move back and will encounter the EOF at a later time.
-func (z *Tokenizer) revertState() {
-	z.end = z.stack[len(z.stack)-1].end
-	z.err = z.stack[len(z.stack)-1].err
-}
-
-func (z *Tokenizer) pushState() {
-	z.stack = append(z.stack, state{z.end, z.err})
-}
-
-func (z *Tokenizer) popState() {
-	z.stack = z.stack[:len(z.stack)-1]
-}
-
-// tryReadRune reads a rune and returns true if it matches, else it backs-up.
-func (z *Tokenizer) tryReadRune(r rune) bool {
-	z.pushState()
-	if z.readRune() == r {
-		z.popState()
-		return true
-	}
-	z.revertState()
-	z.popState()
-	return false
+	return z.buf[z.pos+i]
 }
 
 // buffered returns the text of the current token.
-func (z *Tokenizer) buffered() string {
-	return string(z.buf[z.start:z.end]) // copy is required to ensure consequent Next() calls don't reallocate z.buf
+func (z *Tokenizer) popString(i int) string {
+	s := string(z.buffered(i)) // copy is required to ensure consequent Next() calls don't reallocate z.buf
+	z.pos += i
+	return s
+}
+
+func (z *Tokenizer) buffered(i int) []byte {
+	return z.buf[z.pos:z.pos+i]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -401,305 +325,272 @@ func (z *Tokenizer) buffered() string {
 The following functions follow the railroad diagrams in http://www.w3.org/TR/css3-syntax/
 */
 
-func (z *Tokenizer) consumeComment() bool {
-	z.pushState()
-	if z.readRune() != '/' || z.readRune() != '*' {
-		z.revertState()
-		z.popState()
+func (z *Tokenizer) consumeByte(c byte, i *int) bool {
+	if z.read(*i) == c {
+		*i++
+		return true
+	}
+	return false
+}
+
+func (z *Tokenizer) consumeRune(i *int) bool {
+	b := z.read(*i)
+	if b < 0xC0 {
+		*i += 1
+	} else if b < 0xE0 {
+		*i += 2
+	} else if b < 0xF0 {
+		*i += 3
+	} else {
+		*i += 4
+	}
+	return true
+}
+
+func (z *Tokenizer) consumeComment(i *int) bool {
+	if z.read(*i) != '/' || z.read(*i+1) != '*' {
 		return false
 	}
-	z.popState()
-
-	afterStar := false
+	ii := *i
+	*i += 2
 	for {
-		switch z.readRune() {
-		case '*':
-			afterStar = true
-		case '/':
-			if afterStar {
-				return true
-			}
-		default:
-			afterStar = false
-		}
-		if z.err != nil {
+		if z.read(*i) == '*' && z.read(*i+1) == '/' {
+			*i += 2
 			return true
 		}
+		if z.readErr == io.EOF {
+			return true
+		}
+		if z.readErr != nil {
+			*i = ii
+			return false
+		}
+		z.consumeRune(i)
 	}
 }
 
-func (z *Tokenizer) consumeNewline() bool {
-	z.pushState()
-	switch z.readRune() {
+func (z *Tokenizer) consumeNewline(i *int) bool {
+	switch z.read(*i) {
 	case '\n', '\f':
-		z.popState()
+		*i++
 		return true
 	case '\r':
-		z.tryReadRune('\n')
-		z.popState()
+		*i++
+		if z.read(*i) == '\n' {
+			*i++
+		}
 		return true
 	default:
-		z.revertState()
-		z.popState()
 		return false
 	}
 }
 
-func (z *Tokenizer) consumeWhitespace() bool {
-	z.pushState()
-	switch z.readRune() {
+func (z *Tokenizer) consumeWhitespace(i *int) bool {
+	switch z.read(*i) {
 	case ' ', '\t', '\n', '\r', '\f':
-		z.popState()
+		*i++
 		return true
 	default:
-		z.revertState()
-		z.popState()
 		return false
 	}
 }
 
-func (z *Tokenizer) consumeHexDigit() bool {
-	z.pushState()
-	r := z.readRune()
-	if (r >= '0' && r <= '9') || (r >= 'a' && r <= 'f') || (r >= 'A' && r <= 'F') {
-		z.popState()
+func (z *Tokenizer) consumeHexDigit(i *int) bool {
+	c := z.read(*i)
+	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+		*i++
 		return true
 	}
-	z.revertState()
-	z.popState()
 	return false
 }
 
 // TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
-func (z *Tokenizer) consumeEscape() bool {
-	z.pushState()
-	if !z.tryReadRune('\\') {
-		z.popState()
+func (z *Tokenizer) consumeEscape(i *int) bool {
+	if z.read(*i) != '\\' {
 		return false
 	}
-	if z.consumeNewline() {
-		z.revertState()
-		z.popState()
+	ii := *i
+	*i++
+	if z.consumeNewline(i) {
+		*i = ii
 		return false
 	}
-	if z.consumeHexDigit() {
-		for i := 1; i < 6; i++ {
-			if !z.consumeHexDigit() {
+	if z.consumeHexDigit(i) {
+		for k := 1; k < 6; k++ {
+			if !z.consumeHexDigit(i) {
 				break
 			}
 		}
-		z.consumeWhitespace()
-		z.popState()
+		z.consumeWhitespace(i)
 		return true
 	}
-	z.readRune()
-	z.popState()
+	z.consumeRune(i)
 	return true
 }
 
-func (z *Tokenizer) consumeDigit() bool {
-	z.pushState()
-	r := z.readRune()
-	if r >= '0' && r <= '9' {
-		z.popState()
+func (z *Tokenizer) consumeDigit(i *int) bool {
+	c := z.read(*i)
+	if c >= '0' && c <= '9' {
+		*i++
 		return true
 	}
-	z.revertState()
-	z.popState()
 	return false
 }
 
-func (z *Tokenizer) consumeWhitespaceToken() bool {
-	if z.consumeWhitespace() {
-		for z.consumeWhitespace() {
+func (z *Tokenizer) consumeWhitespaceToken(i *int) bool {
+	if z.consumeWhitespace(i) {
+		for z.consumeWhitespace(i) {
 		}
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeIdentToken() bool {
-	z.pushState()
-	z.tryReadRune('-')
-	if !z.consumeEscape() {
-		r := z.readRune()
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || r >= 0x80) {
-			z.revertState()
-			z.popState()
+func (z *Tokenizer) consumeIdentToken(i *int) bool {
+	ii := *i
+	if z.read(*i) == '-' {
+		*i++
+	}
+	if !z.consumeEscape(i) {
+		c := z.read(*i)
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
+			*i = ii
 			return false
 		}
+		z.consumeRune(i)
 	}
-
 	for {
-		if !z.consumeEscape() {
-			z.pushState()
-			r := z.readRune()
-			if z.err != nil && z.err != io.EOF {
-				z.popState()
-				z.popState()
+		if !z.consumeEscape(i) {
+			c := z.read(*i)
+			if z.readErr != nil && z.readErr != io.EOF {
 				return false
 			}
-			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-				z.revertState()
-				z.popState()
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 				break
 			}
-			z.popState()
+			z.consumeRune(i)
 		}
 	}
-	z.popState()
 	return true
 }
 
-func (z *Tokenizer) consumeAtKeywordToken() bool {
-	z.pushState()
-	if !z.tryReadRune('@') {
-		z.popState()
+func (z *Tokenizer) consumeAtKeywordToken(i *int) bool {
+	if z.read(*i) != '@' {
 		return false
 	}
-
-	if !z.consumeIdentToken() {
-		z.revertState()
-		z.popState()
+	*i++
+	if !z.consumeIdentToken(i) {
+		*i--
 		return false
 	}
-	z.popState()
 	return true
 }
 
-func (z *Tokenizer) consumeHashToken() bool {
-	z.pushState()
-	if !z.tryReadRune('#') {
-		z.popState()
+func (z *Tokenizer) consumeHashToken(i *int) bool {
+	if z.read(*i) != '#' {
 		return false
 	}
-
-	if !z.consumeEscape() {
-		r := z.readRune()
-		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-			z.revertState()
-			z.popState()
+	ii := *i
+	*i++
+	if !z.consumeEscape(i) {
+		c := z.read(*i)
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
+			*i = ii
 			return false
 		}
+		z.consumeRune(i)
 	}
-
 	for {
-		if !z.consumeEscape() {
-			z.pushState()
-			r := z.readRune()
-			if z.err != nil && z.err != io.EOF {
-				z.popState()
-				z.popState()
+		if !z.consumeEscape(i) {
+			c := z.read(*i)
+			if z.readErr != nil && z.readErr != io.EOF {
 				return false
 			}
-			if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_' || r == '-' || r >= 0x80) {
-				z.revertState()
-				z.popState()
+			if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 				break
 			}
-			z.popState()
+			z.consumeRune(i)
 		}
 	}
-	z.popState()
 	return true
 }
 
-func (z *Tokenizer) consumeNumberToken() bool {
-	z.pushState()
-	if !z.tryReadRune('+') {
-		z.tryReadRune('-')
+func (z *Tokenizer) consumeNumberToken(i *int) bool {
+	ii := *i
+	if z.read(*i) == '+' || z.read(*i) == '-' {
+		*i++
 	}
-	firstDigid := z.consumeDigit()
+	firstDigid := z.consumeDigit(i)
 	if firstDigid {
-		for z.consumeDigit() {
+		for z.consumeDigit(i) {
 		}
 	}
-
-	z.pushState()
-	if z.tryReadRune('.') {
-		if z.consumeDigit() {
-			for z.consumeDigit() {
+	if z.read(*i) == '.' {
+		*i++
+		if z.consumeDigit(i) {
+			for z.consumeDigit(i) {
 			}
 		} else if firstDigid {
 			// . could belong to next token
-			z.revertState()
-			z.popState()
-			z.popState()
+			*i--
 			return true
 		} else {
-			z.popState()
-			z.revertState()
-			z.popState()
+			*i = ii
 			return false
 		}
 	} else if !firstDigid {
-		z.popState()
-		z.revertState()
-		z.popState()
+		*i = ii
 		return false
 	}
-	z.popState()
-
-	z.pushState()
-	if z.tryReadRune('e') || z.tryReadRune('E') {
-		if !z.tryReadRune('+') {
-			z.tryReadRune('-')
+	ii = *i
+	if z.read(*i) == 'e' || z.read(*i) == 'E' {
+		if z.read(*i) == '+' || z.read(*i) == '-' {
+			*i++
 		}
-		if !z.consumeDigit() {
+		if !z.consumeDigit(i) {
 			// e could belong to dimensiontoken (em)
-			z.revertState()
-			z.popState()
-			z.popState()
+			*i = ii
 			return true
 		}
 	}
-	z.popState()
-	z.popState()
 	return true
 }
 
-func (z *Tokenizer) consumeUnicodeRangeToken() bool {
-	z.pushState()
-	if !z.tryReadRune('u') && !z.tryReadRune('U') {
-		z.popState()
+func (z *Tokenizer) consumeUnicodeRangeToken(i *int) bool {
+	if (z.read(*i) != 'u' && z.read(*i) != 'U') || z.read(*i+1) != '+' {
 		return false
 	}
-	if !z.tryReadRune('+') {
-		z.popState()
-		return false
-	}
-
-	if z.consumeHexDigit() {
+	ii := *i
+	*i += 2
+	if z.consumeHexDigit(i) {
 		// consume up to 6 hexDigits
-		i := 1
-		for ; i < 6; i++ {
-			if !z.consumeHexDigit() {
+		k := 1
+		for ; k < 6; k++ {
+			if !z.consumeHexDigit(i) {
 				break
 			}
 		}
 
 		// either a minus or a quenstion mark or the end is expected
-		if z.tryReadRune('-') {
+		if z.consumeByte('-', i) {
 			// consume another up to 6 hexDigits
-			if z.consumeHexDigit() {
-				for i := 1; i < 6; i++ {
-					if !z.consumeHexDigit() {
+			if z.consumeHexDigit(i) {
+				for k := 1; k < 6; k++ {
+					if !z.consumeHexDigit(i) {
 						break
 					}
 				}
 			} else {
-				z.revertState()
-				z.popState()
+				*i = ii
 				return false
 			}
 		} else {
 			// could be filled up to 6 characters with question marks or else regular hexDigits
-			if z.tryReadRune('?') {
-				i++
-				for ; i < 6; i++ {
-					if z.readRune() != '?' {
-						z.revertState()
-						z.popState()
+			if z.consumeByte('?', i) {
+				k++
+				for ; k < 6; k++ {
+					if !z.consumeByte('?', i) {
+						*i = ii
 						return false
 					}
 				}
@@ -707,117 +598,98 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 		}
 	} else {
 		// consume 6 question marks
-		for i := 0; i < 6; i++ {
-			if z.readRune() != '?' {
-				z.revertState()
-				z.popState()
+		for k := 0; k < 6; k++ {
+			if !z.consumeByte('?', i) {
+				*i = ii
 				return false
 			}
 		}
 	}
-	z.popState()
 	return true
 }
 
-func (z *Tokenizer) consumeColumnToken() bool {
-	z.pushState()
-	if z.readRune() == '|' && z.readRune() == '|' {
-		z.popState()
+func (z *Tokenizer) consumeColumnToken(i *int) bool {
+	if z.read(*i) == '|' && z.read(*i+1) == '|' {
+		*i += 2
 		return true
 	}
-	z.revertState()
-	z.popState()
 	return false
 }
 
-func (z *Tokenizer) consumeCDOToken() bool {
-	z.pushState()
-	if z.readRune() == '<' && z.readRune() == '!' && z.readRune() == '-' && z.readRune() == '-' {
-		z.popState()
+func (z *Tokenizer) consumeCDOToken(i *int) bool {
+	if z.read(*i) == '<' && z.read(*i+1) == '!' && z.read(*i+2) == '-' && z.read(*i+3) == '-' {
+		*i += 4
 		return true
 	}
-	z.revertState()
-	z.popState()
 	return false
 }
 
-func (z *Tokenizer) consumeCDCToken() bool {
-	z.pushState()
-	if z.readRune() == '-' && z.readRune() == '-' && z.readRune() == '>' {
-		z.popState()
+func (z *Tokenizer) consumeCDCToken(i *int) bool {
+	if z.read(*i) == '-' && z.read(*i+1) == '-' && z.read(*i+2) == '>' {
+		*i += 3
 		return true
 	}
-	z.revertState()
-	z.popState()
 	return false
 }
 
 ////////////////////////////////////////////////////////////////
 
 // consumeMatch consumes any MatchToken.
-func (z *Tokenizer) consumeMatch() (bool, TokenType) {
-	z.pushState()
-	r0 := z.readRune()
-	r1 := z.readRune()
-	if r1 == '=' {
-		switch r0 {
+func (z *Tokenizer) consumeMatch(i *int) (bool, TokenType) {
+	if z.read(*i+1) == '=' {
+		switch z.read(*i) {
 		case '~':
-			z.popState()
+			*i += 2
 			return true, IncludeMatchToken
 		case '|':
-			z.popState()
+			*i += 2
 			return true, DashMatchToken
 		case '^':
-			z.popState()
+			*i += 2
 			return true, PrefixMatchToken
 		case '$':
-			z.popState()
+			*i += 2
 			return true, SuffixMatchToken
 		case '*':
-			z.popState()
+			*i += 2
 			return true, SubstringMatchToken
 		}
 	}
-	z.revertState()
-	z.popState()
 	return false, ErrorToken
 }
 
 // consumeBracket consumes any bracket token.
-func (z *Tokenizer) consumeBracket() (bool, TokenType) {
-	z.pushState()
-	switch z.readRune() {
+func (z *Tokenizer) consumeBracket(i *int) (bool, TokenType) {
+	switch z.read(*i) {
 	case '(':
-		z.popState()
+		*i += 1
 		return true, LeftParenthesisToken
 	case ')':
-		z.popState()
+		*i += 1
 		return true, RightParenthesisToken
 	case '[':
-		z.popState()
+		*i += 1
 		return true, LeftBracketToken
 	case ']':
-		z.popState()
+		*i += 1
 		return true, RightBracketToken
 	case '{':
-		z.popState()
+		*i += 1
 		return true, LeftBraceToken
 	case '}':
-		z.popState()
+		*i += 1
 		return true, RightBraceToken
 	}
-	z.revertState()
-	z.popState()
 	return false, ErrorToken
 }
 
 // consumeNumeric consumes NumberToken, PercentageToken or DimensionToken.
-func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
-	if z.consumeNumberToken() {
-		if z.tryReadRune('%') {
+func (z *Tokenizer) consumeNumeric(i *int) (bool, TokenType) {
+	if z.consumeNumberToken(i) {
+		if z.consumeByte('%', i) {
 			return true, PercentageToken
 		}
-		if z.consumeIdentToken() {
+		if z.consumeIdentToken(i) {
 			return true, DimensionToken
 		}
 		return true, NumberToken
@@ -826,97 +698,98 @@ func (z *Tokenizer) consumeNumeric() (bool, TokenType) {
 }
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
-func (z *Tokenizer) consumeString() (bool, TokenType) {
-	z.pushState()
-	delim := z.readRune()
+func (z *Tokenizer) consumeString(i *int) (bool, TokenType) {
+	delim := z.read(*i)
 	if delim != '"' && delim != '\'' {
-		z.revertState()
-		z.popState()
 		return false, ErrorToken
 	}
-
+	*i++
 	for {
-		if !z.consumeEscape() {
-			if z.consumeNewline() {
-				z.popState()
+		if !z.consumeEscape(i) {
+			if z.consumeNewline(i) {
 				return true, BadStringToken
 			}
 
-			r := z.readRune()
-			if r == delim || z.err == io.EOF {
+			c := z.read(*i)
+			if z.readErr == io.EOF {
 				break
 			}
-			if r == '\\' {
-				z.consumeNewline()
-			}
-			if z.err != nil {
-				z.revertState()
-				z.popState()
+			if z.readErr != nil {
 				return false, ErrorToken
+			}
+			if c == delim {
+				*i++
+				break
+			}
+			if c == '\\' {
+				if !z.consumeEscape(i) {
+					*i++
+					z.consumeNewline(i)
+				}
+			} else {
+				z.consumeRune(i)
 			}
 		}
 	}
-	z.popState()
 	return true, StringToken
 }
 
 // consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
-func (z *Tokenizer) consumeRemnantsBadURL() {
+func (z *Tokenizer) consumeRemnantsBadURL(i *int) {
 	for {
-		if !z.consumeEscape() {
-			if z.readRune() == ')' || z.err != nil {
+		if !z.consumeEscape(i) {
+			if z.consumeByte(')', i) || z.readErr != nil {
 				break
 			}
+			z.consumeRune(i)
 		}
 	}
 }
 
 // consumeIdentlike consumes IdentToken, FunctionToken or UrlToken.
-func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
-	if z.consumeIdentToken() {
-		if !z.tryReadRune('(') {
+func (z *Tokenizer) consumeIdentlike(i *int) (bool, TokenType) {
+	if z.consumeIdentToken(i) {
+		if !z.consumeByte('(', i) {
 			return true, IdentToken
 		}
-		if strings.Replace(z.buffered(), "\\", "", -1) != "url(" {
+		if !bytes.Equal(bytes.Replace(z.buffered(*i), []byte("\\"), []byte{}, -1), []byte("url(")) {
 			return true, FunctionToken
 		}
 
 		// consume url
-		for z.consumeWhitespace() {
+		for z.consumeWhitespace(i) {
 		}
-		if y, t := z.consumeString(); y {
+		if y, t := z.consumeString(i); y {
 			if t == BadStringToken {
-				z.consumeRemnantsBadURL()
+				z.consumeRemnantsBadURL(i)
 				return true, BadURLToken
 			}
 		} else {
 			for {
-				if !z.consumeEscape() {
-					if z.consumeWhitespace() {
+				if !z.consumeEscape(i) {
+					if z.consumeWhitespace(i) {
 						break
 					}
-					z.pushState()
-					r := z.readRune()
-					if r == ')' || z.err == io.EOF {
-						z.revertState()
-						z.popState()
+					if z.consumeByte(')', i) {
+						*i--
 						break
 					}
-					if z.err != nil || r == '"' || r == '\'' || r == '(' || r == '\\' || (r >= 0 && r <= 8) || r == 0x0B || (r >= 0x0E && r <= 0x1F) || r == 0x7F {
-						z.consumeRemnantsBadURL()
-						z.popState()
+					c := z.read(*i)
+					if z.readErr == io.EOF {
+						break
+					}
+					if z.readErr != nil || c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
+						z.consumeRemnantsBadURL(i)
 						return true, BadURLToken
 					}
-					z.popState()
+					z.consumeRune(i)
 				}
 			}
 		}
-		for z.consumeWhitespace() {
+		for z.consumeWhitespace(i) {
 		}
-
-		r := z.readRune()
-		if r != ')' && z.err != io.EOF {
-			z.consumeRemnantsBadURL()
+		if !z.consumeByte(')', i) && z.readErr != io.EOF {
+			z.consumeRemnantsBadURL(i)
 			return true, BadURLToken
 		}
 		return true, URLToken
@@ -927,101 +800,101 @@ func (z *Tokenizer) consumeIdentlike() (bool, TokenType) {
 ////////////////////////////////////////////////////////////////
 
 // SplitDimensionToken splits teh data of a dimension token into the number and dimension parts
-func SplitDimensionToken(s string) (string, string) {
-	i := 0
-	if i < len(s) && (s[i] == '+' || s[i] == '-') {
-		i++
-	}
-	for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-		i++
-	}
-	if i+1 < len(s) && s[i] == '.' && (s[i+1] >= '0' && s[i+1] <= '9') {
-		i += 2
-		for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-			i++
-		}
-	}
-	j := i
-	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
-		i++
-		if i < len(s) && (s[i] == '+' || s[i] == '-') {
-			i++
-		}
-		if i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-			i++
-			for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
-				i++
-			}
-			return s[:i], s[i:]
-		}
-	}
-	return s[:j], s[j:]
-}
+// func SplitDimensionToken(s string) (string, string) {
+// 	i := 0
+// 	if i < len(s) && (s[i] == '+' || s[i] == '-') {
+// 		i++
+// 	}
+// 	for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
+// 		i++
+// 	}
+// 	if i+1 < len(s) && s[i] == '.' && (s[i+1] >= '0' && s[i+1] <= '9') {
+// 		i += 2
+// 		for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
+// 			i++
+// 		}
+// 	}
+// 	j := i
+// 	if i < len(s) && (s[i] == 'e' || s[i] == 'E') {
+// 		i++
+// 		if i < len(s) && (s[i] == '+' || s[i] == '-') {
+// 			i++
+// 		}
+// 		if i < len(s) && (s[i] >= '0' && s[i] <= '9') {
+// 			i++
+// 			for i < len(s) && (s[i] >= '0' && s[i] <= '9') {
+// 				i++
+// 			}
+// 			return s[:i], s[i:]
+// 		}
+// 	}
+// 	return s[:j], s[j:]
+// }
 
-// lenEscape returns the length of an escape sequence
-func lenEscape(s string) int {
-	i := 0
-	if i < len(s) && s[i] == '\\' {
-		i++
-		if i < len(s) && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
-			i++
-			j := 1
-			for i < len(s) && j < 6 && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
-				i++
-				j++
-			}
-			if i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
-				i++
-			}
-		} else if i < len(s) && !(s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
-			i++
-		}
-	}
-	return i
-}
+// // lenEscape returns the length of an escape sequence
+// func lenEscape(s string) int {
+// 	i := 0
+// 	if i < len(s) && s[i] == '\\' {
+// 		i++
+// 		if i < len(s) && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
+// 			i++
+// 			j := 1
+// 			for i < len(s) && j < 6 && ((s[i] >= 'a' && s[i] <= 'f') || (s[i] >= 'A' && s[i] <= 'F') || (s[i] >= '0' && s[i] <= '9')) {
+// 				i++
+// 				j++
+// 			}
+// 			if i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
+// 				i++
+// 			}
+// 		} else if i < len(s) && !(s[i] == '\n' || s[i] == '\r' || s[i] == '\f') {
+// 			i++
+// 		}
+// 	}
+// 	return i
+// }
 
-// IsIdent returns true if string is a valid sequence for an identifier
-func IsIdent(s string) bool {
-	i := 0
-	if i < len(s) && s[i] == '-' {
-		i++
-	}
-	if i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || s[i] == '_' || s[i] >= 0x80 || s[i] == '\\') {
-		if s[i] == '\\' {
-			if n := lenEscape(s[i:]); n > 0 {
-				i += n
-			} else {
-				return false
-			}
-		} else {
-			i++
-		}
-	}
-	for i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '_' || s[i] == '-' || s[i] >= 0x80 || s[i] == '\\') {
-		if s[i] == '\\' {
-			if n := lenEscape(s[i:]); n > 0 {
-				i += n
-			} else {
-				return false
-			}
-		} else {
-			i++
-		}
-	}
-	return i == len(s)
-}
-func IsUrlUnquoted(s string) bool {
-	i := 0
-	for i < len(s) && s[i] != '"' && s[i] != '\'' && s[i] != '(' && s[i] != ')' && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' && s[i] != '\r' && s[i] != '\f' && s[i] != 0x00 && s[i] != 0x08 && s[i] != 0x0B && (s[i] < 0x0E || s[i] > 0x1F) && s[i] != 0x7F {
-		if s[i] == '\\' {
-			if n := lenEscape(s[i:]); n > 0 {
-				i += n
-			} else {
-				return false
-			}
-		} else {
-			i++
-		}
-	}
-	return i == len(s)
-}
+// // IsIdent returns true if string is a valid sequence for an identifier
+// func IsIdent(s string) bool {
+// 	i := 0
+// 	if i < len(s) && s[i] == '-' {
+// 		i++
+// 	}
+// 	if i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || s[i] == '_' || s[i] >= 0x80 || s[i] == '\\') {
+// 		if s[i] == '\\' {
+// 			if n := lenEscape(s[i:]); n > 0 {
+// 				i += n
+// 			} else {
+// 				return false
+// 			}
+// 		} else {
+// 			i++
+// 		}
+// 	}
+// 	for i < len(s) && ((s[i] >= 'a' && s[i] <= 'z') || (s[i] >= 'A' && s[i] <= 'Z') || (s[i] >= '0' && s[i] <= '9') || s[i] == '_' || s[i] == '-' || s[i] >= 0x80 || s[i] == '\\') {
+// 		if s[i] == '\\' {
+// 			if n := lenEscape(s[i:]); n > 0 {
+// 				i += n
+// 			} else {
+// 				return false
+// 			}
+// 		} else {
+// 			i++
+// 		}
+// 	}
+// 	return i == len(s)
+// }
+// func IsUrlUnquoted(s string) bool {
+// 	i := 0
+// 	for i < len(s) && s[i] != '"' && s[i] != '\'' && s[i] != '(' && s[i] != ')' && s[i] != ' ' && s[i] != '\t' && s[i] != '\n' && s[i] != '\r' && s[i] != '\f' && s[i] != 0x00 && s[i] != 0x08 && s[i] != 0x0B && (s[i] < 0x0E || s[i] > 0x1F) && s[i] != 0x7F {
+// 		if s[i] == '\\' {
+// 			if n := lenEscape(s[i:]); n > 0 {
+// 				i += n
+// 			} else {
+// 				return false
+// 			}
+// 		} else {
+// 			i++
+// 		}
+// 	}
+// 	return i == len(s)
+// }

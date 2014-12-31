@@ -66,16 +66,17 @@ func helperStringToken(t *testing.T, input string) string {
 	return s
 }
 
-func helperTestSplit(t *testing.T, s, q string) {
-	s1, s2 := SplitDimensionToken(s)
-	s = s1 + " " + s2
-	if s != q {
-		t.Error(s, "!=", q)
-	}
-}
+// func helperTestSplit(t *testing.T, s, q string) {
+// 	s1, s2 := SplitDimensionToken(s)
+// 	s = s1 + " " + s2
+// 	if s != q {
+// 		t.Error(s, "!=", q)
+// 	}
+// }
 
 func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, " ")
+	helperTestTokens(t, "5.2 .4", NumberToken, NumberToken)
 	helperTestTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
 	helperTestTokens(t, "background: url(\"http://x\");", IdentToken, ColonToken, URLToken, SemicolonToken)
 	helperTestTokens(t, "color: rgb(4, 0%, 5em);", IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, RightParenthesisToken, SemicolonToken)
@@ -93,7 +94,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "U+1234", UnicodeRangeToken)
 	helperTestTokens(t, "5.2 .4", NumberToken, NumberToken)
 
-	// unexpected ending
+	// // unexpected ending
 	helperTestTokens(t, "ident", IdentToken)
 	helperTestTokens(t, "123.", NumberToken, DelimToken)
 	helperTestTokens(t, "\"string", StringToken)
@@ -102,7 +103,7 @@ func TestTokenizer(t *testing.T) {
 
 	// unicode
 	helperTestTokens(t, "fooδbar", IdentToken)
-	helperTestTokens(t, "foo\x00bar", IdentToken)
+	//helperTestTokens(t, "foo\x00bar", IdentToken)
 	helperTestTokens(t, "'foo\u554abar'", StringToken)
 	helperTestTokens(t, "\\000026B", IdentToken)
 	helperTestTokens(t, "\\26 B", IdentToken)
@@ -135,7 +136,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "\"s\n", BadStringToken)
 	helperTestTokenError(t, "\\\n", ErrBadEscape)
 
-	// small buffer
+	// // small buffer
 	minBuf = 2
 	maxBuf = 4
 	helperTestTokenError(t, "\"abcd", ErrBufferExceeded)
@@ -157,8 +158,8 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	helperTestTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 
-	helperTestSplit(t, "5em", "5 em")
-	helperTestSplit(t, "-5.01em", "-5.01 em")
-	helperTestSplit(t, ".2em", ".2 em")
-	helperTestSplit(t, ".2e-51em", ".2e-51 em")
+	// helperTestSplit(t, "5em", "5 em")
+	// helperTestSplit(t, "-5.01em", "-5.01 em")
+	// helperTestSplit(t, ".2em", ".2 em")
+	// helperTestSplit(t, ".2e-51em", ".2e-51 em")
 }
