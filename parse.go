@@ -100,14 +100,12 @@ func Parse(r io.Reader) (*NodeStylesheet, error) {
 ////////////////////////////////////////////////////////////////
 
 func (p *parser) index(i int) TokenType {
-	if i >= len(p.buf) {
-		for j := len(p.buf); j <= i; j++ {
-			tt, text := p.z.Next()
-			if tt == ErrorToken {
-				return ErrorToken
-			}
-			p.buf = append(p.buf, NewToken(tt, string(text)))
+	for j := len(p.buf); j <= i; j++ {
+		tt, text := p.z.Next()
+		if tt == ErrorToken {
+			return ErrorToken
 		}
+		p.buf = append(p.buf, NewToken(tt, string(text)))
 	}
 	return p.buf[i].TokenType
 }
