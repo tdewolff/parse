@@ -17,10 +17,10 @@ type ShiftBuffer interface {
 	Read(int) byte
 	Move(int)
 	MoveTo(int)
-	Len()     int
-	Bytes()   []byte
-	Shift()   []byte
-	Err()     error
+	Len() int
+	Bytes() []byte
+	Shift() []byte
+	Err() error
 }
 
 type defaultShiftBuffer struct {
@@ -46,12 +46,12 @@ func (z defaultShiftBuffer) Len() int {
 
 // Bytes returns the bytes of the current selection.
 func (z defaultShiftBuffer) Bytes() []byte {
-	return z.buf[z.pos:z.pos+z.n]
+	return z.buf[z.pos : z.pos+z.n]
 }
 
 // Shift returns the bytes of the current selection and advances the position.
 func (z *defaultShiftBuffer) Shift() []byte {
-	b := z.buf[z.pos:z.pos+z.n]
+	b := z.buf[z.pos : z.pos+z.n]
 	z.pos += z.n
 	z.n = 0
 	return b
@@ -79,7 +79,7 @@ func NewShiftBufferReader(r io.Reader) *ShiftBufferReader {
 
 // Read returns the ith byte and possible does a reallocation
 func (z *ShiftBufferReader) Read(i int) byte {
-	if z.pos + z.n + i >= len(z.buf) {
+	if z.pos+z.n+i >= len(z.buf) {
 		if z.readErr != nil {
 			return 0
 		}
@@ -107,13 +107,13 @@ func (z *ShiftBufferReader) Read(i int) byte {
 			return 0
 		}
 	}
-	return z.buf[z.pos + z.n + i]
+	return z.buf[z.pos+z.n+i]
 }
 
 // Err returns the error.
 func (z ShiftBufferReader) Err() error {
 	if z.readErr == io.EOF {
-		if z.pos + z.n >= len(z.buf) {
+		if z.pos+z.n >= len(z.buf) {
 			return io.EOF
 		}
 	} else if z.readErr != nil {
@@ -140,15 +140,15 @@ func NewShiftBufferBytes(b []byte) *ShiftBufferBytes {
 
 // Read returns the ith byte and possible does a reallocation
 func (z *ShiftBufferBytes) Read(i int) byte {
-	if z.pos + z.n + i >= len(z.buf) {
+	if z.pos+z.n+i >= len(z.buf) {
 		return 0
 	}
-	return z.buf[z.pos + z.n + i]
+	return z.buf[z.pos+z.n+i]
 }
 
 // Err returns the error.
 func (z ShiftBufferBytes) Err() error {
-	if z.pos + z.n >= len(z.buf) {
+	if z.pos+z.n >= len(z.buf) {
 		return io.EOF
 	}
 	return nil

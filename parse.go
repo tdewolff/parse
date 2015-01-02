@@ -78,8 +78,8 @@ import (
 ////////////////////////////////////////////////////////////////
 
 type parser struct {
-	z      *Tokenizer
-	buf    []*NodeToken
+	z   *Tokenizer
+	buf []*NodeToken
 }
 
 // Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
