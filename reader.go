@@ -51,7 +51,7 @@ func (z defaultShiftBuffer) Bytes() []byte {
 
 // Shift returns the bytes of the current selection and advances the position.
 func (z *defaultShiftBuffer) Shift() []byte {
-	b := z.Bytes()
+	b := z.buf[z.pos:z.pos+z.n]
 	z.pos += z.n
 	z.n = 0
 	return b
