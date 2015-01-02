@@ -74,7 +74,8 @@ type NodeStylesheet struct {
 // NewStylesheet returns a new NodeStylesheet
 func NewStylesheet() *NodeStylesheet {
 	return &NodeStylesheet{
-		NodeType: StylesheetNode,
+		StylesheetNode,
+		make([]Node, 0, 10),
 	}
 }
 
@@ -95,7 +96,9 @@ type NodeRuleset struct {
 // NewRuleset returns a new NodeRuleset
 func NewRuleset() *NodeRuleset {
 	return &NodeRuleset{
-		NodeType: RulesetNode,
+		RulesetNode,
+		make([]*NodeSelectorGroup, 0, 1),
+		make([]*NodeDeclaration, 0, 5),
 	}
 }
 
@@ -115,7 +118,8 @@ type NodeSelectorGroup struct {
 // NewSelectorGroup returns a new NodeSelectorGroup
 func NewSelectorGroup() *NodeSelectorGroup {
 	return &NodeSelectorGroup{
-		NodeType: SelectorGroupNode,
+		SelectorGroupNode,
+		make([]*NodeSelector, 0, 3),
 	}
 }
 
@@ -135,7 +139,8 @@ type NodeSelector struct {
 // NewSelector returns a new NodeSelector
 func NewSelector() *NodeSelector {
 	return &NodeSelector{
-		NodeType: SelectorNode,
+		SelectorNode,
+		make([]*NodeToken, 0, 2),
 	}
 }
 
@@ -157,8 +162,9 @@ type NodeDeclaration struct {
 // NewDeclaration returns a new NodeDeclaration
 func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	return &NodeDeclaration{
-		NodeType: DeclarationNode,
-		Prop:     prop,
+		DeclarationNode,
+		prop,
+		make([]Node, 0, 1),
 	}
 }
 
@@ -179,9 +185,9 @@ type NodeArgument struct {
 // NewArgument returns a new NodeArgument
 func NewArgument(key, val *NodeToken) *NodeArgument {
 	return &NodeArgument{
-		NodeType: ArgumentNode,
-		Key: key,
-		Val: val,
+		ArgumentNode,
+		key,
+		val,
 	}
 }
 
@@ -205,8 +211,9 @@ type NodeFunction struct {
 // NewFunction returns a new NodeFunction
 func NewFunction(f *NodeToken) *NodeFunction {
 	return &NodeFunction{
-		NodeType: FunctionNode,
-		Func:     f,
+		FunctionNode,
+		f,
+		make([]*NodeArgument, 0, 3),
 	}
 }
 
@@ -229,8 +236,10 @@ type NodeBlock struct {
 // NewBlock returns a new NodeBlock
 func NewBlock(open *NodeToken) *NodeBlock {
 	return &NodeBlock{
-		NodeType: BlockNode,
-		Open:     open,
+		BlockNode,
+		open,
+		make([]Node, 0, 5),
+		nil,
 	}
 }
 
@@ -255,8 +264,10 @@ type NodeAtRule struct {
 // NewAtRule returns a new NodeAtRule
 func NewAtRule(at *NodeToken) *NodeAtRule {
 	return &NodeAtRule{
-		NodeType: AtRuleNode,
-		At:       at,
+		AtRuleNode,
+		at,
+		make([]*NodeToken, 0, 3),
+		nil,
 	}
 }
 
