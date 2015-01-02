@@ -45,11 +45,11 @@ type Node interface {
 type NodeToken struct {
 	NodeType
 	TokenType
-	Data string
+	Data []byte
 }
 
 // NewToken returns a new NodeToken
-func NewToken(tt TokenType, data string) *NodeToken {
+func NewToken(tt TokenType, data []byte) *NodeToken {
 	return &NodeToken{
 		NodeType:  TokenNode,
 		TokenType: tt,
@@ -59,7 +59,7 @@ func NewToken(tt TokenType, data string) *NodeToken {
 
 // String returns the string representation of the node
 func (n NodeToken) String() string {
-	return n.Data
+	return string(n.Data)
 }
 
 ////////////////////////////////////////////////////////////////

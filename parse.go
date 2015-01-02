@@ -73,6 +73,7 @@ package css
 
 import (
 	"io"
+	"io/ioutil"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -85,12 +86,17 @@ type parser struct {
 // Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
 // The returned NodeStylesheet is the root node. All leaf nodes are NodeToken's.
 func Parse(r io.Reader) (*NodeStylesheet, error) {
+	b, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+
 	p := &parser{
-		NewTokenizer(r),
+		NewTokenizerBytes(b),
 		make([]*NodeToken, 0, 20),
 	}
 
-	err := p.z.Err()
+	err = p.z.Err()
 	if err == io.EOF {
 		err = nil
 	}
@@ -105,7 +111,7 @@ func (p *parser) index(i int) TokenType {
 		if tt == ErrorToken {
 			return ErrorToken
 		}
-		p.buf = append(p.buf, NewToken(tt, string(text)))
+		p.buf = append(p.buf, NewToken(tt, text))
 	}
 	return p.buf[i].TokenType
 }
@@ -288,7 +294,7 @@ func (p *parser) parseDeclaration() *NodeDeclaration {
 
 func (p *parser) parseArgument() *NodeArgument {
 	first := p.shift()
-	if p.at(DelimToken) && p.buf[0].Data == "=" {
+	if p.at(DelimToken) && len(p.buf[0].Data) == 1 && p.buf[0].Data[0] == '=' {
 		p.shift()
 		return NewArgument(first, p.shift())
 	}
