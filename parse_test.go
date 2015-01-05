@@ -28,6 +28,7 @@ func TestParser(t *testing.T) {
 
 	helperTestParseString(t, "color: red;;", "color:red;")
 	helperTestParseString(t, "@import;;", "@import;")
+	helperTestParseString(t, "@import;@import;", "@import;@import;")
 	helperTestParseString(t, ".a .b#c, .d<.e { x:y; }", ".a .b#c,.d<.e{x:y;}")
 	helperTestParseString(t, ".a[b~=c]d { x:y; }", ".a[b~=c]d{x:y;}")
 
@@ -37,7 +38,7 @@ func TestParser(t *testing.T) {
 	helperTestParseString(t, "a,.b/*comment*/ {x:y;}", "a,.b{x:y;}")
 	helperTestParseString(t, "a,.b/*comment*/.c {x:y;}", "a,.b.c{x:y;}")
 	helperTestParseString(t, "a{x:; z:q;}", "a{z:q;}")
-	helperTestParseString(t, "@import { @media; x:y; }", "@import {@media; x:y;}")
+	helperTestParseString(t, "@import { @media f; x:y; }", "@import {@media f; x:y;}")
 
 	helperTestParseString(t, "a:not([controls]){x:y;}", "a:not([controls]){x:y;}")
 	helperTestParseString(t, "color:#c0c0c0", "color:#c0c0c0;")
