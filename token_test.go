@@ -67,7 +67,7 @@ func helperStringToken(t *testing.T, input string) string {
 }
 
 func helperTestSplit(t *testing.T, s, q string) {
-	s1, s2 := SplitDimensionToken([]byte(s))
+	s1, s2 := SplitNumberToken([]byte(s))
 	s = string(s1) + " " + string(s2)
 	if s != q {
 		t.Error(s, "!=", q)
@@ -86,6 +86,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "5.2 .4", NumberToken, NumberToken)
 	helperTestTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
 	helperTestTokens(t, "background: url(\"http://x\");", IdentToken, ColonToken, URLToken, SemicolonToken)
+	helperTestTokens(t, "background: URL(x.png);", IdentToken, ColonToken, URLToken, SemicolonToken)
 	helperTestTokens(t, "color: rgb(4, 0%, 5em);", IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, RightParenthesisToken, SemicolonToken)
 	helperTestTokens(t, "body { \"string\" }", IdentToken, LeftBraceToken, StringToken, RightBraceToken)
 	helperTestTokens(t, "body { \"str\\\"ing\" }", IdentToken, LeftBraceToken, StringToken, RightBraceToken)

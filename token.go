@@ -734,7 +734,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 		if !z.consumeByte('(') {
 			return IdentToken
 		}
-		if !bytes.Equal(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1), []byte("url(")) {
+		if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
 			return FunctionToken
 		}
 
@@ -763,8 +763,8 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 ////////////////////////////////////////////////////////////////
 
-// SplitDimensionToken splits the data of a dimension token into the number and dimension parts
-func SplitDimensionToken(b []byte) ([]byte, []byte) {
+// SplitNumberToken splits the data of a dimension token into the number and dimension parts
+func SplitNumberToken(b []byte) ([]byte, []byte) {
 	z := NewTokenizerBytes(b)
 	z.consumeNumberToken()
 	return b[:z.r.Len()], b[z.r.Len():]
