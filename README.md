@@ -23,7 +23,7 @@ z := css.NewTokenizer(r)
 
 The following takes a `[]byte`:
 ``` go
-z := css.NewTokenizerBytes(r)
+z := css.NewTokenizerBytes(b)
 ```
 
 To tokenize until EOF an error, use:
