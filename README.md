@@ -17,9 +17,13 @@ or add the following import and run project with `go get`
 ## Tokenizer
 ### Usage
 The following initializes a new tokenizer with io.Reader `r`:
-
 ``` go
 z := css.NewTokenizer(r)
+```
+
+The following takes a `[]byte`:
+``` go
+z := css.NewTokenizerBytes(r)
 ```
 
 To tokenize until EOF an error, use:
@@ -44,7 +48,7 @@ AtKeywordToken		// @abc
 HashToken			// #abc
 StringToken
 BadStringToken
-UrlToken
+UrlToken			// url(
 BadUrlToken
 DelimToken			// any unmatched character
 NumberToken			// 5
