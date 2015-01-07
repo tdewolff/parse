@@ -257,17 +257,40 @@ func (p *parser) parseSelector() *NodeSelector {
 			for p.index(0) != RightParenthesisToken && p.index(0) != ErrorToken {
 				n.Nodes = append(n.Nodes, p.shift())
 			}
+			n.Nodes = append(n.Nodes, p.shift())
 		} else if p.index(0) == LeftBracketToken {
-			for p.index(0) != RightBracketToken && p.index(0) != ErrorToken {
+			p.shift()
+			if attr := p.parseAttributeSelector(); attr != nil {
+				n.Nodes = append(n.Nodes, attr)
+			} else {
+				for p.index(0) != RightBracketToken && p.index(0) != ErrorToken {
+					n.Nodes = append(n.Nodes, p.shift())
+				}
 				n.Nodes = append(n.Nodes, p.shift())
 			}
+		} else {
+			n.Nodes = append(n.Nodes, p.shift())
 		}
-		n.Nodes = append(n.Nodes, p.shift())
 	}
 	p.skipWhitespace()
 	if len(n.Nodes) == 0 {
 		return nil
 	}
+	return n
+}
+
+func (p *parser) parseAttributeSelector() *NodeAttributeSelector {
+	if !p.at(IdentToken) && p.index(1) != RightBracketToken && p.index(1) != DelimToken && p.index(1) != IncludeMatchToken && p.index(1) != DashMatchToken && p.index(1) != PrefixMatchToken && p.index(1) != SuffixMatchToken && p.index(1) != SubstringMatchToken {
+		return nil
+	}
+	n := NewAttributeSelector(p.shift())
+	if p.index(0) != RightBracketToken {
+		n.Op = p.shift()
+		for p.index(0) != RightBracketToken {
+			n.Vals = append(n.Vals, p.shift())
+		}
+	}
+	p.shift() // right bracket
 	return n
 }
 

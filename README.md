@@ -127,20 +127,18 @@ for _, node := range stylesheet.Nodes {
 Grammer:
 
 	NodeStylesheet.Nodes := (NodeRuleset | NodeDeclaration | NodeAtRule | NodeToken)*
-
 	NodeRuleset.SelGroups := NodeSelectorGroup*
 	NodeRuleset.Decls := NodeDeclaration*
 
 	NodeSelectorGroup.Selectors := NodeSelector*
-
-	NodeSelector.Nodes := NodeToken*
+	NodeSelector.Nodes := (NodeToken | NodeAttributeSelector)*
+	NodeAttributeSelector.Vals := NodeTokens*
 
 	NodeDeclaration.Prop := NodeToken
 	NodeDeclaration.Vals := (NodeFunction | NodeToken)*
 
 	NodeFunction.Func := NodeToken
 	NodeFunction.Args := NodeArgument*
-
 	NodeArgument.Key := NodeToken | nil
 	NodeArgument.Val := NodeToken
 
