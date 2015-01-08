@@ -12,8 +12,11 @@ func helperTestParseString(t *testing.T, input string, expected string) {
 		return
 	}
 
-	if p.String() != expected {
-		t.Error(p.String(), "!=", expected)
+	b := &bytes.Buffer{}
+	p.Serialize(b)
+
+	if b.String() != expected {
+		t.Error(b.String(), "!=", expected)
 	}
 }
 
