@@ -9,7 +9,7 @@ import (
 
 // Node is an interface that all nodes implement
 type Node interface {
-	Serialize(io.Writer)
+	Serialize(io.Writer) error
 }
 
 ////////////////////////////////////////////////////////////////
@@ -34,8 +34,9 @@ func (n NodeToken) Equals(other *NodeToken) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeToken) Serialize(w io.Writer) {
-	w.Write(n.Data)
+func (n NodeToken) Serialize(w io.Writer) error {
+	_, err := w.Write(n.Data)
+	return err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -82,10 +83,13 @@ func (n NodeStylesheet) Equals(other *NodeStylesheet) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeStylesheet) Serialize(w io.Writer) {
+func (n NodeStylesheet) Serialize(w io.Writer) error {
 	for _, m := range n.Nodes {
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -123,18 +127,29 @@ func (n NodeRuleset) Equals(other *NodeRuleset) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeRuleset) Serialize(w io.Writer) {
+func (n NodeRuleset) Serialize(w io.Writer) error {
 	for i, m := range n.SelGroups {
 		if i != 0 {
-			w.Write([]byte(","))
+			if _, err := w.Write([]byte(",")); err != nil {
+				return err
+			}
 		}
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
-	w.Write([]byte("{"))
+	if _, err := w.Write([]byte("{")); err != nil {
+		return err
+	}
 	for _, m := range n.Decls {
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
-	w.Write([]byte("}"))
+	if _, err := w.Write([]byte("}")); err != nil {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -165,13 +180,18 @@ func (n NodeSelectorGroup) Equals(other *NodeSelectorGroup) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeSelectorGroup) Serialize(w io.Writer) {
+func (n NodeSelectorGroup) Serialize(w io.Writer) error {
 	for i, m := range n.Selectors {
 		if i != 0 {
-			w.Write([]byte(" "))
+			if _, err := w.Write([]byte(" ")); err != nil {
+				return err
+			}
 		}
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -209,10 +229,13 @@ func (n NodeSelector) Equals(other *NodeSelector) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeSelector) Serialize(w io.Writer) {
+func (n NodeSelector) Serialize(w io.Writer) error {
 	for _, m := range n.Nodes {
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -250,16 +273,27 @@ func (n NodeAttributeSelector) Equals(other *NodeAttributeSelector) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeAttributeSelector) Serialize(w io.Writer) {
-	w.Write([]byte("["))
-	n.Key.Serialize(w)
+func (n NodeAttributeSelector) Serialize(w io.Writer) error {
+	if _, err := w.Write([]byte("[")); err != nil {
+		return err
+	}
+	if err := n.Key.Serialize(w); err != nil {
+		return err
+	}
 	if n.Op != nil {
-		n.Op.Serialize(w)
+		if err := n.Op.Serialize(w); err != nil {
+			return err
+		}
 		for _, m := range n.Vals {
-			m.Serialize(w)
+			if err := m.Serialize(w); err != nil {
+				return err
+			}
 		}
 	}
-	w.Write([]byte("]"))
+	if _, err := w.Write([]byte("]")); err != nil {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -300,16 +334,27 @@ func (n NodeDeclaration) Equals(other *NodeDeclaration) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeDeclaration) Serialize(w io.Writer) {
-	n.Prop.Serialize(w)
-	w.Write([]byte(":"))
+func (n NodeDeclaration) Serialize(w io.Writer) error {
+	if err := n.Prop.Serialize(w); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte(":")); err != nil {
+		return err
+	}
 	for i, m := range n.Vals {
 		if i != 0 {
-			w.Write([]byte(" "))
+			if _, err := w.Write([]byte(" ")); err != nil {
+				return err
+			}
 		}
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
-	w.Write([]byte(";"))
+	if _, err := w.Write([]byte(";")); err != nil {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -340,12 +385,19 @@ func (n NodeArgument) Equals(other *NodeArgument) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeArgument) Serialize(w io.Writer) {
+func (n NodeArgument) Serialize(w io.Writer) error {
 	if n.Key != nil {
-		n.Key.Serialize(w)
-		w.Write([]byte("="))
+		if err := n.Key.Serialize(w); err != nil {
+			return err
+		}
+		if _, err := w.Write([]byte("=")); err != nil {
+			return err
+		}
 	}
-	n.Val.Serialize(w)
+	if err := n.Val.Serialize(w); err != nil {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -378,15 +430,24 @@ func (n NodeFunction) Equals(other *NodeFunction) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeFunction) Serialize(w io.Writer) {
-	n.Func.Serialize(w)
+func (n NodeFunction) Serialize(w io.Writer) error {
+	if err := n.Func.Serialize(w); err != nil {
+		return err
+	}
 	for i, m := range n.Args {
 		if i != 0 {
-			w.Write([]byte(","))
+			if _, err := w.Write([]byte(",")); err != nil {
+				return err
+			}
 		}
-		m.Serialize(w)
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
-	w.Write([]byte(")"))
+	if _, err := w.Write([]byte(")")); err != nil {
+		return err
+	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -437,17 +498,26 @@ func (n NodeBlock) Equals(other *NodeBlock) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeBlock) Serialize(w io.Writer) {
+func (n NodeBlock) Serialize(w io.Writer) error {
 	if len(n.Nodes) > 0 {
-		n.Open.Serialize(w)
+		if err := n.Open.Serialize(w); err != nil {
+			return err
+		}
 		for i, m := range n.Nodes {
 			if i != 0 {
-				w.Write([]byte(" "))
+				if _, err := w.Write([]byte(" ")); err != nil {
+					return err
+				}
 			}
-			m.Serialize(w)
+			if err := m.Serialize(w); err != nil {
+				return err
+			}
 		}
-		n.Close.Serialize(w)
+		if err := n.Close.Serialize(w); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -485,16 +555,29 @@ func (n NodeAtRule) Equals(other *NodeAtRule) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeAtRule) Serialize(w io.Writer) {
-	n.At.Serialize(w)
+func (n NodeAtRule) Serialize(w io.Writer) error {
+	if err := n.At.Serialize(w); err != nil {
+		return err
+	}
 	for _, m := range n.Nodes {
-		w.Write([]byte(" "))
-		m.Serialize(w)
+		if _, err := w.Write([]byte(" ")); err != nil {
+			return err
+		}
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
 	if n.Block != nil {
-		w.Write([]byte(" "))
-		n.Block.Serialize(w)
+		if _, err := w.Write([]byte(" ")); err != nil {
+			return err
+		}
+		if err := n.Block.Serialize(w); err != nil {
+			return err
+		}
 	} else {
-		w.Write([]byte(";"))
+		if _, err := w.Write([]byte(";")); err != nil {
+			return err
+		}
 	}
+	return nil
 }
