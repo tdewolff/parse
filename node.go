@@ -7,36 +7,8 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-// NodeType determines the type of node, eg. a block or a declaration.
-type NodeType uint32
-
-// NodeType values, it is safe to cast a node to the referred node type
-const (
-	ErrorNode NodeType = iota // extra node when errors occur
-	StylesheetNode
-	RulesetNode
-	SelectorGroupNode
-	SelectorNode
-	AttributeSelectorNode
-	DeclarationListNode
-	DeclarationNode
-	ArgumentNode
-	FunctionNode
-	BlockNode
-	AtRuleNode
-	TokenNode // extra node for simple tokens
-)
-
-// Type returns the node type, it implements the function in interface Node for all nodes
-func (t NodeType) Type() NodeType {
-	return t
-}
-
-////////////////////////////////////////////////////////////////
-
 // Node is an interface that all nodes implement
 type Node interface {
-	Type() NodeType
 	Serialize(io.Writer)
 }
 
@@ -44,7 +16,6 @@ type Node interface {
 
 // NodeToken is a leaf node of a single token
 type NodeToken struct {
-	NodeType
 	TokenType
 	Data []byte
 }
@@ -52,7 +23,6 @@ type NodeToken struct {
 // NewToken returns a new NodeToken
 func NewToken(tt TokenType, data []byte) *NodeToken {
 	return &NodeToken{
-		TokenNode,
 		tt,
 		data,
 	}
@@ -73,14 +43,12 @@ func (n NodeToken) Serialize(w io.Writer) {
 // NodeStylesheet is the apex node of the whole stylesheet
 // Nodes contains NodeToken, NodeAtRule, NodeDeclaration and NodeRuleset nodes
 type NodeStylesheet struct {
-	NodeType
 	Nodes []Node
 }
 
 // NewStylesheet returns a new NodeStylesheet
 func NewStylesheet() *NodeStylesheet {
 	return &NodeStylesheet{
-		StylesheetNode,
 		nil,
 	}
 }
@@ -91,24 +59,21 @@ func (n NodeStylesheet) Equals(other *NodeStylesheet) bool {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
-		if n.Nodes[i].Type() != otherNode.Type() {
-			return false
-		}
-		switch n.Nodes[i].Type() {
-		case TokenNode:
-			if !n.Nodes[i].(*NodeToken).Equals(otherNode.(*NodeToken)) {
+		switch m := n.Nodes[i].(type) {
+		case *NodeToken:
+			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
 				return false
 			}
-		case AtRuleNode:
-			if !n.Nodes[i].(*NodeAtRule).Equals(otherNode.(*NodeAtRule)) {
+		case *NodeAtRule:
+			if o, ok := otherNode.(*NodeAtRule); !ok || !m.Equals(o) {
 				return false
 			}
-		case DeclarationNode:
-			if !n.Nodes[i].(*NodeDeclaration).Equals(otherNode.(*NodeDeclaration)) {
+		case *NodeDeclaration:
+			if o, ok := otherNode.(*NodeDeclaration); !ok || !m.Equals(o) {
 				return false
 			}
-		case RulesetNode:
-			if !n.Nodes[i].(*NodeRuleset).Equals(otherNode.(*NodeRuleset)) {
+		case *NodeRuleset:
+			if o, ok := otherNode.(*NodeRuleset); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -127,7 +92,6 @@ func (n NodeStylesheet) Serialize(w io.Writer) {
 
 // NodeRuleset consists of selector groups (separated by commas) and a declaration list
 type NodeRuleset struct {
-	NodeType
 	SelGroups []*NodeSelectorGroup
 	Decls     []*NodeDeclaration
 }
@@ -135,7 +99,6 @@ type NodeRuleset struct {
 // NewRuleset returns a new NodeRuleset
 func NewRuleset() *NodeRuleset {
 	return &NodeRuleset{
-		RulesetNode,
 		nil,
 		nil,
 	}
@@ -178,14 +141,12 @@ func (n NodeRuleset) Serialize(w io.Writer) {
 
 // NodeSelectorGroup contains selectors separated by whitespace
 type NodeSelectorGroup struct {
-	NodeType
 	Selectors []*NodeSelector
 }
 
 // NewSelectorGroup returns a new NodeSelectorGroup
 func NewSelectorGroup() *NodeSelectorGroup {
 	return &NodeSelectorGroup{
-		SelectorGroupNode,
 		nil,
 	}
 }
@@ -217,14 +178,12 @@ func (n NodeSelectorGroup) Serialize(w io.Writer) {
 
 // NodeSelector contains the tokens of a single selector, either TokenNode or AttributeSelectorNode
 type NodeSelector struct {
-	NodeType
 	Nodes []Node
 }
 
 // NewSelector returns a new NodeSelector
 func NewSelector() *NodeSelector {
 	return &NodeSelector{
-		SelectorNode,
 		nil,
 	}
 }
@@ -235,16 +194,13 @@ func (n NodeSelector) Equals(other *NodeSelector) bool {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
-		if n.Nodes[i].Type() != otherNode.Type() {
-			return false
-		}
-		switch n.Nodes[i].Type() {
-		case TokenNode:
-			if !n.Nodes[i].(*NodeToken).Equals(otherNode.(*NodeToken)) {
+		switch m := n.Nodes[i].(type) {
+		case *NodeToken:
+			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
 				return false
 			}
-		case AttributeSelectorNode:
-			if !n.Nodes[i].(*NodeAttributeSelector).Equals(otherNode.(*NodeAttributeSelector)) {
+		case *NodeAttributeSelector:
+			if o, ok := otherNode.(*NodeAttributeSelector); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -263,7 +219,6 @@ func (n NodeSelector) Serialize(w io.Writer) {
 
 // NodeAttributeSelector contains the key and possible the operators with values as TokenNodes of an attribute selector
 type NodeAttributeSelector struct {
-	NodeType
 	Key *NodeToken
 	Op *NodeToken
 	Vals []*NodeToken
@@ -272,7 +227,6 @@ type NodeAttributeSelector struct {
 // NewAttributeSelector returns a new NodeSelector
 func NewAttributeSelector(key *NodeToken) *NodeAttributeSelector {
 	return &NodeAttributeSelector{
-		AttributeSelectorNode,
 		key,
 		nil,
 		nil,
@@ -313,7 +267,6 @@ func (n NodeAttributeSelector) Serialize(w io.Writer) {
 // NodeDeclaration represents a property declaration
 // Vals contains NodeFunction and NodeToken nodes
 type NodeDeclaration struct {
-	NodeType
 	Prop *NodeToken
 	Vals []Node
 }
@@ -321,7 +274,6 @@ type NodeDeclaration struct {
 // NewDeclaration returns a new NodeDeclaration
 func NewDeclaration(prop *NodeToken) *NodeDeclaration {
 	return &NodeDeclaration{
-		DeclarationNode,
 		prop,
 		nil,
 	}
@@ -333,16 +285,13 @@ func (n NodeDeclaration) Equals(other *NodeDeclaration) bool {
 		return false
 	}
 	for i, otherNode := range other.Vals {
-		if n.Vals[i].Type() != otherNode.Type() {
-			return false
-		}
-		switch n.Vals[i].Type() {
-		case TokenNode:
-			if !n.Vals[i].(*NodeToken).Equals(otherNode.(*NodeToken)) {
+		switch m := n.Vals[i].(type) {
+		case *NodeToken:
+			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
 				return false
 			}
-		case FunctionNode:
-			if !n.Vals[i].(*NodeFunction).Equals(otherNode.(*NodeFunction)) {
+		case *NodeFunction:
+			if o, ok := otherNode.(*NodeFunction); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -367,7 +316,6 @@ func (n NodeDeclaration) Serialize(w io.Writer) {
 
 // NodeFunction represents a function and its arguments
 type NodeArgument struct {
-	NodeType
 	Key *NodeToken
 	Val *NodeToken
 }
@@ -375,7 +323,6 @@ type NodeArgument struct {
 // NewArgument returns a new NodeArgument
 func NewArgument(key, val *NodeToken) *NodeArgument {
 	return &NodeArgument{
-		ArgumentNode,
 		key,
 		val,
 	}
@@ -405,7 +352,6 @@ func (n NodeArgument) Serialize(w io.Writer) {
 
 // NodeFunction represents a function and its arguments
 type NodeFunction struct {
-	NodeType
 	Func *NodeToken
 	Args []*NodeArgument
 }
@@ -413,7 +359,6 @@ type NodeFunction struct {
 // NewFunction returns a new NodeFunction
 func NewFunction(f *NodeToken) *NodeFunction {
 	return &NodeFunction{
-		FunctionNode,
 		f,
 		nil,
 	}
@@ -449,7 +394,6 @@ func (n NodeFunction) Serialize(w io.Writer) {
 // NodeBlock contains the contents of a block (brace, bracket or parenthesis blocks)
 // Nodes contains NodeAtRule, NodeDeclaration, NodeRuleset and NodeBlock nodes
 type NodeBlock struct {
-	NodeType
 	Open  *NodeToken
 	Nodes []Node
 	Close *NodeToken
@@ -458,7 +402,6 @@ type NodeBlock struct {
 // NewBlock returns a new NodeBlock
 func NewBlock(open *NodeToken) *NodeBlock {
 	return &NodeBlock{
-		BlockNode,
 		open,
 		nil,
 		nil,
@@ -471,24 +414,21 @@ func (n NodeBlock) Equals(other *NodeBlock) bool {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
-		if n.Nodes[i].Type() != otherNode.Type() {
-			return false
-		}
-		switch n.Nodes[i].Type() {
-		case AtRuleNode:
-			if !n.Nodes[i].(*NodeAtRule).Equals(otherNode.(*NodeAtRule)) {
+		switch m := n.Nodes[i].(type) {
+		case *NodeAtRule:
+			if o, ok := otherNode.(*NodeAtRule); !ok || !m.Equals(o) {
 				return false
 			}
-		case DeclarationNode:
-			if !n.Nodes[i].(*NodeDeclaration).Equals(otherNode.(*NodeDeclaration)) {
+		case *NodeDeclaration:
+			if o, ok := otherNode.(*NodeDeclaration); !ok || !m.Equals(o) {
 				return false
 			}
-		case RulesetNode:
-			if !n.Nodes[i].(*NodeRuleset).Equals(otherNode.(*NodeRuleset)) {
+		case *NodeRuleset:
+			if o, ok := otherNode.(*NodeRuleset); !ok || !m.Equals(o) {
 				return false
 			}
-		case BlockNode:
-			if !n.Nodes[i].(*NodeBlock).Equals(otherNode.(*NodeBlock)) {
+		case *NodeBlock:
+			if o, ok := otherNode.(*NodeBlock); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -514,7 +454,6 @@ func (n NodeBlock) Serialize(w io.Writer) {
 
 // NodeAtRule contains several nodes and/or a block node
 type NodeAtRule struct {
-	NodeType
 	At    *NodeToken
 	Nodes []*NodeToken
 	Block *NodeBlock
@@ -523,7 +462,6 @@ type NodeAtRule struct {
 // NewAtRule returns a new NodeAtRule
 func NewAtRule(at *NodeToken) *NodeAtRule {
 	return &NodeAtRule{
-		AtRuleNode,
 		at,
 		nil,
 		nil,
