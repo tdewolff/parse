@@ -55,13 +55,13 @@ Parser using example:
 
 		for _, node := range stylesheet.Nodes {
 			switch m := node.(type) {
-			case *css.NodeToken:
+			case *css.TokenNode:
 				fmt.Println("Token", string(m.Data))
-			case *css.NodeDeclaration:
+			case *css.DeclarationNode:
 				fmt.Println("Declaration for property", string(m.Prop.Data))
-			case *css.NodeRuleset:
+			case *css.RulesetNode:
 				fmt.Println("Ruleset with", len(m.Decls), "declarations")
-			case *css.NodeAtRule:
+			case *css.AtRuleNode:
 				fmt.Println("AtRule", string(m.At.Data))
 			}
 		}
@@ -78,12 +78,12 @@ import (
 
 type parser struct {
 	z   *Tokenizer
-	buf []*NodeToken
+	buf []*TokenNode
 }
 
 // Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
-// The returned NodeStylesheet is the root node. All leaf nodes are NodeToken's.
-func Parse(r io.Reader) (*NodeStylesheet, error) {
+// The returned StylesheetNode is the root node. All leaf nodes are TokenNode's.
+func Parse(r io.Reader) (*StylesheetNode, error) {
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func Parse(r io.Reader) (*NodeStylesheet, error) {
 
 	p := &parser{
 		NewTokenizerBytes(b),
-		make([]*NodeToken, 0, 20),
+		make([]*TokenNode, 0, 20),
 	}
 
 	err = p.z.Err()
@@ -131,7 +131,7 @@ func (p *parser) at(tts ...TokenType) bool {
 	return true
 }
 
-func (p *parser) shift() *NodeToken {
+func (p *parser) shift() *TokenNode {
 	p.skipWhitespace()
 	if len(p.buf) > 0 {
 		token := p.buf[0]
@@ -161,7 +161,7 @@ func (p *parser) skipUntil(tt TokenType) {
 
 ////////////////////////////////////////////////////////////////
 
-func (p *parser) parseStylesheet() *NodeStylesheet {
+func (p *parser) parseStylesheet() *StylesheetNode {
 	n := NewStylesheet()
 	for {
 		p.skipWhitespace()
@@ -182,7 +182,7 @@ func (p *parser) parseStylesheet() *NodeStylesheet {
 	}
 }
 
-func (p *parser) parseRuleset() *NodeRuleset {
+func (p *parser) parseRuleset() *RulesetNode {
 	// check if left brace appears, which is the only check if this is a valid ruleset
 	i := 0
 	for p.index(i) != LeftBraceToken {
@@ -229,7 +229,7 @@ func (p *parser) parseRuleset() *NodeRuleset {
 	return n
 }
 
-func (p *parser) parseSelectorGroup() *NodeSelectorGroup {
+func (p *parser) parseSelectorGroup() *SelectorGroupNode {
 	n := NewSelectorGroup()
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if cn := p.parseSelector(); cn != nil {
@@ -245,7 +245,7 @@ func (p *parser) parseSelectorGroup() *NodeSelectorGroup {
 	return n
 }
 
-func (p *parser) parseSelector() *NodeSelector {
+func (p *parser) parseSelector() *SelectorNode {
 	n := NewSelector()
 	for p.index(0) != WhitespaceToken && p.index(0) != CommaToken && p.index(0) != LeftBraceToken && p.index(0) != ErrorToken {
 		if p.index(0) == CommentToken {
@@ -277,7 +277,7 @@ func (p *parser) parseSelector() *NodeSelector {
 	return n
 }
 
-func (p *parser) parseAttributeSelector() *NodeAttributeSelector {
+func (p *parser) parseAttributeSelector() *AttributeSelectorNode {
 	if !p.at(IdentToken) && p.index(1) != RightBracketToken && p.index(1) != DelimToken && p.index(1) != IncludeMatchToken && p.index(1) != DashMatchToken && p.index(1) != PrefixMatchToken && p.index(1) != SuffixMatchToken && p.index(1) != SubstringMatchToken {
 		return nil
 	}
@@ -292,7 +292,7 @@ func (p *parser) parseAttributeSelector() *NodeAttributeSelector {
 	return n
 }
 
-func (p *parser) parseDeclaration() *NodeDeclaration {
+func (p *parser) parseDeclaration() *DeclarationNode {
 	if !p.at(IdentToken, ColonToken) {
 		return nil
 	}
@@ -313,7 +313,7 @@ func (p *parser) parseDeclaration() *NodeDeclaration {
 	return n
 }
 
-func (p *parser) parseArgument() *NodeArgument {
+func (p *parser) parseArgument() *ArgumentNode {
 	first := p.shift()
 	if p.at(DelimToken) && len(p.buf[0].Data) == 1 && p.buf[0].Data[0] == '=' {
 		p.shift()
@@ -322,7 +322,7 @@ func (p *parser) parseArgument() *NodeArgument {
 	return NewArgument(nil, first)
 }
 
-func (p *parser) parseFunction() *NodeFunction {
+func (p *parser) parseFunction() *FunctionNode {
 	if !p.at(FunctionToken) {
 		return nil
 	}
@@ -339,7 +339,7 @@ func (p *parser) parseFunction() *NodeFunction {
 	return n
 }
 
-func (p *parser) parseBlock() *NodeBlock {
+func (p *parser) parseBlock() *BlockNode {
 	if !p.at(LeftBraceToken) && !p.at(LeftParenthesisToken) && !p.at(LeftBracketToken) {
 		return nil
 	}
@@ -363,7 +363,7 @@ func (p *parser) parseBlock() *NodeBlock {
 	return n
 }
 
-func (p *parser) parseAtRule() *NodeAtRule {
+func (p *parser) parseAtRule() *AtRuleNode {
 	if !p.at(AtKeywordToken) {
 		return nil
 	}

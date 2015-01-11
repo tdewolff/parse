@@ -115,7 +115,7 @@ To iterate over the stylesheet, use:
 ``` go
 for _, node := range stylesheet.Nodes {
 	switch node.(type) {
-	case *css.NodeToken:
+	case *css.TokenNode:
 		// ...
 	}
 }

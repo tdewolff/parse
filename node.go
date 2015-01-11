@@ -14,67 +14,67 @@ type Node interface {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeToken is a leaf node of a single token
-type NodeToken struct {
+// TokenNode is a leaf node of a single token
+type TokenNode struct {
 	TokenType
 	Data []byte
 }
 
-// NewToken returns a new NodeToken
-func NewToken(tt TokenType, data []byte) *NodeToken {
-	return &NodeToken{
+// NewToken returns a new TokenNode
+func NewToken(tt TokenType, data []byte) *TokenNode {
+	return &TokenNode{
 		tt,
 		data,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeToken) Equals(other *NodeToken) bool {
+func (n TokenNode) Equals(other *TokenNode) bool {
 	return n.TokenType == other.TokenType && bytes.Equal(n.Data, other.Data)
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeToken) Serialize(w io.Writer) error {
+func (n TokenNode) Serialize(w io.Writer) error {
 	_, err := w.Write(n.Data)
 	return err
 }
 
 ////////////////////////////////////////////////////////////////
 
-// NodeStylesheet is the apex node of the whole stylesheet
-// Nodes contains NodeToken, NodeAtRule, NodeDeclaration and NodeRuleset nodes
-type NodeStylesheet struct {
+// StylesheetNode is the apex node of the whole stylesheet
+// Nodes contains TokenNode, AtRuleNode, DeclarationNode and RulesetNode nodes
+type StylesheetNode struct {
 	Nodes []Node
 }
 
-// NewStylesheet returns a new NodeStylesheet
-func NewStylesheet() *NodeStylesheet {
-	return &NodeStylesheet{
+// NewStylesheet returns a new StylesheetNode
+func NewStylesheet() *StylesheetNode {
+	return &StylesheetNode{
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeStylesheet) Equals(other *NodeStylesheet) bool {
+func (n StylesheetNode) Equals(other *StylesheetNode) bool {
 	if len(n.Nodes) != len(other.Nodes) {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
 		switch m := n.Nodes[i].(type) {
-		case *NodeToken:
-			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
+		case *TokenNode:
+			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeAtRule:
-			if o, ok := otherNode.(*NodeAtRule); !ok || !m.Equals(o) {
+		case *AtRuleNode:
+			if o, ok := otherNode.(*AtRuleNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeDeclaration:
-			if o, ok := otherNode.(*NodeDeclaration); !ok || !m.Equals(o) {
+		case *DeclarationNode:
+			if o, ok := otherNode.(*DeclarationNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeRuleset:
-			if o, ok := otherNode.(*NodeRuleset); !ok || !m.Equals(o) {
+		case *RulesetNode:
+			if o, ok := otherNode.(*RulesetNode); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -83,7 +83,7 @@ func (n NodeStylesheet) Equals(other *NodeStylesheet) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeStylesheet) Serialize(w io.Writer) error {
+func (n StylesheetNode) Serialize(w io.Writer) error {
 	for _, m := range n.Nodes {
 		if err := m.Serialize(w); err != nil {
 			return err
@@ -94,22 +94,22 @@ func (n NodeStylesheet) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeRuleset consists of selector groups (separated by commas) and a declaration list
-type NodeRuleset struct {
-	SelGroups []*NodeSelectorGroup
-	Decls     []*NodeDeclaration
+// RulesetNode consists of selector groups (separated by commas) and a declaration list
+type RulesetNode struct {
+	SelGroups []*SelectorGroupNode
+	Decls     []*DeclarationNode
 }
 
-// NewRuleset returns a new NodeRuleset
-func NewRuleset() *NodeRuleset {
-	return &NodeRuleset{
+// NewRuleset returns a new RulesetNode
+func NewRuleset() *RulesetNode {
+	return &RulesetNode{
 		nil,
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeRuleset) Equals(other *NodeRuleset) bool {
+func (n RulesetNode) Equals(other *RulesetNode) bool {
 	if len(n.SelGroups) != len(other.SelGroups) || len(n.Decls) != len(other.Decls) {
 		return false
 	}
@@ -127,7 +127,7 @@ func (n NodeRuleset) Equals(other *NodeRuleset) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeRuleset) Serialize(w io.Writer) error {
+func (n RulesetNode) Serialize(w io.Writer) error {
 	for i, m := range n.SelGroups {
 		if i != 0 {
 			if _, err := w.Write([]byte(",")); err != nil {
@@ -154,20 +154,20 @@ func (n NodeRuleset) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeSelectorGroup contains selectors separated by whitespace
-type NodeSelectorGroup struct {
-	Selectors []*NodeSelector
+// SelectorGroupNode contains selectors separated by whitespace
+type SelectorGroupNode struct {
+	Selectors []*SelectorNode
 }
 
-// NewSelectorGroup returns a new NodeSelectorGroup
-func NewSelectorGroup() *NodeSelectorGroup {
-	return &NodeSelectorGroup{
+// NewSelectorGroup returns a new SelectorGroupNode
+func NewSelectorGroup() *SelectorGroupNode {
+	return &SelectorGroupNode{
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeSelectorGroup) Equals(other *NodeSelectorGroup) bool {
+func (n SelectorGroupNode) Equals(other *SelectorGroupNode) bool {
 	if len(n.Selectors) != len(other.Selectors) {
 		return false
 	}
@@ -180,7 +180,7 @@ func (n NodeSelectorGroup) Equals(other *NodeSelectorGroup) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeSelectorGroup) Serialize(w io.Writer) error {
+func (n SelectorGroupNode) Serialize(w io.Writer) error {
 	for i, m := range n.Selectors {
 		if i != 0 {
 			if _, err := w.Write([]byte(" ")); err != nil {
@@ -196,31 +196,31 @@ func (n NodeSelectorGroup) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeSelector contains the tokens of a single selector, either TokenNode or AttributeSelectorNode
-type NodeSelector struct {
+// SelectorNode contains the tokens of a single selector, either TokenNode or AttributeSelectorNode
+type SelectorNode struct {
 	Nodes []Node
 }
 
-// NewSelector returns a new NodeSelector
-func NewSelector() *NodeSelector {
-	return &NodeSelector{
+// NewSelector returns a new SelectorNode
+func NewSelector() *SelectorNode {
+	return &SelectorNode{
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeSelector) Equals(other *NodeSelector) bool {
+func (n SelectorNode) Equals(other *SelectorNode) bool {
 	if len(n.Nodes) != len(other.Nodes) {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
 		switch m := n.Nodes[i].(type) {
-		case *NodeToken:
-			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
+		case *TokenNode:
+			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeAttributeSelector:
-			if o, ok := otherNode.(*NodeAttributeSelector); !ok || !m.Equals(o) {
+		case *AttributeSelectorNode:
+			if o, ok := otherNode.(*AttributeSelectorNode); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -229,7 +229,7 @@ func (n NodeSelector) Equals(other *NodeSelector) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeSelector) Serialize(w io.Writer) error {
+func (n SelectorNode) Serialize(w io.Writer) error {
 	for _, m := range n.Nodes {
 		if err := m.Serialize(w); err != nil {
 			return err
@@ -240,16 +240,16 @@ func (n NodeSelector) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeAttributeSelector contains the key and possible the operators with values as TokenNodes of an attribute selector
-type NodeAttributeSelector struct {
-	Key  *NodeToken
-	Op   *NodeToken
-	Vals []*NodeToken
+// AttributeSelectorNode contains the key and possible the operators with values as TokenNodes of an attribute selector
+type AttributeSelectorNode struct {
+	Key  *TokenNode
+	Op   *TokenNode
+	Vals []*TokenNode
 }
 
-// NewAttributeSelector returns a new NodeSelector
-func NewAttributeSelector(key *NodeToken) *NodeAttributeSelector {
-	return &NodeAttributeSelector{
+// NewAttributeSelector returns a new SelectorNode
+func NewAttributeSelector(key *TokenNode) *AttributeSelectorNode {
+	return &AttributeSelectorNode{
 		key,
 		nil,
 		nil,
@@ -257,7 +257,7 @@ func NewAttributeSelector(key *NodeToken) *NodeAttributeSelector {
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeAttributeSelector) Equals(other *NodeAttributeSelector) bool {
+func (n AttributeSelectorNode) Equals(other *AttributeSelectorNode) bool {
 	if !n.Key.Equals(other.Key) || len(n.Vals) != len(other.Vals) {
 		return false
 	}
@@ -273,7 +273,7 @@ func (n NodeAttributeSelector) Equals(other *NodeAttributeSelector) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeAttributeSelector) Serialize(w io.Writer) error {
+func (n AttributeSelectorNode) Serialize(w io.Writer) error {
 	if _, err := w.Write([]byte("[")); err != nil {
 		return err
 	}
@@ -298,34 +298,34 @@ func (n NodeAttributeSelector) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeDeclaration represents a property declaration
-// Vals contains NodeFunction and NodeToken nodes
-type NodeDeclaration struct {
-	Prop *NodeToken
+// DeclarationNode represents a property declaration
+// Vals contains FunctionNode and TokenNode nodes
+type DeclarationNode struct {
+	Prop *TokenNode
 	Vals []Node
 }
 
-// NewDeclaration returns a new NodeDeclaration
-func NewDeclaration(prop *NodeToken) *NodeDeclaration {
-	return &NodeDeclaration{
+// NewDeclaration returns a new DeclarationNode
+func NewDeclaration(prop *TokenNode) *DeclarationNode {
+	return &DeclarationNode{
 		prop,
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeDeclaration) Equals(other *NodeDeclaration) bool {
+func (n DeclarationNode) Equals(other *DeclarationNode) bool {
 	if !n.Prop.Equals(other.Prop) || len(n.Vals) != len(other.Vals) {
 		return false
 	}
 	for i, otherNode := range other.Vals {
 		switch m := n.Vals[i].(type) {
-		case *NodeToken:
-			if o, ok := otherNode.(*NodeToken); !ok || !m.Equals(o) {
+		case *TokenNode:
+			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeFunction:
-			if o, ok := otherNode.(*NodeFunction); !ok || !m.Equals(o) {
+		case *FunctionNode:
+			if o, ok := otherNode.(*FunctionNode); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -334,7 +334,7 @@ func (n NodeDeclaration) Equals(other *NodeDeclaration) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeDeclaration) Serialize(w io.Writer) error {
+func (n DeclarationNode) Serialize(w io.Writer) error {
 	if err := n.Prop.Serialize(w); err != nil {
 		return err
 	}
@@ -359,22 +359,22 @@ func (n NodeDeclaration) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeFunction represents a function and its arguments
-type NodeArgument struct {
-	Key *NodeToken
-	Val *NodeToken
+// FunctionNode represents a function and its arguments
+type ArgumentNode struct {
+	Key *TokenNode
+	Val *TokenNode
 }
 
-// NewArgument returns a new NodeArgument
-func NewArgument(key, val *NodeToken) *NodeArgument {
-	return &NodeArgument{
+// NewArgument returns a new ArgumentNode
+func NewArgument(key, val *TokenNode) *ArgumentNode {
+	return &ArgumentNode{
 		key,
 		val,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeArgument) Equals(other *NodeArgument) bool {
+func (n ArgumentNode) Equals(other *ArgumentNode) bool {
 	if !n.Val.Equals(other.Val) {
 		return false
 	}
@@ -385,7 +385,7 @@ func (n NodeArgument) Equals(other *NodeArgument) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeArgument) Serialize(w io.Writer) error {
+func (n ArgumentNode) Serialize(w io.Writer) error {
 	if n.Key != nil {
 		if err := n.Key.Serialize(w); err != nil {
 			return err
@@ -402,22 +402,22 @@ func (n NodeArgument) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeFunction represents a function and its arguments
-type NodeFunction struct {
-	Func *NodeToken
-	Args []*NodeArgument
+// FunctionNode represents a function and its arguments
+type FunctionNode struct {
+	Func *TokenNode
+	Args []*ArgumentNode
 }
 
-// NewFunction returns a new NodeFunction
-func NewFunction(f *NodeToken) *NodeFunction {
-	return &NodeFunction{
+// NewFunction returns a new FunctionNode
+func NewFunction(f *TokenNode) *FunctionNode {
+	return &FunctionNode{
 		f,
 		nil,
 	}
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeFunction) Equals(other *NodeFunction) bool {
+func (n FunctionNode) Equals(other *FunctionNode) bool {
 	if !n.Func.Equals(other.Func) {
 		return false
 	}
@@ -430,7 +430,7 @@ func (n NodeFunction) Equals(other *NodeFunction) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeFunction) Serialize(w io.Writer) error {
+func (n FunctionNode) Serialize(w io.Writer) error {
 	if err := n.Func.Serialize(w); err != nil {
 		return err
 	}
@@ -452,17 +452,17 @@ func (n NodeFunction) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeBlock contains the contents of a block (brace, bracket or parenthesis blocks)
-// Nodes contains NodeAtRule, NodeDeclaration, NodeRuleset and NodeBlock nodes
-type NodeBlock struct {
-	Open  *NodeToken
+// BlockNode contains the contents of a block (brace, bracket or parenthesis blocks)
+// Nodes contains AtRuleNode, DeclarationNode, RulesetNode and BlockNode nodes
+type BlockNode struct {
+	Open  *TokenNode
 	Nodes []Node
-	Close *NodeToken
+	Close *TokenNode
 }
 
-// NewBlock returns a new NodeBlock
-func NewBlock(open *NodeToken) *NodeBlock {
-	return &NodeBlock{
+// NewBlock returns a new BlockNode
+func NewBlock(open *TokenNode) *BlockNode {
+	return &BlockNode{
 		open,
 		nil,
 		nil,
@@ -470,26 +470,26 @@ func NewBlock(open *NodeToken) *NodeBlock {
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeBlock) Equals(other *NodeBlock) bool {
+func (n BlockNode) Equals(other *BlockNode) bool {
 	if !n.Open.Equals(other.Open) || !n.Close.Equals(other.Close) {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
 		switch m := n.Nodes[i].(type) {
-		case *NodeAtRule:
-			if o, ok := otherNode.(*NodeAtRule); !ok || !m.Equals(o) {
+		case *AtRuleNode:
+			if o, ok := otherNode.(*AtRuleNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeDeclaration:
-			if o, ok := otherNode.(*NodeDeclaration); !ok || !m.Equals(o) {
+		case *DeclarationNode:
+			if o, ok := otherNode.(*DeclarationNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeRuleset:
-			if o, ok := otherNode.(*NodeRuleset); !ok || !m.Equals(o) {
+		case *RulesetNode:
+			if o, ok := otherNode.(*RulesetNode); !ok || !m.Equals(o) {
 				return false
 			}
-		case *NodeBlock:
-			if o, ok := otherNode.(*NodeBlock); !ok || !m.Equals(o) {
+		case *BlockNode:
+			if o, ok := otherNode.(*BlockNode); !ok || !m.Equals(o) {
 				return false
 			}
 		}
@@ -498,7 +498,7 @@ func (n NodeBlock) Equals(other *NodeBlock) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeBlock) Serialize(w io.Writer) error {
+func (n BlockNode) Serialize(w io.Writer) error {
 	if len(n.Nodes) > 0 {
 		if err := n.Open.Serialize(w); err != nil {
 			return err
@@ -522,16 +522,16 @@ func (n NodeBlock) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// NodeAtRule contains several nodes and/or a block node
-type NodeAtRule struct {
-	At    *NodeToken
-	Nodes []*NodeToken
-	Block *NodeBlock
+// AtRuleNode contains several nodes and/or a block node
+type AtRuleNode struct {
+	At    *TokenNode
+	Nodes []*TokenNode
+	Block *BlockNode
 }
 
-// NewAtRule returns a new NodeAtRule
-func NewAtRule(at *NodeToken) *NodeAtRule {
-	return &NodeAtRule{
+// NewAtRule returns a new AtRuleNode
+func NewAtRule(at *TokenNode) *AtRuleNode {
+	return &AtRuleNode{
 		at,
 		nil,
 		nil,
@@ -539,7 +539,7 @@ func NewAtRule(at *NodeToken) *NodeAtRule {
 }
 
 // Equals returns true when the nodes match (deep)
-func (n NodeAtRule) Equals(other *NodeAtRule) bool {
+func (n AtRuleNode) Equals(other *AtRuleNode) bool {
 	if !n.At.Equals(other.At) || len(n.Nodes) != len(other.Nodes) {
 		return false
 	}
@@ -555,7 +555,7 @@ func (n NodeAtRule) Equals(other *NodeAtRule) bool {
 }
 
 // Serialize write to Writer the string representation of the node
-func (n NodeAtRule) Serialize(w io.Writer) error {
+func (n AtRuleNode) Serialize(w io.Writer) error {
 	if err := n.At.Serialize(w); err != nil {
 		return err
 	}
