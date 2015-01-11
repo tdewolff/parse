@@ -1,11 +1,9 @@
 [![GoDoc](http://godoc.org/github.com/tdewolff/css?status.svg)](http://godoc.org/github.com/tdewolff/css) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/css)](http://gocover.io/github.com/tdewolff/css)
 
 # CSS
-
 This package is a CSS3 tokenizer and parser written in [Go][1]. The tokenizer follows the specification at [CSS Syntax Module Level 3](http://www.w3.org/TR/css-syntax-3/). It takes an io.Reader and converts it into tokens until the EOF. The parser does not follow the CSS3 specifications because the documentation is subpar or lacking. The parser returns a parse tree of the full io.Reader input stream.
 
 ## Installation
-
 Run the following command
 
 	go get github.com/tdewolff/css
@@ -105,7 +103,6 @@ func main() {
 ## Parser
 ### Usage
 The following parses until EOF with io.Reader `r`:
-
 ``` go
 stylesheet, err := css.Parse(r)
 if err != nil {
