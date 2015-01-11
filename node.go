@@ -242,8 +242,8 @@ func (n NodeSelector) Serialize(w io.Writer) error {
 
 // NodeAttributeSelector contains the key and possible the operators with values as TokenNodes of an attribute selector
 type NodeAttributeSelector struct {
-	Key *NodeToken
-	Op *NodeToken
+	Key  *NodeToken
+	Op   *NodeToken
 	Vals []*NodeToken
 }
 
