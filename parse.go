@@ -54,17 +54,15 @@ Parser using example:
 		}
 
 		for _, node := range stylesheet.Nodes {
-			switch node.Type() {
-			case css.TokenNode:
-				fmt.Println("Token", node.String())
-			case css.DeclarationNode:
-				fmt.Println("Declaration", node.String())
-			case css.RulesetNode:
-				ruleset := node.(*css.NodeRuleset)
-				fmt.Println("Ruleset with", len(ruleset.Decls), "declarations")
-				fmt.Println("Ruleset", node.String())
-			case css.AtRuleNode:
-				fmt.Println("AtRule", node.String())
+			switch m := node.(type) {
+			case *css.NodeToken:
+				fmt.Println("Token", string(m.Data))
+			case *css.NodeDeclaration:
+				fmt.Println("Declaration for property", string(m.Prop.Data))
+			case *css.NodeRuleset:
+				fmt.Println("Ruleset with", len(m.Decls), "declarations")
+			case *css.NodeAtRule:
+				fmt.Println("AtRule", string(m.At.Data))
 			}
 		}
 	}

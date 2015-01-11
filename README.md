@@ -114,8 +114,8 @@ if err != nil {
 To iterate over the stylesheet, use:
 ``` go
 for _, node := range stylesheet.Nodes {
-	switch node.Type() {
-	case css.TokenNode:
+	switch node.(type) {
+	case *css.NodeToken:
 		// ...
 	}
 }
@@ -123,34 +123,32 @@ for _, node := range stylesheet.Nodes {
 
 Grammer:
 
-	NodeStylesheet.Nodes := (NodeRuleset | NodeDeclaration | NodeAtRule | NodeToken)*
-	NodeRuleset.SelGroups := NodeSelectorGroup*
-	NodeRuleset.Decls := NodeDeclaration*
+	StylesheetNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
+	RulesetNode.SelGroups := SelectorGroupNode*
+	RulesetNode.Decls := DeclarationNode*
 
-	NodeSelectorGroup.Selectors := NodeSelector*
-	NodeSelector.Nodes := (NodeToken | NodeAttributeSelector)*
-	NodeAttributeSelector.Vals := NodeTokens*
+	SelectorGroupNode.Selectors := SelectorNode*
+	SelectorNode.Nodes := (TokenNode | AttributeSelectorNode)*
+	AttributeSelectorNode.Vals := TokenNode*
 
-	NodeDeclaration.Prop := NodeToken
-	NodeDeclaration.Vals := (NodeFunction | NodeToken)*
+	DeclarationNode.Prop := TokenNode
+	DeclarationNode.Vals := (FunctionNode | TokenNode)*
 
-	NodeFunction.Func := NodeToken
-	NodeFunction.Args := NodeArgument*
-	NodeArgument.Key := NodeToken | nil
-	NodeArgument.Val := NodeToken
+	FunctionNode.Func := TokenNode
+	FunctionNode.Args := ArgumentNode*
+	ArgumentNode.Key := TokenNode | nil
+	ArgumentNode.Val := TokenNode
 
-	NodeAtRule.At := NodeToken
-	NodeAtRule.Nodes := NodeToken*
-	NodeAtRule.Block := NodeBlock | nil
+	AtRuleNode.At := TokenNode
+	AtRuleNode.Nodes := TokenNode*
+	AtRuleNode.Block := BlockNode | nil
 
-	NodeBlock.Open := NodeToken
-	NodeBlock.Nodes := (NodeRuleset | NodeDeclaration | NodeAtRule | NodeToken)*
-	NodeBlock.Close := NodeToken
+	BlockNode.Open := TokenNode
+	BlockNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
+	BlockNode.Close := TokenNode
 
-	NodeToken.TokenType := TokenType
-	NodeToken.Data := string
-
-All nodes contain `NodeType` which is an enum to determine the type for node interface lists. It's equal to the type name above but with `Node` at the end: `NodeSelectorGroup` &#8594; `SelectorGroupNode`.
+	TokenNode.TokenType := TokenType
+	TokenNode.Data := string
 
 ### Examples
 ``` go
@@ -172,17 +170,15 @@ func main() {
 	}
 
 	for _, node := range stylesheet.Nodes {
-		switch node.Type() {
-		case css.TokenNode:
-			fmt.Println("Token", node.String())
-		case css.DeclarationNode:
-			fmt.Println("Declaration", node.String())
-		case css.RulesetNode:
-			ruleset := node.(*css.NodeRuleset)
-			fmt.Println("Ruleset with", len(ruleset.Decls), "declarations")
-			fmt.Println("Ruleset", node.String())
-		case css.AtRuleNode:
-			fmt.Println("AtRule", node.String())
+		switch m := node.(type) {
+		case *css.TokenNode:
+			fmt.Println("Token", string(m.Data))
+		case *css.DeclarationNode:
+			fmt.Println("Declaration for property", string(m.Prop.Data))
+		case *css.RulesetNode:
+			fmt.Println("Ruleset with", len(m.Decls), "declarations")
+		case *css.AtRuleNode:
+			fmt.Println("AtRule", string(m.At.Data))
 		}
 	}
 }
