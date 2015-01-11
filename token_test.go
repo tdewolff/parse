@@ -70,14 +70,21 @@ func helperTestSplit(t *testing.T, s, q string) {
 	s1, s2 := SplitNumberToken([]byte(s))
 	s = string(s1) + " " + string(s2)
 	if s != q {
-		t.Error(s, "!=", q)
+		t.Error(s, "!=", q, "in", s)
 	}
 }
 
 func helperTestIdent(t *testing.T, s string, q bool) {
 	p := IsIdent([]byte(s))
 	if p != q {
-		t.Error(p, "!=", q)
+		t.Error(p, "!=", q, "in", s)
+	}
+}
+
+func helperTestUrlUnquoted(t *testing.T, s string, q bool) {
+	p := IsUrlUnquoted([]byte(s))
+	if p != q {
+		t.Error(p, "!=", q, "in", s)
 	}
 }
 
@@ -110,7 +117,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "U+1-", IdentToken, NumberToken, DelimToken)
 
 	// unicode
-	helperTestTokens(t, "fooδbar", IdentToken)
+	helperTestTokens(t, "fooδbar􀀀", IdentToken)
 	//helperTestTokens(t, "foo\x00bar", IdentToken)
 	helperTestTokens(t, "'foo\u554abar'", StringToken)
 	helperTestTokens(t, "\\000026B", IdentToken)
@@ -126,7 +133,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "color: blue !ie;", IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken)
 
 	// coverage
-	helperTestTokens(t, "  \n\r\n\"\\\r\n\"", StringToken)
+	helperTestTokens(t, "  \n\r\n\r\"\\\r\n\"", StringToken)
 	helperTestTokens(t, "U+?????? U+ABCD?? U+ABC-DEF", UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken)
 	helperTestTokens(t, "U+? U+A?", IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken)
 	helperTestTokens(t, "-5.23 -moz", NumberToken, IdentToken)
@@ -135,7 +142,7 @@ func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, "url( ", URLToken)
 	helperTestTokens(t, "url( //url", URLToken)
 	helperTestTokens(t, "url(\")a", URLToken)
-	helperTestTokens(t, "url(a')a", BadURLToken, IdentToken)
+	helperTestTokens(t, "url(a'\\\n)a", BadURLToken, IdentToken)
 	helperTestTokens(t, "url(\"\n)a", BadURLToken, IdentToken)
 	helperTestTokens(t, "url(a h)a", BadURLToken, IdentToken)
 	helperTestTokens(t, "<!- | @4 ## /2", DelimToken, DelimToken, DelimToken, DelimToken, DelimToken, NumberToken, DelimToken, DelimToken, DelimToken, NumberToken)
@@ -172,4 +179,6 @@ func TestTokenizer(t *testing.T) {
 	helperTestSplit(t, ".2e-51em", ".2e-51 em")
 	helperTestIdent(t, "color", true)
 	helperTestIdent(t, "4.5", false)
+	helperTestUrlUnquoted(t, "http://x", true)
+	helperTestUrlUnquoted(t, ")", false)
 }

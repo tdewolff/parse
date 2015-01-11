@@ -51,4 +51,7 @@ func TestParser(t *testing.T) {
 	// hacks
 	helperTestParseString(t, "*zoom:5;", "*zoom:5;")
 	helperTestParseString(t, "a{*zoom:5;}", "")
+
+	// coverage
+	helperTestParseString(t, "a('';{})['';()]{x:y;}", "a('';{})['';()]{x:y;}")
 }
