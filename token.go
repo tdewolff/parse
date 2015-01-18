@@ -2,8 +2,10 @@ package css
 
 import (
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"io"
+	"net/url"
 	"strconv"
 )
 
@@ -53,8 +55,8 @@ const (
 )
 
 // String returns the string representation of a TokenType.
-func (t TokenType) String() string {
-	switch t {
+func (tt TokenType) String() string {
+	switch tt {
 	case ErrorToken:
 		return "Error"
 	case IdentToken:
@@ -122,7 +124,7 @@ func (t TokenType) String() string {
 	case CommentToken:
 		return "Comment"
 	}
-	return "Invalid(" + strconv.Itoa(int(t)) + ")"
+	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
 ////////////////////////////////////////////////////////////////
@@ -763,19 +765,68 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 ////////////////////////////////////////////////////////////////
 
-// SplitNumberToken splits the data of a dimension token into the number and dimension parts
+// SplitNumberToken splits the data of a dimension token into the number and dimension parts.
 func SplitNumberToken(b []byte) ([]byte, []byte) {
 	z := NewTokenizerBytes(b)
 	z.consumeNumberToken()
 	return b[:z.r.Len()], b[z.r.Len():]
 }
 
+// SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
+func SplitDataURI(b []byte) ([]byte, []byte, bool) {
+	if len(b) > 10 && bytes.Equal(b[:4], []byte("url(")) {
+		b = b[4:len(b)-1]
+		if (b[0] == '\'' || b[0] == '"') && b[0] == b[len(b)-1] {
+			b = b[1:len(b)-1]
+		}
+		if bytes.Equal(b[:5], []byte("data:")) {
+			b = b[5:]
+			if i := bytes.IndexByte(b, ','); i != -1 {
+				meta := bytes.Split(b[:i], []byte(";"))
+				mime := []byte("text/plain")
+				charset := []byte("charset=US-ASCII")
+				data := b[i+1:]
+
+				inBase64 := false
+				if len(meta) > 0 {
+					mime = meta[0]
+					for _, m := range meta[1:] {
+						if bytes.Equal(m, []byte("base64")) {
+							inBase64 = true
+						} else if len(m) > 8 && bytes.Equal(m[:8], []byte("charset=")) {
+							charset = m
+						}
+					}
+				}
+				if inBase64 {
+					decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+					n, err := base64.StdEncoding.Decode(decoded, data)
+					if err != nil {
+						return nil, nil, false
+					}
+					data = decoded[:n]
+				} else {
+					unescaped, err := url.QueryUnescape(string(data))
+					if err != nil {
+						return nil, nil, false
+					}
+					data = []byte(unescaped)
+				}
+				return append(append(append([]byte{}, mime...), ';'), charset...), data, true
+			}
+		}
+	}
+	return nil, nil, false
+}
+
+// IsIdent returns true if the bytes are a valid identifier
 func IsIdent(b []byte) bool {
 	z := NewTokenizerBytes(b)
 	z.consumeIdentToken()
 	return z.r.Len() == len(b)
 }
 
+// IsUrlUnquoted returns true if the bytes are a valid unquoted URL
 func IsUrlUnquoted(b []byte) bool {
 	z := NewTokenizerBytes(b)
 	z.consumeUnquotedURL()
