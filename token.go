@@ -775,9 +775,9 @@ func SplitNumberToken(b []byte) ([]byte, []byte) {
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
 func SplitDataURI(b []byte) ([]byte, []byte, bool) {
 	if len(b) > 10 && bytes.Equal(b[:4], []byte("url(")) {
-		b = b[4:len(b)-1]
+		b = b[4 : len(b)-1]
 		if (b[0] == '\'' || b[0] == '"') && b[0] == b[len(b)-1] {
-			b = b[1:len(b)-1]
+			b = b[1 : len(b)-1]
 		}
 		if bytes.Equal(b[:5], []byte("data:")) {
 			b = b[5:]
