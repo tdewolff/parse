@@ -184,4 +184,8 @@ func main() {
 }
 ```
 
+## License
+
+Released under the [MIT license](license.md).
+
 [1]: http://golang.org/ "Go Language"
