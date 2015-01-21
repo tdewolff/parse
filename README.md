@@ -186,6 +186,6 @@ func main() {
 
 ## License
 
-Released under the [MIT license](license.md).
+Released under the [MIT license](LICENSE.md).
 
 [1]: http://golang.org/ "Go Language"
