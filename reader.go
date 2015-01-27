@@ -1,4 +1,4 @@
-package parse
+package parse // import "github.com/tdewolff/parse"
 
 import (
 	"errors"
