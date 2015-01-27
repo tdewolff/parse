@@ -6,11 +6,11 @@ This package is a CSS3 tokenizer and parser written in [Go][1]. The tokenizer fo
 ## Installation
 Run the following command
 
-	go get github.com/tdewolff/css
+	go get github.com/tdewolff/parse
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/css"
+	import "github.com/tdewolff/parse/css"
 
 ## Tokenizer
 ### Usage
@@ -76,7 +76,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/css"
+	"github.com/tdewolff/parse/css"
 )
 
 // Tokenize CSS3 from stdin.
@@ -158,7 +158,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/tdewolff/css"
+	"github.com/tdewolff/parse/css"
 )
 
 // Parse CSS3 from stdin.
