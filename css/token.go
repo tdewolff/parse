@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/url"
 	"strconv"
+
+	"github.com/tdewolff/parse"
 )
 
 // ErrBadEscape is returned when an escaped sequence contains a newline.
@@ -131,21 +133,21 @@ func (tt TokenType) String() string {
 
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r    ShiftBuffer
+	r    parse.ShiftBuffer
 	line int
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		NewShiftBufferReader(r),
+		parse.NewShiftBufferReader(r),
 		1,
 	}
 }
 
 func NewTokenizerBytes(b []byte) *Tokenizer {
 	return &Tokenizer{
-		NewShiftBufferBytes(b),
+		parse.NewShiftBufferBytes(b),
 		1,
 	}
 }
