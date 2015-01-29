@@ -6,8 +6,8 @@ import (
 )
 
 // minBuf and maxBuf are the initial and maximal internal buffer size.
-var minBuf = 1024
-var maxBuf = 4096
+const minBuf = 1024
+const maxBuf = 4096
 
 // ErrBufferExceeded is returned when the internal buffer exceeds 4096 bytes, a string or comment must thus be smaller than 4kB!
 var ErrBufferExceeded = errors.New("max buffer exceeded")
