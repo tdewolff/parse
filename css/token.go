@@ -133,21 +133,14 @@ func (tt TokenType) String() string {
 
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r    parse.ShiftBuffer
+	r    *parse.ShiftBuffer
 	line int
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		parse.NewShiftBufferReader(r),
-		1,
-	}
-}
-
-func NewTokenizerBytes(b []byte) *Tokenizer {
-	return &Tokenizer{
-		parse.NewShiftBufferBytes(b),
+		parse.NewShiftBuffer(r),
 		1,
 	}
 }
@@ -164,7 +157,7 @@ func (z Tokenizer) Err() error {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
-	switch z.r.Read(0) {
+	switch z.r.Peek(0) {
 	case ' ', '\t', '\n', '\r', '\f':
 		if z.consumeWhitespaceToken() {
 			return WhitespaceToken, z.r.Shift()
@@ -268,7 +261,7 @@ The following functions follow the railroad diagrams in http://www.w3.org/TR/css
 */
 
 func (z *Tokenizer) consumeByte(c byte) bool {
-	if z.r.Read(0) == c {
+	if z.r.Peek(0) == c {
 		z.r.Move(1)
 		return true
 	}
@@ -276,7 +269,7 @@ func (z *Tokenizer) consumeByte(c byte) bool {
 }
 
 func (z *Tokenizer) consumeRune() bool {
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if c < 0xC0 {
 		z.r.Move(1)
 	} else if c < 0xE0 {
@@ -290,17 +283,17 @@ func (z *Tokenizer) consumeRune() bool {
 }
 
 func (z *Tokenizer) consumeComment() bool {
-	if z.r.Read(0) != '/' || z.r.Read(1) != '*' {
+	if z.r.Peek(0) != '/' || z.r.Peek(1) != '*' {
 		return false
 	}
 	nOld := z.r.Len()
 	z.r.Move(2)
 	for {
-		if z.r.Read(0) == '*' && z.r.Read(1) == '/' {
+		if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
 			z.r.Move(2)
 			return true
 		}
-		if z.r.Read(0) == 0 {
+		if z.r.Peek(0) == 0 {
 			break
 		}
 		z.consumeRune()
@@ -314,7 +307,7 @@ func (z *Tokenizer) consumeComment() bool {
 }
 
 func (z *Tokenizer) consumeNewline() bool {
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if c == '\n' || c == '\f' {
 		z.line++
 		z.r.Move(1)
@@ -322,7 +315,7 @@ func (z *Tokenizer) consumeNewline() bool {
 	}
 	if c == '\r' {
 		z.line++
-		if z.r.Read(1) == '\n' {
+		if z.r.Peek(1) == '\n' {
 			z.r.Move(2)
 		} else {
 			z.r.Move(1)
@@ -333,7 +326,7 @@ func (z *Tokenizer) consumeNewline() bool {
 }
 
 func (z *Tokenizer) consumeWhitespace() bool {
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' {
 		z.r.Move(1)
 		return true
@@ -342,7 +335,7 @@ func (z *Tokenizer) consumeWhitespace() bool {
 }
 
 func (z *Tokenizer) consumeHexDigit() bool {
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
 		z.r.Move(1)
 		return true
@@ -352,7 +345,7 @@ func (z *Tokenizer) consumeHexDigit() bool {
 
 // TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
 func (z *Tokenizer) consumeEscape() bool {
-	if z.r.Read(0) != '\\' {
+	if z.r.Peek(0) != '\\' {
 		return false
 	}
 	nOld := z.r.Len()
@@ -375,7 +368,7 @@ func (z *Tokenizer) consumeEscape() bool {
 }
 
 func (z *Tokenizer) consumeDigit() bool {
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if c >= '0' && c <= '9' {
 		z.r.Move(1)
 		return true
@@ -394,12 +387,12 @@ func (z *Tokenizer) consumeWhitespaceToken() bool {
 
 func (z *Tokenizer) consumeIdentToken() bool {
 	nOld := z.r.Len()
-	if z.r.Read(0) == '-' {
+	if z.r.Peek(0) == '-' {
 		z.r.Move(1)
 	}
 
 	if !z.consumeEscape() {
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
 			z.r.MoveTo(nOld)
 			return false
@@ -408,7 +401,7 @@ func (z *Tokenizer) consumeIdentToken() bool {
 	}
 
 	for {
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 			if c == '\\' && z.consumeEscape() {
 				continue
@@ -425,7 +418,7 @@ func (z *Tokenizer) consumeIdentToken() bool {
 }
 
 func (z *Tokenizer) consumeAtKeywordToken() bool {
-	if z.r.Read(0) != '@' {
+	if z.r.Peek(0) != '@' {
 		return false
 	}
 	z.r.Move(1)
@@ -437,13 +430,13 @@ func (z *Tokenizer) consumeAtKeywordToken() bool {
 }
 
 func (z *Tokenizer) consumeHashToken() bool {
-	if z.r.Read(0) != '#' {
+	if z.r.Peek(0) != '#' {
 		return false
 	}
 	nOld := z.r.Len()
 	z.r.Move(1)
 	if !z.consumeEscape() {
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 			z.r.MoveTo(nOld)
 			return false
@@ -451,7 +444,7 @@ func (z *Tokenizer) consumeHashToken() bool {
 		z.consumeRune()
 	}
 	for {
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 			if c == '\\' && z.consumeEscape() {
 				continue
@@ -469,7 +462,7 @@ func (z *Tokenizer) consumeHashToken() bool {
 
 func (z *Tokenizer) consumeNumberToken() bool {
 	nOld := z.r.Len()
-	c := z.r.Read(0)
+	c := z.r.Peek(0)
 	if c == '+' || c == '-' {
 		z.r.Move(1)
 	}
@@ -478,7 +471,7 @@ func (z *Tokenizer) consumeNumberToken() bool {
 		for z.consumeDigit() {
 		}
 	}
-	if z.r.Read(0) == '.' {
+	if z.r.Peek(0) == '.' {
 		z.r.Move(1)
 		if z.consumeDigit() {
 			for z.consumeDigit() {
@@ -496,10 +489,10 @@ func (z *Tokenizer) consumeNumberToken() bool {
 		return false
 	}
 	nOld = z.r.Len()
-	c = z.r.Read(0)
+	c = z.r.Peek(0)
 	if c == 'e' || c == 'E' {
 		z.r.Move(1)
-		c = z.r.Read(0)
+		c = z.r.Peek(0)
 		if c == '+' || c == '-' {
 			z.r.Move(1)
 		}
@@ -515,8 +508,8 @@ func (z *Tokenizer) consumeNumberToken() bool {
 }
 
 func (z *Tokenizer) consumeUnicodeRangeToken() bool {
-	c := z.r.Read(0)
-	if (c != 'u' && c != 'U') || z.r.Read(1) != '+' {
+	c := z.r.Peek(0)
+	if (c != 'u' && c != 'U') || z.r.Peek(1) != '+' {
 		return false
 	}
 	nOld := z.r.Len()
@@ -568,7 +561,7 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 }
 
 func (z *Tokenizer) consumeColumnToken() bool {
-	if z.r.Read(0) == '|' && z.r.Read(1) == '|' {
+	if z.r.Peek(0) == '|' && z.r.Peek(1) == '|' {
 		z.r.Move(2)
 		return true
 	}
@@ -576,7 +569,7 @@ func (z *Tokenizer) consumeColumnToken() bool {
 }
 
 func (z *Tokenizer) consumeCDOToken() bool {
-	if z.r.Read(0) == '<' && z.r.Read(1) == '!' && z.r.Read(2) == '-' && z.r.Read(3) == '-' {
+	if z.r.Peek(0) == '<' && z.r.Peek(1) == '!' && z.r.Peek(2) == '-' && z.r.Peek(3) == '-' {
 		z.r.Move(4)
 		return true
 	}
@@ -584,7 +577,7 @@ func (z *Tokenizer) consumeCDOToken() bool {
 }
 
 func (z *Tokenizer) consumeCDCToken() bool {
-	if z.r.Read(0) == '-' && z.r.Read(1) == '-' && z.r.Read(2) == '>' {
+	if z.r.Peek(0) == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
 		z.r.Move(3)
 		return true
 	}
@@ -595,8 +588,8 @@ func (z *Tokenizer) consumeCDCToken() bool {
 
 // consumeMatch consumes any MatchToken.
 func (z *Tokenizer) consumeMatch() TokenType {
-	if z.r.Read(1) == '=' {
-		switch z.r.Read(0) {
+	if z.r.Peek(1) == '=' {
+		switch z.r.Peek(0) {
 		case '~':
 			z.r.Move(2)
 			return IncludeMatchToken
@@ -619,7 +612,7 @@ func (z *Tokenizer) consumeMatch() TokenType {
 
 // consumeBracket consumes any bracket token.
 func (z *Tokenizer) consumeBracket() TokenType {
-	switch z.r.Read(0) {
+	switch z.r.Peek(0) {
 	case '(':
 		z.r.Move(1)
 		return LeftParenthesisToken
@@ -658,7 +651,7 @@ func (z *Tokenizer) consumeNumeric() TokenType {
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
 func (z *Tokenizer) consumeString() TokenType {
-	delim := z.r.Read(0)
+	delim := z.r.Peek(0)
 	if delim != '"' && delim != '\'' {
 		return ErrorToken
 	}
@@ -667,7 +660,7 @@ func (z *Tokenizer) consumeString() TokenType {
 		if z.consumeNewline() {
 			return BadStringToken
 		}
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if c == 0 {
 			break
 		}
@@ -700,7 +693,7 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 			z.r.Move(-1)
 			break
 		}
-		c := z.r.Read(0)
+		c := z.r.Peek(0)
 		if c == 0 {
 			break
 		}
@@ -769,7 +762,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 // SplitNumberToken splits the data of a dimension token into the number and dimension parts.
 func SplitNumberToken(b []byte) ([]byte, []byte) {
-	z := NewTokenizerBytes(b)
+	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeNumberToken()
 	return b[:z.r.Len()], b[z.r.Len():]
 }
@@ -823,14 +816,14 @@ func SplitDataURI(b []byte) ([]byte, []byte, bool) {
 
 // IsIdent returns true if the bytes are a valid identifier
 func IsIdent(b []byte) bool {
-	z := NewTokenizerBytes(b)
+	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeIdentToken()
 	return z.r.Len() == len(b)
 }
 
 // IsUrlUnquoted returns true if the bytes are a valid unquoted URL
 func IsUrlUnquoted(b []byte) bool {
-	z := NewTokenizerBytes(b)
+	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeUnquotedURL()
 	return z.r.Len() == len(b)
 }

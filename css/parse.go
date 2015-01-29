@@ -70,6 +70,7 @@ Parser using example:
 package css // import "github.com/tdewolff/parse/css"
 
 import (
+	"bytes"
 	"io"
 	"io/ioutil"
 )
@@ -84,13 +85,14 @@ type parser struct {
 // Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
 // The returned StylesheetNode is the root node. All leaf nodes are TokenNode's.
 func Parse(r io.Reader) (*StylesheetNode, error) {
+	// TODO: make parser streaming
 	b, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 
 	p := &parser{
-		NewTokenizerBytes(b),
+		NewTokenizer(bytes.NewBuffer(b)),
 		make([]*TokenNode, 0, 20),
 	}
 

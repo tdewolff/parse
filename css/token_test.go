@@ -4,7 +4,20 @@ import (
 	"bytes"
 	"io"
 	"testing"
+
+	"github.com/tdewolff/parse"
 )
+
+// Don't implement Bytes() to test for buffer exceeding.
+type readerMockup struct {
+	r io.Reader
+}
+
+func (r *readerMockup) Read(p []byte) (int, error) {
+	return r.r.Read(p)
+}
+
+////////////////////////////////////////////////////////////////
 
 func helperTestTokens(t *testing.T, input string, tokentypes ...TokenType) {
 	z := NewTokenizer(bytes.NewBufferString(input))
@@ -36,7 +49,7 @@ func helperTestTokens(t *testing.T, input string, tokentypes ...TokenType) {
 }
 
 func helperTestTokenError(t *testing.T, input string, expErr error) {
-	z := NewTokenizer(bytes.NewBufferString(input))
+	z := NewTokenizer(&readerMockup{bytes.NewBufferString(input)})
 	for {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
@@ -87,6 +100,8 @@ func helperTestUrlUnquoted(t *testing.T, s string, q bool) {
 		t.Error(p, "!=", q, "in", s)
 	}
 }
+
+////////////////////////////////////////////////////////////////
 
 func TestTokenizer(t *testing.T) {
 	helperTestTokens(t, " ")
@@ -152,24 +167,24 @@ func TestTokenizer(t *testing.T) {
 	//helperTestTokenError(t, "\\\n", ErrBadEscape)
 
 	// small buffer
-	minBuf = 2
-	maxBuf = 4
-	helperTestTokenError(t, "\"abcd", ErrBufferExceeded)
-	helperTestTokenError(t, "ident", ErrBufferExceeded)
-	helperTestTokenError(t, "\\ABCD", ErrBufferExceeded)
-	helperTestTokenError(t, "/*comment", ErrBufferExceeded)
-	helperTestTokenError(t, " \t \t ", ErrBufferExceeded)
-	helperTestTokenError(t, "#abcd", ErrBufferExceeded)
-	helperTestTokenError(t, "12345", ErrBufferExceeded)
-	helperTestTokenError(t, "1.234", ErrBufferExceeded)
-	helperTestTokenError(t, "U+ABC", ErrBufferExceeded)
-	helperTestTokenError(t, "U+A-B", ErrBufferExceeded)
-	helperTestTokenError(t, "U+???", ErrBufferExceeded)
-	helperTestTokenError(t, "url((", ErrBufferExceeded)
-	helperTestTokenError(t, "id\u554a", ErrBufferExceeded)
+	parse.MinBuf = 2
+	parse.MaxBuf = 4
+	helperTestTokenError(t, "\"abcd", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "ident", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "\\ABCD", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "/*comment", parse.ErrBufferExceeded)
+	helperTestTokenError(t, " \t \t ", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "#abcd", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "12345", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "1.234", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "U+ABC", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "U+A-B", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "U+???", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "url((", parse.ErrBufferExceeded)
+	helperTestTokenError(t, "id\u554a", parse.ErrBufferExceeded)
 
-	minBuf = 5
-	maxBuf = 20
+	parse.MinBuf = 5
+	parse.MaxBuf = 20
 	helperTestTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	helperTestTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 
