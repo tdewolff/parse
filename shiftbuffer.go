@@ -35,7 +35,6 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 			buf: fr.Bytes(),
 		}
 	}
-
 	return &ShiftBuffer{
 		r: r,
 		buf: make([]byte, 0, MinBuf),
@@ -64,9 +63,14 @@ func (z *ShiftBuffer) MoveTo(n int) {
 	z.n = n
 }
 
-// Len returns the 0 position of read.
-func (z ShiftBuffer) Len() int {
+// Pos returns the 0 position of read.
+func (z ShiftBuffer) Pos() int {
 	return z.n
+}
+
+// Len returns the length of the buffer.
+func (z ShiftBuffer) Len() int {
+	return len(z.buf)
 }
 
 // Peek returns the ith byte and possible does a reallocation
@@ -102,8 +106,8 @@ func (z *ShiftBuffer) Peek(i int) byte {
 	return z.buf[z.pos+z.n+i]
 }
 
-// Bytes returns the bytes of the current selection.
-func (z ShiftBuffer) Bytes() []byte {
+// Buffered returns the bytes of the current selection.
+func (z ShiftBuffer) Buffered() []byte {
 	return z.buf[z.pos : z.pos+z.n]
 }
 

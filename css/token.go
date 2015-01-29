@@ -286,7 +286,7 @@ func (z *Tokenizer) consumeComment() bool {
 	if z.r.Peek(0) != '/' || z.r.Peek(1) != '*' {
 		return false
 	}
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	z.r.Move(2)
 	for {
 		if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
@@ -348,7 +348,7 @@ func (z *Tokenizer) consumeEscape() bool {
 	if z.r.Peek(0) != '\\' {
 		return false
 	}
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	z.r.Move(1)
 	if z.consumeNewline() {
 		z.r.MoveTo(nOld)
@@ -386,7 +386,7 @@ func (z *Tokenizer) consumeWhitespaceToken() bool {
 }
 
 func (z *Tokenizer) consumeIdentToken() bool {
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	if z.r.Peek(0) == '-' {
 		z.r.Move(1)
 	}
@@ -433,7 +433,7 @@ func (z *Tokenizer) consumeHashToken() bool {
 	if z.r.Peek(0) != '#' {
 		return false
 	}
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	z.r.Move(1)
 	if !z.consumeEscape() {
 		c := z.r.Peek(0)
@@ -461,7 +461,7 @@ func (z *Tokenizer) consumeHashToken() bool {
 }
 
 func (z *Tokenizer) consumeNumberToken() bool {
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	c := z.r.Peek(0)
 	if c == '+' || c == '-' {
 		z.r.Move(1)
@@ -488,7 +488,7 @@ func (z *Tokenizer) consumeNumberToken() bool {
 		z.r.MoveTo(nOld)
 		return false
 	}
-	nOld = z.r.Len()
+	nOld = z.r.Pos()
 	c = z.r.Peek(0)
 	if c == 'e' || c == 'E' {
 		z.r.Move(1)
@@ -512,7 +512,7 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 	if (c != 'u' && c != 'U') || z.r.Peek(1) != '+' {
 		return false
 	}
-	nOld := z.r.Len()
+	nOld := z.r.Pos()
 	z.r.Move(2)
 	if z.consumeHexDigit() {
 		// consume up to 6 hexDigits
@@ -731,7 +731,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 		if !z.consumeByte('(') {
 			return IdentToken
 		}
-		if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
+		if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Buffered(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
 			return FunctionToken
 		}
 
@@ -764,7 +764,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 func SplitNumberToken(b []byte) ([]byte, []byte) {
 	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeNumberToken()
-	return b[:z.r.Len()], b[z.r.Len():]
+	return b[:z.r.Pos()], b[z.r.Pos():]
 }
 
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
@@ -818,12 +818,12 @@ func SplitDataURI(b []byte) ([]byte, []byte, bool) {
 func IsIdent(b []byte) bool {
 	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeIdentToken()
-	return z.r.Len() == len(b)
+	return z.r.Pos() == len(b)
 }
 
 // IsUrlUnquoted returns true if the bytes are a valid unquoted URL
 func IsUrlUnquoted(b []byte) bool {
 	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeUnquotedURL()
-	return z.r.Len() == len(b)
+	return z.r.Pos() == len(b)
 }

@@ -14,7 +14,11 @@ type readerMockup struct {
 }
 
 func (r *readerMockup) Read(p []byte) (int, error) {
-	return r.r.Read(p)
+	n, err := r.r.Read(p)
+	if n < len(p) {
+		err = io.EOF
+	}
+	return n, err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -54,7 +58,7 @@ func helperTestTokenError(t *testing.T, input string, expErr error) {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
 			if z.Err() != expErr {
-				t.Error(z.Err(), "!=", expErr, "for", string(z.r.Bytes()), "in", input)
+				t.Error(z.Err(), "!=", expErr, "for", string(z.r.Buffered()), "in", input)
 			}
 			break
 		}
