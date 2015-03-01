@@ -45,14 +45,7 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 
 // Err returns the error.
 func (z ShiftBuffer) Err() error {
-	if z.readErr == io.EOF {
-		if z.pos+z.n >= len(z.buf) {
-			return io.EOF
-		}
-	} else if z.readErr != nil {
-		return z.readErr
-	}
-	return nil
+	return z.readErr
 }
 
 // Move advances the 0 position of read.
