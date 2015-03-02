@@ -22,8 +22,6 @@ type ShiftBuffer struct {
 	buf []byte
 	pos int
 	n   int
-
-	minBuf, maxBuf int
 }
 
 // NewShiftBufferReader returns a new ShiftBuffer.
@@ -37,10 +35,13 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 			buf:     fr.Bytes(),
 		}
 	}
-	return &ShiftBuffer{
+
+	b := &ShiftBuffer{
 		r:   r,
 		buf: make([]byte, 0, MinBuf),
 	}
+	b.Peek(0)
+	return b
 }
 
 // Err returns the error.
@@ -68,7 +69,7 @@ func (z ShiftBuffer) Pos() int {
 
 // Len returns the length of the buffer.
 func (z ShiftBuffer) Len() int {
-	return len(z.buf)
+	return len(z.buf) - z.pos
 }
 
 // Peek returns the ith byte and possible does a reallocation
@@ -88,6 +89,9 @@ func (z *ShiftBuffer) Peek(i int) byte {
 				return 0
 			}
 			buf1 = make([]byte, d, 2*c)
+		} else if d >= len(z.buf) {
+			z.readErr = ErrBufferExceeded
+			return 0
 		} else {
 			buf1 = z.buf[:d]
 		}
