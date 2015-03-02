@@ -73,6 +73,7 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"fmt"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -197,6 +198,8 @@ func (p *parser) parseRuleset() *RulesetNode {
 		return nil
 	}
 
+	fmt.Println(p.index(0))
+
 	n := NewRuleset()
 	for {
 		if cn := p.parseSelectorGroup(); cn != nil {
@@ -205,6 +208,8 @@ func (p *parser) parseRuleset() *RulesetNode {
 			break
 		}
 	}
+
+	fmt.Println(p.index(0))
 
 	// declarations
 	if !p.at(LeftBraceToken) {
@@ -347,6 +352,7 @@ func (p *parser) parseBlock() *BlockNode {
 	}
 	n := NewBlock(p.shift())
 	for {
+		p.skipWhitespace()
 		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
 			break
 		} else if cn := p.parseAtRule(); cn != nil {
@@ -356,7 +362,8 @@ func (p *parser) parseBlock() *BlockNode {
 		} else if cn := p.parseDeclaration(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
 		} else if !p.at(ErrorToken) {
-			n.Nodes = append(n.Nodes, p.shift())
+			t := p.shift()
+			n.Nodes = append(n.Nodes, t)
 		}
 	}
 	if !p.at(ErrorToken) {
