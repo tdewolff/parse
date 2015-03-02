@@ -89,9 +89,6 @@ func (z *ShiftBuffer) Peek(i int) byte {
 				return 0
 			}
 			buf1 = make([]byte, d, 2*c)
-		} else if d >= len(z.buf) {
-			z.readErr = ErrBufferExceeded
-			return 0
 		} else {
 			buf1 = z.buf[:d]
 		}
