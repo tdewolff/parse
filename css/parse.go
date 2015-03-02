@@ -323,8 +323,18 @@ func (p *parser) parseArgument() *ArgumentNode {
 		n.Key = n.Vals[0]
 		n.Vals[0] = p.shift()
 	}
-	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
-		p.skipWhitespace()
+	bracketLevel := 0
+	if n.Vals[0].TokenType == LeftParenthesisToken {
+		bracketLevel++
+	}
+	for !p.at(CommaToken) && (!p.at(RightParenthesisToken) || p.at(RightParenthesisToken) && bracketLevel > 0) && !p.at(ErrorToken) {
+		if p.at(WhitespaceToken) {
+			continue
+		} else if p.at(LeftParenthesisToken) {
+			bracketLevel++
+		} else if p.at(RightParenthesisToken) {
+			bracketLevel--
+		}
 		n.Vals = append(n.Vals, p.shift())
 	}
 	return n

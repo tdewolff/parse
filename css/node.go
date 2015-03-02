@@ -396,12 +396,7 @@ func (n ArgumentNode) Serialize(w io.Writer) error {
 			return err
 		}
 	}
-	for i, m := range n.Vals {
-		if i != 0 {
-			if _, err := w.Write([]byte(" ")); err != nil {
-				return err
-			}
-		}
+	for _, m := range n.Vals {
 		if err := m.Serialize(w); err != nil {
 			return err
 		}
