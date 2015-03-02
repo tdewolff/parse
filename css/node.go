@@ -362,24 +362,26 @@ func (n DeclarationNode) Serialize(w io.Writer) error {
 // FunctionNode represents a function and its arguments
 type ArgumentNode struct {
 	Key *TokenNode
-	Val *TokenNode
+	Vals []*TokenNode
 }
 
 // NewArgument returns a new ArgumentNode
-func NewArgument(key, val *TokenNode) *ArgumentNode {
+func NewArgument(val *TokenNode) *ArgumentNode {
 	return &ArgumentNode{
-		key,
-		val,
+		nil,
+		[]*TokenNode{val},
 	}
 }
 
 // Equals returns true when the nodes match (deep)
 func (n ArgumentNode) Equals(other *ArgumentNode) bool {
-	if !n.Val.Equals(other.Val) {
-		return false
-	}
 	if n.Key == nil && other.Key != nil || !n.Key.Equals(other.Key) {
 		return false
+	}
+	for i, otherNode := range other.Vals {
+		if !n.Vals[i].Equals(otherNode) {
+			return false
+		}
 	}
 	return true
 }
@@ -394,8 +396,15 @@ func (n ArgumentNode) Serialize(w io.Writer) error {
 			return err
 		}
 	}
-	if err := n.Val.Serialize(w); err != nil {
-		return err
+	for i, m := range n.Vals {
+		if i != 0 {
+			if _, err := w.Write([]byte(" ")); err != nil {
+				return err
+			}
+		}
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
 	}
 	return nil
 }

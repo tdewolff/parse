@@ -73,7 +73,6 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	"fmt"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -198,8 +197,6 @@ func (p *parser) parseRuleset() *RulesetNode {
 		return nil
 	}
 
-	fmt.Println(p.index(0))
-
 	n := NewRuleset()
 	for {
 		if cn := p.parseSelectorGroup(); cn != nil {
@@ -208,8 +205,6 @@ func (p *parser) parseRuleset() *RulesetNode {
 			break
 		}
 	}
-
-	fmt.Println(p.index(0))
 
 	// declarations
 	if !p.at(LeftBraceToken) {
@@ -322,11 +317,17 @@ func (p *parser) parseDeclaration() *DeclarationNode {
 
 func (p *parser) parseArgument() *ArgumentNode {
 	first := p.shift()
+	n := NewArgument(first)
 	if p.at(DelimToken) && len(p.buf[0].Data) == 1 && p.buf[0].Data[0] == '=' {
 		p.shift()
-		return NewArgument(first, p.shift())
+		n.Key = n.Vals[0]
+		n.Vals[0] = p.shift()
 	}
-	return NewArgument(nil, first)
+	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
+		p.skipWhitespace()
+		n.Vals = append(n.Vals, p.shift())
+	}
+	return n
 }
 
 func (p *parser) parseFunction() *FunctionNode {
@@ -362,8 +363,7 @@ func (p *parser) parseBlock() *BlockNode {
 		} else if cn := p.parseDeclaration(); cn != nil {
 			n.Nodes = append(n.Nodes, cn)
 		} else if !p.at(ErrorToken) {
-			t := p.shift()
-			n.Nodes = append(n.Nodes, t)
+			n.Nodes = append(n.Nodes, p.shift())
 		}
 	}
 	if !p.at(ErrorToken) {
