@@ -10,7 +10,7 @@ import (
 ////////////////////////////////////////////////////////////////
 
 func assertParse(t *testing.T, input, expected string) {
-	stylesheet, err := NewParser(NewTokenizer(&ReaderMockup{bytes.NewBufferString(input)})).Parse()
+	stylesheet, err := Parse(&ReaderMockup{bytes.NewBufferString(input)})
 	assert.Nil(t, err, "parser must not return error")
 
 	b := &bytes.Buffer{}
