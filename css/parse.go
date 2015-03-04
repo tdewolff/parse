@@ -198,13 +198,24 @@ func (p *parser) parseRuleset() *RulesetNode {
 	}
 
 	n := NewRuleset()
-	for {
-		if cn := p.parseSelectorGroup(); cn != nil {
-			n.SelGroups = append(n.SelGroups, cn)
-		} else {
-			break
+	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
+		if p.at(CommaToken) {
+			p.shift()
+			p.skipWhitespace()
+			continue
 		}
+		if cn := p.parseSelector(); cn != nil {
+			n.Selectors = append(n.Selectors, cn)
+		}
+		p.skipWhitespace()
 	}
+	// for {
+	// 	if cn := p.parseSelectorsGroup(); cn != nil {
+	// 		n.SelGroups = append(n.SelGroups, cn)
+	// 	} else {
+	// 		break
+	// 	}
+	// }
 
 	// declarations
 	if !p.at(LeftBraceToken) {
@@ -231,66 +242,57 @@ func (p *parser) parseRuleset() *RulesetNode {
 	return n
 }
 
-func (p *parser) parseSelectorGroup() *SelectorGroupNode {
-	n := NewSelectorGroup()
-	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if cn := p.parseSelector(); cn != nil {
-			n.Selectors = append(n.Selectors, cn)
-		} else {
-			break
-		}
-	}
-	p.skipWhile(CommaToken)
-	if len(n.Selectors) == 0 {
-		return nil
-	}
-	return n
-}
+// func (p *parser) parseSelectorsGroup() *SelectorsGroupNode {
+// 	n := NewSelectorsGroup()
+// 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
+// 		if cn := p.parseSelector(); cn != nil {
+// 			n.Selectors = append(n.Selectors, cn)
+// 		} else {
+// 			break
+// 		}
+// 	}
+// 	p.skipWhile(CommaToken)
+// 	if len(n.Selectors) == 0 {
+// 		return nil
+// 	}
+// 	return n
+// }
 
 func (p *parser) parseSelector() *SelectorNode {
 	n := NewSelector()
-	for p.index(0) != WhitespaceToken && p.index(0) != CommaToken && p.index(0) != LeftBraceToken && p.index(0) != ErrorToken {
+	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.index(0) == CommentToken {
 			p.buf = p.buf[1:]
 			continue
-		} else if p.index(0) == LeftParenthesisToken {
-			for p.index(0) != RightParenthesisToken && p.index(0) != ErrorToken {
-				n.Nodes = append(n.Nodes, p.shift())
+		}
+		if p.at(DelimToken) {
+			i := 0
+			for p.index(i) == WhitespaceToken || p.index(i) == CommentToken {
+				i++
 			}
-			n.Nodes = append(n.Nodes, p.shift())
-		} else if p.index(0) == LeftBracketToken {
-			p.shift()
-			if attr := p.parseAttributeSelector(); attr != nil {
-				n.Nodes = append(n.Nodes, attr)
-			} else {
-				for p.index(0) != RightBracketToken && p.index(0) != ErrorToken {
-					n.Nodes = append(n.Nodes, p.shift())
-				}
-				n.Nodes = append(n.Nodes, p.shift())
+			c := p.buf[i].Data[0]
+			if c == '>' || c == '+' || c == '~' {
+				n.Elems = append(n.Elems, p.shift())
+				p.skipWhitespace()
+				continue
 			}
+		}
+		if p.index(0) == WhitespaceToken {
+			n.Elems = append(n.Elems, p.buf[0])
+			p.buf = p.buf[1:]
+			p.skipWhitespace()
+		} else if p.at(LeftBracketToken) {
+			for !p.at(RightBracketToken) {
+				n.Elems = append(n.Elems, p.shift())
+			}
+			n.Elems = append(n.Elems, p.shift())
 		} else {
-			n.Nodes = append(n.Nodes, p.shift())
+			n.Elems = append(n.Elems, p.shift())
 		}
 	}
-	p.skipWhitespace()
-	if len(n.Nodes) == 0 {
+	if len(n.Elems) == 0 {
 		return nil
 	}
-	return n
-}
-
-func (p *parser) parseAttributeSelector() *AttributeSelectorNode {
-	if !p.at(IdentToken) && p.index(1) != RightBracketToken && p.index(1) != DelimToken && p.index(1) != IncludeMatchToken && p.index(1) != DashMatchToken && p.index(1) != PrefixMatchToken && p.index(1) != SuffixMatchToken && p.index(1) != SubstringMatchToken {
-		return nil
-	}
-	n := NewAttributeSelector(p.shift())
-	if p.index(0) != RightBracketToken {
-		n.Op = p.shift()
-		for p.index(0) != RightBracketToken {
-			n.Vals = append(n.Vals, p.shift())
-		}
-	}
-	p.shift() // right bracket
 	return n
 }
 
@@ -316,17 +318,8 @@ func (p *parser) parseDeclaration() *DeclarationNode {
 }
 
 func (p *parser) parseArgument() *ArgumentNode {
-	first := p.shift()
-	n := NewArgument(first)
-	if p.at(DelimToken) && len(p.buf[0].Data) == 1 && p.buf[0].Data[0] == '=' {
-		p.shift()
-		n.Key = n.Vals[0]
-		n.Vals[0] = p.shift()
-	}
+	n := NewArgument()
 	bracketLevel := 0
-	if n.Vals[0].TokenType == LeftParenthesisToken {
-		bracketLevel++
-	}
 	for !p.at(CommaToken) && (!p.at(RightParenthesisToken) || p.at(RightParenthesisToken) && bracketLevel > 0) && !p.at(ErrorToken) {
 		if p.at(WhitespaceToken) {
 			continue
@@ -392,7 +385,7 @@ func (p *parser) parseAtRule() *AtRuleNode {
 	}
 	if p.at(LeftBraceToken) {
 		if cn := p.parseBlock(); cn != nil {
-			n.Block = cn
+			n.Rules = cn.Nodes
 		} else {
 			p.skipUntil(RightBraceToken)
 			p.shift()

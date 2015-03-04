@@ -9,18 +9,27 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+////////////////////////////////////////////////////////////////
+
 func assertParse2(t *testing.T, input, expected string) {
-	stylesheet, err := NewParser2(NewTokenizer(bytes.NewBufferString(input))).Parse()
+	stylesheet, err := NewParser2(NewTokenizer(&ReaderMockup{bytes.NewBufferString(input)})).Parse()
 	assert.Nil(t, err, "parser must not return error")
 
 	b := &bytes.Buffer{}
 	stylesheet.Serialize(b)
-	assert.Equal(t, expected, b.String(), "parsed string must match expected result")
+	assert.Equal(t, expected, b.String(), "parsed string must match expected result in "+input)
 
 	if expected != b.String() {
 		printParse2(t, input)
-		if a, ok := stylesheet.Nodes[0].(*AtRuleNode); ok {
-			fmt.Println(a.Rules)
+		fmt.Println(len(stylesheet.Nodes))
+		for _, x := range stylesheet.Nodes {
+			if y, ok := x.(*AtRuleNode); ok {
+				//for _, z := range y.Rules {
+					fmt.Print("\n--")
+					y.Serialize(os.Stdout)
+					fmt.Print("--\n")
+				//}
+			}
 		}
 	}
 }
@@ -50,7 +59,7 @@ func printParse2(t *testing.T, input string) {
 }
 
 func TestParser2(t *testing.T) {
-	assertParse2(t, "<!-- x:y; -->", "<!--x:y;-->")
+	assertParse2(t, " <!-- x : y ; --> ", "<!--x:y;-->")
 	assertParse2(t, "color: red;", "color:red;")
 	assertParse2(t, "color : red;", "color:red;")
 	assertParse2(t, "color: red; border: 0;", "color:red;border:0;")
@@ -68,13 +77,14 @@ func TestParser2(t *testing.T) {
 	assertParse2(t, "color: calc(100%/2 - 1em);", "color:calc(100%/2 - 1em);")
 	assertParse2(t, "color: calc(100%/2--1em);", "color:calc(100%/2 - -1em);")
 	assertParse2(t, "@media print, screen { }", "@media print,screen;")
-	assertParse2(t, "@media { @viewport {} }", "@media {@viewport;}")
-	assertParse2(t, "@keyframes 'diagonal-slide' {  from { left: 0; top: 0; } to { left: 100px; top: 100px; } }", "@keyframes 'diagonal-slide' {from{left:0;top:0;}to{left:100px;top:100px;}}")
-	assertParse2(t, "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}", "@keyframes movingbox {0%{left:90%;}50%{left:10%;}100%{left:90%;}}")
+	assertParse2(t, "@media { @viewport {} }", "@media{@viewport;}")
+	assertParse2(t, "@keyframes 'diagonal-slide' {  from { left: 0; top: 0; } to { left: 100px; top: 100px; } }", "@keyframes 'diagonal-slide'{from{left:0;top:0;}to{left:100px;top:100px;}}")
+	assertParse2(t, "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}", "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}")
 	assertParse2(t, ".foo { color: #fff;}", ".foo{color:#fff;}")
 	assertParse2(t, ".foo { *color: #fff;}", ".foo{color:#fff;}")
 	assertParse2(t, ".foo { _color: #fff;}", ".foo{_color:#fff;}")
 	assertParse2(t, "a { color: red; border: 0; }", "a{color:red;border:0;}")
+	assertParse2(t, "a { color: red; ; } ; ;", "a{color:red;}")
 	assertParse2(t, "a { color: red; border: 0; } b { padding: 0; }", "a{color:red;border:0;}b{padding:0;}")
 
 	// extraordinary
@@ -89,19 +99,23 @@ func TestParser2(t *testing.T) {
 	assertParse2(t, "a,.b/*comment*/ {x:y;}", "a,.b{x:y;}")
 	assertParse2(t, "a,.b/*comment*/.c {x:y;}", "a,.b.c{x:y;}")
 	assertParse2(t, "a{x:; z:q;}", "a{x:;z:q;}")
-	assertParse2(t, "@import { @media f; x:y; }", "@import {@media f;x:y;}")
+	assertParse2(t, "@import { @media f; x:y; }", "@import{@media f;x:y;}")
 	assertParse2(t, "a:not([controls]){x:y;}", "a:not([controls]){x:y;}")
 	assertParse2(t, "color:#c0c0c0", "color:#c0c0c0;")
 	assertParse2(t, "background:URL(x.png);", "background:URL(x.png);")
-	assertParse2(t, "@document regexp('https:.*') { p { color: red; } }", "@document regexp('https:.*') {p{color:red;}}")
+	assertParse2(t, "@document regexp('https:.*') { p { color: red; } }", "@document regexp('https:.*'){p{color:red;}}")
 	assertParse2(t, "@media all and ( max-width:400px ) { }", "@media all and (max-width:400px);")
 	assertParse2(t, "@media (max-width:400px) { }", "@media (max-width:400px);")
+	assertParse2(t, "@media (max-width:400px)", "@media (max-width:400px);")
 	assertParse2(t, "a[x={]{x:y;}", "a[x={]{x:y;}")
 	assertParse2(t, "a[x=,]{x:y;}", "a[x=,]{x:y;}")
 	assertParse2(t, "a[x=+]{x:y;}", "a[x=+]{x:y;}")
 	assertParse2(t, ".cla .ss > #id { x:y; }", ".cla .ss>#id{x:y;}")
+	assertParse2(t, ".cla /*a*/ /*b*/ .ss{}", ".cla .ss{}")
+	assertParse2(t, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);")
+	assertParse2(t, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
 
 	// issues
-	assertParse2(t, "@media print {.class{width:5px;}}", "@media print {.class{width:5px;}}") // #6
+	assertParse2(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}") // #6
 	assertParse2(t, ".class{width:calc((50% + 2em)/2 + 14px);}}", ".class{width:calc((50% + 2em)/2 + 14px);}}") // #7
 }

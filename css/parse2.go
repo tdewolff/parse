@@ -18,7 +18,6 @@ const (
 	EndAtRuleGrammar
 	RulesetGrammar
 	EndRulesetGrammar
-	BlockGrammar
 	DeclarationGrammar
 	TokenGrammar
 )
@@ -58,6 +57,7 @@ const (
 
 type TokenStream interface {
 	Next() (TokenType, []byte)
+	CopyFunc(func())
 	Err() error
 }
 
@@ -70,80 +70,103 @@ type Token struct {
 
 type Parser2 struct {
 	z     TokenStream
-	buf   []*TokenNode
 	state []ParserState
+
+	buf []*TokenNode
+	pos int
 }
 
 func NewParser2(z TokenStream) *Parser2 {
-	return &Parser2{
+	p := &Parser2{
 		z,
-		[]*TokenNode{},
 		[]ParserState{StylesheetState},
+		make([]*TokenNode, 0, 16),
+		0,
 	}
+	z.CopyFunc(p.copy)
+	return p
 }
 
 func (p *Parser2) Parse() (*StylesheetNode, error) {
+	var err error
 	stylesheet := NewStylesheet()
 	for {
 		gt, n := p.Next()
 		if gt == ErrorGrammar {
+			err = p.z.Err()
 			break
-		} else if gt == AtRuleGrammar || gt == RulesetGrammar {
-			p.appendNodesRecursively(gt, n)
 		}
 		stylesheet.Nodes = append(stylesheet.Nodes, n)
+		if err = p.parseRecursively(gt, n); err != nil {
+			break
+		}
 	}
-	err := p.z.Err()
-	if err == io.EOF {
-		err = nil
+	if err != io.EOF {
+		return stylesheet, err
 	}
-	return stylesheet, err
+	return stylesheet, nil
 }
 
-func (p *Parser2) appendNodesRecursively(gt GrammarType, n Node) {
-	if gt == AtRuleGrammar {
+func (p *Parser2) parseRecursively(rootGt GrammarType, n Node) error {
+	if rootGt == AtRuleGrammar {
 		atRule := n.(*AtRuleNode)
 		for {
-			gt2, n2 := p.Next()
-			if gt2 == ErrorGrammar || gt2 == EndAtRuleGrammar {
+			gt, m := p.Next()
+			if gt == ErrorGrammar {
+				return p.z.Err()
+			} else if gt == EndAtRuleGrammar {
 				break
 			}
-			if gt2 == AtRuleGrammar || gt2 == RulesetGrammar {
-				p.appendNodesRecursively(gt2, n2)
+			atRule.Rules = append(atRule.Rules, m)
+			if err := p.parseRecursively(gt, m); err != nil {
+				return err
 			}
-			atRule.Rules = append(atRule.Rules, n2)
 		}
-	} else if gt == RulesetGrammar {
+	} else if rootGt == RulesetGrammar {
 		ruleset := n.(*RulesetNode)
 		for {
-			gt2, n2 := p.Next()
-			if gt2 == ErrorGrammar || gt2 == EndRulesetGrammar {
+			gt, m := p.Next()
+			if gt == ErrorGrammar {
+				return p.z.Err()
+			} else if gt == EndRulesetGrammar {
 				break
 			}
-			if m, ok := n2.(*DeclarationNode); ok {
-				ruleset.Decls = append(ruleset.Decls, m)
+			if decl, ok := m.(*DeclarationNode); ok {
+				ruleset.Decls = append(ruleset.Decls, decl)
 			}
 		}
 	}
+	return nil
+}
+
+// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
+func (p Parser2) Err() error {
+	return p.z.Err()
 }
 
 func (p *Parser2) Next() (GrammarType, Node) {
 	if p.at(ErrorToken) {
 		return ErrorGrammar, nil
 	}
+	p.skipWhitespace()
 
 	// return End types
-	if p.State() == AtRuleState && (p.at(RightBraceToken) || p.at(SemicolonToken)) {
-		p.state = p.state[:len(p.state)-1]
-		t := p.shift()
+	state := p.State()
+	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) || p.at(SemicolonToken) && state == AtRuleState {
+		n := p.shift()
 		p.skipWhile(SemicolonToken)
-		return EndAtRuleGrammar, t
-	} else if p.State() == RulesetState && p.at(RightBraceToken) {
+
 		p.state = p.state[:len(p.state)-1]
-		return EndRulesetGrammar, p.shift()
+		if state == AtRuleState {
+
+			return EndAtRuleGrammar, n
+		}
+		return EndRulesetGrammar, n
 	}
 
-	if cn := p.parseAtRule(); cn != nil {
+	if p.at(CDOToken) || p.at(CDCToken) {
+		return TokenGrammar, p.shift()
+	} else if cn := p.parseAtRule(); cn != nil {
 		return AtRuleGrammar, cn
 	} else if cn := p.parseRuleset(); cn != nil {
 		return RulesetGrammar, cn
@@ -162,8 +185,10 @@ func (p *Parser2) parseAtRule() *AtRuleNode {
 		return nil
 	}
 	n := NewAtRule(p.shift())
+	p.skipWhitespace()
 	for !p.at(SemicolonToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		n.Nodes = append(n.Nodes, p.shiftComponent())
+		p.skipWhitespace()
 	}
 	if p.at(LeftBraceToken) {
 		p.shift()
@@ -173,23 +198,27 @@ func (p *Parser2) parseAtRule() *AtRuleNode {
 }
 
 func (p *Parser2) parseRuleset() *RulesetNode {
-	// check if left brace appears, which is the only check whether this is a valid ruleset
+	// check if left brace appears, which is the only check if this is a valid ruleset
 	i := 0
-	for p.index(i) != LeftBraceToken {
-		if p.index(i) == SemicolonToken || p.index(i) == ErrorToken {
+	for p.peek(i).TokenType != LeftBraceToken {
+		if p.peek(i).TokenType == SemicolonToken || p.peek(i).TokenType == ErrorToken {
 			return nil
 		}
 		i++
 	}
 	n := NewRuleset()
-	for {
-		if cn := p.parseSelectorsGroup(); cn != nil {
-			n.SelGroups = append(n.SelGroups, cn)
-		} else {
-			break
+	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
+		if p.at(CommaToken) {
+			p.shift()
+			p.skipWhitespace()
+			continue
 		}
+		if cn := p.parseSelector(); cn != nil {
+			n.Selectors = append(n.Selectors, cn)
+		}
+		p.skipWhitespace()
 	}
-	if !p.at(LeftBraceToken) {
+	if p.at(ErrorToken) {
 		return nil
 	}
 	p.shift()
@@ -197,44 +226,32 @@ func (p *Parser2) parseRuleset() *RulesetNode {
 	return n
 }
 
-func (p *Parser2) parseSelectorsGroup() *SelectorsGroupNode {
-	p.skipWhitespace()
-	n := NewSelectorsGroup()
-	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if cn := p.parseSelector(); cn != nil {
-			n.Selectors = append(n.Selectors, cn)
-		} else {
-			break
-		}
-	}
-	p.skipWhile(CommaToken)
-	if len(n.Selectors) == 0 {
-		return nil
-	}
-	return n
-}
-
 func (p *Parser2) parseSelector() *SelectorNode {
 	n := NewSelector()
+	var ws *TokenNode
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if p.index(0) == CommentToken {
-			p.buf = p.buf[1:]
-			continue
-		}
 		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
 			n.Elems = append(n.Elems, p.shift())
 			p.skipWhitespace()
-		} else if p.index(0) == WhitespaceToken {
-			n.Elems = append(n.Elems, p.buf[0])
-			p.buf = p.buf[1:]
-			p.skipWhitespace()
 		} else if p.at(LeftBracketToken) {
-			for !p.at(RightBracketToken) {
+			for !p.at(RightBracketToken) && !p.at(ErrorToken) {
+				n.Elems = append(n.Elems, p.shift())
+				p.skipWhitespace()
+			}
+			if p.at(RightBracketToken) {
 				n.Elems = append(n.Elems, p.shift())
 			}
-			n.Elems = append(n.Elems, p.shift())
 		} else {
+			if ws != nil {
+				n.Elems = append(n.Elems, ws)
+			}
 			n.Elems = append(n.Elems, p.shift())
+		}
+
+		if p.at(WhitespaceToken) {
+			ws = p.shift()
+		} else {
+			ws = nil
 		}
 	}
 	if len(n.Elems) == 0 {
@@ -248,14 +265,17 @@ func (p *Parser2) parseDeclaration() *DeclarationNode {
 		return nil
 	}
 	ident := p.shift()
+	p.skipWhitespace()
 	if !p.at(ColonToken) {
 		return nil
 	}
 	p.shift() // colon
+	p.skipWhitespace()
 	n := NewDeclaration(ident)
 	for !p.at(SemicolonToken) && !p.at(RightBraceToken) && !p.at(ErrorToken) {
 		if p.at(DelimToken) && p.data()[0] == '!' {
 			exclamation := p.shift()
+			p.skipWhitespace()
 			if p.at(IdentToken) && bytes.Equal(bytes.ToLower(p.data()), []byte("important")) {
 				n.Important = true
 				p.shift()
@@ -267,6 +287,7 @@ func (p *Parser2) parseDeclaration() *DeclarationNode {
 		} else {
 			n.Vals = append(n.Vals, p.shift())
 		}
+		p.skipWhitespace()
 	}
 	p.skipWhile(SemicolonToken)
 	return n
@@ -277,14 +298,18 @@ func (p *Parser2) parseFunction() *FunctionNode {
 		return nil
 	}
 	n := NewFunction(p.shift())
+	p.skipWhitespace()
 	for !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
 			p.shift()
+			p.skipWhitespace()
 			continue
 		}
 		n.Args = append(n.Args, p.parseArgument())
 	}
-	p.skipUntil(RightParenthesisToken)
+	if p.at(ErrorToken) {
+		return nil
+	}
 	p.shift()
 	return n
 }
@@ -293,6 +318,7 @@ func (p *Parser2) parseArgument() *ArgumentNode {
 	n := NewArgument()
 	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		n.Vals = append(n.Vals, p.shiftComponent())
+		p.skipWhitespace()
 	}
 	return n
 }
@@ -302,11 +328,13 @@ func (p *Parser2) parseBlock() *BlockNode {
 		return nil
 	}
 	n := NewBlock(p.shift())
+	p.skipWhitespace()
 	for {
 		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
 			break
 		}
 		n.Nodes = append(n.Nodes, p.shiftComponent())
+		p.skipWhitespace()
 	}
 	if !p.at(ErrorToken) {
 		n.Close = p.shift()
@@ -328,66 +356,81 @@ func (p *Parser2) shiftComponent() Node {
 
 // copyBytes copies bytes to the same position.
 // This is required because the referenced slices from the tokenizer might be overwritten on subsequent Next calls.
-func copyBytes(src []byte) []byte {
-	dst := make([]byte, len(src))
-	copy(dst, src)
-	return dst
+func (p *Parser2) copy() {
+	for _, n := range p.buf[p.pos:] {
+		tmp := make([]byte, len(n.Data))
+		copy(tmp, n.Data)
+		n.Data = tmp
+	}
 }
 
-func (p *Parser2) index(i int) TokenType {
-	for j := len(p.buf); j <= i; j++ {
-		tt, text := p.z.Next()
-		if tt == ErrorToken {
-			return ErrorToken
+func (p *Parser2) read() *TokenNode {
+	tt, text := p.z.Next()
+	// ignore comments and multiple whitespace
+	if tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
+		return p.read()
+	}
+	return NewToken(tt, text)
+}
+
+func (p *Parser2) peek(i int) *TokenNode {
+	if p.pos+i >= len(p.buf) {
+		c := cap(p.buf)
+		l := len(p.buf) - p.pos
+		if p.pos+i >= c {
+			// expand buffer when len is bigger than half the cap
+			if 2*l > c {
+				// if 2*c > MaxBuf {
+				// panic("max buf")
+				// 	return NewToken(ErrorToken, []byte("max buffer exceeded"))
+				// }
+				buf1 := make([]*TokenNode, l, 2*c)
+				copy(buf1, p.buf[p.pos:])
+				p.buf = buf1
+			} else {
+				copy(p.buf, p.buf[p.pos:])
+				p.buf = p.buf[:l]
+			}
+			p.pos = 0
+			if i >= cap(p.buf) {
+				return NewToken(ErrorToken, []byte("looking too far ahead"))
+			}
 		}
-		p.buf = append(p.buf, NewToken(tt, copyBytes(text)))
+		for j := len(p.buf); j <= p.pos+i; j++ {
+			p.buf = append(p.buf, p.read())
+		}
 	}
-	return p.buf[i].TokenType
-}
-
-func (p *Parser2) at(tt TokenType) bool {
-	i := 0
-	for p.index(i) == WhitespaceToken || p.index(i) == CommentToken {
-		i++
-	}
-	if p.index(i) != tt {
-		return false
-	}
-	return true
-}
-
-func (p *Parser2) data() []byte {
-	i := 0
-	for p.index(i) == WhitespaceToken || p.index(i) == CommentToken {
-		i++
-	}
-	return p.buf[i].Data
+	return p.buf[p.pos+i]
 }
 
 func (p *Parser2) shift() *TokenNode {
-	p.skipWhitespace()
-	if len(p.buf) > 0 {
-		token := p.buf[0]
-		p.buf = p.buf[1:]
-		return token
-	}
-	return nil
+	shifted := p.peek(0)
+	p.pos++
+	return shifted
+}
+
+func (p *Parser2) at(tt TokenType) bool {
+	return p.peek(0).TokenType == tt
+}
+
+func (p *Parser2) data() []byte {
+	return p.peek(0).Data
 }
 
 func (p *Parser2) skipWhitespace() {
-	for p.index(0) == WhitespaceToken || p.index(0) == CommentToken {
-		p.buf = p.buf[1:]
+	if p.at(WhitespaceToken) {
+		p.shift()
 	}
 }
 
 func (p *Parser2) skipWhile(tt TokenType) {
-	for p.index(0) == tt || p.index(0) == WhitespaceToken || p.index(0) == CommentToken {
-		p.buf = p.buf[1:]
+	for p.at(tt) || p.at(WhitespaceToken) {
+		p.shift()
 	}
 }
 
 func (p *Parser2) skipUntil(tt TokenType) {
-	for p.index(0) != tt && p.index(0) != ErrorToken {
-		p.buf = p.buf[1:]
+	for p.at(tt) && !p.at(ErrorToken) {
+		p.shift()
 	}
 }

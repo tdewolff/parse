@@ -3,6 +3,7 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"io"
+	"os"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -10,6 +11,41 @@ import (
 // Node is an interface that all nodes implement
 type Node interface {
 	Serialize(io.Writer) error
+}
+
+func NodeEqual(n, other Node) bool {
+	switch m := n.(type) {
+	case *TokenNode:
+		if o, ok := other.(*TokenNode); !ok || !m.Equal(o) {
+			return false
+		}
+	case *AtRuleNode:
+		if o, ok := other.(*AtRuleNode); !ok || !m.Equal(o) {
+			return false
+		}
+	case *RulesetNode:
+		if o, ok := other.(*RulesetNode); !ok || !m.Equal(o) {
+			return false
+		}
+	case *DeclarationNode:
+		if o, ok := other.(*DeclarationNode); !ok || !m.Equal(o) {
+			return false
+		}
+	case *FunctionNode:
+		if o, ok := other.(*FunctionNode); !ok || !m.Equal(o) {
+			return false
+		}
+	case *BlockNode:
+		if o, ok := other.(*BlockNode); !ok || !m.Equal(o) {
+			return false
+		}
+	default:
+		// TODO: remove
+		b := &bytes.Buffer{}
+		n.Serialize(b)
+		panic("not handled NodeEqual for node: "+b.String())
+	}
+	return true
 }
 
 ////////////////////////////////////////////////////////////////
@@ -28,8 +64,8 @@ func NewToken(tt TokenType, data []byte) *TokenNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n TokenNode) Equals(other *TokenNode) bool {
+// Equal returns true when the nodes match (deep)
+func (n TokenNode) Equal(other *TokenNode) bool {
 	return n.TokenType == other.TokenType && bytes.Equal(n.Data, other.Data)
 }
 
@@ -54,29 +90,14 @@ func NewStylesheet() *StylesheetNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n StylesheetNode) Equals(other *StylesheetNode) bool {
+// Equal returns true when the nodes match (deep)
+func (n StylesheetNode) Equal(other *StylesheetNode) bool {
 	if len(n.Nodes) != len(other.Nodes) {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
-		switch m := n.Nodes[i].(type) {
-		case *TokenNode:
-			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *AtRuleNode:
-			if o, ok := otherNode.(*AtRuleNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *DeclarationNode:
-			if o, ok := otherNode.(*DeclarationNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *RulesetNode:
-			if o, ok := otherNode.(*RulesetNode); !ok || !m.Equals(o) {
-				return false
-			}
+		if !NodeEqual(n.Nodes[i], otherNode) {
+			return false
 		}
 	}
 	return true
@@ -94,9 +115,92 @@ func (n StylesheetNode) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
+// AtRuleNode contains several nodes and/or a block node
+type AtRuleNode struct {
+	At    *TokenNode
+	Nodes []Node
+	Rules []Node
+}
+
+// NewAtRule returns a new AtRuleNode
+func NewAtRule(at *TokenNode) *AtRuleNode {
+	return &AtRuleNode{
+		at,
+		nil,
+		nil,
+	}
+}
+
+// Equal returns true when the nodes match (deep)
+func (n AtRuleNode) Equal(other *AtRuleNode) bool {
+	if !n.At.Equal(other.At) || len(n.Nodes) != len(other.Nodes) || len(n.Rules) != len(other.Rules) {
+		return false
+	}
+	for i, otherNode := range other.Nodes {
+		if !NodeEqual(n.Nodes[i], otherNode) {
+			return false
+		}
+	}
+	for i, otherNode := range other.Rules {
+		if !NodeEqual(n.Rules[i], otherNode) {
+			return false
+		}
+	}
+	return true
+}
+
+// Serialize write to Writer the string representation of the node
+func (n AtRuleNode) Serialize(w io.Writer) error {
+	if err := n.At.Serialize(w); err != nil {
+		return err
+	}
+	for i, m := range n.Nodes {
+		if i != 0 {
+			var t *TokenNode
+			if k, ok := n.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			} else if k, ok := n.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			}
+			if t == nil || t.Data[0] != ',' {
+				if _, err := w.Write([]byte(" ")); err != nil {
+					return err
+				}
+			}
+		} else {
+			if _, err := w.Write([]byte(" ")); err != nil {
+				return err
+			}
+		}
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
+	}
+	if len(n.Rules) > 0 {
+		if _, err := w.Write([]byte("{")); err != nil {
+			return err
+		}
+		for _, m := range n.Rules {
+			if err := m.Serialize(w); err != nil {
+				return err
+			}
+		}
+		if _, err := w.Write([]byte("}")); err != nil {
+			return err
+		}
+	} else {
+		if _, err := w.Write([]byte(";")); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 // RulesetNode consists of selector groups (separated by commas) and a declaration list
 type RulesetNode struct {
-	SelGroups []*SelectorGroupNode
+	Selectors []*SelectorNode
 	Decls     []*DeclarationNode
 }
 
@@ -108,18 +212,18 @@ func NewRuleset() *RulesetNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n RulesetNode) Equals(other *RulesetNode) bool {
-	if len(n.SelGroups) != len(other.SelGroups) || len(n.Decls) != len(other.Decls) {
+// Equal returns true when the nodes match (deep)
+func (n RulesetNode) Equal(other *RulesetNode) bool {
+	if len(n.Selectors) != len(other.Selectors) || len(n.Decls) != len(other.Decls) {
 		return false
 	}
-	for i, otherNode := range other.SelGroups {
-		if !n.SelGroups[i].Equals(otherNode) {
+	for i, otherNode := range other.Selectors {
+		if !n.Selectors[i].Equal(otherNode) {
 			return false
 		}
 	}
 	for i, otherNode := range other.Decls {
-		if !n.Decls[i].Equals(otherNode) {
+		if !n.Decls[i].Equal(otherNode) {
 			return false
 		}
 	}
@@ -128,7 +232,7 @@ func (n RulesetNode) Equals(other *RulesetNode) bool {
 
 // Serialize write to Writer the string representation of the node
 func (n RulesetNode) Serialize(w io.Writer) error {
-	for i, m := range n.SelGroups {
+	for i, m := range n.Selectors {
 		if i != 0 {
 			if _, err := w.Write([]byte(",")); err != nil {
 				return err
@@ -154,51 +258,9 @@ func (n RulesetNode) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// SelectorGroupNode contains selectors separated by whitespace
-type SelectorGroupNode struct {
-	Selectors []*SelectorNode
-}
-
-// NewSelectorGroup returns a new SelectorGroupNode
-func NewSelectorGroup() *SelectorGroupNode {
-	return &SelectorGroupNode{
-		nil,
-	}
-}
-
-// Equals returns true when the nodes match (deep)
-func (n SelectorGroupNode) Equals(other *SelectorGroupNode) bool {
-	if len(n.Selectors) != len(other.Selectors) {
-		return false
-	}
-	for i, otherNode := range other.Selectors {
-		if !n.Selectors[i].Equals(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
-// Serialize write to Writer the string representation of the node
-func (n SelectorGroupNode) Serialize(w io.Writer) error {
-	for i, m := range n.Selectors {
-		if i != 0 {
-			if _, err := w.Write([]byte(" ")); err != nil {
-				return err
-			}
-		}
-		if err := m.Serialize(w); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
 // SelectorNode contains the tokens of a single selector, either TokenNode or AttributeSelectorNode
 type SelectorNode struct {
-	Nodes []Node
+	Elems []*TokenNode
 }
 
 // NewSelector returns a new SelectorNode
@@ -208,21 +270,14 @@ func NewSelector() *SelectorNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n SelectorNode) Equals(other *SelectorNode) bool {
-	if len(n.Nodes) != len(other.Nodes) {
+// Equal returns true when the nodes match (deep)
+func (n SelectorNode) Equal(other *SelectorNode) bool {
+	if len(n.Elems) != len(other.Elems) {
 		return false
 	}
-	for i, otherNode := range other.Nodes {
-		switch m := n.Nodes[i].(type) {
-		case *TokenNode:
-			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *AttributeSelectorNode:
-			if o, ok := otherNode.(*AttributeSelectorNode); !ok || !m.Equals(o) {
-				return false
-			}
+	for i, otherNode := range other.Elems {
+		if n.Elems[i].Equal(otherNode) {
+			return false
 		}
 	}
 	return true
@@ -230,7 +285,7 @@ func (n SelectorNode) Equals(other *SelectorNode) bool {
 
 // Serialize write to Writer the string representation of the node
 func (n SelectorNode) Serialize(w io.Writer) error {
-	for _, m := range n.Nodes {
+	for _, m := range n.Elems {
 		if err := m.Serialize(w); err != nil {
 			return err
 		}
@@ -240,69 +295,12 @@ func (n SelectorNode) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// AttributeSelectorNode contains the key and possible the operators with values as TokenNodes of an attribute selector
-type AttributeSelectorNode struct {
-	Key  *TokenNode
-	Op   *TokenNode
-	Vals []*TokenNode
-}
-
-// NewAttributeSelector returns a new SelectorNode
-func NewAttributeSelector(key *TokenNode) *AttributeSelectorNode {
-	return &AttributeSelectorNode{
-		key,
-		nil,
-		nil,
-	}
-}
-
-// Equals returns true when the nodes match (deep)
-func (n AttributeSelectorNode) Equals(other *AttributeSelectorNode) bool {
-	if !n.Key.Equals(other.Key) || len(n.Vals) != len(other.Vals) {
-		return false
-	}
-	if n.Op == nil && other.Op != nil || !n.Op.Equals(other.Op) {
-		return false
-	}
-	for i, otherNode := range other.Vals {
-		if !n.Vals[i].Equals(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
-// Serialize write to Writer the string representation of the node
-func (n AttributeSelectorNode) Serialize(w io.Writer) error {
-	if _, err := w.Write([]byte("[")); err != nil {
-		return err
-	}
-	if err := n.Key.Serialize(w); err != nil {
-		return err
-	}
-	if n.Op != nil {
-		if err := n.Op.Serialize(w); err != nil {
-			return err
-		}
-		for _, m := range n.Vals {
-			if err := m.Serialize(w); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err := w.Write([]byte("]")); err != nil {
-		return err
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
 // DeclarationNode represents a property declaration
 // Vals contains FunctionNode and TokenNode nodes
 type DeclarationNode struct {
-	Prop *TokenNode
-	Vals []Node
+	Prop      *TokenNode
+	Vals      []Node
+	Important bool
 }
 
 // NewDeclaration returns a new DeclarationNode
@@ -310,24 +308,18 @@ func NewDeclaration(prop *TokenNode) *DeclarationNode {
 	return &DeclarationNode{
 		prop,
 		nil,
+		false,
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n DeclarationNode) Equals(other *DeclarationNode) bool {
-	if !n.Prop.Equals(other.Prop) || len(n.Vals) != len(other.Vals) {
+// Equal returns true when the nodes match (deep)
+func (n DeclarationNode) Equal(other *DeclarationNode) bool {
+	if n.Important != other.Important || len(n.Vals) != len(other.Vals) || !n.Prop.Equal(other.Prop) {
 		return false
 	}
 	for i, otherNode := range other.Vals {
-		switch m := n.Vals[i].(type) {
-		case *TokenNode:
-			if o, ok := otherNode.(*TokenNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *FunctionNode:
-			if o, ok := otherNode.(*FunctionNode); !ok || !m.Equals(o) {
-				return false
-			}
+		if !NodeEqual(n.Vals[i], otherNode) {
+			return false
 		}
 	}
 	return true
@@ -343,11 +335,24 @@ func (n DeclarationNode) Serialize(w io.Writer) error {
 	}
 	for i, m := range n.Vals {
 		if i != 0 {
-			if _, err := w.Write([]byte(" ")); err != nil {
-				return err
+			var t *TokenNode
+			if k, ok := n.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			} else if k, ok := n.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			}
+			if t == nil || (t.Data[0] != ',' && t.Data[0] != '/' && t.Data[0] != ':' && t.Data[0] != '.') {
+				if _, err := w.Write([]byte(" ")); err != nil {
+					return err
+				}
 			}
 		}
 		if err := m.Serialize(w); err != nil {
+			return err
+		}
+	}
+	if n.Important {
+		if _, err := w.Write([]byte(" !important")); err != nil {
 			return err
 		}
 	}
@@ -359,59 +364,7 @@ func (n DeclarationNode) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
-// FunctionNode represents a function and its arguments
-type ArgumentNode struct {
-	Key *TokenNode
-	Vals []*TokenNode
-}
-
-// NewArgument returns a new ArgumentNode
-func NewArgument(val *TokenNode) *ArgumentNode {
-	return &ArgumentNode{
-		nil,
-		[]*TokenNode{val},
-	}
-}
-
-// Equals returns true when the nodes match (deep)
-func (n ArgumentNode) Equals(other *ArgumentNode) bool {
-	if n.Key == nil && other.Key != nil || !n.Key.Equals(other.Key) {
-		return false
-	}
-	for i, otherNode := range other.Vals {
-		if !n.Vals[i].Equals(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
-// Serialize write to Writer the string representation of the node
-func (n ArgumentNode) Serialize(w io.Writer) error {
-	if n.Key != nil {
-		if err := n.Key.Serialize(w); err != nil {
-			return err
-		}
-		if _, err := w.Write([]byte("=")); err != nil {
-			return err
-		}
-	}
-	for i, m := range n.Vals {
-		if i != 0 {
-			if _, err := w.Write([]byte(" ")); err != nil {
-				return err
-			}
-		}
-		if err := m.Serialize(w); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
-// FunctionNode represents a function and its arguments
+// FunctionNode represents a function and its arguments (separated by commas)
 type FunctionNode struct {
 	Func *TokenNode
 	Args []*ArgumentNode
@@ -425,13 +378,13 @@ func NewFunction(f *TokenNode) *FunctionNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n FunctionNode) Equals(other *FunctionNode) bool {
-	if !n.Func.Equals(other.Func) {
+// Equal returns true when the nodes match (deep)
+func (n FunctionNode) Equal(other *FunctionNode) bool {
+	if !n.Func.Equal(other.Func) {
 		return false
 	}
 	for i, otherNode := range other.Args {
-		if !n.Args[i].Equals(otherNode) {
+		if !n.Args[i].Equal(otherNode) {
 			return false
 		}
 	}
@@ -461,6 +414,53 @@ func (n FunctionNode) Serialize(w io.Writer) error {
 
 ////////////////////////////////////////////////////////////////
 
+// ArgumentNode represents the key and parts of an argument separated by spaces
+type ArgumentNode struct {
+	Vals []Node
+}
+
+// NewArgument returns a new ArgumentNode
+func NewArgument() *ArgumentNode {
+	return &ArgumentNode{
+		[]Node{},
+	}
+}
+
+// Equal returns true when the nodes match (deep)
+func (n ArgumentNode) Equal(other *ArgumentNode) bool {
+	for i, otherNode := range other.Vals {
+		if !NodeEqual(n.Vals[i], otherNode) {
+			return false
+		}
+	}
+	return true
+}
+
+// Serialize write to Writer the string representation of the node
+func (n ArgumentNode) Serialize(w io.Writer) error {
+	for i, m := range n.Vals {
+		if i != 0 {
+			var t *TokenNode
+			if k, ok := n.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			} else if k, ok := n.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
+				t = k
+			}
+			if t == nil || (t.Data[0] != '=' && t.Data[0] != '*' && t.Data[0] != '/') {
+				if _, err := w.Write([]byte(" ")); err != nil {
+					return err
+				}
+			}
+		}
+		if err := m.Serialize(w); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+////////////////////////////////////////////////////////////////
+
 // BlockNode contains the contents of a block (brace, bracket or parenthesis blocks)
 // Nodes contains AtRuleNode, DeclarationNode, RulesetNode and BlockNode nodes
 type BlockNode struct {
@@ -478,29 +478,14 @@ func NewBlock(open *TokenNode) *BlockNode {
 	}
 }
 
-// Equals returns true when the nodes match (deep)
-func (n BlockNode) Equals(other *BlockNode) bool {
-	if !n.Open.Equals(other.Open) || !n.Close.Equals(other.Close) {
+// Equal returns true when the nodes match (deep)
+func (n BlockNode) Equal(other *BlockNode) bool {
+	if !n.Open.Equal(other.Open) || !n.Close.Equal(other.Close) {
 		return false
 	}
 	for i, otherNode := range other.Nodes {
-		switch m := n.Nodes[i].(type) {
-		case *AtRuleNode:
-			if o, ok := otherNode.(*AtRuleNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *DeclarationNode:
-			if o, ok := otherNode.(*DeclarationNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *RulesetNode:
-			if o, ok := otherNode.(*RulesetNode); !ok || !m.Equals(o) {
-				return false
-			}
-		case *BlockNode:
-			if o, ok := otherNode.(*BlockNode); !ok || !m.Equals(o) {
-				return false
-			}
+		if !NodeEqual(n.Nodes[i], otherNode) {
+			return false
 		}
 	}
 	return true
@@ -512,10 +497,21 @@ func (n BlockNode) Serialize(w io.Writer) error {
 		if err := n.Open.Serialize(w); err != nil {
 			return err
 		}
+		if n.Close == nil {
+			w = os.Stderr
+		}
 		for i, m := range n.Nodes {
 			if i != 0 {
-				if _, err := w.Write([]byte(" ")); err != nil {
-					return err
+				var t *TokenNode
+				if k, ok := n.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+					t = k
+				} else if k, ok := n.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
+					t = k
+				}
+				if t == nil || t.Data[0] != ':' {
+					if _, err := w.Write([]byte(" ")); err != nil {
+						return err
+					}
 				}
 			}
 			if err := m.Serialize(w); err != nil {
@@ -523,68 +519,6 @@ func (n BlockNode) Serialize(w io.Writer) error {
 			}
 		}
 		if err := n.Close.Serialize(w); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-////////////////////////////////////////////////////////////////
-
-// AtRuleNode contains several nodes and/or a block node
-type AtRuleNode struct {
-	At    *TokenNode
-	Nodes []*TokenNode
-	Block *BlockNode
-}
-
-// NewAtRule returns a new AtRuleNode
-func NewAtRule(at *TokenNode) *AtRuleNode {
-	return &AtRuleNode{
-		at,
-		nil,
-		nil,
-	}
-}
-
-// Equals returns true when the nodes match (deep)
-func (n AtRuleNode) Equals(other *AtRuleNode) bool {
-	if !n.At.Equals(other.At) || len(n.Nodes) != len(other.Nodes) {
-		return false
-	}
-	if n.Block == nil && other.Block != nil || !n.Block.Equals(other.Block) {
-		return false
-	}
-	for i, otherNode := range other.Nodes {
-		if !n.Nodes[i].Equals(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
-// Serialize write to Writer the string representation of the node
-func (n AtRuleNode) Serialize(w io.Writer) error {
-	if err := n.At.Serialize(w); err != nil {
-		return err
-	}
-	for _, m := range n.Nodes {
-		if _, err := w.Write([]byte(" ")); err != nil {
-			return err
-		}
-		if err := m.Serialize(w); err != nil {
-			return err
-		}
-	}
-	if n.Block != nil {
-		if _, err := w.Write([]byte(" ")); err != nil {
-			return err
-		}
-		if err := n.Block.Serialize(w); err != nil {
-			return err
-		}
-	} else {
-		if _, err := w.Write([]byte(";")); err != nil {
 			return err
 		}
 	}
