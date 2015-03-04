@@ -1,202 +1,211 @@
-/*
-Package css is a CSS3 tokenizer and parser written in Go. The tokenizer is implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
-The parser is not, because documentation is lacking.
-
-Tokenizer using example:
-
-	package main
-
-	import (
-		"fmt"
-		"io"
-		"os"
-
-		"github.com/tdewolff/css"
-	)
-
-	// Tokenize CSS3 from stdin.
-	func main() {
-		z := css.NewTokenizer(os.Stdin)
-		for {
-			tt, data := z.Next()
-			switch tt {
-			case css.ErrorToken:
-				if z.Err() != io.EOF {
-					fmt.Println("Error on line", z.Line(), ":", z.Err())
-				}
-				return
-			case css.IdentToken:
-				fmt.Println("Identifier", data)
-			case css.NumberToken:
-				fmt.Println("Number", data)
-			// ...
-			}
-		}
-	}
-
-Parser using example:
-
-	package main
-
-	import (
-		"fmt"
-		"os"
-
-		"github.com/tdewolff/css"
-	)
-
-	// Parse CSS3 from stdin.
-	func main() {
-		stylesheet, err := css.Parse(os.Stdin)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-
-		for _, node := range stylesheet.Nodes {
-			switch m := node.(type) {
-			case *css.TokenNode:
-				fmt.Println("Token", string(m.Data))
-			case *css.DeclarationNode:
-				fmt.Println("Declaration for property", string(m.Prop.Data))
-			case *css.RulesetNode:
-				fmt.Println("Ruleset with", len(m.Decls), "declarations")
-			case *css.AtRuleNode:
-				fmt.Println("AtRule", string(m.At.Data))
-			}
-		}
-	}
-*/
 package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"bytes"
 	"io"
-	"io/ioutil"
+	"strconv"
 )
 
 ////////////////////////////////////////////////////////////////
 
-type parser struct {
-	z   *Tokenizer
-	buf []*TokenNode
+// GrammarType determines the type of grammar.
+type GrammarType uint32
+
+// GrammarType values
+const (
+	ErrorGrammar GrammarType = iota // extra token when errors occur
+	AtRuleGrammar
+	EndAtRuleGrammar
+	RulesetGrammar
+	EndRulesetGrammar
+	DeclarationGrammar
+	TokenGrammar
+)
+
+// String returns the string representation of a GrammarType.
+func (tt GrammarType) String() string {
+	switch tt {
+	case ErrorGrammar:
+		return "Error"
+	case AtRuleGrammar:
+		return "AtRule"
+	case EndAtRuleGrammar:
+		return "EndAtRule"
+	case RulesetGrammar:
+		return "Ruleset"
+	case EndRulesetGrammar:
+		return "EndRuleset"
+	case DeclarationGrammar:
+		return "Declaration"
+	case TokenGrammar:
+		return "Token"
+	}
+	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
-// Parse parses a CSS3 source from a Reader. It uses the package tokenizer and returns a tree of nodes to represent the CSS document.
-// The returned StylesheetNode is the root node. All leaf nodes are TokenNode's.
-func Parse(r io.Reader) (*StylesheetNode, error) {
-	// TODO: make parser streaming
-	b, err := ioutil.ReadAll(r)
-	if err != nil {
-		return nil, err
-	}
+// ParserState denotes the state of the parser.
+type ParserState uint32
 
-	p := &parser{
-		NewTokenizer(bytes.NewBuffer(b)),
-		make([]*TokenNode, 0, 20),
-	}
+// ParserState values
+const (
+	StylesheetState ParserState = iota
+	AtRuleState
+	RulesetState
+)
 
-	err = p.z.Err()
-	if err == io.EOF {
-		err = nil
-	}
-	return p.parseStylesheet(), err
+////////////////////////////////////////////////////////////////
+
+type TokenStream interface {
+	Next() (TokenType, []byte)
+	CopyFunc(func())
+	Err() error
+}
+
+type Token struct {
+	TokenType
+	Data []byte
 }
 
 ////////////////////////////////////////////////////////////////
 
-func (p *parser) index(i int) TokenType {
-	for j := len(p.buf); j <= i; j++ {
-		tt, text := p.z.Next()
-		if tt == ErrorToken {
-			return ErrorToken
-		}
-		p.buf = append(p.buf, NewToken(tt, text))
-	}
-	return p.buf[i].TokenType
+type Parser struct {
+	z     TokenStream
+	state []ParserState
+
+	buf []*TokenNode
+	pos int
 }
 
-func (p *parser) at(tts ...TokenType) bool {
-	i := 0
-	for _, tt := range tts {
-		for p.index(i) == WhitespaceToken || p.index(i) == CommentToken {
-			i++
-		}
-		if p.index(i) != tt {
-			return false
-		}
-		if p.index(i) == ErrorToken {
-			return tt == ErrorToken
-		}
-		i++
+func NewParser(z TokenStream) *Parser {
+	p := &Parser{
+		z,
+		[]ParserState{StylesheetState},
+		make([]*TokenNode, 0, 16),
+		0,
 	}
-	return true
+	z.CopyFunc(p.copy)
+	return p
 }
 
-func (p *parser) shift() *TokenNode {
-	p.skipWhitespace()
-	if len(p.buf) > 0 {
-		token := p.buf[0]
-		p.buf = p.buf[1:]
-		return token
+func (p *Parser) Parse() (*StylesheetNode, error) {
+	var err error
+	stylesheet := NewStylesheet()
+	for {
+		gt, n := p.Next()
+		if gt == ErrorGrammar {
+			err = p.z.Err()
+			break
+		}
+		stylesheet.Nodes = append(stylesheet.Nodes, n)
+		if err = p.parseRecursively(gt, n); err != nil {
+			break
+		}
+	}
+	if err != io.EOF {
+		return stylesheet, err
+	}
+	return stylesheet, nil
+}
+
+func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
+	if rootGt == AtRuleGrammar {
+		atRule := n.(*AtRuleNode)
+		for {
+			gt, m := p.Next()
+			if gt == ErrorGrammar {
+				return p.z.Err()
+			} else if gt == EndAtRuleGrammar {
+				break
+			}
+			atRule.Rules = append(atRule.Rules, m)
+			if err := p.parseRecursively(gt, m); err != nil {
+				return err
+			}
+		}
+	} else if rootGt == RulesetGrammar {
+		ruleset := n.(*RulesetNode)
+		for {
+			gt, m := p.Next()
+			if gt == ErrorGrammar {
+				return p.z.Err()
+			} else if gt == EndRulesetGrammar {
+				break
+			}
+			if decl, ok := m.(*DeclarationNode); ok {
+				ruleset.Decls = append(ruleset.Decls, decl)
+			}
+		}
 	}
 	return nil
 }
 
-func (p *parser) skipWhitespace() {
-	for p.index(0) == WhitespaceToken || p.index(0) == CommentToken {
-		p.buf = p.buf[1:]
-	}
+// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
+func (p Parser) Err() error {
+	return p.z.Err()
 }
 
-func (p *parser) skipWhile(tt TokenType) {
-	for p.index(0) == tt || p.index(0) == WhitespaceToken || p.index(0) == CommentToken {
-		p.buf = p.buf[1:]
+func (p *Parser) Next() (GrammarType, Node) {
+	if p.at(ErrorToken) {
+		return ErrorGrammar, nil
 	}
+	p.skipWhitespace()
+
+	// return End types
+	state := p.State()
+	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) || p.at(SemicolonToken) && state == AtRuleState {
+		n := p.shift()
+		p.skipWhile(SemicolonToken)
+
+		p.state = p.state[:len(p.state)-1]
+		if state == AtRuleState {
+
+			return EndAtRuleGrammar, n
+		}
+		return EndRulesetGrammar, n
+	}
+
+	if p.at(CDOToken) || p.at(CDCToken) {
+		return TokenGrammar, p.shift()
+	} else if cn := p.parseAtRule(); cn != nil {
+		return AtRuleGrammar, cn
+	} else if cn := p.parseRuleset(); cn != nil {
+		return RulesetGrammar, cn
+	} else if cn := p.parseDeclaration(); cn != nil {
+		return DeclarationGrammar, cn
+	}
+	return TokenGrammar, p.shift()
 }
 
-func (p *parser) skipUntil(tt TokenType) {
-	for p.index(0) != tt && p.index(0) != ErrorToken {
-		p.buf = p.buf[1:]
-	}
+func (p *Parser) State() ParserState {
+	return p.state[len(p.state)-1]
 }
 
-////////////////////////////////////////////////////////////////
-
-func (p *parser) parseStylesheet() *StylesheetNode {
-	n := NewStylesheet()
-	for {
+func (p *Parser) parseAtRule() *AtRuleNode {
+	if !p.at(AtKeywordToken) {
+		return nil
+	}
+	n := NewAtRule(p.shift())
+	p.skipWhitespace()
+	for !p.at(SemicolonToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
+		n.Nodes = append(n.Nodes, p.shiftComponent())
 		p.skipWhitespace()
-		if p.at(ErrorToken) {
-			return n
-		}
-		if p.at(CDOToken) || p.at(CDCToken) {
-			n.Nodes = append(n.Nodes, p.shift())
-		} else if cn := p.parseAtRule(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if cn := p.parseRuleset(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if cn := p.parseDeclaration(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if !p.at(ErrorToken) {
-			n.Nodes = append(n.Nodes, p.shift())
-		}
 	}
+	if p.at(LeftBraceToken) {
+		p.shift()
+	}
+	p.state = append(p.state, AtRuleState)
+	return n
 }
 
-func (p *parser) parseRuleset() *RulesetNode {
+func (p *Parser) parseRuleset() *RulesetNode {
 	// check if left brace appears, which is the only check if this is a valid ruleset
 	i := 0
-	for p.index(i) != LeftBraceToken {
-		if p.index(i) == SemicolonToken || p.index(i) == ErrorToken {
+	for p.peek(i).TokenType != LeftBraceToken {
+		if p.peek(i).TokenType == SemicolonToken || p.peek(i).TokenType == ErrorToken {
 			return nil
 		}
 		i++
 	}
-	if i == 0 {
-		return nil
-	}
-
 	n := NewRuleset()
 	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
@@ -209,85 +218,40 @@ func (p *parser) parseRuleset() *RulesetNode {
 		}
 		p.skipWhitespace()
 	}
-	// for {
-	// 	if cn := p.parseSelectorsGroup(); cn != nil {
-	// 		n.SelGroups = append(n.SelGroups, cn)
-	// 	} else {
-	// 		break
-	// 	}
-	// }
-
-	// declarations
-	if !p.at(LeftBraceToken) {
+	if p.at(ErrorToken) {
 		return nil
 	}
 	p.shift()
-	for {
-		if p.at(IdentToken, ColonToken) {
-			if cn := p.parseDeclaration(); cn != nil {
-				n.Decls = append(n.Decls, cn)
-			}
-		} else if p.at(RightBraceToken) || p.at(ErrorToken) {
-			break
-		} else {
-			p.skipUntil(SemicolonToken)
-			p.shift()
-		}
-	}
-	p.skipUntil(RightBraceToken)
-	p.shift()
-	if len(n.Decls) == 0 {
-		return nil
-	}
+	p.state = append(p.state, RulesetState)
 	return n
 }
 
-// func (p *parser) parseSelectorsGroup() *SelectorsGroupNode {
-// 	n := NewSelectorsGroup()
-// 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-// 		if cn := p.parseSelector(); cn != nil {
-// 			n.Selectors = append(n.Selectors, cn)
-// 		} else {
-// 			break
-// 		}
-// 	}
-// 	p.skipWhile(CommaToken)
-// 	if len(n.Selectors) == 0 {
-// 		return nil
-// 	}
-// 	return n
-// }
-
-func (p *parser) parseSelector() *SelectorNode {
+func (p *Parser) parseSelector() *SelectorNode {
 	n := NewSelector()
+	var ws *TokenNode
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if p.index(0) == CommentToken {
-			p.buf = p.buf[1:]
-			continue
-		}
-		if p.at(DelimToken) {
-			i := 0
-			for p.index(i) == WhitespaceToken || p.index(i) == CommentToken {
-				i++
-			}
-			c := p.buf[i].Data[0]
-			if c == '>' || c == '+' || c == '~' {
-				n.Elems = append(n.Elems, p.shift())
-				p.skipWhitespace()
-				continue
-			}
-		}
-		if p.index(0) == WhitespaceToken {
-			n.Elems = append(n.Elems, p.buf[0])
-			p.buf = p.buf[1:]
+		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
+			n.Elems = append(n.Elems, p.shift())
 			p.skipWhitespace()
 		} else if p.at(LeftBracketToken) {
-			for !p.at(RightBracketToken) {
+			for !p.at(RightBracketToken) && !p.at(ErrorToken) {
+				n.Elems = append(n.Elems, p.shift())
+				p.skipWhitespace()
+			}
+			if p.at(RightBracketToken) {
 				n.Elems = append(n.Elems, p.shift())
 			}
-			n.Elems = append(n.Elems, p.shift())
 		} else {
+			if ws != nil {
+				n.Elems = append(n.Elems, ws)
+			}
 			n.Elems = append(n.Elems, p.shift())
+		}
+
+		if p.at(WhitespaceToken) {
+			ws = p.shift()
+		} else {
+			ws = nil
 		}
 	}
 	if len(n.Elems) == 0 {
@@ -296,78 +260,81 @@ func (p *parser) parseSelector() *SelectorNode {
 	return n
 }
 
-func (p *parser) parseDeclaration() *DeclarationNode {
-	if !p.at(IdentToken, ColonToken) {
+func (p *Parser) parseDeclaration() *DeclarationNode {
+	if !p.at(IdentToken) {
 		return nil
 	}
-	n := NewDeclaration(p.shift())
+	ident := p.shift()
+	p.skipWhitespace()
+	if !p.at(ColonToken) {
+		return nil
+	}
 	p.shift() // colon
+	p.skipWhitespace()
+	n := NewDeclaration(ident)
 	for !p.at(SemicolonToken) && !p.at(RightBraceToken) && !p.at(ErrorToken) {
-		if cn := p.parseFunction(); cn != nil {
+		if p.at(DelimToken) && p.data()[0] == '!' {
+			exclamation := p.shift()
+			p.skipWhitespace()
+			if p.at(IdentToken) && bytes.Equal(bytes.ToLower(p.data()), []byte("important")) {
+				n.Important = true
+				p.shift()
+			} else {
+				n.Vals = append(n.Vals, exclamation)
+			}
+		} else if cn := p.parseFunction(); cn != nil {
 			n.Vals = append(n.Vals, cn)
 		} else {
 			n.Vals = append(n.Vals, p.shift())
 		}
-	}
-	if len(n.Vals) == 0 {
-		p.skipWhile(SemicolonToken)
-		return nil
+		p.skipWhitespace()
 	}
 	p.skipWhile(SemicolonToken)
 	return n
 }
 
-func (p *parser) parseArgument() *ArgumentNode {
-	n := NewArgument()
-	bracketLevel := 0
-	for !p.at(CommaToken) && (!p.at(RightParenthesisToken) || p.at(RightParenthesisToken) && bracketLevel > 0) && !p.at(ErrorToken) {
-		if p.at(WhitespaceToken) {
-			continue
-		} else if p.at(LeftParenthesisToken) {
-			bracketLevel++
-		} else if p.at(RightParenthesisToken) {
-			bracketLevel--
-		}
-		n.Vals = append(n.Vals, p.shift())
-	}
-	return n
-}
-
-func (p *parser) parseFunction() *FunctionNode {
+func (p *Parser) parseFunction() *FunctionNode {
 	if !p.at(FunctionToken) {
 		return nil
 	}
 	n := NewFunction(p.shift())
+	p.skipWhitespace()
 	for !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
 			p.shift()
+			p.skipWhitespace()
 			continue
 		}
 		n.Args = append(n.Args, p.parseArgument())
 	}
-	p.skipUntil(RightParenthesisToken)
+	if p.at(ErrorToken) {
+		return nil
+	}
 	p.shift()
 	return n
 }
 
-func (p *parser) parseBlock() *BlockNode {
-	if !p.at(LeftBraceToken) && !p.at(LeftParenthesisToken) && !p.at(LeftBracketToken) {
+func (p *Parser) parseArgument() *ArgumentNode {
+	n := NewArgument()
+	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
+		n.Vals = append(n.Vals, p.shiftComponent())
+		p.skipWhitespace()
+	}
+	return n
+}
+
+func (p *Parser) parseBlock() *BlockNode {
+	if !p.at(LeftParenthesisToken) && !p.at(LeftBraceToken) && !p.at(LeftBracketToken) {
 		return nil
 	}
 	n := NewBlock(p.shift())
+	p.skipWhitespace()
 	for {
-		p.skipWhitespace()
 		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
 			break
-		} else if cn := p.parseAtRule(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if cn := p.parseRuleset(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if cn := p.parseDeclaration(); cn != nil {
-			n.Nodes = append(n.Nodes, cn)
-		} else if !p.at(ErrorToken) {
-			n.Nodes = append(n.Nodes, p.shift())
 		}
+		n.Nodes = append(n.Nodes, p.shiftComponent())
+		p.skipWhitespace()
 	}
 	if !p.at(ErrorToken) {
 		n.Close = p.shift()
@@ -375,22 +342,91 @@ func (p *parser) parseBlock() *BlockNode {
 	return n
 }
 
-func (p *parser) parseAtRule() *AtRuleNode {
-	if !p.at(AtKeywordToken) {
-		return nil
+func (p *Parser) shiftComponent() Node {
+	if cn := p.parseBlock(); cn != nil {
+		return cn
+	} else if cn := p.parseFunction(); cn != nil {
+		return cn
+	} else {
+		return p.shift()
 	}
-	n := NewAtRule(p.shift())
-	for !p.at(SemicolonToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		n.Nodes = append(n.Nodes, p.shift())
+}
+
+////////////////////////////////////////////////////////////////
+
+// copyBytes copies bytes to the same position.
+// This is required because the referenced slices from the tokenizer might be overwritten on subsequent Next calls.
+func (p *Parser) copy() {
+	for _, n := range p.buf[p.pos:] {
+		tmp := make([]byte, len(n.Data))
+		copy(tmp, n.Data)
+		n.Data = tmp
 	}
-	if p.at(LeftBraceToken) {
-		if cn := p.parseBlock(); cn != nil {
-			n.Rules = cn.Nodes
-		} else {
-			p.skipUntil(RightBraceToken)
-			p.shift()
+}
+
+func (p *Parser) read() *TokenNode {
+	tt, text := p.z.Next()
+	// ignore comments and multiple whitespace
+	if tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
+		return p.read()
+	}
+	return NewToken(tt, text)
+}
+
+func (p *Parser) peek(i int) *TokenNode {
+	if p.pos+i >= len(p.buf) {
+		c := cap(p.buf)
+		l := len(p.buf) - p.pos
+		if p.pos+i >= c {
+			// expand buffer when len is bigger than half the cap
+			if 2*l > c {
+				buf1 := make([]*TokenNode, l, 2*c)
+				copy(buf1, p.buf[p.pos:])
+				p.buf = buf1
+			} else {
+				copy(p.buf, p.buf[p.pos:])
+				p.buf = p.buf[:l]
+			}
+			p.pos = 0
+			if i >= cap(p.buf) {
+				return NewToken(ErrorToken, []byte("looking too far ahead"))
+			}
+		}
+		for j := len(p.buf); j <= p.pos+i; j++ {
+			p.buf = append(p.buf, p.read())
 		}
 	}
-	p.skipWhile(SemicolonToken)
-	return n
+	return p.buf[p.pos+i]
+}
+
+func (p *Parser) shift() *TokenNode {
+	shifted := p.peek(0)
+	p.pos++
+	return shifted
+}
+
+func (p *Parser) at(tt TokenType) bool {
+	return p.peek(0).TokenType == tt
+}
+
+func (p *Parser) data() []byte {
+	return p.peek(0).Data
+}
+
+func (p *Parser) skipWhitespace() {
+	if p.at(WhitespaceToken) {
+		p.shift()
+	}
+}
+
+func (p *Parser) skipWhile(tt TokenType) {
+	for p.at(tt) || p.at(WhitespaceToken) {
+		p.shift()
+	}
+}
+
+func (p *Parser) skipUntil(tt TokenType) {
+	for p.at(tt) && !p.at(ErrorToken) {
+		p.shift()
+	}
 }
