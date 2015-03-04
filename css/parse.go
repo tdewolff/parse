@@ -1,3 +1,60 @@
+/*
+Package css is a CSS3 tokenizer and parser written in Go. Both are implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
+Tokenizer using example:
+	package main
+	import (
+		"fmt"
+		"io"
+		"os"
+		"github.com/tdewolff/css"
+	)
+	// Tokenize CSS3 from stdin.
+	func main() {
+		z := css.NewTokenizer(os.Stdin)
+		for {
+			tt, data := z.Next()
+			switch tt {
+			case css.ErrorToken:
+				if z.Err() != io.EOF {
+					fmt.Println("Error on line", z.Line(), ":", z.Err())
+				}
+				return
+			case css.IdentToken:
+				fmt.Println("Identifier", data)
+			case css.NumberToken:
+				fmt.Println("Number", data)
+			// ...
+			}
+		}
+	}
+Parser using example:
+	package main
+	import (
+		"fmt"
+		"os"
+		"github.com/tdewolff/css"
+	)
+	// Parse CSS3 from stdin.
+	func main() {
+		stylesheet, err := css.Parse(os.Stdin)
+		if err != nil {
+			fmt.Println("Error:", err)
+			return
+		}
+		for _, node := range stylesheet.Nodes {
+			switch m := node.(type) {
+			case *css.TokenNode:
+				fmt.Println("Token", string(m.Data))
+			case *css.DeclarationNode:
+				fmt.Println("Declaration for property", string(m.Prop.Data))
+			case *css.RulesetNode:
+				fmt.Println("Ruleset with", len(m.Decls), "declarations")
+			case *css.AtRuleNode:
+				fmt.Println("AtRule", string(m.At.Data))
+			}
+		}
+	}
+*/
 package css // import "github.com/tdewolff/parse/css"
 
 import (
@@ -8,10 +65,18 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
+type TokenStream interface {
+	Next() (TokenType, []byte)
+	CopyFunc(func())
+	Err() error
+}
+
+////////////////////////////////////////////////////////////////
+
 // GrammarType determines the type of grammar.
 type GrammarType uint32
 
-// GrammarType values
+// GrammarType values.
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
 	AtRuleGrammar
@@ -46,28 +111,29 @@ func (tt GrammarType) String() string {
 // ParserState denotes the state of the parser.
 type ParserState uint32
 
-// ParserState values
+// ParserState values.
 const (
 	StylesheetState ParserState = iota
 	AtRuleState
 	RulesetState
 )
 
-////////////////////////////////////////////////////////////////
-
-type TokenStream interface {
-	Next() (TokenType, []byte)
-	CopyFunc(func())
-	Err() error
+// String returns the string representation of a ParserState.
+func (tt ParserState) String() string {
+	switch tt {
+	case StylesheetState:
+		return "Stylesheet"
+	case AtRuleState:
+		return "AtRule"
+	case RulesetState:
+		return "Ruleset"
+	}
+	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
-type Token struct {
-	TokenType
-	Data []byte
-}
-
 ////////////////////////////////////////////////////////////////
 
+// Parser is the state for the parser.
 type Parser struct {
 	z     TokenStream
 	state []ParserState
@@ -76,6 +142,7 @@ type Parser struct {
 	pos int
 }
 
+// NewParser returns a new Parser for a given Tokenizer implementing TokenStream.
 func NewParser(z TokenStream) *Parser {
 	p := &Parser{
 		z,
@@ -87,7 +154,9 @@ func NewParser(z TokenStream) *Parser {
 	return p
 }
 
-func (p *Parser) Parse() (*StylesheetNode, error) {
+// Parse parses the entire CSS file and returns the root StylesheetNode.
+func Parse(r io.Reader) (*StylesheetNode, error) {
+	p := NewParser(NewTokenizer(r))
 	var err error
 	stylesheet := NewStylesheet()
 	for {
@@ -139,11 +208,14 @@ func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
 	return nil
 }
 
-// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
+// Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p Parser) Err() error {
 	return p.z.Err()
 }
 
+// Next returns the next grammar unit from the CSS file.
+// This is a lower-level function than Parse and is used to stream parse CSS instead of loading it fully into memory.
+// Returned nodes of AtRule and Ruleset do not contain entries for Decls and Rules respectively. These are returned consecutively with calls to Next.
 func (p *Parser) Next() (GrammarType, Node) {
 	if p.at(ErrorToken) {
 		return ErrorGrammar, nil
@@ -354,8 +426,8 @@ func (p *Parser) shiftComponent() Node {
 
 ////////////////////////////////////////////////////////////////
 
-// copyBytes copies bytes to the same position.
-// This is required because the referenced slices from the tokenizer might be overwritten on subsequent Next calls.
+// copy copies bytes to the same position and is called whenever the tokenizer overwrites its internal buffer.
+// This is required because the referenced slices from the tokenizer still point to the tokenizer's internal buffer.
 func (p *Parser) copy() {
 	for _, n := range p.buf[p.pos:] {
 		tmp := make([]byte, len(n.Data))

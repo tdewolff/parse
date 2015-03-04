@@ -19,7 +19,7 @@ var ErrBadEscape = errors.New("bad escape")
 // TokenType determines the type of token, eg. a number or a semicolon.
 type TokenType uint32
 
-// TokenType values
+// TokenType values.
 const (
 	ErrorToken TokenType = iota // extra token when errors occur
 	IdentToken
@@ -145,6 +145,7 @@ func NewTokenizer(r io.Reader) *Tokenizer {
 	}
 }
 
+// CopyFunc sets the callback function that is called whenever the internal buffer is copied.
 func (z Tokenizer) CopyFunc(f func()) {
 	z.r.CopyFunc(f)
 }
