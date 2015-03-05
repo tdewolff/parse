@@ -67,7 +67,7 @@ import (
 
 type TokenStream interface {
 	Next() (TokenType, []byte)
-	CopyFunc(func())
+	//CopyFunc(func())
 	Err() error
 }
 
@@ -150,7 +150,7 @@ func NewParser(z TokenStream) *Parser {
 		make([]*TokenNode, 0, 16),
 		0,
 	}
-	z.CopyFunc(p.copy)
+	//z.CopyFunc(p.copy)
 	return p
 }
 
@@ -428,16 +428,22 @@ func (p *Parser) shiftComponent() Node {
 
 // copy copies bytes to the same position and is called whenever the tokenizer overwrites its internal buffer.
 // This is required because the referenced slices from the tokenizer still point to the tokenizer's internal buffer.
-func (p *Parser) copy() {
-	for _, n := range p.buf[p.pos:] {
-		tmp := make([]byte, len(n.Data))
-		copy(tmp, n.Data)
-		n.Data = tmp
-	}
-}
+// func (p *Parser) copy() {
+// 			fmt.Print("copy ", string(p.buf[0].Data))
+// 	for _, n := range p.buf[p.pos:] {
+// 		tmp := make([]byte, len(n.Data))
+// 		copy(tmp, n.Data)
+// 		n.Data = tmp
+// 	}
+// 	fmt.Println(" ", string(p.buf[0].Data))
+// }
 
 func (p *Parser) read() *TokenNode {
 	tt, text := p.z.Next()
+	// TODO: refactor buffer and copying
+	tmp := make([]byte, len(text))
+	copy(tmp, text)
+	text = tmp
 	// ignore comments and multiple whitespace
 	if tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
 		return p.read()
