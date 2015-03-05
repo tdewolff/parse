@@ -67,7 +67,6 @@ import (
 
 type TokenStream interface {
 	Next() (TokenType, []byte)
-	//CopyFunc(func())
 	Err() error
 }
 
@@ -144,14 +143,12 @@ type Parser struct {
 
 // NewParser returns a new Parser for a given Tokenizer implementing TokenStream.
 func NewParser(z TokenStream) *Parser {
-	p := &Parser{
+	return &Parser{
 		z,
 		[]ParserState{StylesheetState},
 		make([]*TokenNode, 0, 16),
 		0,
 	}
-	//z.CopyFunc(p.copy)
-	return p
 }
 
 // Parse parses the entire CSS file and returns the root StylesheetNode.
@@ -425,18 +422,6 @@ func (p *Parser) shiftComponent() Node {
 }
 
 ////////////////////////////////////////////////////////////////
-
-// copy copies bytes to the same position and is called whenever the tokenizer overwrites its internal buffer.
-// This is required because the referenced slices from the tokenizer still point to the tokenizer's internal buffer.
-// func (p *Parser) copy() {
-// 			fmt.Print("copy ", string(p.buf[0].Data))
-// 	for _, n := range p.buf[p.pos:] {
-// 		tmp := make([]byte, len(n.Data))
-// 		copy(tmp, n.Data)
-// 		n.Data = tmp
-// 	}
-// 	fmt.Println(" ", string(p.buf[0].Data))
-// }
 
 func (p *Parser) read() *TokenNode {
 	tt, text := p.z.Next()

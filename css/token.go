@@ -145,11 +145,6 @@ func NewTokenizer(r io.Reader) *Tokenizer {
 	}
 }
 
-// CopyFunc sets the callback function that is called whenever the internal buffer is copied.
-func (z Tokenizer) CopyFunc(f func()) {
-	z.r.CopyFunc(f)
-}
-
 // Line returns the current line that is being tokenized (1 + number of \n, \r or \r\n encountered).
 func (z Tokenizer) Line() int {
 	return z.line

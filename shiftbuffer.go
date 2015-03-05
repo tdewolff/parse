@@ -18,7 +18,6 @@ var ErrBufferExceeded = errors.New("max buffer exceeded")
 type ShiftBuffer struct {
 	r       io.Reader
 	readErr error
-	copy    func()
 
 	buf []byte
 	pos int
@@ -43,11 +42,6 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 	}
 	b.Peek(0)
 	return b
-}
-
-// CopyFunc sets the callback function that is called whenever the internal buffer is copied.
-func (z *ShiftBuffer) CopyFunc(f func()) {
-	z.copy = f
 }
 
 // Err returns the error.
@@ -97,9 +91,6 @@ func (z *ShiftBuffer) Peek(i int) byte {
 			buf1 = make([]byte, d, 2*c)
 		} else {
 			buf1 = z.buf[:d]
-		}
-		if z.copy != nil {
-			z.copy() // copy callback to inform user that buffer is copied
 		}
 		copy(buf1, z.buf[z.pos:z.pos+d])
 
