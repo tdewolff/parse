@@ -65,13 +65,6 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-type TokenStream interface {
-	Next() (TokenType, []byte)
-	Err() error
-}
-
-////////////////////////////////////////////////////////////////
-
 // GrammarType determines the type of grammar.
 type GrammarType uint32
 
@@ -134,17 +127,17 @@ func (tt ParserState) String() string {
 
 // Parser is the state for the parser.
 type Parser struct {
-	z     TokenStream
+	z     *Tokenizer
 	state []ParserState
 
 	buf []*TokenNode
 	pos int
 }
 
-// NewParser returns a new Parser for a given Tokenizer implementing TokenStream.
-func NewParser(z TokenStream) *Parser {
+// NewParser returns a new Parser for a Reader.
+func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		z,
+		NewTokenizer(r),
 		[]ParserState{StylesheetState},
 		make([]*TokenNode, 0, 16),
 		0,
@@ -153,7 +146,7 @@ func NewParser(z TokenStream) *Parser {
 
 // Parse parses the entire CSS file and returns the root StylesheetNode.
 func Parse(r io.Reader) (*StylesheetNode, error) {
-	p := NewParser(NewTokenizer(r))
+	p := NewParser(r)
 	var err error
 	stylesheet := NewStylesheet()
 	for {
@@ -423,16 +416,19 @@ func (p *Parser) shiftComponent() Node {
 
 ////////////////////////////////////////////////////////////////
 
+func copyBytes(src []byte) (dst []byte) {
+	dst = make([]byte, len(src))
+	copy(dst, src)
+	return
+}
+
 func (p *Parser) read() *TokenNode {
 	tt, text := p.z.Next()
-	// TODO: refactor buffer and copying
-	tmp := make([]byte, len(text))
-	copy(tmp, text)
-	text = tmp
 	// ignore comments and multiple whitespace
-	if tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
-		return p.read()
+	for tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
+		tt, text = p.z.Next()
 	}
+	text = copyBytes(text) // copy necessary for whenever the tokenizer overwrites its buffer
 	return NewToken(tt, text)
 }
 
