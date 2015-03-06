@@ -3,18 +3,12 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"io"
 	"net/url"
 	"strconv"
 
 	"github.com/tdewolff/parse"
 )
-
-// ErrBadEscape is returned when an escaped sequence contains a newline.
-var ErrBadEscape = errors.New("bad escape")
-
-////////////////////////////////////////////////////////////////
 
 // TokenType determines the type of token, eg. a number or a semicolon.
 type TokenType uint32
@@ -293,12 +287,11 @@ func (z *Tokenizer) consumeComment() bool {
 	}
 	z.r.Move(2)
 	for {
-		if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
-			z.r.Move(2)
-			return true
-		}
 		if z.r.Peek(0) == 0 {
 			break
+		} else if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
+			z.r.Move(2)
+			return true
 		}
 		z.consumeRune()
 	}
@@ -638,8 +631,7 @@ func (z *Tokenizer) consumeNumeric() TokenType {
 	if z.consumeNumberToken() {
 		if z.consumeByte('%') {
 			return PercentageToken
-		}
-		if z.consumeIdentToken() {
+		} else if z.consumeIdentToken() {
 			return DimensionToken
 		}
 		return NumberToken
@@ -661,12 +653,10 @@ func (z *Tokenizer) consumeString() TokenType {
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
-		}
-		if c == delim {
+		} else if c == delim {
 			z.r.Move(1)
 			break
-		}
-		if c == '\\' {
+		} else if c == '\\' {
 			if !z.consumeEscape() {
 				z.r.Move(1)
 				z.consumeNewline()
@@ -685,19 +675,16 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 	for {
 		if z.consumeWhitespace() {
 			break
-		}
-		if z.consumeByte(')') {
+		} else if z.consumeByte(')') {
 			z.r.Move(-1)
 			break
 		}
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
-		}
-		if c == '\\' && z.consumeEscape() {
+		} else if c == '\\' && z.consumeEscape() {
 			continue
-		}
-		if c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
+		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
 			return false
 		}
 		z.consumeRune()
@@ -713,8 +700,7 @@ func (z *Tokenizer) consumeRemnantsBadURL() {
 	for {
 		if z.consumeByte(')') || z.Err() != nil {
 			break
-		}
-		if z.consumeEscape() {
+		} else if z.consumeEscape() {
 			continue
 		}
 		z.consumeRune()
@@ -726,8 +712,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 	if z.consumeIdentToken() {
 		if !z.consumeByte('(') {
 			return IdentToken
-		}
-		if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Buffered(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
+		} else if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Buffered(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
 			return FunctionToken
 		}
 
