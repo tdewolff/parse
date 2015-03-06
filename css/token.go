@@ -291,7 +291,6 @@ func (z *Tokenizer) consumeComment() bool {
 	if z.r.Peek(0) != '/' || z.r.Peek(1) != '*' {
 		return false
 	}
-	nOld := z.r.Pos()
 	z.r.Move(2)
 	for {
 		if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
@@ -303,9 +302,7 @@ func (z *Tokenizer) consumeComment() bool {
 		}
 		z.consumeRune()
 	}
-	err := z.Err()
-	if err != nil && err != io.EOF {
-		z.r.MoveTo(nOld)
+	if err := z.Err(); err != nil && err != io.EOF {
 		return false
 	}
 	return true
@@ -415,8 +412,7 @@ func (z *Tokenizer) consumeIdentToken() bool {
 		}
 		z.consumeRune()
 	}
-	err := z.Err()
-	if err != nil && err != io.EOF {
+	if err := z.Err(); err != nil && err != io.EOF {
 		return false
 	}
 	return true
@@ -458,8 +454,7 @@ func (z *Tokenizer) consumeHashToken() bool {
 		}
 		z.consumeRune()
 	}
-	err := z.Err()
-	if err != nil && err != io.EOF {
+	if err := z.Err(); err != nil && err != io.EOF {
 		return false
 	}
 	return true
@@ -682,8 +677,7 @@ func (z *Tokenizer) consumeString() TokenType {
 		}
 		z.consumeRune()
 	}
-	err := z.Err()
-	if err != nil && err != io.EOF {
+	if err := z.Err(); err != nil && err != io.EOF {
 		return ErrorToken
 	}
 	return StringToken
@@ -710,8 +704,7 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 		}
 		z.consumeRune()
 	}
-	err := z.Err()
-	if err != nil && err != io.EOF {
+	if err := z.Err(); err != nil && err != io.EOF {
 		return false
 	}
 	return true
