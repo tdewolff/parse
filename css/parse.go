@@ -338,7 +338,7 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 		if p.at(DelimToken) && p.data()[0] == '!' {
 			exclamation := p.shift()
 			p.skipWhitespace()
-			if p.at(IdentToken) && bytes.Equal(bytes.ToLower(p.data()), []byte("important")) {
+			if p.at(IdentToken) && ToHash(bytes.ToLower(p.data())) == Important {
 				n.Important = true
 				p.shift()
 			} else {
