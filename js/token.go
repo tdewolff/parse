@@ -486,8 +486,6 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 	inClass := false
 	for {
 		if z.consumeLineTerminator() {
-			z.r.MoveTo(nOld)
-			return false
 		}
 		c := z.r.Peek(0)
 		if c == 0 {
@@ -495,9 +493,12 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 		} else if !inClass && c == '/' {
 			z.r.Move(1)
 			break
-		} else if c == '\\' && (z.r.Peek(1) == '/' || z.r.Peek(1) == '[') {
-			z.r.Move(2)
-			continue
+		} else if c == '\\' {
+			if z.consumeLineTerminator() {
+				z.r.MoveTo(nOld)
+				return false
+			}
+			z.r.Move(1)
 		} else if c == '[' {
 			inClass = true
 		} else if c == ']' {

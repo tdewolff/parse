@@ -59,7 +59,6 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "5.2 .4 0x0F 5e9", NumericToken, NumericToken, NumericToken, NumericToken)
 	assertTokens(t, "a = 'string'", IdentifierToken, PunctuatorToken, StringToken)
 	assertTokens(t, "/*comment*/ //comment", CommentToken, CommentToken)
-	assertTokens(t, "null true false", NullToken, BoolToken, BoolToken)
 	assertTokens(t, "{ } ( ) [ ]", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, ". ; , < > <=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, ">= == != === !== /", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
@@ -80,4 +79,5 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "'str\\\ni\\\\u00A0ng'", StringToken)
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
+	assertTokens(t, "a = /'\\\\/\n", IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken)
 }
