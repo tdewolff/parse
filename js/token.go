@@ -20,14 +20,15 @@ type TokenType uint32
 
 // TokenType values.
 const (
-	ErrorToken TokenType = iota // extra token when errors occur
-	WhitespaceToken      // space \t \v \f
-	LineTerminatorToken  // \r \n \r\n
+	ErrorToken          TokenType = iota // extra token when errors occur
+	WhitespaceToken                      // space \t \v \f
+	LineTerminatorToken                  // \r \n \r\n
 	CommentToken
 	IdentifierToken
-	PunctuatorToken
-	BoolToken
-	NullToken
+	PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
+	   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= */
+	BoolToken // true false
+	NullToken // null
 	NumericToken
 	StringToken
 	RegexpToken
