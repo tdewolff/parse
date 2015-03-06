@@ -1,16 +1,14 @@
+[![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse)
+
 # Parse
 This package contains tokenizers and parsers for several content types. All sub packages are built for high performance and for conformance with the specifications.
 
 The tokenizers are implemented using `ShiftBuffer` and the parsers work on top of the tokenizers. Some content types have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up byte-slice comparisons.
 
 ## CSS
-[![GoDoc](http://godoc.org/github.com/tdewolff/parse/css?status.svg)](http://godoc.org/github.com/tdewolff/parse/css)
-
 [See README here](https://github.com/tdewolff/parse/blob/master/css/README.md).
 
 ## JS
-[![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js)
-
 [See README here](https://github.com/tdewolff/parse/blob/master/js/README.md).
 
 ## Installation
