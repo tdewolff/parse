@@ -76,6 +76,6 @@ func TestParser(t *testing.T) {
 	assertParse(t, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
 
 	// issues
-	assertParse(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}") // #6
+	assertParse(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                    // #6
 	assertParse(t, ".class{width:calc((50% + 2em)/2 + 14px);}}", ".class{width:calc((50% + 2em)/2 + 14px);}}") // #7
 }

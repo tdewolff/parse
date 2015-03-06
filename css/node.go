@@ -44,7 +44,7 @@ func NodeEqual(n, other Node) bool {
 		// TODO: remove
 		b := &bytes.Buffer{}
 		n.Serialize(b)
-		panic("not handled NodeEqual for node: "+b.String())
+		panic("not handled NodeEqual for node: " + b.String())
 	}
 	return true
 }
