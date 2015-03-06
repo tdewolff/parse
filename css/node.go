@@ -306,6 +306,7 @@ type DeclarationNode struct {
 
 // NewDeclaration returns a new DeclarationNode.
 func NewDeclaration(prop *TokenNode) *DeclarationNode {
+	prop.Data = bytes.ToLower(prop.Data)
 	return &DeclarationNode{
 		prop,
 		nil,
@@ -373,6 +374,7 @@ type FunctionNode struct {
 
 // NewFunction returns a new FunctionNode.
 func NewFunction(f *TokenNode) *FunctionNode {
+	f.Data = f.Data[:len(f.Data)-1]
 	return &FunctionNode{
 		f,
 		nil,
@@ -395,6 +397,9 @@ func (n FunctionNode) Equal(other *FunctionNode) bool {
 // Serialize write to Writer the string representation of the node.
 func (n FunctionNode) Serialize(w io.Writer) error {
 	if err := n.Func.Serialize(w); err != nil {
+		return err
+	}
+	if _, err := w.Write([]byte("(")); err != nil {
 		return err
 	}
 	for i, m := range n.Args {
