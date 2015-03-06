@@ -34,21 +34,22 @@ for {
 
 All tokens (see [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/)):
 ``` go
-ErrorToken           // non-official token, returned when errors occur
-WhitespaceToken      // space \t \v \f
-LineTerminatorToken  // \r \n \r\n
+ErrorToken          TokenType = iota // extra token when errors occur
+WhitespaceToken                      // space \t \v \f
+LineTerminatorToken                  // \r \n \r\n
 CommentToken
 IdentifierToken
-PunctuatorToken
-BoolToken
-NullToken
+PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
+   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= */
+BoolToken // true false
+NullToken // null
 NumericToken
 StringToken
 RegexpToken
 ```
 
 ### Quirks
-Because the ECMAScript specification for `PunctuatorToken`s (`/` and `/=`) and `RegexpToken`s depends on a parser state to differentiate between the two, the tokenizer (to remain modular) uses different rules. Whenever `/` is encountered and the previous token is one of `(,=:[!&|?{};` it returns a `RegexpToken`, otherwise it returns a `PunctuatorToken`. This is the same rule JSLint appears to use.
+Because the ECMAScript specification for `PunctuatorToken` (of which the `/` and `/=` symbols) and `RegexpToken` depends on a parser state to differentiate between the two, the tokenizer (to remain modular) uses different rules. Whenever `/` is encountered and the previous token is one of `(,=:[!&|?{};`, it returns a `RegexpToken`, otherwise it returns a `PunctuatorToken`. This is the same rule JSLint appears to use.
 
 ### Examples
 ``` go
