@@ -336,6 +336,15 @@ func (z *Tokenizer) consumeWhitespace() bool {
 	return false
 }
 
+func (z *Tokenizer) consumeDigit() bool {
+	c := z.r.Peek(0)
+	if c >= '0' && c <= '9' {
+		z.r.Move(1)
+		return true
+	}
+	return false
+}
+
 func (z *Tokenizer) consumeHexDigit() bool {
 	c := z.r.Peek(0)
 	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
@@ -369,15 +378,6 @@ func (z *Tokenizer) consumeEscape() bool {
 	return true
 }
 
-func (z *Tokenizer) consumeDigit() bool {
-	c := z.r.Peek(0)
-	if c >= '0' && c <= '9' {
-		z.r.Move(1)
-		return true
-	}
-	return false
-}
-
 func (z *Tokenizer) consumeWhitespaceToken() bool {
 	if z.consumeWhitespace() {
 		for z.consumeWhitespace() {
@@ -392,7 +392,6 @@ func (z *Tokenizer) consumeIdentToken() bool {
 	if z.r.Peek(0) == '-' {
 		z.r.Move(1)
 	}
-
 	if !z.consumeEscape() {
 		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
@@ -401,7 +400,6 @@ func (z *Tokenizer) consumeIdentToken() bool {
 		}
 		z.consumeRune()
 	}
-
 	for {
 		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
@@ -466,8 +464,8 @@ func (z *Tokenizer) consumeNumberToken() bool {
 	if c == '+' || c == '-' {
 		z.r.Move(1)
 	}
-	firstDigid := z.consumeDigit()
-	if firstDigid {
+	firstDigit := z.consumeDigit()
+	if firstDigit {
 		for z.consumeDigit() {
 		}
 	}
@@ -476,15 +474,15 @@ func (z *Tokenizer) consumeNumberToken() bool {
 		if z.consumeDigit() {
 			for z.consumeDigit() {
 			}
-		} else if firstDigid {
-			// . could belong to next token
+		} else if firstDigit {
+			// . could belong to the next token
 			z.r.Move(-1)
 			return true
 		} else {
 			z.r.MoveTo(nOld)
 			return false
 		}
-	} else if !firstDigid {
+	} else if !firstDigit {
 		z.r.MoveTo(nOld)
 		return false
 	}
@@ -497,7 +495,7 @@ func (z *Tokenizer) consumeNumberToken() bool {
 			z.r.Move(1)
 		}
 		if !z.consumeDigit() {
-			// e could belong to dimensiontoken (em)
+			// e could belong to next token
 			z.r.MoveTo(nOld)
 			return true
 		}
