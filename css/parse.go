@@ -134,7 +134,7 @@ type Parser struct {
 	pos int
 }
 
-// NewParser returns a new Parser for a Reader.
+// NewParser returns a new Parser for a io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
 		NewTokenizer(r),
