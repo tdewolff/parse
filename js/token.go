@@ -68,6 +68,8 @@ func (tt TokenType) String() string {
 type Tokenizer struct {
 	r    *parse.ShiftBuffer
 	line int
+
+	regexpState bool
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
@@ -75,6 +77,7 @@ func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
 		parse.NewShiftBuffer(r),
 		1,
+		false,
 	}
 }
 
@@ -95,35 +98,48 @@ func (z Tokenizer) IsEOF() bool {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
+	tt := ErrorToken
 	if z.consumeWhitespaceToken() {
-		return WhitespaceToken, z.r.Shift()
+		tt = WhitespaceToken
 	} else if z.consumeLineTerminatorToken() {
-		return LineTerminatorToken, z.r.Shift()
+		tt = LineTerminatorToken
 	} else if z.consumeIdentifierToken() {
 		if bytes.Equal(z.r.Buffered(), []byte("null")) {
-			return NullToken, z.r.Shift()
+			tt = NullToken
 		} else if bytes.Equal(z.r.Buffered(), []byte("true")) || bytes.Equal(z.r.Buffered(), []byte("false")) {
-			return BoolToken, z.r.Shift()
+			tt = BoolToken
+		} else {
+			tt = IdentifierToken
 		}
-		return IdentifierToken, z.r.Shift()
 	} else if z.consumeNumericToken() {
-		return NumericToken, z.r.Shift()
+		tt = NumericToken
 	} else if z.consumeStringToken() {
-		return StringToken, z.r.Shift()
+		tt = StringToken
 	} else if z.consumeCommentToken() {
-		return CommentToken, z.r.Shift()
-	} else if z.consumeRegexpToken() {
-		return RegexpToken, z.r.Shift()
+		tt = CommentToken
+	} else if z.regexpState && z.consumeRegexpToken() {
+		tt = RegexpToken
 	} else if z.consumePunctuatorToken() {
-		return PunctuatorToken, z.r.Shift()
+		tt = PunctuatorToken
 	}
-	return ErrorToken, []byte{}
+
+	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
+	if tt != WhitespaceToken && tt != CommentToken {
+		z.regexpState = false
+		if tt == PunctuatorToken && z.r.Pos() == 1 {
+			if c := z.r.Buffered()[0]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '{' || c == '}' || c == ';' {
+				z.regexpState = true
+			}
+		}
+	}
+
+	return tt, z.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
 
 /*
-The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1
+The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
 
 func (z *Tokenizer) consumeByte(c byte) bool {
@@ -438,6 +454,15 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 		}
 		z.consumeRune()
 	}
+	// flags
+	rangeTable := []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc}
+	for {
+		r := z.r.PeekRune(0)
+		if r != '$' && r != '_' && !unicode.IsOneOf(rangeTable, r) && r != '\u200C' && r != '\u200D' {
+			break
+		}
+		z.consumeRune()
+	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return false
 	}
@@ -457,12 +482,13 @@ func (z *Tokenizer) consumePunctuatorToken() bool {
 			if (c == '!' || c == '=') && z.r.Peek(0) == '=' {
 				z.r.Move(1)
 			}
-		} else if (c == '&' || c == '|') && z.r.Peek(0) == c {
+		} else if (c == '+' || c == '-' || c == '&' || c == '|') && z.r.Peek(0) == c {
 			z.r.Move(1)
 		}
 		return true
 	}
 	if c == '<' || c == '>' {
+		z.r.Move(1)
 		if z.r.Peek(0) == c {
 			z.r.Move(1)
 			if c == '>' && z.r.Peek(0) == '>' {
