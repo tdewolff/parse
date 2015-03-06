@@ -16,8 +16,8 @@ var ErrBufferExceeded = errors.New("max buffer exceeded")
 
 // ShiftBuffer is a buffered reader that allows peeking forward and shifting, taking an io.Reader.
 type ShiftBuffer struct {
-	r       io.Reader
-	readErr error
+	r   io.Reader
+	err error
 
 	buf []byte
 	pos int
@@ -31,8 +31,8 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 		Bytes() []byte
 	}); ok {
 		return &ShiftBuffer{
-			readErr: io.EOF,
-			buf:     fr.Bytes(),
+			err: io.EOF,
+			buf: fr.Bytes(),
 		}
 	}
 
@@ -46,10 +46,15 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 
 // Err returns the error.
 func (z ShiftBuffer) Err() error {
-	if z.readErr == io.EOF && z.pos+z.n < len(z.buf) {
+	if z.err == io.EOF && z.pos+z.n < len(z.buf) {
 		return nil
 	}
-	return z.readErr
+	return z.err
+}
+
+// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
+func (z ShiftBuffer) IsEOF() bool {
+	return z.err == io.EOF
 }
 
 // Move advances the 0 position of read.
@@ -75,7 +80,7 @@ func (z ShiftBuffer) Len() int {
 // Peek returns the ith byte and possible does a reallocation
 func (z *ShiftBuffer) Peek(i int) byte {
 	if z.pos+z.n+i >= len(z.buf) {
-		if z.readErr != nil {
+		if z.err != nil {
 			return 0
 		}
 
@@ -85,7 +90,7 @@ func (z *ShiftBuffer) Peek(i int) byte {
 		var buf1 []byte
 		if 2*d > c {
 			if 2*c > MaxBuf {
-				z.readErr = ErrBufferExceeded
+				z.err = ErrBufferExceeded
 				return 0
 			}
 			buf1 = make([]byte, d, 2*c)
@@ -96,7 +101,7 @@ func (z *ShiftBuffer) Peek(i int) byte {
 
 		// Read in to fill the buffer till capacity
 		var n int
-		n, z.readErr = z.r.Read(buf1[d:cap(buf1)])
+		n, z.err = z.r.Read(buf1[d:cap(buf1)])
 		z.pos, z.buf = 0, buf1[:d+n]
 		if n == 0 {
 			return 0

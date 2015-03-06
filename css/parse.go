@@ -423,13 +423,20 @@ func copyBytes(src []byte) (dst []byte) {
 }
 
 func (p *Parser) read() *TokenNode {
-	tt, text := p.z.Next()
+	tt, data := p.z.Next()
 	// ignore comments and multiple whitespace
 	for tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
-		tt, text = p.z.Next()
+		tt, data = p.z.Next()
 	}
-	text = copyBytes(text) // copy necessary for whenever the tokenizer overwrites its buffer
-	return NewToken(tt, text)
+	// copy necessary for whenever the tokenizer overwrites its buffer
+	// checking if buffer has EOF optimizes for small files and files already in memory
+	if !p.z.IsEOF() {
+		data = copyBytes(data)
+	}
+	return &TokenNode{
+		tt,
+		data,
+	}
 }
 
 func (p *Parser) peek(i int) *TokenNode {
@@ -448,7 +455,10 @@ func (p *Parser) peek(i int) *TokenNode {
 			}
 			p.pos = 0
 			if i >= cap(p.buf) {
-				return NewToken(ErrorToken, []byte("looking too far ahead"))
+				return &TokenNode{
+					ErrorToken,
+					[]byte("looking too far ahead"),
+				}
 			}
 		}
 		for j := len(p.buf); j <= p.pos+i; j++ {
@@ -485,7 +495,7 @@ func (p *Parser) skipWhile(tt TokenType) {
 }
 
 func (p *Parser) skipUntil(tt TokenType) {
-	for p.at(tt) && !p.at(ErrorToken) {
+	for !p.at(tt) && !p.at(ErrorToken) {
 		p.shift()
 	}
 }

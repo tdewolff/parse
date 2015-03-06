@@ -155,6 +155,11 @@ func (z Tokenizer) Err() error {
 	return z.r.Err()
 }
 
+// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
+func (z Tokenizer) IsEOF() bool {
+	return z.r.IsEOF()
+}
+
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	switch z.r.Peek(0) {
