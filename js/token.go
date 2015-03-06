@@ -95,7 +95,8 @@ func (z Tokenizer) IsEOF() bool {
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	var tt TokenType
-	switch z.r.Peek(0) {
+	c := z.r.Peek(0)
+	switch c {
 	case '(', ')', '[', ']', '{', '}', ';', ',', '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^', '~', '?', ':':
 		if z.consumePunctuatorToken() {
 			tt = PunctuatorToken
@@ -108,23 +109,29 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		} else if z.consumePunctuatorToken() {
 			tt = PunctuatorToken
 		}
-	case '.':
+	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if z.consumeNumericToken() {
 			tt = NumericToken
-		} else if z.consumePunctuatorToken() {
+		} else if c == '.' && z.consumePunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '\'', '"':
 		if z.consumeStringToken() {
 			tt = StringToken
 		}
-	default:
+	case ' ', '\t', '\v', '\f':
 		if z.consumeWhitespaceToken() {
 			tt = WhitespaceToken
-		} else if z.consumeLineTerminatorToken() {
+		}
+	case '\n', '\r':
+		if z.consumeLineTerminatorToken() {
 			tt = LineTerminatorToken
-		} else if z.consumeNumericToken() {
-			tt = NumericToken
+		}
+	default:
+		if c >= 0xC0 && z.consumeWhitespaceToken() {
+			tt = WhitespaceToken
+		} else if c >= 0xC0 && z.consumeLineTerminatorToken() {
+			tt = LineTerminatorToken
 		} else if z.consumeIdentifierToken() {
 			tt = IdentifierToken
 		} else if z.Err() != nil {
@@ -133,28 +140,6 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			tt = UnknownToken
 		}
 	}
-
-	// if z.consumeWhitespaceToken() {
-	// 	tt = WhitespaceToken
-	// } else if z.consumeLineTerminatorToken() {
-	// 	tt = LineTerminatorToken
-	// } else if z.consumeNumericToken() {
-	// 	tt = NumericToken
-	// } else if z.consumeStringToken() {
-	// 	tt = StringToken
-	// } else if z.consumeCommentToken() {
-	// 	tt = CommentToken
-	// } else if z.regexpState && z.consumeRegexpToken() {
-	// 	tt = RegexpToken
-	// } else if z.consumePunctuatorToken() {
-	// 	tt = PunctuatorToken
-	// } else if z.consumeIdentifierToken() {
-	// 	tt = IdentifierToken
-	// } else if z.Err() != nil {
-	// 	return ErrorToken, []byte{}
-	// } else if z.consumeRune() {
-	// 	tt = UnknownToken
-	// }
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	if tt != WhitespaceToken && tt != CommentToken {
