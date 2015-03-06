@@ -1,202 +1,29 @@
 [![GoDoc](http://godoc.org/github.com/tdewolff/parse/css?status.svg)](http://godoc.org/github.com/tdewolff/parse/css)
+[![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js)
 
-# CSS
-This package is a CSS3 tokenizer and parser written in [Go][1]. Both follow the specification at [CSS Syntax Module Level 3](http://www.w3.org/TR/css-syntax-3/). The tokenizer takes an io.Reader and converts it into tokens until the EOF. The parser returns a parse tree of the full io.Reader input stream, but the low-level `Next` function can be used for stream parsing to returns grammar units until the EOF.
+# Parse
+This package contains tokenizers and parsers for several content types. All sub packages are built for high performance and for conformance with the specifications.
+
+The tokenizers are implemented using `ShiftBuffer` and the parsers work on top of the tokenizers. Some content types have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up byte-slice comparisons.
+
+## CSS
+[See README here](https://github.com/tdewolff/parse/blob/master/css/README.md).
+
+## JS
+[See README here](https://github.com/tdewolff/parse/blob/master/js/README.md).
 
 ## Installation
-Run the following command
+Run the following commands
 
-	go get github.com/tdewolff/parse
+	go get github.com/tdewolff/parse/css
+	go get github.com/tdewolff/parse/js
 
-or add the following import and run project with `go get`
+or add the following imports and run project with `go get`
 
 	import "github.com/tdewolff/parse/css"
-
-## Tokenizer
-### Usage
-The following initializes a new tokenizer with io.Reader `r`:
-``` go
-z := css.NewTokenizer(r)
-```
-
-The following takes a `[]byte`:
-``` go
-z := css.NewTokenizerBytes(b)
-```
-
-To tokenize until EOF an error, use:
-``` go
-for {
-	tt, text := z.Next()
-	switch tt {
-	case css.ErrorToken:
-		// error or EOF set in z.Err()
-		return
-	// ...
-	}
-}
-```
-
-All tokens (see [CSS Syntax Module Level 3](http://www.w3.org/TR/css3-syntax/)):
-``` go
-ErrorToken			// non-official token, returned when errors occur
-IdentToken
-FunctionToken		// rgb( rgba( ...
-AtKeywordToken		// @abc
-HashToken			// #abc
-StringToken
-BadStringToken
-UrlToken			// url(
-BadUrlToken
-DelimToken			// any unmatched character
-NumberToken			// 5
-PercentageToken		// 5%
-DimensionToken		// 5em
-UnicodeRangeToken
-IncludeMatchToken	// ~=
-DashMatchToken		// |=
-PrefixMatchToken	// ^=
-SuffixMatchToken	// $=
-SubstringMatchToken // *=
-ColumnToken			// ||
-WhitespaceToken
-CDOToken 			// <!--
-CDCToken 			// -->
-ColonToken
-SemicolonToken
-CommaToken
-BracketToken 		// ( ) [ ] { }, all bracket tokens use this, Data() can distinguish between the brackets
-CommentToken		// non-official token
-```
-
-### Examples
-``` go
-package main
-
-import (
-	"os"
-
-	"github.com/tdewolff/parse/css"
-)
-
-// Tokenize CSS3 from stdin.
-func main() {
-	z := css.NewTokenizer(os.Stdin)
-	for {
-		tt, text := z.Next()
-		switch tt {
-		case css.ErrorToken:
-			if z.Err() != io.EOF {
-				fmt.Println("Error on line", z.Line(), ":", z.Err())
-			}
-			return
-		case css.IdentToken:
-			fmt.Println("Identifier", string(text))
-		case css.NumberToken:
-			fmt.Println("Number", string(text))
-		// ...
-		}
-	}
-}
-```
-
-## Parser
-### Usage
-The following parses until EOF with io.Reader `r`:
-``` go
-stylesheet, err := css.Parse(r)
-if err != nil {
-	fmt.Println("Error", err)
-	return
-}
-```
-
-To iterate over the stylesheet, use:
-``` go
-for _, node := range stylesheet.Nodes {
-	switch node.(type) {
-	case *css.TokenNode:
-		// ...
-	}
-}
-```
-
-Nodes:
-
-	StylesheetNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
-	RulesetNode.SelGroups := SelectorGroupNode*
-	RulesetNode.Decls := DeclarationNode*
-
-	SelectorGroupNode.Selectors := SelectorNode*
-	SelectorNode.Nodes := (TokenNode | AttributeSelectorNode)*
-	AttributeSelectorNode.Vals := TokenNode*
-
-	DeclarationNode.Prop := TokenNode
-	DeclarationNode.Vals := (FunctionNode | TokenNode)*
-
-	FunctionNode.Func := TokenNode
-	FunctionNode.Args := ArgumentNode*
-	ArgumentNode.Key := TokenNode | nil
-	ArgumentNode.Val := TokenNode
-
-	AtRuleNode.At := TokenNode
-	AtRuleNode.Nodes := TokenNode*
-	AtRuleNode.Block := BlockNode | nil
-
-	BlockNode.Open := TokenNode
-	BlockNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
-	BlockNode.Close := TokenNode
-
-	TokenNode.TokenType := TokenType
-	TokenNode.Data := string
-
-All grammar units returned by `Next`:
-``` go
-ErrorGrammar
-AtRuleGrammar
-EndAtRuleGrammar
-RulesetGrammar
-EndRulesetGrammar
-DeclarationGrammar
-TokenGrammar
-```
-
-### Examples
-``` go
-package main
-
-import (
-	"fmt"
-	"os"
-
-	"github.com/tdewolff/parse/css"
-)
-
-// Parse CSS3 from stdin.
-func main() {
-	stylesheet, err := css.Parse(os.Stdin)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	for _, node := range stylesheet.Nodes {
-		switch m := node.(type) {
-		case *css.TokenNode:
-			fmt.Println("Token", string(m.Data))
-		case *css.DeclarationNode:
-			fmt.Println("Declaration for property", string(m.Prop.Data))
-		case *css.RulesetNode:
-			fmt.Println("Ruleset with", len(m.Decls), "declarations")
-		case *css.AtRuleNode:
-			fmt.Println("AtRule", string(m.At.Data))
-		}
-	}
-}
-```
+	import "github.com/tdewolff/parse/js"
 
 ## License
-
 Released under the [MIT license](LICENSE.md).
 
 [1]: http://golang.org/ "Go Language"
