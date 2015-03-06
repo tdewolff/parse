@@ -2,7 +2,6 @@ package js // import "github.com/tdewolff/parse/js"
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strconv"
 	"unicode"
@@ -10,17 +9,13 @@ import (
 	"github.com/tdewolff/parse"
 )
 
-// ErrBadEscape is returned when an escaped sequence contains a newline.
-var ErrBadEscape = errors.New("bad escape")
-
-////////////////////////////////////////////////////////////////
-
 // TokenType determines the type of token, eg. a number or a semicolon.
 type TokenType uint32
 
 // TokenType values.
 const (
 	ErrorToken          TokenType = iota // extra token when errors occur
+	UnknownToken                         // extra token when no token can be matched
 	WhitespaceToken                      // space \t \v \f
 	LineTerminatorToken                  // \r \n \r\n
 	CommentToken
@@ -39,6 +34,8 @@ func (tt TokenType) String() string {
 	switch tt {
 	case ErrorToken:
 		return "Error"
+	case UnknownToken:
+		return "Unknown"
 	case WhitespaceToken:
 		return "Whitespace"
 	case LineTerminatorToken:
@@ -99,7 +96,7 @@ func (z Tokenizer) IsEOF() bool {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
-	tt := ErrorToken
+	var tt TokenType
 	if z.consumeWhitespaceToken() {
 		tt = WhitespaceToken
 	} else if z.consumeLineTerminatorToken() {
@@ -122,6 +119,10 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		tt = RegexpToken
 	} else if z.consumePunctuatorToken() {
 		tt = PunctuatorToken
+	} else if z.Err() != nil {
+		return ErrorToken, []byte{}
+	} else if z.consumeRune() {
+		tt = UnknownToken
 	}
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
@@ -133,7 +134,6 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			}
 		}
 	}
-
 	return tt, z.r.Shift()
 }
 
@@ -217,19 +217,20 @@ func (z *Tokenizer) consumeHexDigit() bool {
 func (z *Tokenizer) consumeEscape() bool {
 	if z.r.Peek(0) != '\\' {
 		return false
-	}
-	if z.consumeHexEscape() || z.consumeUnicodeEscape() {
+	} else if z.consumeHexEscape() || z.consumeUnicodeEscape() {
 		return true
 	}
-	if z.r.Peek(1) == '0' {
+	z.r.Move(1)
+	if z.r.Peek(0) == '0' {
 		nOld := z.r.Pos()
-		z.r.Move(2)
+		z.r.Move(1)
 		if !z.consumeDigit() {
 			return true
 		}
 		z.r.MoveTo(nOld)
 		return false
 	}
+	z.r.Move(1)
 	return true
 }
 func (z *Tokenizer) consumeHexEscape() bool {
@@ -286,24 +287,28 @@ func (z *Tokenizer) consumeCommentToken() bool {
 	if z.r.Peek(0) != '/' || z.r.Peek(1) != '/' && z.r.Peek(1) != '*' {
 		return false
 	}
-	z.r.Move(2)
 	if z.r.Peek(1) == '/' {
+		z.r.Move(2)
 		// single line
 		for {
-			if z.r.Peek(0) == 0 || z.r.Peek(0) == '\r' || z.r.Peek(0) == '\n' {
+			nOld := z.r.Pos()
+			if z.r.Peek(0) == 0 {
+				break
+			} else if z.consumeLineTerminator() {
+				z.r.MoveTo(nOld)
 				break
 			}
 			z.consumeRune()
 		}
 	} else {
+		z.r.Move(2)
 		// multi line
 		for {
-			if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
-				z.r.Move(2)
-				return true
-			}
 			if z.r.Peek(0) == 0 {
 				break
+			} else if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
+				z.r.Move(2)
+				return true
 			}
 			z.consumeRune()
 		}
@@ -408,12 +413,10 @@ func (z *Tokenizer) consumeStringToken() bool {
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
-		}
-		if c == delim {
+		} else if c == delim {
 			z.r.Move(1)
 			break
-		}
-		if c == '\\' {
+		} else if c == '\\' {
 			if !z.consumeEscape() {
 				break
 			}

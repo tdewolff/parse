@@ -54,10 +54,11 @@ func helperStringify(t *testing.T, input string) string {
 ////////////////////////////////////////////////////////////////
 
 func TestTokenizer(t *testing.T) {
-	assertTokens(t, " ")
+	assertTokens(t, " \t\v\f\u00A0\uFEFF\u2000") // WhitespaceToken
+	assertTokens(t, "\n\r\r\n\u2028\u2029", LineTerminatorToken)
 	assertTokens(t, "5.2 .4 0x0F 5e9", NumericToken, NumericToken, NumericToken, NumericToken)
 	assertTokens(t, "a = 'string'", IdentifierToken, PunctuatorToken, StringToken)
-	assertTokens(t, "/*comment*/ // comment", CommentToken, CommentToken)
+	assertTokens(t, "/*comment*/ //comment", CommentToken, CommentToken)
 	assertTokens(t, "null true false", NullToken, BoolToken, BoolToken)
 	assertTokens(t, "{ } ( ) [ ]", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, ". ; , < > <=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
@@ -69,5 +70,14 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, ">>= >>>= &= |= ^= /=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "a = /.*/g;", IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken)
 
+	assertTokens(t, "/*co\nmm/*ent*/ //co//mment\n//comment", CommentToken, CommentToken, LineTerminatorToken, CommentToken)
+	assertTokens(t, "$ _\u200C \\u2000 \u200C", IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken)
+	assertTokens(t, ">>>=>>>>=", PunctuatorToken, PunctuatorToken, PunctuatorToken)
+	assertTokens(t, "/ /=", PunctuatorToken, PunctuatorToken)
+	assertTokens(t, "010xF", NumericToken, NumericToken, IdentifierToken)
+	assertTokens(t, "50e+-0", NumericToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken)
+	assertTokens(t, "'str\\i\\'ng'", StringToken)
+	assertTokens(t, "'str\\\ni\\\\u00A0ng'", StringToken)
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
+	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
 }

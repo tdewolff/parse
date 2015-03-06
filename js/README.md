@@ -35,6 +35,7 @@ for {
 All tokens (see [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/)):
 ``` go
 ErrorToken          TokenType = iota // extra token when errors occur
+UnknownToken                         // extra token when no token can be matched
 WhitespaceToken                      // space \t \v \f
 LineTerminatorToken                  // \r \n \r\n
 CommentToken
