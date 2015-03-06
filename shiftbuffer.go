@@ -110,6 +110,21 @@ func (z *ShiftBuffer) Peek(i int) byte {
 	return z.buf[z.pos+z.n+i]
 }
 
+// PeekRune returns the rune of the ith byte.
+func (z *ShiftBuffer) PeekRune(i int) rune {
+	// from unicode/utf8
+	c := z.Peek(i)
+	if c < 0xC0 {
+		return rune(c)
+	} else if c < 0xE0 {
+		return rune(c&0x1F)<<6 | rune(z.Peek(i+1)&0x3F)
+	} else if c < 0xF0 {
+		return rune(c&0x0F)<<12 | rune(z.Peek(i+1)&0x3F)<<6 | rune(z.Peek(i+2)&0x3F)
+	} else {
+		return rune(c&0x07)<<18 | rune(z.Peek(i+1)&0x3F)<<12 | rune(z.Peek(i+2)&0x3F)<<6 | rune(z.Peek(i+3)&0x3F)
+	}
+}
+
 // Buffered returns the bytes of the current selection.
 func (z ShiftBuffer) Buffered() []byte {
 	return z.buf[z.pos : z.pos+z.n]
