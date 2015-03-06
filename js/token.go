@@ -95,27 +95,66 @@ func (z Tokenizer) IsEOF() bool {
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	var tt TokenType
-	if z.consumeWhitespaceToken() {
-		tt = WhitespaceToken
-	} else if z.consumeLineTerminatorToken() {
-		tt = LineTerminatorToken
-	} else if z.consumeNumericToken() {
-		tt = NumericToken
-	} else if z.consumeStringToken() {
-		tt = StringToken
-	} else if z.consumeCommentToken() {
-		tt = CommentToken
-	} else if z.regexpState && z.consumeRegexpToken() {
-		tt = RegexpToken
-	} else if z.consumePunctuatorToken() {
-		tt = PunctuatorToken
-	} else if z.consumeIdentifierToken() {
-		tt = IdentifierToken
-	} else if z.Err() != nil {
-		return ErrorToken, []byte{}
-	} else if z.consumeRune() {
-		tt = UnknownToken
+	switch z.r.Peek(0) {
+	case '(', ')', '[', ']', '{', '}', ';', ',', '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^', '~', '?', ':':
+		if z.consumePunctuatorToken() {
+			tt = PunctuatorToken
+		}
+	case '/':
+		if z.consumeCommentToken() {
+			tt = CommentToken
+		} else if z.regexpState && z.consumeRegexpToken() {
+			tt = RegexpToken
+		} else if z.consumePunctuatorToken() {
+			tt = PunctuatorToken
+		}
+	case '.':
+		if z.consumeNumericToken() {
+			tt = NumericToken
+		} else if z.consumePunctuatorToken() {
+			tt = PunctuatorToken
+		}
+	case '\'', '"':
+		if z.consumeStringToken() {
+			tt = StringToken
+		}
+	default:
+		if z.consumeWhitespaceToken() {
+			tt = WhitespaceToken
+		} else if z.consumeLineTerminatorToken() {
+			tt = LineTerminatorToken
+		} else if z.consumeNumericToken() {
+			tt = NumericToken
+		} else if z.consumeIdentifierToken() {
+			tt = IdentifierToken
+		} else if z.Err() != nil {
+			return ErrorToken, []byte{}
+		} else if z.consumeRune() {
+			tt = UnknownToken
+		}
 	}
+
+	// if z.consumeWhitespaceToken() {
+	// 	tt = WhitespaceToken
+	// } else if z.consumeLineTerminatorToken() {
+	// 	tt = LineTerminatorToken
+	// } else if z.consumeNumericToken() {
+	// 	tt = NumericToken
+	// } else if z.consumeStringToken() {
+	// 	tt = StringToken
+	// } else if z.consumeCommentToken() {
+	// 	tt = CommentToken
+	// } else if z.regexpState && z.consumeRegexpToken() {
+	// 	tt = RegexpToken
+	// } else if z.consumePunctuatorToken() {
+	// 	tt = PunctuatorToken
+	// } else if z.consumeIdentifierToken() {
+	// 	tt = IdentifierToken
+	// } else if z.Err() != nil {
+	// 	return ErrorToken, []byte{}
+	// } else if z.consumeRune() {
+	// 	tt = UnknownToken
+	// }
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	if tt != WhitespaceToken && tt != CommentToken {
