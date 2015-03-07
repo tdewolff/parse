@@ -97,8 +97,11 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	var tt TokenType
 	c := z.r.Peek(0)
 	switch c {
-	case '(', ')', '[', ']', '{', '}', ';', ',', '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^', '~', '?', ':':
-		if z.consumePunctuatorToken() {
+	case '(', ')', '[', ']', '{', '}', ';', ',', '~', '?', ':':
+		z.r.Move(1)
+		tt = PunctuatorToken
+	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
+		if z.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '/':
@@ -106,13 +109,14 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			tt = CommentToken
 		} else if z.regexpState && z.consumeRegexpToken() {
 			tt = RegexpToken
-		} else if z.consumePunctuatorToken() {
+		} else if z.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if z.consumeNumericToken() {
 			tt = NumericToken
-		} else if c == '.' && z.consumePunctuatorToken() {
+		} else if c == '.' {
+			z.r.Move(1)
 			tt = PunctuatorToken
 		}
 	case '\'', '"':
@@ -120,23 +124,43 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			tt = StringToken
 		}
 	case ' ', '\t', '\v', '\f':
-		if z.consumeWhitespaceToken() {
-			tt = WhitespaceToken
+		z.r.Move(1)
+		for z.consumeWhitespace() {
 		}
+		tt = WhitespaceToken
 	case '\n', '\r':
-		if z.consumeLineTerminatorToken() {
-			tt = LineTerminatorToken
+		z.r.Move(1)
+		for z.consumeLineTerminator() {
 		}
+		tt = LineTerminatorToken
 	default:
-		if c >= 0xC0 && z.consumeWhitespaceToken() {
+		if c >= 0xC0 && z.consumeWhitespace() {
+			for z.consumeWhitespace() {
+			}
 			tt = WhitespaceToken
-		} else if c >= 0xC0 && z.consumeLineTerminatorToken() {
+		} else if c >= 0xC0 && z.consumeLineTerminator() {
+			for z.consumeLineTerminator() {
+			}
 			tt = LineTerminatorToken
 		} else if z.consumeIdentifierToken() {
 			tt = IdentifierToken
-		} else if z.Err() != nil {
+		} else if c >= 0xC0 {
+			if z.consumeWhitespace() {
+				for z.consumeWhitespace() {
+				}
+				tt = WhitespaceToken
+			} else if z.consumeLineTerminator() {
+				for z.consumeLineTerminator() {
+				}
+				tt = LineTerminatorToken
+			} else {
+				z.consumeRune()
+				tt = UnknownToken
+			}
+		} else if c == 0 && z.Err() != nil {
 			return ErrorToken, []byte{}
-		} else if z.consumeRune() {
+		} else {
+			z.r.Move(1)
 			tt = UnknownToken
 		}
 	}
@@ -158,14 +182,6 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 /*
 The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
-
-func (z *Tokenizer) consumeByte(c byte) bool {
-	if z.r.Peek(0) == c {
-		z.r.Move(1)
-		return true
-	}
-	return false
-}
 
 func (z *Tokenizer) consumeRune() bool {
 	c := z.r.Peek(0)
@@ -286,24 +302,6 @@ func (z *Tokenizer) consumeUnicodeEscape() bool {
 
 ////////////////////////////////////////////////////////////////
 
-func (z *Tokenizer) consumeWhitespaceToken() bool {
-	if z.consumeWhitespace() {
-		for z.consumeWhitespace() {
-		}
-		return true
-	}
-	return false
-}
-
-func (z *Tokenizer) consumeLineTerminatorToken() bool {
-	if z.consumeLineTerminator() {
-		for z.consumeLineTerminator() {
-		}
-		return true
-	}
-	return false
-}
-
 func (z *Tokenizer) consumeCommentToken() bool {
 	if z.r.Peek(0) != '/' || z.r.Peek(1) != '/' && z.r.Peek(1) != '*' {
 		return false
@@ -312,32 +310,68 @@ func (z *Tokenizer) consumeCommentToken() bool {
 		z.r.Move(2)
 		// single line
 		for {
-			nOld := z.r.Pos()
-			if z.r.Peek(0) == 0 {
+			c := z.r.Peek(0)
+			if c == '\r' || c == '\n' || c == 0 {
 				break
-			} else if z.consumeLineTerminator() {
-				z.r.MoveTo(nOld)
-				break
+			} else if c >= 0xC0 {
+				nOld := z.r.Pos()
+				if z.consumeLineTerminator() {
+					z.r.MoveTo(nOld)
+					break
+				}
+				z.consumeRune()
+				continue
 			}
-			z.consumeRune()
+			z.r.Move(1)
 		}
 	} else {
 		z.r.Move(2)
 		// multi line
 		for {
-			if z.r.Peek(0) == 0 {
+			c := z.r.Peek(0)
+			if c == 0 {
 				break
-			} else if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
+			} else if c == '*' && z.r.Peek(1) == '/' {
 				z.r.Move(2)
 				return true
+			} else if c >= 0xC0 {
+				z.consumeRune()
+				continue
 			}
-			z.consumeRune()
+			z.r.Move(1)
 		}
 	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
-	}
 	return true
+}
+
+func (z *Tokenizer) consumeLongPunctuatorToken() bool {
+	c := z.r.Peek(0)
+	if c == '!' || c == '=' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '^' {
+		z.r.Move(1)
+		if z.r.Peek(0) == '=' {
+			z.r.Move(1)
+			if (c == '!' || c == '=') && z.r.Peek(0) == '=' {
+				z.r.Move(1)
+			}
+		} else if (c == '+' || c == '-' || c == '&' || c == '|') && z.r.Peek(0) == c {
+			z.r.Move(1)
+		}
+		return true
+	}
+	if c == '<' || c == '>' {
+		z.r.Move(1)
+		if z.r.Peek(0) == c {
+			z.r.Move(1)
+			if c == '>' && z.r.Peek(0) == '>' {
+				z.r.Move(1)
+			}
+		}
+		if z.r.Peek(0) == '=' {
+			z.r.Move(1)
+		}
+		return true
+	}
+	return false
 }
 
 func (z *Tokenizer) consumeIdentifierToken() bool {
@@ -366,9 +400,6 @@ func (z *Tokenizer) consumeIdentifierToken() bool {
 		} else {
 			break
 		}
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
 	}
 	return true
 }
@@ -453,11 +484,11 @@ func (z *Tokenizer) consumeStringToken() bool {
 				break
 			}
 			continue
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
+		z.r.Move(1)
 	}
 	return true
 }
@@ -488,54 +519,26 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 			inClass = true
 		} else if c == ']' {
 			inClass = false
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	// flags
-	rangeTable := []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc}
 	for {
-		r := z.r.PeekRune(0)
-		if r != '$' && r != '_' && !unicode.IsOneOf(rangeTable, r) && r != '\u200C' && r != '\u200D' {
+		c := z.r.Peek(0)
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
+			z.r.Move(1)
+		} else if c >= 0xC0 {
+			if r := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+				z.consumeRune()
+			} else {
+				break
+			}
+		} else {
 			break
 		}
-		z.consumeRune()
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
 	}
 	return true
-}
-
-func (z *Tokenizer) consumePunctuatorToken() bool {
-	c := z.r.Peek(0)
-	if c == '{' || c == '}' || c == '(' || c == ')' || c == '[' || c == ']' || c == '.' || c == ';' || c == ',' || c == '~' || c == '?' || c == ':' {
-		z.r.Move(1)
-		return true
-	}
-	if c == '!' || c == '=' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '^' {
-		z.r.Move(1)
-		if z.r.Peek(0) == '=' {
-			z.r.Move(1)
-			if (c == '!' || c == '=') && z.r.Peek(0) == '=' {
-				z.r.Move(1)
-			}
-		} else if (c == '+' || c == '-' || c == '&' || c == '|') && z.r.Peek(0) == c {
-			z.r.Move(1)
-		}
-		return true
-	}
-	if c == '<' || c == '>' {
-		z.r.Move(1)
-		if z.r.Peek(0) == c {
-			z.r.Move(1)
-			if c == '>' && z.r.Peek(0) == '>' {
-				z.r.Move(1)
-			}
-		}
-		if z.r.Peek(0) == '=' {
-			z.r.Move(1)
-		}
-		return true
-	}
-	return false
 }
