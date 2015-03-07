@@ -158,9 +158,10 @@ func (z Tokenizer) IsEOF() bool {
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	switch z.r.Peek(0) {
 	case ' ', '\t', '\n', '\r', '\f':
-		if z.consumeWhitespaceToken() {
-			return WhitespaceToken, z.r.Shift()
+		z.r.Move(1)
+		for z.consumeWhitespace() {
 		}
+		return WhitespaceToken, z.r.Shift()
 	case ':':
 		z.r.Move(1)
 		return ColonToken, z.r.Shift()
