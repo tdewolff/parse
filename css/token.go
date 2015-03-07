@@ -283,9 +283,9 @@ func (z *Tokenizer) consumeComment() bool {
 			return true
 		} else if c >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 	return true
 }
@@ -296,8 +296,7 @@ func (z *Tokenizer) consumeNewline() bool {
 		z.line++
 		z.r.Move(1)
 		return true
-	}
-	if c == '\r' {
+	} else if c == '\r' {
 		z.line++
 		if z.r.Peek(1) == '\n' {
 			z.r.Move(2)
@@ -355,7 +354,7 @@ func (z *Tokenizer) consumeEscape() bool {
 		z.consumeWhitespace()
 		return true
 	} else if z.r.Peek(0) >= 0xC0 {
-		z.consumeRune()
+		return z.consumeRune()
 	}
 	z.r.Move(1)
 	return true
@@ -375,28 +374,28 @@ func (z *Tokenizer) consumeIdentToken() bool {
 	if z.r.Peek(0) == '-' {
 		z.r.Move(1)
 	}
-	if !z.consumeEscape() {
-		c := z.r.Peek(0)
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
+	c := z.r.Peek(0)
+	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
+		if c != '\\' || !z.consumeEscape() {
 			z.r.MoveTo(nOld)
 			return false
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		}
+	} else if c >= 0xC0 {
+		z.consumeRune()
+	} else {
 		z.r.Move(1)
 	}
 	for {
 		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
-			if c == '\\' && z.consumeEscape() {
-				continue
+			if c != '\\' || !z.consumeEscape() {
+				break
 			}
-			break
 		} else if c >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return false
@@ -422,28 +421,28 @@ func (z *Tokenizer) consumeHashToken() bool {
 	}
 	nOld := z.r.Pos()
 	z.r.Move(1)
-	if !z.consumeEscape() {
-		c := z.r.Peek(0)
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
+	c := z.r.Peek(0)
+	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
+		if c != '\\' || !z.consumeEscape() {
 			z.r.MoveTo(nOld)
 			return false
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		}
+	} else if c >= 0xC0 {
+		z.consumeRune()
+	} else {
 		z.r.Move(1)
 	}
 	for {
 		c := z.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
-			if c == '\\' && z.consumeEscape() {
-				continue
+			if c != '\\' || !z.consumeEscape() {
+				break
 			}
-			break
 		} else if c >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 	return true
 }
@@ -658,12 +657,11 @@ func (z *Tokenizer) consumeString() TokenType {
 				z.r.Move(1)
 				z.consumeNewline()
 			}
-			continue
 		} else if c >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return ErrorToken
@@ -682,15 +680,15 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
-		} else if c == '\\' && z.consumeEscape() {
-			continue
-		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
-			return false
+		} else if c == '"' || c == '\'' || c == '(' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F || c == '\\' {
+			if c != '\\' || !z.consumeEscape() {
+				return false
+			}
 		} else if c >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return false
@@ -703,13 +701,11 @@ func (z *Tokenizer) consumeRemnantsBadURL() {
 	for {
 		if z.consumeByte(')') || z.Err() != nil {
 			break
-		} else if z.consumeEscape() {
-			continue
 		} else if z.r.Peek(0) >= 0xC0 {
 			z.consumeRune()
-			continue
+		} else if !z.consumeEscape() {
+			z.r.Move(1)
 		}
-		z.r.Move(1)
 	}
 }
 
@@ -749,9 +745,13 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 // SplitNumberToken splits the data of a dimension token into the number and dimension parts.
 func SplitNumberToken(b []byte) ([]byte, []byte) {
-	z := NewTokenizer(bytes.NewBuffer(b))
-	z.consumeNumberToken()
-	return b[:z.r.Pos()], b[z.r.Pos():]
+	i := len(b)-1
+	for ; i >= 0; i-- {
+		if b[i] >= '0' && b[i] <= '9' {
+			break
+		}
+	}
+	return b[:i+1], b[i+1:]
 }
 
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
@@ -801,16 +801,101 @@ func SplitDataURI(b []byte) ([]byte, []byte, bool) {
 	return nil, nil, false
 }
 
+func runeLen(c byte) int {
+	if c < 0xC0 {
+		return 1
+	} else if c < 0xE0 {
+		return 2
+	} else if c < 0xF0 {
+		return 3
+	} else {
+		return 4
+	}
+}
+
+func escapeLen(b []byte) int {
+	i := 0
+	c := b[1]
+	if c == '\n' || c == '\r' || c == '\f' {
+		return 0
+	} else if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+		i++
+		for k := 1; k < 6 && i < len(b); k++ {
+			if !((b[i] >= '0' && b[i] <= '9') || (b[i] >= 'a' && b[i] <= 'f') || (b[i] >= 'A' && b[i] <= 'F')) {
+				break
+			}
+			i++
+		}
+		if b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r' || b[i] == '\f' {
+			i++
+		}
+		return i
+	} else if c >= 0xC0 {
+		return i + runeLen(c)
+	}
+	return i + 1
+}
+
 // IsIdent returns true if the bytes are a valid identifier
 func IsIdent(b []byte) bool {
-	z := NewTokenizer(bytes.NewBuffer(b))
-	z.consumeIdentToken()
-	return z.r.Pos() == len(b)
+	i := 0
+	if b[i] == '-' {
+		i++
+	}
+	c := b[i]
+	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80 || c == '\\') {
+		return false
+	} else if c == '\\' {
+		i++
+		n := escapeLen(b[i:])
+		if n == 0 {
+			return false
+		}
+		i += n
+	} else if c >= 0xC0 {
+		i += runeLen(c)
+	} else {
+		i++
+	}
+	for i < len(b) {
+		c := b[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80 || c == '\\') {
+			break
+		} else if c == '\\' {
+			i++
+			n := escapeLen(b[i:])
+			if n == 0 {
+				return false
+			}
+			i += n
+		} else if c >= 0xC0 {
+			i += runeLen(c)
+		} else {
+			i++
+		}
+	}
+	return true
 }
 
 // IsUrlUnquoted returns true if the bytes are a valid unquoted URL
 func IsUrlUnquoted(b []byte) bool {
-	z := NewTokenizer(bytes.NewBuffer(b))
-	z.consumeUnquotedURL()
-	return z.r.Pos() == len(b)
+	i := 0
+	for i < len(b) {
+		c := b[i]
+		if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == ')' || c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
+			return false
+		} else if c == '\\' {
+			i++
+			n := escapeLen(b[i:])
+			if n == 0 {
+				return false
+			}
+			i += n
+		} else if c >= 0xC0 {
+			i += runeLen(c)
+		} else {
+			i++
+		}
+	}
+	return true
 }
