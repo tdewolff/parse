@@ -27,21 +27,21 @@ type ShiftBuffer struct {
 // NewShiftBufferReader returns a new ShiftBuffer for a given io.Reader.
 func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 	// If reader has the bytes in memory already, use that instead!
-	if fr, ok := r.(interface {
+	if buffer, ok := r.(interface {
 		Bytes() []byte
 	}); ok {
 		return &ShiftBuffer{
 			err: io.EOF,
-			buf: fr.Bytes(),
+			buf: buffer.Bytes(),
 		}
 	}
 
-	b := &ShiftBuffer{
+	z := &ShiftBuffer{
 		r:   r,
 		buf: make([]byte, 0, MinBuf),
 	}
-	b.Peek(0)
-	return b
+	z.Peek(0)
+	return z
 }
 
 // Err returns the error.
