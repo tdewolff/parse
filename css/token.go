@@ -178,30 +178,20 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		if z.consumeHashToken() {
 			return HashToken, z.r.Shift()
 		}
-	case '"':
+	case '"', '\'':
 		if t := z.consumeString(); t != ErrorToken {
 			return t, z.r.Shift()
 		}
-	case '\'':
-		if t := z.consumeString(); t != ErrorToken {
-			return t, z.r.Shift()
-		}
-	case '.':
-		if t := z.consumeNumeric(); t != ErrorToken {
-			return t, z.r.Shift()
-		}
-	case '+':
+	case '.', '+':
 		if t := z.consumeNumeric(); t != ErrorToken {
 			return t, z.r.Shift()
 		}
 	case '-':
 		if t := z.consumeNumeric(); t != ErrorToken {
 			return t, z.r.Shift()
-		}
-		if t := z.consumeIdentlike(); t != ErrorToken {
+		} else if t := z.consumeIdentlike(); t != ErrorToken {
 			return t, z.r.Shift()
-		}
-		if z.consumeCDCToken() {
+		} else if z.consumeCDCToken() {
 			return CDCToken, z.r.Shift()
 		}
 	case '@':
@@ -227,22 +217,19 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	case 'u', 'U':
 		if z.consumeUnicodeRangeToken() {
 			return UnicodeRangeToken, z.r.Shift()
-		}
-		if t := z.consumeIdentlike(); t != ErrorToken {
+		} else if t := z.consumeIdentlike(); t != ErrorToken {
 			return t, z.r.Shift()
 		}
 	case '|':
 		if t := z.consumeMatch(); t != ErrorToken {
 			return t, z.r.Shift()
-		}
-		if z.consumeColumnToken() {
+		} else if z.consumeColumnToken() {
 			return ColumnToken, z.r.Shift()
 		}
 	default:
 		if t := z.consumeNumeric(); t != ErrorToken {
 			return t, z.r.Shift()
-		}
-		if t := z.consumeIdentlike(); t != ErrorToken {
+		} else if t := z.consumeIdentlike(); t != ErrorToken {
 			return t, z.r.Shift()
 		}
 	}
@@ -287,16 +274,17 @@ func (z *Tokenizer) consumeComment() bool {
 	}
 	z.r.Move(2)
 	for {
-		if z.r.Peek(0) == 0 {
+		c := z.r.Peek(0)
+		if c == 0 {
 			break
-		} else if z.r.Peek(0) == '*' && z.r.Peek(1) == '/' {
+		} else if c == '*' && z.r.Peek(1) == '/' {
 			z.r.Move(2)
 			return true
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
+		z.r.Move(1)
 	}
 	return true
 }
@@ -357,8 +345,7 @@ func (z *Tokenizer) consumeEscape() bool {
 	if z.consumeNewline() {
 		z.r.MoveTo(nOld)
 		return false
-	}
-	if z.consumeHexDigit() {
+	} else if z.consumeHexDigit() {
 		for k := 1; k < 6; k++ {
 			if !z.consumeHexDigit() {
 				break
@@ -366,8 +353,10 @@ func (z *Tokenizer) consumeEscape() bool {
 		}
 		z.consumeWhitespace()
 		return true
+	} else if z.r.Peek(0) >= 0xC0 {
+		z.consumeRune()
 	}
-	z.consumeRune()
+	z.r.Move(1)
 	return true
 }
 
@@ -390,8 +379,10 @@ func (z *Tokenizer) consumeIdentToken() bool {
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
 			z.r.MoveTo(nOld)
 			return false
+		} else if c >= 0xC0 {
+			z.consumeRune()
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	for {
 		c := z.r.Peek(0)
@@ -400,8 +391,11 @@ func (z *Tokenizer) consumeIdentToken() bool {
 				continue
 			}
 			break
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return false
@@ -432,8 +426,10 @@ func (z *Tokenizer) consumeHashToken() bool {
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
 			z.r.MoveTo(nOld)
 			return false
+		} else if c >= 0xC0 {
+			z.consumeRune()
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	for {
 		c := z.r.Peek(0)
@@ -442,11 +438,11 @@ func (z *Tokenizer) consumeHashToken() bool {
 				continue
 			}
 			break
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
+		z.r.Move(1)
 	}
 	return true
 }
@@ -662,8 +658,11 @@ func (z *Tokenizer) consumeString() TokenType {
 				z.consumeNewline()
 			}
 			continue
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return ErrorToken
@@ -686,8 +685,11 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 			continue
 		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
 			return false
+		} else if c >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 	if err := z.Err(); err != nil && err != io.EOF {
 		return false
@@ -702,8 +704,11 @@ func (z *Tokenizer) consumeRemnantsBadURL() {
 			break
 		} else if z.consumeEscape() {
 			continue
+		} else if z.r.Peek(0) >= 0xC0 {
+			z.consumeRune()
+			continue
 		}
-		z.consumeRune()
+		z.r.Move(1)
 	}
 }
 
