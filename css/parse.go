@@ -199,7 +199,7 @@ func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
 }
 
 // Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
-func (p Parser) Err() error {
+func (p *Parser) Err() error {
 	return p.z.Err()
 }
 

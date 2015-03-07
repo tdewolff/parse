@@ -45,7 +45,7 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 }
 
 // Err returns the error.
-func (z ShiftBuffer) Err() error {
+func (z *ShiftBuffer) Err() error {
 	if z.err == io.EOF && z.pos+z.n < len(z.buf) {
 		return nil
 	}
@@ -53,7 +53,7 @@ func (z ShiftBuffer) Err() error {
 }
 
 // IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (z ShiftBuffer) IsEOF() bool {
+func (z *ShiftBuffer) IsEOF() bool {
 	return z.err == io.EOF
 }
 
@@ -68,12 +68,12 @@ func (z *ShiftBuffer) MoveTo(n int) {
 }
 
 // Pos returns the 0 position of read.
-func (z ShiftBuffer) Pos() int {
+func (z *ShiftBuffer) Pos() int {
 	return z.n
 }
 
 // Len returns the length of the buffer.
-func (z ShiftBuffer) Len() int {
+func (z *ShiftBuffer) Len() int {
 	return len(z.buf) - z.pos
 }
 
@@ -126,7 +126,7 @@ func (z *ShiftBuffer) PeekRune(i int) rune {
 }
 
 // Buffered returns the bytes of the current selection.
-func (z ShiftBuffer) Buffered() []byte {
+func (z *ShiftBuffer) Buffered() []byte {
 	return z.buf[z.pos : z.pos+z.n]
 }
 
