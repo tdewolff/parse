@@ -39,11 +39,9 @@ UnknownToken                         // extra token when no token can be matched
 WhitespaceToken                      // space \t \v \f
 LineTerminatorToken                  // \r \n \r\n
 CommentToken
-IdentifierToken
+IdentifierToken // also: null true false
 PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
    >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= */
-BoolToken // true false
-NullToken // null
 NumericToken
 StringToken
 RegexpToken
