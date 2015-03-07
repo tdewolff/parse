@@ -23,37 +23,37 @@ func (r *ReaderMockup) Read(p []byte) (int, error) {
 
 ////////////////////////////////////////////////////////////////
 
-// func TestShiftBuffer(t *testing.T) {
-// 	var s = `Lorem ipsum dolor sit amet, consectetur adipiscing elit.`
-// 	var b = NewShiftBuffer(bytes.NewBufferString(s))
+func TestShiftBuffer(t *testing.T) {
+	var s = `Lorem ipsum dolor sit amet, consectetur adipiscing elit.`
+	var b = NewShiftBuffer(bytes.NewBufferString(s))
 
-// 	assert.Equal(t, 0, b.Pos(), 0, "buffer must start at position 0")
-// 	assert.Equal(t, len(s), b.Len(), "buffer and text length should be the same")
-// 	assert.Equal(t, byte('L'), b.Peek(0), "first character must be 'L'")
-// 	assert.Equal(t, byte('o'), b.Peek(1), "second character must be 'o'")
+	assert.Equal(t, 0, b.Pos(), 0, "buffer must start at position 0")
+	assert.Equal(t, len(s), b.Len(), "buffer and text length should be the same")
+	assert.Equal(t, byte('L'), b.Peek(0), "first character must be 'L'")
+	assert.Equal(t, byte('o'), b.Peek(1), "second character must be 'o'")
 
-// 	b.Move(1)
-// 	assert.Equal(t, byte('o'), b.Peek(0), "first character must be 'o' at position 1")
-// 	assert.Equal(t, byte('r'), b.Peek(1), "second character must be 'r' at position 1")
-// 	b.MoveTo(6)
-// 	assert.Equal(t, byte('i'), b.Peek(0), "first character must be 'i' at position 6")
-// 	assert.Equal(t, byte('p'), b.Peek(1), "second character must be 'p' at position 6")
+	b.Move(1)
+	assert.Equal(t, byte('o'), b.Peek(0), "first character must be 'o' at position 1")
+	assert.Equal(t, byte('r'), b.Peek(1), "second character must be 'r' at position 1")
+	b.MoveTo(6)
+	assert.Equal(t, byte('i'), b.Peek(0), "first character must be 'i' at position 6")
+	assert.Equal(t, byte('p'), b.Peek(1), "second character must be 'p' at position 6")
 
-// 	assert.Equal(t, []byte("Lorem "), b.Buffered(), "buffered string must now read 'Lorem ' when at position 6")
-// 	assert.Equal(t, []byte("Lorem "), b.Shift(), "shift must return the buffered string")
-// 	assert.Equal(t, 0, b.Pos(), "after shifting position must be 0")
-// 	assert.Equal(t, len(s)-6, b.Len(), "buffer length must be 6 lower than text length after shifting")
-// 	assert.Equal(t, byte('i'), b.Peek(0), "first character must be 'i' at position 0 after shifting")
-// 	assert.Equal(t, byte('p'), b.Peek(1), "first character must be 'p' at position 0 after shifting")
-// 	assert.Nil(t, b.Err(), "error must be nil at this point")
+	assert.Equal(t, []byte("Lorem "), b.Buffered(), "buffered string must now read 'Lorem ' when at position 6")
+	assert.Equal(t, []byte("Lorem "), b.Shift(), "shift must return the buffered string")
+	assert.Equal(t, 0, b.Pos(), "after shifting position must be 0")
+	assert.Equal(t, len(s)-6, b.Len(), "buffer length must be 6 lower than text length after shifting")
+	assert.Equal(t, byte('i'), b.Peek(0), "first character must be 'i' at position 0 after shifting")
+	assert.Equal(t, byte('p'), b.Peek(1), "first character must be 'p' at position 0 after shifting")
+	assert.Nil(t, b.Err(), "error must be nil at this point")
 
-// 	b.Move(b.Len()-1)
-// 	assert.Nil(t, b.Err(), "error must be nil just before the end of the buffer")
-// 	b.Move(1)
-// 	assert.Equal(t, io.EOF, b.Err(), "error must be EOF when past the buffer")
-// 	b.Move(-1)
-// 	assert.Nil(t, b.Err(), "error must be nil just before the end of the buffer, even when it has been past the buffer")
-// }
+	b.Move(b.Len()-1)
+	assert.Nil(t, b.Err(), "error must be nil just before the end of the buffer")
+	b.Move(1)
+	assert.Equal(t, io.EOF, b.Err(), "error must be EOF when past the buffer")
+	b.Move(-1)
+	assert.Nil(t, b.Err(), "error must be nil just before the end of the buffer, even when it has been past the buffer")
+}
 
 func TestShiftBufferSmall(t *testing.T) {
 	MinBuf = 4

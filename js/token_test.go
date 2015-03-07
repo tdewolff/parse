@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/parse"
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
@@ -80,4 +81,9 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a = /'\\\\/\n", IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken)
+
+	// small buffer
+	parse.MinBuf = 2
+	parse.MaxBuf = 4
+	assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)
 }

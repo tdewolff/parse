@@ -255,7 +255,7 @@ func (z *Tokenizer) consumeEscape() bool {
 	return true
 }
 func (z *Tokenizer) consumeHexEscape() bool {
-	if z.r.Peek(0) != '\\' && z.r.Peek(1) != 'x' {
+	if z.r.Peek(0) != '\\' || z.r.Peek(1) != 'x' {
 		return false
 	}
 	nOld := z.r.Pos()
@@ -270,7 +270,7 @@ func (z *Tokenizer) consumeHexEscape() bool {
 }
 
 func (z *Tokenizer) consumeUnicodeEscape() bool {
-	if z.r.Peek(0) != '\\' && z.r.Peek(1) != 'u' {
+	if z.r.Peek(0) != '\\' || z.r.Peek(1) != 'u' {
 		return false
 	}
 	nOld := z.r.Pos()
