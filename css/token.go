@@ -860,7 +860,7 @@ func IsIdent(b []byte) bool {
 	for i < len(b) {
 		c := b[i]
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80 || c == '\\') {
-			break
+			return false
 		} else if c == '\\' {
 			i++
 			n := escapeLen(b[i:])
