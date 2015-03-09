@@ -7,7 +7,7 @@ import (
 
 // MinBuf and MaxBuf are the initial and maximal internal buffer size.
 var MinBuf = 1024
-var MaxBuf = 4096
+var MaxBuf = 1048576 // upper limit 1MB
 
 // ErrBufferExceeded is returned when the internal buffer exceeds 4096 bytes, a string or comment must thus be smaller than 4kB!
 var ErrBufferExceeded = errors.New("max buffer exceeded")
@@ -35,7 +35,6 @@ func NewShiftBuffer(r io.Reader) *ShiftBuffer {
 			buf: buffer.Bytes(),
 		}
 	}
-
 	z := &ShiftBuffer{
 		r:   r,
 		buf: make([]byte, 0, MinBuf),
