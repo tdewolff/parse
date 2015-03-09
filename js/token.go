@@ -71,9 +71,8 @@ type Tokenizer struct {
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		parse.NewShiftBuffer(r),
-		1,
-		false,
+		r:    parse.NewShiftBuffer(r),
+		line: 1,
 	}
 }
 
@@ -129,20 +128,13 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 		tt = WhitespaceToken
 	case '\n', '\r':
+		z.line++
 		z.r.Move(1)
 		for z.consumeLineTerminator() {
 		}
 		tt = LineTerminatorToken
 	default:
-		if c >= 0xC0 && z.consumeWhitespace() {
-			for z.consumeWhitespace() {
-			}
-			tt = WhitespaceToken
-		} else if c >= 0xC0 && z.consumeLineTerminator() {
-			for z.consumeLineTerminator() {
-			}
-			tt = LineTerminatorToken
-		} else if z.consumeIdentifierToken() {
+		if z.consumeIdentifierToken() {
 			tt = IdentifierToken
 		} else if c >= 0xC0 {
 			if z.consumeWhitespace() {
@@ -157,7 +149,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 				z.consumeRune()
 				tt = UnknownToken
 			}
-		} else if c == 0 && z.Err() != nil {
+		} else if z.Err() != nil {
 			return ErrorToken, []byte{}
 		} else {
 			z.r.Move(1)
@@ -258,7 +250,8 @@ func (z *Tokenizer) consumeEscape() bool {
 		return true
 	}
 	z.r.Move(1)
-	if z.r.Peek(0) == '0' {
+	c := z.r.Peek(0)
+	if c == '0' {
 		nOld := z.r.Pos()
 		z.r.Move(1)
 		if !z.consumeDigit() {
@@ -266,9 +259,14 @@ func (z *Tokenizer) consumeEscape() bool {
 		}
 		z.r.MoveTo(nOld)
 		return false
+	} else if z.consumeLineTerminator() {
+		return true
+	} else if c >= 0xC0 {
+		return z.consumeRune()
+	} else {
+		z.r.Move(1)
+		return true
 	}
-	z.r.Move(1)
-	return true
 }
 func (z *Tokenizer) consumeHexEscape() bool {
 	if z.r.Peek(0) != '\\' || z.r.Peek(1) != 'x' {
@@ -316,13 +314,16 @@ func (z *Tokenizer) consumeCommentToken() bool {
 			} else if c >= 0xC0 {
 				nOld := z.r.Pos()
 				if z.consumeLineTerminator() {
+					z.line--
 					z.r.MoveTo(nOld)
 					break
+				} else {
+					z.consumeRune()
+					continue
 				}
-				z.consumeRune()
-				continue
+			} else {
+				z.r.Move(1)
 			}
-			z.r.Move(1)
 		}
 	} else {
 		z.r.Move(2)
@@ -334,11 +335,17 @@ func (z *Tokenizer) consumeCommentToken() bool {
 			} else if c == '*' && z.r.Peek(1) == '/' {
 				z.r.Move(2)
 				return true
+			} else if c == '\r' || c == '\n' {
+				z.line++
+				z.r.Move(1)
 			} else if c >= 0xC0 {
-				z.consumeRune()
+				if !z.consumeLineTerminator() {
+					z.consumeRune()
+				}
 				continue
+			} else {
+				z.r.Move(1)
 			}
-			z.r.Move(1)
 		}
 	}
 	return true
@@ -470,6 +477,7 @@ func (z *Tokenizer) consumeStringToken() bool {
 	z.r.Move(1)
 	for {
 		if z.consumeLineTerminator() {
+			z.line--
 			z.r.MoveTo(nOld)
 			return false
 		}
@@ -501,8 +509,6 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 	z.r.Move(1)
 	inClass := false
 	for {
-		if z.consumeLineTerminator() {
-		}
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
@@ -511,6 +517,7 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 			break
 		} else if c == '\\' {
 			if z.consumeLineTerminator() {
+				z.line--
 				z.r.MoveTo(nOld)
 				return false
 			}
