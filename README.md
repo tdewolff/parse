@@ -1,7 +1,7 @@
 [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse)](http://gocover.io/github.com/tdewolff/parse)
 
 # Parse
-This package contains tokenizers and parsers for several content types. All subpackages are built to be streaming, high performance and to conform with the specifications.
+This package contains tokenizers and parsers for several content types written in [Go][1]. All subpackages are built to be streaming, high performance and to conform with the specifications.
 
 The tokenizers are implemented using `ShiftBuffer` and the parsers work on top of the tokenizers. Some content types have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up byte-slice comparisons.
 

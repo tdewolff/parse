@@ -82,6 +82,6 @@ func main() {
 ```
 
 ## License
-Released under the [MIT license](LICENSE.md).
+Released under the [MIT license](https://github.com/tdewolff/parse/blob/master/LICENSE.md).
 
 [1]: http://golang.org/ "Go Language"
