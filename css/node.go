@@ -13,42 +13,6 @@ type Node interface {
 	Serialize(io.Writer) error
 }
 
-// NodeEqual compares two generic Nodes and returns true if they (deep) match..
-func NodeEqual(n, other Node) bool {
-	switch m := n.(type) {
-	case *TokenNode:
-		if o, ok := other.(*TokenNode); !ok || !m.Equal(o) {
-			return false
-		}
-	case *AtRuleNode:
-		if o, ok := other.(*AtRuleNode); !ok || !m.Equal(o) {
-			return false
-		}
-	case *RulesetNode:
-		if o, ok := other.(*RulesetNode); !ok || !m.Equal(o) {
-			return false
-		}
-	case *DeclarationNode:
-		if o, ok := other.(*DeclarationNode); !ok || !m.Equal(o) {
-			return false
-		}
-	case *FunctionNode:
-		if o, ok := other.(*FunctionNode); !ok || !m.Equal(o) {
-			return false
-		}
-	case *BlockNode:
-		if o, ok := other.(*BlockNode); !ok || !m.Equal(o) {
-			return false
-		}
-	default:
-		// TODO: remove
-		b := &bytes.Buffer{}
-		n.Serialize(b)
-		panic("not handled NodeEqual for node: " + b.String())
-	}
-	return true
-}
-
 ////////////////////////////////////////////////////////////////
 
 // TokenNode is a leaf node of a single token.
@@ -63,11 +27,6 @@ func NewToken(tt TokenType, data []byte) *TokenNode {
 		tt,
 		data,
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n TokenNode) Equal(other *TokenNode) bool {
-	return n.TokenType == other.TokenType && bytes.Equal(n.Data, other.Data)
 }
 
 // Serialize write to Writer the string representation of the node.
@@ -89,19 +48,6 @@ func NewStylesheet() *StylesheetNode {
 	return &StylesheetNode{
 		nil,
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n StylesheetNode) Equal(other *StylesheetNode) bool {
-	if len(n.Nodes) != len(other.Nodes) {
-		return false
-	}
-	for i, otherNode := range other.Nodes {
-		if !NodeEqual(n.Nodes[i], otherNode) {
-			return false
-		}
-	}
-	return true
 }
 
 // Serialize write to Writer the string representation of the node.
@@ -130,24 +76,6 @@ func NewAtRule(at *TokenNode) *AtRuleNode {
 		nil,
 		nil,
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n AtRuleNode) Equal(other *AtRuleNode) bool {
-	if !n.At.Equal(other.At) || len(n.Nodes) != len(other.Nodes) || len(n.Rules) != len(other.Rules) {
-		return false
-	}
-	for i, otherNode := range other.Nodes {
-		if !NodeEqual(n.Nodes[i], otherNode) {
-			return false
-		}
-	}
-	for i, otherNode := range other.Rules {
-		if !NodeEqual(n.Rules[i], otherNode) {
-			return false
-		}
-	}
-	return true
 }
 
 // Serialize write to Writer the string representation of the node.
@@ -213,24 +141,6 @@ func NewRuleset() *RulesetNode {
 	}
 }
 
-// Equal returns true when the nodes (deep) match.
-func (n RulesetNode) Equal(other *RulesetNode) bool {
-	if len(n.Selectors) != len(other.Selectors) || len(n.Decls) != len(other.Decls) {
-		return false
-	}
-	for i, otherNode := range other.Selectors {
-		if !n.Selectors[i].Equal(otherNode) {
-			return false
-		}
-	}
-	for i, otherNode := range other.Decls {
-		if !n.Decls[i].Equal(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
 // Serialize write to Writer the string representation of the node.
 func (n RulesetNode) Serialize(w io.Writer) error {
 	for i, m := range n.Selectors {
@@ -271,19 +181,6 @@ func NewSelector() *SelectorNode {
 	}
 }
 
-// Equal returns true when the nodes (deep) match.
-func (n SelectorNode) Equal(other *SelectorNode) bool {
-	if len(n.Elems) != len(other.Elems) {
-		return false
-	}
-	for i, otherNode := range other.Elems {
-		if n.Elems[i].Equal(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
 // Serialize write to Writer the string representation of the node.
 func (n SelectorNode) Serialize(w io.Writer) error {
 	for _, m := range n.Elems {
@@ -312,19 +209,6 @@ func NewDeclaration(prop *TokenNode) *DeclarationNode {
 		nil,
 		false,
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n DeclarationNode) Equal(other *DeclarationNode) bool {
-	if n.Important != other.Important || len(n.Vals) != len(other.Vals) || !n.Prop.Equal(other.Prop) {
-		return false
-	}
-	for i, otherNode := range other.Vals {
-		if !NodeEqual(n.Vals[i], otherNode) {
-			return false
-		}
-	}
-	return true
 }
 
 // Serialize write to Writer the string representation of the node.
@@ -381,19 +265,6 @@ func NewFunction(f *TokenNode) *FunctionNode {
 	}
 }
 
-// Equal returns true when the nodes (deep) match.
-func (n FunctionNode) Equal(other *FunctionNode) bool {
-	if !n.Func.Equal(other.Func) {
-		return false
-	}
-	for i, otherNode := range other.Args {
-		if !n.Args[i].Equal(otherNode) {
-			return false
-		}
-	}
-	return true
-}
-
 // Serialize write to Writer the string representation of the node.
 func (n FunctionNode) Serialize(w io.Writer) error {
 	if err := n.Func.Serialize(w); err != nil {
@@ -430,16 +301,6 @@ func NewArgument() *ArgumentNode {
 	return &ArgumentNode{
 		[]Node{},
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n ArgumentNode) Equal(other *ArgumentNode) bool {
-	for i, otherNode := range other.Vals {
-		if !NodeEqual(n.Vals[i], otherNode) {
-			return false
-		}
-	}
-	return true
 }
 
 // Serialize write to Writer the string representation of the node.
@@ -482,19 +343,6 @@ func NewBlock(open *TokenNode) *BlockNode {
 		nil,
 		nil,
 	}
-}
-
-// Equal returns true when the nodes (deep) match.
-func (n BlockNode) Equal(other *BlockNode) bool {
-	if !n.Open.Equal(other.Open) || !n.Close.Equal(other.Close) {
-		return false
-	}
-	for i, otherNode := range other.Nodes {
-		if !NodeEqual(n.Nodes[i], otherNode) {
-			return false
-		}
-	}
-	return true
 }
 
 // Serialize write to Writer the string representation of the node.
