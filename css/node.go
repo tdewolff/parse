@@ -3,14 +3,13 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"io"
-	"os"
 )
 
 ////////////////////////////////////////////////////////////////
 
 // Node is an interface that all nodes implement.
 type Node interface {
-	Serialize(io.Writer) error
+	WriteTo(io.Writer) (int64, error)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -29,10 +28,10 @@ func NewToken(tt TokenType, data []byte) *TokenNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n TokenNode) Serialize(w io.Writer) error {
-	_, err := w.Write(n.Data)
-	return err
+// WriteTo writes the string representation of the node to the writer.
+func (token TokenNode) WriteTo(w io.Writer) (int64, error) {
+	n, err := w.Write(token.Data)
+	return int64(n), err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -50,14 +49,17 @@ func NewStylesheet() *StylesheetNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n StylesheetNode) Serialize(w io.Writer) error {
-	for _, m := range n.Nodes {
-		if err := m.Serialize(w); err != nil {
-			return err
+// WriteTo writes the string representation of the node to the writer.
+func (stylesheet StylesheetNode) WriteTo(w io.Writer) (size int64, err error) {
+	var m int64
+	for _, node := range stylesheet.Nodes {
+		m, err = node.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	return nil
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -78,51 +80,69 @@ func NewAtRule(at *TokenNode) *AtRuleNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n AtRuleNode) Serialize(w io.Writer) error {
-	if err := n.At.Serialize(w); err != nil {
-		return err
+// WriteTo writes the string representation of the node to the writer.
+func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	m, err = atrule.At.WriteTo(w)
+	if err != nil {
+		return
 	}
-	for i, m := range n.Nodes {
+	size += m
+	for i, node := range atrule.Nodes {
 		if i != 0 {
 			var t *TokenNode
-			if k, ok := n.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+			if k, ok := atrule.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
-			} else if k, ok := n.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
+			} else if k, ok := atrule.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
 			}
 			if t == nil || t.Data[0] != ',' {
-				if _, err := w.Write([]byte(" ")); err != nil {
-					return err
+				n, err = w.Write([]byte(" "))
+				if err != nil {
+					return
 				}
+				size += int64(n)
 			}
 		} else {
-			if _, err := w.Write([]byte(" ")); err != nil {
-				return err
+			n, err = w.Write([]byte(" "))
+			if err != nil {
+				return
 			}
+			size += int64(n)
 		}
-		if err := m.Serialize(w); err != nil {
-			return err
+		m, err = node.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	if len(n.Rules) > 0 {
-		if _, err := w.Write([]byte("{")); err != nil {
-			return err
+	if len(atrule.Rules) > 0 {
+		n, err = w.Write([]byte("{"))
+		if err != nil {
+			return
 		}
-		for _, m := range n.Rules {
-			if err := m.Serialize(w); err != nil {
-				return err
+		size += int64(n)
+		for _, rule := range atrule.Rules {
+			m, err = rule.WriteTo(w)
+			if err != nil {
+				return
 			}
+			size += m
 		}
-		if _, err := w.Write([]byte("}")); err != nil {
-			return err
+		n, err = w.Write([]byte("}"))
+		if err != nil {
+			return
 		}
+		size += int64(n)
 	} else {
-		if _, err := w.Write([]byte(";")); err != nil {
-			return err
+		n, err = w.Write([]byte(";"))
+		if err != nil {
+			return
 		}
+		size += int64(n)
 	}
-	return nil
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -141,30 +161,42 @@ func NewRuleset() *RulesetNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n RulesetNode) Serialize(w io.Writer) error {
-	for i, m := range n.Selectors {
+// WriteTo writes the string representation of the node to the writer.
+func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	for i, sel := range ruleset.Selectors {
 		if i != 0 {
-			if _, err := w.Write([]byte(",")); err != nil {
-				return err
+			n, err = w.Write([]byte(","))
+			if err != nil {
+				return
 			}
+			size += int64(n)
 		}
-		if err := m.Serialize(w); err != nil {
-			return err
+		m, err = sel.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	if _, err := w.Write([]byte("{")); err != nil {
-		return err
+	n, err = w.Write([]byte("{"))
+	if err != nil {
+		return
 	}
-	for _, m := range n.Decls {
-		if err := m.Serialize(w); err != nil {
-			return err
+	size += int64(n)
+	for _, decl := range ruleset.Decls {
+		m, err = decl.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	if _, err := w.Write([]byte("}")); err != nil {
-		return err
+	n, err = w.Write([]byte("}"))
+	if err != nil {
+		return
 	}
-	return nil
+	size += int64(n)
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -181,14 +213,17 @@ func NewSelector() *SelectorNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n SelectorNode) Serialize(w io.Writer) error {
-	for _, m := range n.Elems {
-		if err := m.Serialize(w); err != nil {
-			return err
+// WriteTo writes the string representation of the node to the writer.
+func (sel SelectorNode) WriteTo(w io.Writer) (size int64, err error) {
+	var m int64
+	for _, elem := range sel.Elems {
+		m, err = elem.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	return nil
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -211,41 +246,55 @@ func NewDeclaration(prop *TokenNode) *DeclarationNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n DeclarationNode) Serialize(w io.Writer) error {
-	if err := n.Prop.Serialize(w); err != nil {
-		return err
+// WriteTo writes the string representation of the node to the writer.
+func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	m, err = decl.Prop.WriteTo(w)
+	if err != nil {
+		return
 	}
-	if _, err := w.Write([]byte(":")); err != nil {
-		return err
+	size += m
+	n, err = w.Write([]byte(":"))
+	if err != nil {
+		return
 	}
-	for i, m := range n.Vals {
+	size += int64(n)
+	for i, val := range decl.Vals {
 		if i != 0 {
 			var t *TokenNode
-			if k, ok := n.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+			if k, ok := decl.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
-			} else if k, ok := n.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
+			} else if k, ok := decl.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
 			}
 			if t == nil || (t.Data[0] != ',' && t.Data[0] != '/' && t.Data[0] != ':' && t.Data[0] != '.') {
-				if _, err := w.Write([]byte(" ")); err != nil {
-					return err
+				n, err = w.Write([]byte(" "))
+				if err != nil {
+					return
 				}
+				size += int64(n)
 			}
 		}
-		if err := m.Serialize(w); err != nil {
-			return err
+		m, err = val.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	if n.Important {
-		if _, err := w.Write([]byte(" !important")); err != nil {
-			return err
+	if decl.Important {
+		n, err = w.Write([]byte(" !important"))
+		if err != nil {
+			return
 		}
+		size += int64(n)
 	}
-	if _, err := w.Write([]byte(";")); err != nil {
-		return err
+	n, err = w.Write([]byte(";"))
+	if err != nil {
+		return
 	}
-	return nil
+	size += int64(n)
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -257,36 +306,48 @@ type FunctionNode struct {
 }
 
 // NewFunction returns a new FunctionNode.
-func NewFunction(f *TokenNode) *FunctionNode {
-	f.Data = f.Data[:len(f.Data)-1]
+func NewFunction(fun *TokenNode) *FunctionNode {
+	fun.Data = fun.Data[:len(fun.Data)-1]
 	return &FunctionNode{
-		f,
+		fun,
 		nil,
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n FunctionNode) Serialize(w io.Writer) error {
-	if err := n.Func.Serialize(w); err != nil {
-		return err
+// WriteTo writes the string representation of the node to the writer.
+func (fun FunctionNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	m, err = fun.Func.WriteTo(w)
+	if err != nil {
+		return
 	}
-	if _, err := w.Write([]byte("(")); err != nil {
-		return err
+	size += m
+	n, err = w.Write([]byte("("))
+	if err != nil {
+		return
 	}
-	for i, m := range n.Args {
+	size += int64(n)
+	for i, arg := range fun.Args {
 		if i != 0 {
-			if _, err := w.Write([]byte(",")); err != nil {
-				return err
+			n, err = w.Write([]byte(","))
+			if err != nil {
+				return
 			}
+			size += int64(n)
 		}
-		if err := m.Serialize(w); err != nil {
-			return err
+		m, err = arg.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	if _, err := w.Write([]byte(")")); err != nil {
-		return err
+	n, err = w.Write([]byte(")"))
+	if err != nil {
+		return
 	}
-	return nil
+	size += int64(n)
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -303,27 +364,33 @@ func NewArgument() *ArgumentNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n ArgumentNode) Serialize(w io.Writer) error {
-	for i, m := range n.Vals {
+// WriteTo writes the string representation of the node to the writer.
+func (arg ArgumentNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	for i, val := range arg.Vals {
 		if i != 0 {
 			var t *TokenNode
-			if k, ok := n.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+			if k, ok := arg.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
-			} else if k, ok := n.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
+			} else if k, ok := arg.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
 				t = k
 			}
 			if t == nil || (t.Data[0] != '=' && t.Data[0] != '*' && t.Data[0] != '/') {
-				if _, err := w.Write([]byte(" ")); err != nil {
-					return err
+				n, err = w.Write([]byte(" "))
+				if err != nil {
+					return
 				}
+				size += int64(n)
 			}
 		}
-		if err := m.Serialize(w); err != nil {
-			return err
+		m, err = val.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	return nil
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -345,36 +412,43 @@ func NewBlock(open *TokenNode) *BlockNode {
 	}
 }
 
-// Serialize write to Writer the string representation of the node.
-func (n BlockNode) Serialize(w io.Writer) error {
-	if len(n.Nodes) > 0 {
-		if err := n.Open.Serialize(w); err != nil {
-			return err
+// WriteTo writes the string representation of the node to the writer.
+func (block BlockNode) WriteTo(w io.Writer) (size int64, err error) {
+	var n int
+	var m int64
+	if block.Open != nil && block.Close != nil && len(block.Nodes) > 0 {
+		m, err = block.Open.WriteTo(w)
+		if err != nil {
+			return
 		}
-		if n.Close == nil {
-			w = os.Stderr
-		}
-		for i, m := range n.Nodes {
+		size += m
+		for i, node := range block.Nodes {
 			if i != 0 {
 				var t *TokenNode
-				if k, ok := n.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+				if k, ok := block.Nodes[i-1].(*TokenNode); ok && len(k.Data) == 1 {
 					t = k
-				} else if k, ok := n.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
+				} else if k, ok := block.Nodes[i].(*TokenNode); ok && len(k.Data) == 1 {
 					t = k
 				}
 				if t == nil || t.Data[0] != ':' {
-					if _, err := w.Write([]byte(" ")); err != nil {
-						return err
+					n, err = w.Write([]byte(" "))
+					if err != nil {
+						return
 					}
+					size += int64(n)
 				}
 			}
-			if err := m.Serialize(w); err != nil {
-				return err
+			m, err = node.WriteTo(w)
+			if err != nil {
+				return
 			}
+			size += m
 		}
-		if err := n.Close.Serialize(w); err != nil {
-			return err
+		m, err = block.Close.WriteTo(w)
+		if err != nil {
+			return
 		}
+		size += m
 	}
-	return nil
+	return
 }

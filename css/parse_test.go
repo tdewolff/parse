@@ -14,7 +14,7 @@ func assertParse(t *testing.T, input, expected string) {
 	assert.Nil(t, err, "parser must not return error")
 
 	b := &bytes.Buffer{}
-	stylesheet.Serialize(b)
+	stylesheet.WriteTo(b)
 	assert.Equal(t, expected, b.String(), "parsed string must match expected result in "+input)
 }
 
