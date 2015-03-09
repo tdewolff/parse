@@ -191,6 +191,6 @@ func main() {
 ```
 
 ## License
-Released under the [MIT license](LICENSE.md).
+Released under the [MIT license](../LICENSE.md).
 
 [1]: http://golang.org/ "Go Language"
