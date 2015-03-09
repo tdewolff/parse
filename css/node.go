@@ -1,11 +1,8 @@
 package css // import "github.com/tdewolff/parse/css"
 
 import (
-	"bytes"
 	"io"
 )
-
-////////////////////////////////////////////////////////////////
 
 // Node is an interface that all nodes implement.
 type Node interface {
@@ -20,14 +17,6 @@ type TokenNode struct {
 	Data []byte
 }
 
-// NewToken returns a new TokenNode.
-func NewToken(tt TokenType, data []byte) *TokenNode {
-	return &TokenNode{
-		tt,
-		data,
-	}
-}
-
 // WriteTo writes the string representation of the node to the writer.
 func (token TokenNode) WriteTo(w io.Writer) (int64, error) {
 	n, err := w.Write(token.Data)
@@ -40,13 +29,6 @@ func (token TokenNode) WriteTo(w io.Writer) (int64, error) {
 // Nodes contains TokenNode, AtRuleNode, DeclarationNode and RulesetNode nodes.
 type StylesheetNode struct {
 	Nodes []Node
-}
-
-// NewStylesheet returns a new StylesheetNode.
-func NewStylesheet() *StylesheetNode {
-	return &StylesheetNode{
-		nil,
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
@@ -66,25 +48,16 @@ func (stylesheet StylesheetNode) WriteTo(w io.Writer) (size int64, err error) {
 
 // AtRuleNode contains several nodes and/or a block node.
 type AtRuleNode struct {
-	At    *TokenNode
+	Name  *TokenNode
 	Nodes []Node
 	Rules []Node
-}
-
-// NewAtRule returns a new AtRuleNode.
-func NewAtRule(at *TokenNode) *AtRuleNode {
-	return &AtRuleNode{
-		at,
-		nil,
-		nil,
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
 func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
 	var n int
 	var m int64
-	m, err = atrule.At.WriteTo(w)
+	m, err = atrule.Name.WriteTo(w)
 	if err != nil {
 		return
 	}
@@ -153,14 +126,6 @@ type RulesetNode struct {
 	Decls     []*DeclarationNode
 }
 
-// NewRuleset returns a new RulesetNode.
-func NewRuleset() *RulesetNode {
-	return &RulesetNode{
-		nil,
-		nil,
-	}
-}
-
 // WriteTo writes the string representation of the node to the writer.
 func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
 	var n int
@@ -206,13 +171,6 @@ type SelectorNode struct {
 	Elems []*TokenNode
 }
 
-// NewSelector returns a new SelectorNode.
-func NewSelector() *SelectorNode {
-	return &SelectorNode{
-		nil,
-	}
-}
-
 // WriteTo writes the string representation of the node to the writer.
 func (sel SelectorNode) WriteTo(w io.Writer) (size int64, err error) {
 	var m int64
@@ -234,16 +192,6 @@ type DeclarationNode struct {
 	Prop      *TokenNode
 	Vals      []Node
 	Important bool
-}
-
-// NewDeclaration returns a new DeclarationNode.
-func NewDeclaration(prop *TokenNode) *DeclarationNode {
-	prop.Data = bytes.ToLower(prop.Data)
-	return &DeclarationNode{
-		prop,
-		nil,
-		false,
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
@@ -301,24 +249,15 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 
 // FunctionNode represents a function and its arguments (separated by commas).
 type FunctionNode struct {
-	Func *TokenNode
+	Name *TokenNode
 	Args []*ArgumentNode
-}
-
-// NewFunction returns a new FunctionNode.
-func NewFunction(fun *TokenNode) *FunctionNode {
-	fun.Data = fun.Data[:len(fun.Data)-1]
-	return &FunctionNode{
-		fun,
-		nil,
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
 func (fun FunctionNode) WriteTo(w io.Writer) (size int64, err error) {
 	var n int
 	var m int64
-	m, err = fun.Func.WriteTo(w)
+	m, err = fun.Name.WriteTo(w)
 	if err != nil {
 		return
 	}
@@ -355,13 +294,6 @@ func (fun FunctionNode) WriteTo(w io.Writer) (size int64, err error) {
 // ArgumentNode represents the key and parts of an argument separated by spaces.
 type ArgumentNode struct {
 	Vals []Node
-}
-
-// NewArgument returns a new ArgumentNode.
-func NewArgument() *ArgumentNode {
-	return &ArgumentNode{
-		[]Node{},
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
@@ -401,15 +333,6 @@ type BlockNode struct {
 	Open  *TokenNode
 	Nodes []Node
 	Close *TokenNode
-}
-
-// NewBlock returns a new BlockNode.
-func NewBlock(open *TokenNode) *BlockNode {
-	return &BlockNode{
-		open,
-		nil,
-		nil,
-	}
 }
 
 // WriteTo writes the string representation of the node to the writer.
