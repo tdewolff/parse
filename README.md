@@ -11,17 +11,6 @@ The tokenizers are implemented using `ShiftBuffer` and the parsers work on top o
 ## JS
 [See README here](https://github.com/tdewolff/parse/blob/master/js/README.md).
 
-## Installation
-Run the following commands
-
-	go get github.com/tdewolff/parse/css
-	go get github.com/tdewolff/parse/js
-
-or add the following imports and run project with `go get`
-
-	import "github.com/tdewolff/parse/css"
-	import "github.com/tdewolff/parse/js"
-
 ## License
 Released under the [MIT license](LICENSE.md).
 
