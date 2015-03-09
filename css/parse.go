@@ -214,8 +214,8 @@ func (p *Parser) Next() (GrammarType, Node) {
 	if p.at(ErrorToken) {
 		return ErrorGrammar, nil
 	}
-	p.skipWhitespace()
 	p.reset()
+	p.skipWhitespace()
 
 	state := p.State()
 	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) || p.at(SemicolonToken) && state == AtRuleState {

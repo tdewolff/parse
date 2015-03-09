@@ -74,6 +74,7 @@ func TestParser(t *testing.T) {
 	assertParse(t, ".cla /*a*/ /*b*/ .ss{}", ".cla .ss{}")
 	assertParse(t, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);")
 	assertParse(t, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
+	assertParse(t, "/*a*/\n/*c*/\nkey: value;", "key:value;")
 
 	// issues
 	assertParse(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                    // #6
