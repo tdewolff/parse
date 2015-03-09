@@ -160,10 +160,12 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	if tt != WhitespaceToken && tt != CommentToken {
 		z.regexpState = false
-		if tt == PunctuatorToken && z.r.Pos() == 1 {
-			if c := z.r.Buffered()[0]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '{' || c == '}' || c == ';' {
+		if tt == PunctuatorToken {
+			if c := z.r.Buffered()[z.r.Pos()-1]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '+' || c == '-' || c == '~' || c == '*' || c == '/' || c == '{' || c == '}' || c == ';' {
 				z.regexpState = true
 			}
+		} else if tt == LineTerminatorToken {
+			z.regexpState = true
 		}
 	}
 	return tt, z.r.Shift()

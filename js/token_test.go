@@ -62,18 +62,19 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "/*comment*/ //comment", CommentToken, CommentToken)
 	assertTokens(t, "{ } ( ) [ ]", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, ". ; , < > <=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
-	assertTokens(t, ">= == != === !== /", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
+	assertTokens(t, ">= == != === !==", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "+ - * % ++ --", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "<< >> >>> & | ^", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "! ~ && || ? :", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "= += -= *= %= <<=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
-	assertTokens(t, ">>= >>>= &= |= ^= /=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
+	assertTokens(t, ">>= >>>= &= |= ^=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "a = /.*/g;", IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken)
 
 	assertTokens(t, "/*co\nmm/*ent*/ //co//mment\n//comment", CommentToken, CommentToken, LineTerminatorToken, CommentToken)
 	assertTokens(t, "$ _\u200C \\u2000 \u200C", IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken)
 	assertTokens(t, ">>>=>>>>=", PunctuatorToken, PunctuatorToken, PunctuatorToken)
-	assertTokens(t, "/ /=", PunctuatorToken, PunctuatorToken)
+	assertTokens(t, "/", PunctuatorToken)
+	assertTokens(t, "/=", PunctuatorToken)
 	assertTokens(t, "010xF", NumericToken, NumericToken, IdentifierToken)
 	assertTokens(t, "50e+-0", NumericToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken)
 	assertTokens(t, "'str\\i\\'ng'", StringToken)
@@ -81,6 +82,7 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a = /'\\\\/\n", IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken)
+	assertTokens(t, "new RegExp(a + /\\d{1,2}/.source)", IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken)
 
 	// small buffer
 	parse.MinBuf = 2
