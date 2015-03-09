@@ -344,6 +344,7 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 	}
 	decl := &DeclarationNode{}
 	decl.Prop = p.shift()
+	decl.Prop.Data = bytes.ToLower(decl.Prop.Data)
 	p.skipWhitespace()
 	if !p.at(ColonToken) {
 		return nil
@@ -377,6 +378,7 @@ func (p *Parser) parseFunction() *FunctionNode {
 		return nil
 	}
 	fun.Name = p.shift()
+	fun.Name.Data = fun.Name.Data[:len(fun.Name.Data)-1]
 	p.skipWhitespace()
 	for !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
@@ -484,11 +486,14 @@ func (p *Parser) shift() *TokenNode {
 }
 
 func (p *Parser) reset() {
+	var buf1 []TokenNode
 	if p.copy {
-		p.buf = make([]TokenNode, 0, MinBuf)
+		buf1 = make([]TokenNode, len(p.buf[p.pos:]), MinBuf)
 	} else {
-		p.buf = p.buf[:0]
+		buf1 = p.buf[:len(p.buf[p.pos:])]
 	}
+	copy(buf1, p.buf[p.pos:])
+	p.buf = buf1
 	p.pos = 0
 }
 
