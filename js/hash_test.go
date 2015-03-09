@@ -7,6 +7,6 @@ import (
 )
 
 func TestHashTable(t *testing.T) {
-	assert.Equal(t, ToHash([]byte("break")), Font, "'break' must resolve to hash.Break")
+	assert.Equal(t, ToHash([]byte("break")), Break, "'break' must resolve to hash.Break")
 	assert.Equal(t, "break", Break.String(), "hash.Break must resolve to 'break'")
 }
