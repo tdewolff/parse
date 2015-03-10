@@ -237,7 +237,11 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	if z.Err() != nil {
 		return ErrorToken, []byte{}
 	}
-	z.r.Move(1)
+	if z.r.Peek(0) >= 0xC0 {
+		z.consumeRune()
+	} else {
+		z.r.Move(1)
+	}
 	return DelimToken, z.r.Shift()
 }
 
@@ -281,11 +285,8 @@ func (z *Tokenizer) consumeComment() bool {
 		} else if c == '*' && z.r.Peek(1) == '/' {
 			z.r.Move(2)
 			return true
-		} else if c >= 0xC0 {
-			z.consumeRune()
-		} else {
-			z.r.Move(1)
 		}
+		z.r.Move(1)
 	}
 	return true
 }
@@ -360,15 +361,6 @@ func (z *Tokenizer) consumeEscape() bool {
 	return true
 }
 
-func (z *Tokenizer) consumeWhitespaceToken() bool {
-	if z.consumeWhitespace() {
-		for z.consumeWhitespace() {
-		}
-		return true
-	}
-	return false
-}
-
 func (z *Tokenizer) consumeIdentToken() bool {
 	nOld := z.r.Pos()
 	if z.r.Peek(0) == '-' {
@@ -380,8 +372,6 @@ func (z *Tokenizer) consumeIdentToken() bool {
 			z.r.MoveTo(nOld)
 			return false
 		}
-	} else if c >= 0xC0 {
-		z.consumeRune()
 	} else {
 		z.r.Move(1)
 	}
@@ -391,8 +381,6 @@ func (z *Tokenizer) consumeIdentToken() bool {
 			if c != '\\' || !z.consumeEscape() {
 				break
 			}
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		} else {
 			z.r.Move(1)
 		}
@@ -427,8 +415,6 @@ func (z *Tokenizer) consumeHashToken() bool {
 			z.r.MoveTo(nOld)
 			return false
 		}
-	} else if c >= 0xC0 {
-		z.consumeRune()
 	} else {
 		z.r.Move(1)
 	}
@@ -438,8 +424,6 @@ func (z *Tokenizer) consumeHashToken() bool {
 			if c != '\\' || !z.consumeEscape() {
 				break
 			}
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		} else {
 			z.r.Move(1)
 		}
@@ -643,12 +627,11 @@ func (z *Tokenizer) consumeString() TokenType {
 	}
 	z.r.Move(1)
 	for {
-		if z.consumeNewline() {
-			return BadStringToken
-		}
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
+		} else if c == '\n' || c == '\r' || c == '\f' {
+			return BadStringToken
 		} else if c == delim {
 			z.r.Move(1)
 			break
@@ -657,8 +640,6 @@ func (z *Tokenizer) consumeString() TokenType {
 				z.r.Move(1)
 				z.consumeNewline()
 			}
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		} else {
 			z.r.Move(1)
 		}
@@ -684,8 +665,6 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 			if c != '\\' || !z.consumeEscape() {
 				return false
 			}
-		} else if c >= 0xC0 {
-			z.consumeRune()
 		} else {
 			z.r.Move(1)
 		}
@@ -701,8 +680,6 @@ func (z *Tokenizer) consumeRemnantsBadURL() {
 	for {
 		if z.consumeByte(')') || z.Err() != nil {
 			break
-		} else if z.r.Peek(0) >= 0xC0 {
-			z.consumeRune()
 		} else if !z.consumeEscape() {
 			z.r.Move(1)
 		}

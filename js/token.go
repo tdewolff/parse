@@ -315,17 +315,12 @@ func (z *Tokenizer) consumeCommentToken() bool {
 				break
 			} else if c >= 0xC0 {
 				nOld := z.r.Pos()
-				if z.consumeLineTerminator() {
-					z.line--
+				if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
 					z.r.MoveTo(nOld)
 					break
-				} else {
-					z.consumeRune()
-					continue
 				}
-			} else {
-				z.r.Move(1)
 			}
+			z.r.Move(1)
 		}
 	} else {
 		z.r.Move(2)
@@ -339,15 +334,14 @@ func (z *Tokenizer) consumeCommentToken() bool {
 				return true
 			} else if c == '\r' || c == '\n' {
 				z.line++
-				z.r.Move(1)
 			} else if c >= 0xC0 {
-				if !z.consumeLineTerminator() {
+				if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+					z.line++
 					z.consumeRune()
+					continue
 				}
-				continue
-			} else {
-				z.r.Move(1)
 			}
+			z.r.Move(1)
 		}
 	}
 	return true
@@ -478,11 +472,6 @@ func (z *Tokenizer) consumeStringToken() bool {
 	nOld := z.r.Pos()
 	z.r.Move(1)
 	for {
-		if z.consumeLineTerminator() {
-			z.line--
-			z.r.MoveTo(nOld)
-			return false
-		}
 		c := z.r.Peek(0)
 		if c == 0 {
 			break
@@ -494,9 +483,14 @@ func (z *Tokenizer) consumeStringToken() bool {
 				break
 			}
 			continue
+		} else if c == '\n' || c == '\r' {
+			z.r.MoveTo(nOld)
+			return false
 		} else if c >= 0xC0 {
-			z.consumeRune()
-			continue
+			if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+				z.r.MoveTo(nOld)
+				return false
+			}
 		}
 		z.r.Move(1)
 	}
@@ -528,9 +522,6 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 			inClass = true
 		} else if c == ']' {
 			inClass = false
-		} else if c >= 0xC0 {
-			z.consumeRune()
-			continue
 		}
 		z.r.Move(1)
 	}
