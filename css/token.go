@@ -691,7 +691,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 	if z.consumeIdentToken() {
 		if !z.consumeByte('(') {
 			return IdentToken
-		} else if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Buffered(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
+		} else if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
 			return FunctionToken
 		}
 
@@ -722,7 +722,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 
 // SplitNumberToken splits the data of a dimension token into the number and dimension parts.
 func SplitNumberToken(b []byte) ([]byte, []byte) {
-	i := len(b)-1
+	i := len(b) - 1
 	for ; i >= 0; i-- {
 		if b[i] >= '0' && b[i] <= '9' {
 			break

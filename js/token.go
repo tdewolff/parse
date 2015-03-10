@@ -161,7 +161,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	if tt != WhitespaceToken && tt != CommentToken {
 		z.regexpState = false
 		if tt == PunctuatorToken {
-			if c := z.r.Buffered()[z.r.Pos()-1]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '+' || c == '-' || c == '~' || c == '*' || c == '/' || c == '{' || c == '}' || c == ';' {
+			if c := z.r.Bytes()[z.r.Pos()-1]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '+' || c == '-' || c == '~' || c == '*' || c == '/' || c == '{' || c == '}' || c == ';' {
 				z.regexpState = true
 			}
 		} else if tt == LineTerminatorToken {

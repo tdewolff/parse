@@ -71,14 +71,9 @@ func (z *ShiftBuffer) Pos() int {
 	return z.end - z.pos
 }
 
-// Len returns the length of the buffer.
-func (z *ShiftBuffer) Len() int {
-	return len(z.buf) - z.pos
-}
-
 // Peek returns the ith byte and possible does a reallocation
 func (z *ShiftBuffer) Peek(i int) byte {
-	end := z.end+i
+	end := z.end + i
 	if end >= len(z.buf) {
 		if z.err != nil {
 			return 0
@@ -126,14 +121,14 @@ func (z *ShiftBuffer) PeekRune(i int) rune {
 	}
 }
 
-// Buffered returns the bytes of the current selection.
-func (z *ShiftBuffer) Buffered() []byte {
-	return z.buf[z.pos : z.end]
+// Bytes returns the bytes of the current selection.
+func (z *ShiftBuffer) Bytes() []byte {
+	return z.buf[z.pos:z.end]
 }
 
 // Shift returns the bytes of the current selection and advances the position.
 func (z *ShiftBuffer) Shift() []byte {
-	b := z.buf[z.pos : z.end]
+	b := z.buf[z.pos:z.end]
 	z.pos = z.end
 	return b
 }
