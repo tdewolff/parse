@@ -97,6 +97,7 @@ func (z *ShiftBuffer) Peek(i int) byte {
 		// Read in to fill the buffer till capacity
 		var n int
 		n, z.err = z.r.Read(buf1[d:cap(buf1)])
+		end -= z.pos
 		z.end -= z.pos
 		z.pos, z.buf = 0, buf1[:d+n]
 		if n == 0 {
