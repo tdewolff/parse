@@ -79,10 +79,17 @@ func helperStringify(t *testing.T, input string) string {
 	return s
 }
 
-func assertSplit(t *testing.T, x, e1, e2 string) {
+func assertSplitNumber(t *testing.T, x, e1, e2 string) {
 	s1, s2 := SplitNumberToken([]byte(x))
-	assert.Equal(t, []byte(e1), s1, "number parts must match in "+x)
-	assert.Equal(t, []byte(e2), s2, "dimension parts must match in "+x)
+	assert.Equal(t, []byte(e1), s1, "number part must match in "+x)
+	assert.Equal(t, []byte(e2), s2, "dimension part must match in "+x)
+}
+
+func assertSplitDataURI(t *testing.T, x, e1, e2 string, eok bool) {
+	s1, s2, ok := SplitDataURI([]byte(x))
+	assert.Equal(t, eok, ok, "ok must match in "+x)
+	assert.Equal(t, []byte(e1), s1, "mediatype part must match in "+x)
+	assert.Equal(t, []byte(e2), s2, "data part must match in "+x)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -177,10 +184,17 @@ func TestTokenizerSmall(t *testing.T) {
 }
 
 func TestTokenizerUtils(t *testing.T) {
-	assertSplit(t, "5em", "5", "em")
-	assertSplit(t, "-5.01em", "-5.01", "em")
-	assertSplit(t, ".2em", ".2", "em")
-	assertSplit(t, ".2e-51em", ".2e-51", "em")
+	assertSplitNumber(t, "5em", "5", "em")
+	assertSplitNumber(t, "-5.01em", "-5.01", "em")
+	assertSplitNumber(t, ".2em", ".2", "em")
+	assertSplitNumber(t, ".2e-51em", ".2e-51", "em")
+
+	assertSplitDataURI(t, "url(www.domain.com)", "", "", false)
+	assertSplitDataURI(t, "url(data:,)", "text/plain", "", true)
+	assertSplitDataURI(t, "url(data:text/xml,)", "text/xml", "", true)
+	assertSplitDataURI(t, "url(data:,text)", "text/plain", "text", true)
+	assertSplitDataURI(t, "url(data:;base64,dGV4dA==)", "text/plain", "text", true)
+
 	assert.True(t, IsIdent([]byte("color")))
 	assert.False(t, IsIdent([]byte("4.5")))
 	assert.True(t, IsUrlUnquoted([]byte("http://x")))

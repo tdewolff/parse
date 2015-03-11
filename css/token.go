@@ -763,13 +763,13 @@ func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
 							decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
 							n, err := base64.StdEncoding.Decode(decoded, data)
 							if err != nil {
-								return nil, nil, false
+								return []byte{}, []byte{}, false
 							}
 							data = decoded[:n]
 						} else {
 							unescaped, err := url.QueryUnescape(string(data))
 							if err != nil {
-								return nil, nil, false
+								return []byte{}, []byte{}, false
 							}
 							data = []byte(unescaped)
 						}
@@ -779,7 +779,7 @@ func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
 			}
 		}
 	}
-	return nil, nil, false
+	return []byte{}, []byte{}, false
 }
 
 // IsIdent returns true if the bytes are a valid identifier.
