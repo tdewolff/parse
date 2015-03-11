@@ -782,101 +782,16 @@ func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
 	return nil, nil, false
 }
 
-func runeLen(c byte) int {
-	if c < 0xC0 {
-		return 1
-	} else if c < 0xE0 {
-		return 2
-	} else if c < 0xF0 {
-		return 3
-	} else {
-		return 4
-	}
-}
-
-func escapeLen(b []byte) int {
-	i := 0
-	c := b[1]
-	if c == '\n' || c == '\r' || c == '\f' {
-		return 0
-	} else if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
-		i++
-		for k := 1; k < 6 && i < len(b); k++ {
-			if !((b[i] >= '0' && b[i] <= '9') || (b[i] >= 'a' && b[i] <= 'f') || (b[i] >= 'A' && b[i] <= 'F')) {
-				break
-			}
-			i++
-		}
-		if b[i] == ' ' || b[i] == '\t' || b[i] == '\n' || b[i] == '\r' || b[i] == '\f' {
-			i++
-		}
-		return i
-	} else if c >= 0xC0 {
-		return i + runeLen(c)
-	}
-	return i + 1
-}
-
-// IsIdent returns true if the bytes are a valid identifier
+// IsIdent returns true if the bytes are a valid identifier.
 func IsIdent(b []byte) bool {
-	i := 0
-	if b[i] == '-' {
-		i++
-	}
-	c := b[i]
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80 || c == '\\') {
-		return false
-	} else if c == '\\' {
-		i++
-		n := escapeLen(b[i:])
-		if n == 0 {
-			return false
-		}
-		i += n
-	} else if c >= 0xC0 {
-		i += runeLen(c)
-	} else {
-		i++
-	}
-	for i < len(b) {
-		c := b[i]
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80 || c == '\\') {
-			return false
-		} else if c == '\\' {
-			i++
-			n := escapeLen(b[i:])
-			if n == 0 {
-				return false
-			}
-			i += n
-		} else if c >= 0xC0 {
-			i += runeLen(c)
-		} else {
-			i++
-		}
-	}
-	return true
+	z := NewTokenizer(bytes.NewBuffer(b))
+	z.consumeIdentToken()
+	return z.r.Pos() == len(b)
 }
 
-// IsUrlUnquoted returns true if the bytes are a valid unquoted URL
+// IsUrlUnquoted returns true if the bytes are a valid unquoted URL.
 func IsUrlUnquoted(b []byte) bool {
-	i := 0
-	for i < len(b) {
-		c := b[i]
-		if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == ')' || c == '"' || c == '\'' || c == '(' || c == '\\' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F {
-			return false
-		} else if c == '\\' {
-			i++
-			n := escapeLen(b[i:])
-			if n == 0 {
-				return false
-			}
-			i += n
-		} else if c >= 0xC0 {
-			i += runeLen(c)
-		} else {
-			i++
-		}
-	}
-	return true
+	z := NewTokenizer(bytes.NewBuffer(b))
+	z.consumeUnquotedURL()
+	return z.r.Pos() == len(b)
 }
