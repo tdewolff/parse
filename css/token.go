@@ -237,11 +237,8 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	if z.Err() != nil {
 		return ErrorToken, []byte{}
 	}
-	if z.r.Peek(0) >= 0xC0 {
-		z.consumeRune()
-	} else {
-		z.r.Move(1)
-	}
+	// can't be rune for consumeIdentlike consumes that as an identifier
+	z.r.Move(1)
 	return DelimToken, z.r.Shift()
 }
 
@@ -392,9 +389,9 @@ func (z *Tokenizer) consumeIdentToken() bool {
 }
 
 func (z *Tokenizer) consumeAtKeywordToken() bool {
-	if z.r.Peek(0) != '@' {
-		return false
-	}
+	// if z.r.Peek(0) != '@' {
+	// 	return false
+	// }
 	z.r.Move(1)
 	if !z.consumeIdentToken() {
 		z.r.Move(-1)
@@ -404,9 +401,9 @@ func (z *Tokenizer) consumeAtKeywordToken() bool {
 }
 
 func (z *Tokenizer) consumeHashToken() bool {
-	if z.r.Peek(0) != '#' {
-		return false
-	}
+	// if z.r.Peek(0) != '#' {
+	// 	return false
+	// }
 	nOld := z.r.Pos()
 	z.r.Move(1)
 	c := z.r.Peek(0)

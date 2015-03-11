@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/parse"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -23,8 +24,8 @@ func TestParser(t *testing.T) {
 	assertParse(t, "color: red;", "color:red;")
 	assertParse(t, "color : red;", "color:red;")
 	assertParse(t, "color: red; border: 0;", "color:red;border:0;")
-	assertParse(t, "color: red !important;", "color:red !important;")
-	assertParse(t, "color: red ! important;", "color:red !important;")
+	assertParse(t, "color: red !important;", "color:red!important;")
+	assertParse(t, "color: red ! important;", "color:red!important;")
 	assertParse(t, "white-space: -moz-pre-wrap;", "white-space:-moz-pre-wrap;")
 	assertParse(t, "display: -moz-inline-stack;", "display:-moz-inline-stack;")
 	assertParse(t, "x: 10px / 1em;", "x:10px/1em;")
@@ -75,8 +76,21 @@ func TestParser(t *testing.T) {
 	assertParse(t, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);")
 	assertParse(t, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
 	assertParse(t, "/*a*/\n/*c*/\nkey: value;", "key:value;")
+	assertParse(t, "a{x:y!z;}", "a{x:y!z;}")
 
 	// issues
 	assertParse(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                    // #6
 	assertParse(t, ".class{width:calc((50% + 2em)/2 + 14px);}}", ".class{width:calc((50% + 2em)/2 + 14px);}}") // #7
+}
+
+func TestParserSmall(t *testing.T) {
+	parse.MinBuf = 4
+	parse.MaxBuf = 4
+	z := NewParser(&ReaderMockup{bytes.NewBufferString("a:b; c:d;")})
+	gt, _ := z.Next()
+	assert.Equal(t, DeclarationGrammar, gt, "first grammar must be DeclarationGrammar")
+	gt, _ = z.Next()
+	assert.Equal(t, DeclarationGrammar, gt, "second grammar must be DeclarationGrammar")
+	gt, _ = z.Next()
+	assert.Equal(t, ErrorGrammar, gt, "third grammar must be DeclarationGrammar")
 }

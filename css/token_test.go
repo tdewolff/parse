@@ -106,7 +106,7 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "||", ColumnToken)
 	assertTokens(t, "<!-- -->", CDOToken, CDCToken)
 	assertTokens(t, "U+1234", UnicodeRangeToken)
-	assertTokens(t, "5.2 .4", NumberToken, NumberToken)
+	assertTokens(t, "5.2 .4 4e-22", NumberToken, NumberToken, NumberToken)
 
 	// unexpected ending
 	assertTokens(t, "ident", IdentToken)
@@ -117,6 +117,7 @@ func TestTokenizer(t *testing.T) {
 
 	// unicode
 	assertTokens(t, "fooδbar􀀀", IdentToken)
+	assertTokens(t, "foo\\æ\\†", IdentToken)
 	//assertTokens(t, "foo\x00bar", IdentToken)
 	assertTokens(t, "'foo\u554abar'", StringToken)
 	assertTokens(t, "\\000026B", IdentToken)
@@ -132,7 +133,7 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "color: blue !ie;", IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken)
 
 	// coverage
-	assertTokens(t, "  \n\r\n\r\"\\\r\n\"", StringToken)
+	assertTokens(t, "  \n\r\n\r\"\\\r\n\\\r\"", StringToken)
 	assertTokens(t, "U+?????? U+ABCD?? U+ABC-DEF", UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken)
 	assertTokens(t, "U+? U+A?", IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken)
 	assertTokens(t, "-5.23 -moz", NumberToken, IdentToken)
@@ -149,7 +150,9 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "\"a\\\"b\"", StringToken)
 	assertTokens(t, "\"s\n", BadStringToken)
 	//assertTokenError(t, "\\\n", ErrBadEscape)
+}
 
+func TestTokenizerSmall(t *testing.T) {
 	// small buffer
 	parse.MinBuf = 2
 	parse.MaxBuf = 4
@@ -171,7 +174,9 @@ func TestTokenizer(t *testing.T) {
 	parse.MaxBuf = 20
 	assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
+}
 
+func TestTokenizerUtils(t *testing.T) {
 	assertSplit(t, "5em", "5", "em")
 	assertSplit(t, "-5.01em", "-5.01", "em")
 	assertSplit(t, ".2em", ".2", "em")

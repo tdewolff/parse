@@ -352,16 +352,7 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 	p.shift() // colon
 	p.skipWhitespace()
 	for !p.at(SemicolonToken) && !p.at(RightBraceToken) && !p.at(ErrorToken) {
-		if p.at(DelimToken) && p.data()[0] == '!' {
-			exclamation := p.shift()
-			p.skipWhitespace()
-			if p.at(IdentToken) && ToHash(bytes.ToLower(p.data())) == Important {
-				decl.Important = true
-				p.shift()
-			} else {
-				decl.Vals = append(decl.Vals, exclamation)
-			}
-		} else if fun := p.parseFunction(); fun != nil {
+		if fun := p.parseFunction(); fun != nil {
 			decl.Vals = append(decl.Vals, fun)
 		} else {
 			decl.Vals = append(decl.Vals, p.shift())
@@ -442,11 +433,6 @@ func copyBytes(src []byte) (dst []byte) {
 	return
 }
 
-func (p *Parser) copyTokens() {
-	dst := make([]TokenNode, len(p.buf))
-	copy(dst, p.buf)
-}
-
 func (p *Parser) read() TokenNode {
 	tt, data := p.z.Next()
 	// ignore comments and multiple whitespace
@@ -513,12 +499,6 @@ func (p *Parser) skipWhitespace() {
 
 func (p *Parser) skipWhile(tt TokenType) {
 	for p.at(tt) || p.at(WhitespaceToken) {
-		p.shift()
-	}
-}
-
-func (p *Parser) skipUntil(tt TokenType) {
-	for !p.at(tt) && !p.at(ErrorToken) {
 		p.shift()
 	}
 }

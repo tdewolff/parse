@@ -191,7 +191,6 @@ func (sel SelectorNode) WriteTo(w io.Writer) (size int64, err error) {
 type DeclarationNode struct {
 	Prop      *TokenNode
 	Vals      []Node
-	Important bool
 }
 
 // WriteTo writes the string representation of the node to the writer.
@@ -211,12 +210,12 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 	for i, val := range decl.Vals {
 		if i != 0 {
 			var t *TokenNode
-			if k, ok := decl.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 {
+			if k, ok := decl.Vals[i-1].(*TokenNode); ok && len(k.Data) == 1 && k.TokenType != IdentToken {
 				t = k
-			} else if k, ok := decl.Vals[i].(*TokenNode); ok && len(k.Data) == 1 {
+			} else if k, ok := decl.Vals[i].(*TokenNode); ok && len(k.Data) == 1 && k.TokenType != IdentToken {
 				t = k
 			}
-			if t == nil || (t.Data[0] != ',' && t.Data[0] != '/' && t.Data[0] != ':' && t.Data[0] != '.') {
+			if t == nil || (t.Data[0] != ',' && t.Data[0] != '/' && t.Data[0] != ':' && t.Data[0] != '.' && t.Data[0] != '!') {
 				n, err = w.Write([]byte(" "))
 				if err != nil {
 					return
@@ -229,13 +228,6 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 			return
 		}
 		size += m
-	}
-	if decl.Important {
-		n, err = w.Write([]byte(" !important"))
-		if err != nil {
-			return
-		}
-		size += int64(n)
 	}
 	n, err = w.Write([]byte(";"))
 	if err != nil {
