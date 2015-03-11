@@ -732,46 +732,53 @@ func SplitNumberToken(b []byte) ([]byte, []byte) {
 }
 
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
-func SplitDataURI(b []byte) ([]byte, []byte, bool) {
-	if len(b) > 10 && bytes.Equal(b[:4], []byte("url(")) {
-		b = b[4 : len(b)-1]
-		if (b[0] == '\'' || b[0] == '"') && b[0] == b[len(b)-1] {
-			b = b[1 : len(b)-1]
+func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
+	if len(uri) > 10 && bytes.Equal(uri[:4], []byte("url(")) {
+		uri = uri[4 : len(uri)-1]
+		if (uri[0] == '\'' || uri[0] == '"') && uri[0] == uri[len(uri)-1] {
+			uri = uri[1 : len(uri)-1]
 		}
-		if bytes.Equal(b[:5], []byte("data:")) {
-			b = b[5:]
-			if i := bytes.IndexByte(b, ','); i != -1 {
-				meta := bytes.Split(b[:i], []byte(";"))
-				mime := []byte("text/plain")
-				charset := []byte("charset=US-ASCII")
-				data := b[i+1:]
-
-				inBase64 := false
-				if len(meta) > 0 {
-					mime = meta[0]
-					for _, m := range meta[1:] {
-						if bytes.Equal(m, []byte("base64")) {
-							inBase64 = true
-						} else if len(m) > 8 && bytes.Equal(m[:8], []byte("charset=")) {
-							charset = m
+		if bytes.Equal(uri[:5], []byte("data:")) {
+			uri = uri[5:]
+			inBase64 := false
+			mediatype := []byte{}
+			i := 0
+			for j, c := range uri {
+				if c == '=' || c == ';' || c == ',' {
+					if c != '=' && bytes.Equal(bytes.TrimSpace(uri[i:j]), []byte("base64")) {
+						if len(mediatype) > 0 {
+							mediatype = mediatype[:len(mediatype)-1]
 						}
+						inBase64 = true
+						i = j
+					} else if c != ',' {
+						mediatype = append(append(mediatype, bytes.TrimSpace(uri[i:j])...), c)
+						i = j + 1
+					} else {
+						mediatype = append(mediatype, bytes.TrimSpace(uri[i:j])...)
+					}
+					if c == ',' {
+						if len(mediatype) == 0 || mediatype[0] == ';' {
+							mediatype = []byte("text/plain")
+						}
+						data := uri[j+1:]
+						if inBase64 {
+							decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+							n, err := base64.StdEncoding.Decode(decoded, data)
+							if err != nil {
+								return nil, nil, false
+							}
+							data = decoded[:n]
+						} else {
+							unescaped, err := url.QueryUnescape(string(data))
+							if err != nil {
+								return nil, nil, false
+							}
+							data = []byte(unescaped)
+						}
+						return mediatype, data, true
 					}
 				}
-				if inBase64 {
-					decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
-					n, err := base64.StdEncoding.Decode(decoded, data)
-					if err != nil {
-						return nil, nil, false
-					}
-					data = decoded[:n]
-				} else {
-					unescaped, err := url.QueryUnescape(string(data))
-					if err != nil {
-						return nil, nil, false
-					}
-					data = []byte(unescaped)
-				}
-				return append(append(append([]byte{}, mime...), ';'), charset...), data, true
 			}
 		}
 	}
