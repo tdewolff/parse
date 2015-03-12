@@ -63,7 +63,6 @@ func (tt TokenType) String() string {
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
 	r    *parse.ShiftBuffer
-	line int
 
 	regexpState bool
 }
@@ -72,13 +71,7 @@ type Tokenizer struct {
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
 		r:    parse.NewShiftBuffer(r),
-		line: 1,
 	}
-}
-
-// Line returns the current line that is being tokenized (1 + number of \n, \r or \r\n encountered).
-func (z Tokenizer) Line() int {
-	return z.line
 }
 
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
@@ -128,7 +121,6 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 		tt = WhitespaceToken
 	case '\n', '\r':
-		z.line++
 		z.r.Move(1)
 		for z.consumeLineTerminator() {
 		}
@@ -207,11 +199,9 @@ func (z *Tokenizer) consumeWhitespace() bool {
 func (z *Tokenizer) consumeLineTerminator() bool {
 	c := z.r.Peek(0)
 	if c == '\n' {
-		z.line++
 		z.r.Move(1)
 		return true
 	} else if c == '\r' {
-		z.line++
 		if z.r.Peek(1) == '\n' {
 			z.r.Move(2)
 		} else {
@@ -220,7 +210,6 @@ func (z *Tokenizer) consumeLineTerminator() bool {
 		return true
 	} else if c >= 0xC0 {
 		if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-			z.line++
 			return z.consumeRune()
 		}
 	}
@@ -333,10 +322,8 @@ func (z *Tokenizer) consumeCommentToken() bool {
 				z.r.Move(2)
 				return true
 			} else if c == '\r' || c == '\n' {
-				z.line++
 			} else if c >= 0xC0 {
 				if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-					z.line++
 					z.consumeRune()
 					continue
 				}
@@ -513,7 +500,6 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 			break
 		} else if c == '\\' {
 			if z.consumeLineTerminator() {
-				z.line--
 				z.r.MoveTo(nOld)
 				return false
 			}

@@ -128,20 +128,13 @@ func (tt TokenType) String() string {
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
 	r    *parse.ShiftBuffer
-	line int
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
 		parse.NewShiftBuffer(r),
-		1,
 	}
-}
-
-// Line returns the current line that is being tokenized (1 + number of \n, \r or \r\n encountered).
-func (z Tokenizer) Line() int {
-	return z.line
 }
 
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
@@ -291,11 +284,9 @@ func (z *Tokenizer) consumeComment() bool {
 func (z *Tokenizer) consumeNewline() bool {
 	c := z.r.Peek(0)
 	if c == '\n' || c == '\f' {
-		z.line++
 		z.r.Move(1)
 		return true
 	} else if c == '\r' {
-		z.line++
 		if z.r.Peek(1) == '\n' {
 			z.r.Move(2)
 		} else {
