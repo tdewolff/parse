@@ -688,7 +688,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 	if z.consumeIdentToken() {
 		if !z.consumeByte('(') {
 			return IdentToken
-		} else if !bytes.Equal(bytes.ToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
+		} else if !bytes.Equal(ToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
 			return FunctionToken
 		}
 
@@ -794,4 +794,13 @@ func IsUrlUnquoted(b []byte) bool {
 	z := NewTokenizer(bytes.NewBuffer(b))
 	z.consumeUnquotedURL()
 	return z.r.Pos() == len(b)
+}
+
+func ToLower(b []byte) []byte {
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c | ('a' - 'A')
+		}
+	}
+	return b
 }

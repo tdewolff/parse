@@ -58,7 +58,6 @@ Parser using example:
 package css // import "github.com/tdewolff/parse/css"
 
 import (
-	"bytes"
 	"io"
 	"strconv"
 )
@@ -344,7 +343,7 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 	}
 	decl := &DeclarationNode{}
 	decl.Prop = p.shift()
-	decl.Prop.Data = bytes.ToLower(decl.Prop.Data)
+	decl.Prop.Data = ToLower(decl.Prop.Data)
 	p.skipWhitespace()
 	if !p.at(ColonToken) {
 		return nil
