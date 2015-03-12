@@ -127,9 +127,14 @@ func (z *ShiftBuffer) Bytes() []byte {
 	return z.buf[z.pos:z.end]
 }
 
-// Shift returns the bytes of the current selection and advances the position.
+// Shift returns the bytes of the current selection and collapses the position.
 func (z *ShiftBuffer) Shift() []byte {
 	b := z.buf[z.pos:z.end]
 	z.pos = z.end
 	return b
+}
+
+// Skip collapses the position.
+func (z *ShiftBuffer) Skip() {
+	z.pos = z.end
 }
