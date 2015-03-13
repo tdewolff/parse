@@ -458,18 +458,19 @@ func (p *Parser) read() TokenNode {
 }
 
 func (p *Parser) peek(i int) *TokenNode {
-	if p.pos+i >= len(p.buf) {
+	end := p.pos+i
+	if end >= len(p.buf) {
 		c := cap(p.buf)
-		if p.pos+i >= c {
+		if end >= c {
 			buf1 := make([]TokenNode, len(p.buf), 2*c)
 			copy(buf1, p.buf)
 			p.buf = buf1
 		}
-		for j := len(p.buf); j <= p.pos+i; j++ {
+		for j := len(p.buf); j <= end; j++ {
 			p.buf = append(p.buf, p.read())
 		}
 	}
-	return &p.buf[p.pos+i]
+	return &p.buf[end]
 }
 
 func (p *Parser) shift() *TokenNode {
