@@ -81,7 +81,7 @@ func (z *ShiftBuffer) Peek(i int) byte {
 
 		// reallocate a new buffer (possibly larger)
 		c := cap(z.buf)
-		d := end - z.pos
+		d := len(z.buf) - z.pos
 		var buf1 []byte
 		if 2*d > c {
 			if 2*c > MaxBuf {
@@ -92,7 +92,7 @@ func (z *ShiftBuffer) Peek(i int) byte {
 		} else {
 			buf1 = z.buf[:d]
 		}
-		copy(buf1, z.buf[z.pos:end])
+		copy(buf1, z.buf[z.pos:])
 
 		// Read in to fill the buffer till capacity
 		var n int

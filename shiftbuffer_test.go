@@ -58,8 +58,8 @@ func TestShiftBufferSmall(t *testing.T) {
 	MinBuf = 4
 	MaxBuf = 8
 
-	var s = `abcdefgh`
-	var b = NewShiftBuffer(&ReaderMockup{bytes.NewBufferString(s)})
+	s := `abcdefgh`
+	b := NewShiftBuffer(&ReaderMockup{bytes.NewBufferString(s)})
 
 	b.Move(4)
 	assert.Equal(t, false, b.IsEOF(), "buffer must not be fully in memory")
@@ -68,6 +68,9 @@ func TestShiftBufferSmall(t *testing.T) {
 	assert.Equal(t, byte(0), b.Peek(0), "first character past max buffer size must give error and return 0")
 	assert.Equal(t, ErrBufferExceeded, b.Err(), "error must be ErrBufferExceeded when past the max buffer size")
 	assert.Equal(t, byte(0), b.Peek(0), "peek when readErr != nil must return 0")
+
+	b = NewShiftBuffer(&ReaderMockup{bytes.NewBufferString(s)})
+	assert.Equal(t, byte('f'), b.Peek(5), "first character must be 'f' at position 5")
 }
 
 func TestShiftBufferRunes(t *testing.T) {
