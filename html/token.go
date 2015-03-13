@@ -56,8 +56,8 @@ func (tt TokenType) String() string {
 type Tokenizer struct {
 	r   *parse.ShiftBuffer
 
-	inTag   bool
 	rawTag  Hash
+	inTag   bool
 	attrVal []byte
 }
 
@@ -82,6 +82,7 @@ func (z Tokenizer) IsEOF() bool {
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	var c byte
 	if z.inTag {
+		z.attrVal = []byte{}
 		c = z.r.Peek(0)
 		if c != '>' && c != '/' {
 			return AttributeToken, z.shiftAttribute()
@@ -96,54 +97,61 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 	}
 
-	if z.rawTag == 0 {
-		for {
-			c = z.r.Peek(0)
-			if c == 0 {
-				if z.r.Pos() > 0 {
+	if z.rawTag != 0 {
+		if rawText := z.shiftRawText(); len(rawText) > 0 {
+			z.rawTag = 0
+			return TextToken, rawText
+		}
+		z.rawTag = 0
+	}
+
+	for {
+		c = z.r.Peek(0)
+		if c == 0 {
+			if z.r.Pos() > 0 {
+				return TextToken, z.r.Shift()
+			} else {
+				return ErrorToken, []byte{}
+			}
+		} else if c == '<' {
+			c = z.r.Peek(1)
+			if z.r.Pos() > 0 {
+				if c == '/' && z.r.Peek(2) != 0 || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
 					return TextToken, z.r.Shift()
-				} else {
-					return ErrorToken, []byte{}
 				}
-			} else if c == '<' {
-				c = z.r.Peek(1)
-				if z.r.Pos() > 0 {
-					if c == '/' && z.r.Peek(2) != 0 || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
-						return TextToken, z.r.Shift()
-					}
-				} else if c == '/' && z.r.Peek(2) != 0 {
-					z.r.Move(2)
-					z.r.Skip()
-					if c = z.r.Peek(0); c != '>' && !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
-						return CommentToken, z.shiftBogusComment()
-					}
-					return EndTagToken, z.shiftEndTag()
-				} else if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
-					z.r.Move(1)
-					z.r.Skip()
-					z.inTag = true
-					return StartTagToken, z.shiftStartTag()
-				} else if c == '!' {
-					z.r.Move(2)
-					z.r.Skip()
-					return z.readMarkup()
-				} else if c == '?' {
-					z.r.Move(1)
-					z.r.Skip()
+			} else if c == '/' && z.r.Peek(2) != 0 {
+				z.r.Move(2)
+				z.r.Skip()
+				if c = z.r.Peek(0); c != '>' && !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 					return CommentToken, z.shiftBogusComment()
 				}
+				return EndTagToken, z.shiftEndTag()
+			} else if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
+				z.r.Move(1)
+				z.r.Skip()
+				z.inTag = true
+				return StartTagToken, z.shiftStartTag()
+			} else if c == '!' {
+				z.r.Move(2)
+				z.r.Skip()
+				return z.readMarkup()
+			} else if c == '?' {
+				z.r.Move(1)
+				z.r.Skip()
+				return CommentToken, z.shiftBogusComment()
 			}
-			z.r.Move(1)
 		}
-	} else if rawText := z.shiftRawText(); len(rawText) > 0 {
-		z.rawTag = 0
-		return TextToken, rawText
+		z.r.Move(1)
 	}
 	return ErrorToken, []byte{}
 }
 
-func (z *Tokenizer) AttrVal() (val []byte, more bool) {
-	return z.attrVal, z.r.Peek(0) != '>' && z.r.Peek(0) != '/'
+func (z *Tokenizer) AttrVal() []byte {
+	return z.attrVal
+}
+
+func (z *Tokenizer) RawTag() Hash {
+	return z.rawTag
 }
 
 ////////////////////////////////////////////////////////////////
@@ -174,7 +182,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 					}
 					z.r.Move(1)
 				}
-				if h := ToHash(ToLower(z.r.Bytes()[nPos+2:])); h == z.rawTag {
+				if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos+2:])); h == z.rawTag {
 					z.r.MoveTo(nPos)
 					return z.r.Shift()
 				}
@@ -207,7 +215,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 
 func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 	if z.at([]byte("--")) {
-		z.r.Move(4)
+		z.r.Move(2)
 		z.r.Skip()
 		for {
 			if z.r.Peek(0) == 0 {
@@ -239,12 +247,23 @@ func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 			}
 			z.r.Move(1)
 		}
-	} else if startTag := z.shiftStartTag(); len(startTag) > 0 {
-		z.inTag = true
-		return DoctypeToken, startTag
 	} else {
-		return CommentToken, z.shiftBogusComment()
+		z.r.Skip()
+		if z.atCaseInsensitive([]byte("doctype")) {
+			z.r.Move(7)
+			for {
+				if c := z.r.Peek(0); c == '>' || c == 0 {
+					doctype := z.r.Shift()
+					z.r.Move(1)
+					z.r.Skip()
+					return DoctypeToken, doctype
+				}
+				z.r.Move(1)
+			}
+		}
 	}
+	bogus := z.shiftBogusComment()
+	return CommentToken, bogus
 }
 
 func (z *Tokenizer) shiftBogusComment() []byte {
@@ -266,7 +285,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 		}
 		z.r.Move(1)
 	}
-	name := ToLower(z.r.Shift())
+	name := parse.ToLower(z.r.Shift())
 	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Noembed || h == Noframes || h == Noscript || h == Script || h == Plaintext {
 		z.rawTag = h
 	}
@@ -281,7 +300,7 @@ func (z *Tokenizer) shiftAttribute() []byte {
 		}
 		z.r.Move(1)
 	}
-	attrName := ToLower(z.r.Shift())
+	name := parse.ToLower(z.r.Shift())
 	z.skipWhitespace() // after attribute name state
 	if z.r.Peek(0) == '=' {
 		z.r.Move(1)
@@ -309,7 +328,7 @@ func (z *Tokenizer) shiftAttribute() []byte {
 	} else {
 		z.attrVal = nil
 	}
-	return attrName
+	return name
 }
 
 func (z *Tokenizer) shiftEndTag() []byte {
@@ -318,10 +337,10 @@ func (z *Tokenizer) shiftEndTag() []byte {
 		if c == 0 {
 			return z.r.Shift()
 		} else if c == '>' {
-			endTag := z.r.Shift()
+			name := parse.ToLower(z.r.Shift())
 			z.r.Move(1)
 			z.r.Skip()
-			return endTag
+			return name
 		}
 		z.r.Move(1)
 	}
@@ -347,11 +366,11 @@ func (z *Tokenizer) at(b []byte) bool {
 	return true
 }
 
-func ToLower(b []byte) []byte {
+func (z *Tokenizer) atCaseInsensitive(b []byte) bool {
 	for i, c := range b {
-		if c < 0xC0 {
-			b[i] = c | ('a' - 'A')
+		if z.r.Peek(i) != c && (z.r.Peek(i) | ('a' - 'A')) != c {
+			return false
 		}
 	}
-	return b
+	return true
 }
