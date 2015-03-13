@@ -60,6 +60,8 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"io"
 	"strconv"
+
+	"github.com/tdewolff/parse"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -343,7 +345,7 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 	}
 	decl := &DeclarationNode{}
 	decl.Prop = p.shift()
-	decl.Prop.Data = ToLower(decl.Prop.Data)
+	parse.ToLower(decl.Prop.Data)
 	p.skipWhitespace()
 	if !p.at(ColonToken) {
 		return nil
@@ -424,13 +426,19 @@ func (p *Parser) shiftComponent() Node {
 	}
 }
 
-////////////////////////////////////////////////////////////////
-
-func copyBytes(src []byte) (dst []byte) {
-	dst = make([]byte, len(src))
-	copy(dst, src)
-	return
+func (p *Parser) skipWhitespace() {
+	if p.at(WhitespaceToken) {
+		p.shift()
+	}
 }
+
+func (p *Parser) skipWhile(tt TokenType) {
+	for p.at(tt) || p.at(WhitespaceToken) {
+		p.shift()
+	}
+}
+
+////////////////////////////////////////////////////////////////
 
 func (p *Parser) read() TokenNode {
 	tt, data := p.z.Next()
@@ -441,7 +449,7 @@ func (p *Parser) read() TokenNode {
 	// copy necessary for whenever the tokenizer overwrites its buffer
 	// checking if buffer has EOF optimizes for small files and files already in memory
 	if !p.z.IsEOF() {
-		data = copyBytes(data)
+		data = parse.Copy(data)
 	}
 	return TokenNode{
 		tt,
@@ -488,16 +496,4 @@ func (p *Parser) at(tt TokenType) bool {
 
 func (p *Parser) data() []byte {
 	return p.peek(0).Data
-}
-
-func (p *Parser) skipWhitespace() {
-	if p.at(WhitespaceToken) {
-		p.shift()
-	}
-}
-
-func (p *Parser) skipWhile(tt TokenType) {
-	for p.at(tt) || p.at(WhitespaceToken) {
-		p.shift()
-	}
 }
