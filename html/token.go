@@ -82,7 +82,7 @@ func (z Tokenizer) IsEOF() bool {
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	var c byte
 	if z.inTag {
-		z.attrVal = []byte{}
+		z.attrVal = nil
 		c = z.r.Peek(0)
 		if c != '>' && c != '/' {
 			return AttributeToken, z.shiftAttribute()
