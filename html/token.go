@@ -368,7 +368,7 @@ func (z *Tokenizer) at(b []byte) bool {
 
 func (z *Tokenizer) atCaseInsensitive(b []byte) bool {
 	for i, c := range b {
-		if z.r.Peek(i) != c && (z.r.Peek(i) | ('a' - 'A')) != c {
+		if z.r.Peek(i) != c && (z.r.Peek(i) + ('a' - 'A')) != c {
 			return false
 		}
 	}
