@@ -186,22 +186,24 @@ func (z *Tokenizer) shiftRawText() []byte {
 					z.r.MoveTo(nPos)
 					return z.r.Shift()
 				}
-			} else if z.rawTag == Script && z.at([]byte("<!--")) {
+			} else if z.rawTag == Script && z.at('<', '!', '-', '-') {
 				z.r.Move(4)
 				inScript := false
 				for {
-					if z.at([]byte("-->")) {
-						z.r.Move(3)
-						break
-					} else if z.at([]byte("<script")) {
-						z.r.Move(7)
-						inScript = true
-					} else if z.at([]byte("</script")) {
-						if inScript {
-							z.r.Move(8)
-							inScript = false
-						} else {
-							return z.r.Shift()
+					if c := z.r.Peek(0); c == '-' || c == '<' {
+						if z.at('-', '-', '>') {
+							z.r.Move(3)
+							break
+						} else if z.at('<', 's', 'c', 'r', 'i', 'p', 't') {
+							z.r.Move(7)
+							inScript = true
+						} else if z.at('<', '/', 's', 'c', 'r', 'i', 'p', 't') {
+							if inScript {
+								z.r.Move(8)
+								inScript = false
+							} else {
+								return z.r.Shift()
+							}
 						}
 					}
 					z.r.Move(1)
@@ -214,18 +216,18 @@ func (z *Tokenizer) shiftRawText() []byte {
 }
 
 func (z *Tokenizer) readMarkup() (TokenType, []byte) {
-	if z.at([]byte("--")) {
+	if z.at('-', '-') {
 		z.r.Move(2)
 		z.r.Skip()
 		for {
 			if z.r.Peek(0) == 0 {
 				return CommentToken, z.r.Shift()
-			} else if z.at([]byte("-->")) {
+			} else if z.at('-', '-', '>') {
 				comment := z.r.Shift()
 				z.r.Move(3)
 				z.r.Skip()
 				return CommentToken, comment
-			} else if z.at([]byte("--!>")) {
+			} else if z.at('-', '-', '!', '>') {
 				comment := z.r.Shift()
 				z.r.Move(4)
 				z.r.Skip()
@@ -233,13 +235,13 @@ func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 			}
 			z.r.Move(1)
 		}
-	} else if z.at([]byte("[CDATA[")) {
+	} else if z.at('[', 'C', 'D', 'A', 'T', 'A', '[') {
 		z.r.Move(7)
 		z.r.Skip()
 		for {
 			if z.r.Peek(0) == 0 {
 				return TextToken, z.r.Shift()
-			} else if z.at([]byte("]]>")) {
+			} else if z.at(']', ']', '>') {
 				text := z.r.Shift()
 				z.r.Move(3)
 				z.r.Skip()
@@ -249,7 +251,7 @@ func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 		}
 	} else {
 		z.r.Skip()
-		if z.atCaseInsensitive([]byte("doctype")) {
+		if z.atCaseInsensitive('d', 'o', 'c', 't', 'y', 'p', 'e') {
 			z.r.Move(7)
 			for {
 				if c := z.r.Peek(0); c == '>' || c == 0 {
@@ -357,7 +359,7 @@ func (z *Tokenizer) skipWhitespace() {
 	z.r.Skip()
 }
 
-func (z *Tokenizer) at(b []byte) bool {
+func (z *Tokenizer) at(b ...byte) bool {
 	for i, c := range b {
 		if z.r.Peek(i) != c {
 			return false
@@ -366,7 +368,7 @@ func (z *Tokenizer) at(b []byte) bool {
 	return true
 }
 
-func (z *Tokenizer) atCaseInsensitive(b []byte) bool {
+func (z *Tokenizer) atCaseInsensitive(b ...byte) bool {
 	for i, c := range b {
 		if z.r.Peek(i) != c && (z.r.Peek(i) + ('a' - 'A')) != c {
 			return false
