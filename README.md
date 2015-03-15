@@ -5,15 +5,14 @@ This package contains several tokenizers and parsers written in [Go][1]. All sub
 
 The tokenizers are implemented using `ShiftBuffer` and the parsers work on top of the tokenizers. Some subpackages have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up common byte-slice comparisons.
 
-## CSS
-A CSS3 tokenizer and parser.
+## HTML
+An HTML5 tokenizer. [See README here](https://github.com/tdewolff/parse/blob/master/html/README.md).
 
-[See README here](https://github.com/tdewolff/parse/blob/master/css/README.md).
+## CSS
+A CSS3 tokenizer and parser. [See README here](https://github.com/tdewolff/parse/blob/master/css/README.md).
 
 ## JS
-An ECMAScript5.1 tokenizer.
-
-[See README here](https://github.com/tdewolff/parse/blob/master/js/README.md).
+An ECMAScript5.1 tokenizer. [See README here](https://github.com/tdewolff/parse/blob/master/js/README.md).
 
 ## License
 Released under the [MIT license](LICENSE.md).
