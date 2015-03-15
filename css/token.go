@@ -679,7 +679,7 @@ func (z *Tokenizer) consumeIdentlike() TokenType {
 	if z.consumeIdentToken() {
 		if !z.consumeByte('(') {
 			return IdentToken
-		} else if !bytes.Equal(parse.CopyToLower(bytes.Replace(z.r.Bytes(), []byte("\\"), []byte{}, -1)), []byte("url(")) {
+		} else if !parse.EqualCaseInsensitive(bytes.Replace(z.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
 			return FunctionToken
 		}
 
@@ -721,19 +721,19 @@ func SplitNumberToken(b []byte) ([]byte, []byte) {
 
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
 func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
-	if len(uri) > 10 && bytes.Equal(uri[:4], []byte("url(")) {
+	if len(uri) > 10 && parse.Equal(uri[:4], []byte("url(")) {
 		uri = uri[4 : len(uri)-1]
 		if (uri[0] == '\'' || uri[0] == '"') && uri[0] == uri[len(uri)-1] {
 			uri = uri[1 : len(uri)-1]
 		}
-		if bytes.Equal(uri[:5], []byte("data:")) {
+		if parse.Equal(uri[:5], []byte("data:")) {
 			uri = uri[5:]
 			inBase64 := false
 			mediatype := []byte{}
 			i := 0
 			for j, c := range uri {
 				if c == '=' || c == ';' || c == ',' {
-					if c != '=' && bytes.Equal(bytes.TrimSpace(uri[i:j]), []byte("base64")) {
+					if c != '=' && parse.Equal(bytes.TrimSpace(uri[i:j]), []byte("base64")) {
 						if len(mediatype) > 0 {
 							mediatype = mediatype[:len(mediatype)-1]
 						}
