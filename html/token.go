@@ -173,39 +173,57 @@ func (z *Tokenizer) shiftRawText() []byte {
 			c := z.r.Peek(0)
 			if c == 0 {
 				return z.r.Shift()
-			} else if c == '<' && z.r.Peek(1) == '/' {
-				nPos := z.r.Pos()
-				z.r.Move(2)
-				for {
-					if c = z.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
-						break
+			} else if c == '<' {
+				if z.r.Peek(1) == '/' {
+					nPos := z.r.Pos()
+					z.r.Move(2)
+					for {
+						if c = z.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+							break
+						}
+						z.r.Move(1)
 					}
-					z.r.Move(1)
-				}
-				if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos+2:])); h == z.rawTag {
-					z.r.MoveTo(nPos)
-					return z.r.Shift()
-				}
-			} else if z.rawTag == Script && z.at('<', '!', '-', '-') {
-				z.r.Move(4)
-				inScript := false
-				for {
-					if c := z.r.Peek(0); c == '-' || c == '<' {
-						if z.at('-', '-', '>') {
+					if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos+2:])); h == z.rawTag {
+						z.r.MoveTo(nPos)
+						return z.r.Shift()
+					}
+				} else if z.rawTag == Script && z.r.Peek(1) == '!' && z.r.Peek(2) == '-' && z.r.Peek(3) == '-' {
+					z.r.Move(4)
+					inScript := false
+					for {
+						c := z.r.Peek(0)
+						if c == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
 							z.r.Move(3)
 							break
-						} else if z.at('<', 's', 'c', 'r', 'i', 'p', 't') {
-							z.r.Move(7)
-							inScript = true
-						} else if z.at('<', '/', 's', 'c', 'r', 'i', 'p', 't') {
-							if inScript {
-								z.r.Move(8)
-								inScript = false
+						} else if c == '<' {
+							isEnd := z.r.Peek(1) == '/'
+							if isEnd {
+								z.r.Move(2)
 							} else {
-								return z.r.Shift()
+								z.r.Move(1)
+							}
+							nPos := z.r.Pos()
+							for {
+								if c = z.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+									break
+								}
+								z.r.Move(1)
+							}
+							if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos:])); h == Script {
+								if !isEnd {
+									inScript = true
+								} else {
+									if !inScript {
+										z.r.MoveTo(nPos-2)
+										return z.r.Shift()
+									}
+									inScript = false
+								}
 							}
 						}
+						z.r.Move(1)
 					}
+				} else {
 					z.r.Move(1)
 				}
 			} else {

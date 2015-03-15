@@ -85,3 +85,97 @@ func TestShiftBufferZeroLen(t *testing.T) {
 	var b = NewShiftBuffer(&ReaderMockup{bytes.NewBufferString("")})
 	assert.Equal(t, byte(0), b.Peek(0), "first character must yield error")
 }
+
+////////////////////////////////////////////////////////////////
+
+var c = 0
+var haystack = []byte("abcdefghijklmnopqrstuvwxyz")
+
+func BenchmarkBytesEqual(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if bytes.Equal([]byte("wxyz"), haystack[j:j+4]) {
+			c++
+		}
+	}
+}
+
+func BenchmarkBytesEqual2(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if bytes.Equal([]byte{'w', 'x', 'y', 'z'}, haystack[j:j+4]) {
+			c++
+		}
+	}
+}
+
+func BenchmarkBytesEqual3(b *testing.B) {
+	match := []byte{'w', 'x', 'y', 'z'}
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if bytes.Equal(match, haystack[j:j+4]) {
+			c++
+		}
+	}
+}
+
+func BenchmarkBytesEqual4(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if bytesEqual(haystack[j:j+4], 'w', 'x', 'y', 'z') {
+			c++
+		}
+	}
+}
+
+func bytesEqual(stack []byte, match ...byte) bool {
+	return bytes.Equal(stack, match)
+}
+
+func BenchmarkCharsEqual(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if haystack[j] == 'w' && haystack[j+1] == 'x' && haystack[j+2] == 'y' && haystack[j+3] == 'z' {
+			c++
+		}
+	}
+}
+
+func BenchmarkCharsLoopEqual(b *testing.B) {
+	match := []byte("wxyz")
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		equal := true
+		for k := 0; k < 4; k++ {
+			if haystack[j+k] != match[k] {
+				equal = false
+				break
+			}
+		}
+		if equal {
+			c++
+		}
+	}
+}
+
+func BenchmarkCharsFuncEqual(b *testing.B) {
+	match := []byte("wxyz")
+	for i := 0; i < b.N; i++ {
+		j := i % (len(haystack)-3)
+		if at(match, haystack[j:]) {
+			c++
+		}
+	}
+}
+
+func at(match []byte, stack []byte) bool {
+	if len(stack) < len(match) {
+		return false
+	}
+	for i, c := range match {
+		if stack[i] != c {
+			return false
+		}
+	}
+	return true
+}

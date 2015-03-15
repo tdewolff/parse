@@ -24,3 +24,27 @@ func CopyToLower(src []byte) []byte {
 	}
 	return dst
 }
+
+func Equal(s, match []byte) bool {
+	if len(s) != len(match) {
+		return false
+	}
+	for i, c := range match {
+		if s[i] != c {
+			return false
+		}
+	}
+	return true
+}
+
+func EqualCaseInsensitive(s, match []byte) bool {
+	if len(s) != len(match) {
+		return false
+	}
+	for i, c := range match {
+		if s[i] != c && (c < 'A' && c > 'Z' || s[i] + ('a' - 'A') != c) {
+			return false
+		}
+	}
+	return true
+}
