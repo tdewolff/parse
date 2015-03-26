@@ -81,6 +81,7 @@ func TestParser(t *testing.T) {
 	// issues
 	assertParse(t, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                    // #6
 	assertParse(t, ".class{width:calc((50% + 2em)/2 + 14px);}}", ".class{width:calc((50% + 2em)/2 + 14px);}}") // #7
+	assertParse(t, ".class [c=y]{}", ".class [c=y]{}")                                                         // #16
 }
 
 func TestParserSmall(t *testing.T) {

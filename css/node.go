@@ -166,7 +166,7 @@ func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
 
 ////////////////////////////////////////////////////////////////
 
-// SelectorNode contains the tokens of a single selector, either TokenNode or AttributeSelectorNode.
+// SelectorNode contains the tokens of a single selector.
 type SelectorNode struct {
 	Elems []*TokenNode
 }
@@ -189,8 +189,8 @@ func (sel SelectorNode) WriteTo(w io.Writer) (size int64, err error) {
 // DeclarationNode represents a property declaration.
 // Vals contains FunctionNode and TokenNode nodes.
 type DeclarationNode struct {
-	Prop      *TokenNode
-	Vals      []Node
+	Prop *TokenNode
+	Vals []Node
 }
 
 // WriteTo writes the string representation of the node to the writer.

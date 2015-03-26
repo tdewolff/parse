@@ -312,19 +312,21 @@ func (p *Parser) parseSelector() *SelectorNode {
 		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
 			sel.Elems = append(sel.Elems, p.shift())
 			p.skipWhitespace()
-		} else if p.at(LeftBracketToken) {
-			for !p.at(RightBracketToken) && !p.at(ErrorToken) {
-				sel.Elems = append(sel.Elems, p.shift())
-				p.skipWhitespace()
-			}
-			if p.at(RightBracketToken) {
-				sel.Elems = append(sel.Elems, p.shift())
-			}
 		} else {
 			if ws != nil {
 				sel.Elems = append(sel.Elems, ws)
 			}
-			sel.Elems = append(sel.Elems, p.shift())
+			if p.at(LeftBracketToken) {
+				for !p.at(RightBracketToken) && !p.at(ErrorToken) {
+					sel.Elems = append(sel.Elems, p.shift())
+					p.skipWhitespace()
+				}
+				if p.at(RightBracketToken) {
+					sel.Elems = append(sel.Elems, p.shift())
+				}
+			} else {
+				sel.Elems = append(sel.Elems, p.shift())
+			}
 		}
 
 		if p.at(WhitespaceToken) {
@@ -458,7 +460,7 @@ func (p *Parser) read() TokenNode {
 }
 
 func (p *Parser) peek(i int) *TokenNode {
-	end := p.pos+i
+	end := p.pos + i
 	if end >= len(p.buf) {
 		c := cap(p.buf)
 		if end >= c {
