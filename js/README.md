@@ -1,6 +1,5 @@
-[![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
+# JS [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
 
-# JS
 This package is a JS tokenizer (ECMA-262, edition 5.1) written in [Go][1]. It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/). The tokenizer takes an io.Reader and converts it into tokens until the EOF.
 
 ## Installation
