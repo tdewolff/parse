@@ -71,4 +71,5 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "<script><!--var x='</script>';--></script>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken, TextToken, EndTagToken)
 	assertTokens(t, "<script><!--var x='<script></script>';--></script>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
 	assertTokens(t, "<script><!--var x='<script>';--></script>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
+	assertTokens(t, "<![CDATA[ test ]]>", TextToken)
 }

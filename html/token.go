@@ -54,7 +54,7 @@ func (tt TokenType) String() string {
 
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r   *parse.ShiftBuffer
+	r *parse.ShiftBuffer
 
 	rawTag  Hash
 	inTag   bool
@@ -64,7 +64,7 @@ type Tokenizer struct {
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		r:    parse.NewShiftBuffer(r),
+		r: parse.NewShiftBuffer(r),
 	}
 }
 
@@ -214,7 +214,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 									inScript = true
 								} else {
 									if !inScript {
-										z.r.MoveTo(nPos-2)
+										z.r.MoveTo(nPos - 2)
 										return z.r.Shift()
 									}
 									inScript = false
@@ -255,15 +255,12 @@ func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 		}
 	} else if z.at('[', 'C', 'D', 'A', 'T', 'A', '[') {
 		z.r.Move(7)
-		z.r.Skip()
 		for {
 			if z.r.Peek(0) == 0 {
 				return TextToken, z.r.Shift()
 			} else if z.at(']', ']', '>') {
-				text := z.r.Shift()
 				z.r.Move(3)
-				z.r.Skip()
-				return TextToken, text
+				return TextToken, z.r.Shift()
 			}
 			z.r.Move(1)
 		}
@@ -306,7 +303,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 		z.r.Move(1)
 	}
 	name := parse.ToLower(z.r.Shift())
-	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Noembed || h == Noframes || h == Noscript || h == Script || h == Plaintext {
+	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext {
 		z.rawTag = h
 	}
 	z.skipWhitespace() // before attribute name state
@@ -388,7 +385,7 @@ func (z *Tokenizer) at(b ...byte) bool {
 
 func (z *Tokenizer) atCaseInsensitive(b ...byte) bool {
 	for i, c := range b {
-		if z.r.Peek(i) != c && (z.r.Peek(i) + ('a' - 'A')) != c {
+		if z.r.Peek(i) != c && (z.r.Peek(i)+('a'-'A')) != c {
 			return false
 		}
 	}
