@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/buffer"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -85,8 +85,8 @@ func TestParser(t *testing.T) {
 }
 
 func TestParserSmall(t *testing.T) {
-	parse.MinBuf = 4
-	parse.MaxBuf = 4
+	buffer.MinBuf = 4
+	buffer.MaxBuf = 4
 	z := NewParser(&ReaderMockup{bytes.NewBufferString("a:b; c:d;")})
 	gt, _ := z.Next()
 	assert.Equal(t, DeclarationGrammar, gt, "first grammar must be DeclarationGrammar")

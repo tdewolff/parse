@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/buffer"
 )
 
 // Don't implement Bytes() to test for buffer exceeding.
@@ -161,24 +161,24 @@ func TestTokenizer(t *testing.T) {
 
 func TestTokenizerSmall(t *testing.T) {
 	// small buffer
-	parse.MinBuf = 2
-	parse.MaxBuf = 4
-	assertTokenError(t, "\"abcd", parse.ErrBufferExceeded)
-	assertTokenError(t, "ident", parse.ErrBufferExceeded)
-	assertTokenError(t, "\\ABCD", parse.ErrBufferExceeded)
-	assertTokenError(t, "/*comment", parse.ErrBufferExceeded)
-	assertTokenError(t, " \t \t ", parse.ErrBufferExceeded)
-	assertTokenError(t, "#abcd", parse.ErrBufferExceeded)
-	assertTokenError(t, "12345", parse.ErrBufferExceeded)
-	assertTokenError(t, "1.234", parse.ErrBufferExceeded)
-	assertTokenError(t, "U+ABC", parse.ErrBufferExceeded)
-	assertTokenError(t, "U+A-B", parse.ErrBufferExceeded)
-	assertTokenError(t, "U+???", parse.ErrBufferExceeded)
-	assertTokenError(t, "url((", parse.ErrBufferExceeded)
-	assertTokenError(t, "id\u554a", parse.ErrBufferExceeded)
+	buffer.MinBuf = 2
+	buffer.MaxBuf = 4
+	assertTokenError(t, "\"abcd", buffer.ErrExceeded)
+	assertTokenError(t, "ident", buffer.ErrExceeded)
+	assertTokenError(t, "\\ABCD", buffer.ErrExceeded)
+	assertTokenError(t, "/*comment", buffer.ErrExceeded)
+	assertTokenError(t, " \t \t ", buffer.ErrExceeded)
+	assertTokenError(t, "#abcd", buffer.ErrExceeded)
+	assertTokenError(t, "12345", buffer.ErrExceeded)
+	assertTokenError(t, "1.234", buffer.ErrExceeded)
+	assertTokenError(t, "U+ABC", buffer.ErrExceeded)
+	assertTokenError(t, "U+A-B", buffer.ErrExceeded)
+	assertTokenError(t, "U+???", buffer.ErrExceeded)
+	assertTokenError(t, "url((", buffer.ErrExceeded)
+	assertTokenError(t, "id\u554a", buffer.ErrExceeded)
 
-	parse.MinBuf = 5
-	parse.MaxBuf = 20
+	buffer.MinBuf = 5
+	buffer.MaxBuf = 20
 	assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }

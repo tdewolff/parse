@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/tdewolff/buffer"
 	"github.com/tdewolff/parse"
 )
 
@@ -127,13 +128,13 @@ func (tt TokenType) String() string {
 
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r    *parse.ShiftBuffer
+	r *buffer.Shifter
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		parse.NewShiftBuffer(r),
+		buffer.NewShifter(r),
 	}
 }
 

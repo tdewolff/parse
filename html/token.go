@@ -4,6 +4,7 @@ import (
 	"io"
 	"strconv"
 
+	"github.com/tdewolff/buffer"
 	"github.com/tdewolff/parse"
 )
 
@@ -54,7 +55,7 @@ func (tt TokenType) String() string {
 
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r *parse.ShiftBuffer
+	r *buffer.Shifter
 
 	rawTag  Hash
 	inTag   bool
@@ -64,7 +65,7 @@ type Tokenizer struct {
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		r: parse.NewShiftBuffer(r),
+		r: buffer.NewShifter(r),
 	}
 }
 

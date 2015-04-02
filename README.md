@@ -2,7 +2,7 @@
 
 This package contains several tokenizers and parsers written in [Go][1]. All subpackages are built to be streaming, high performance and to be in accordance with the official (latest) specifications.
 
-The tokenizers are implemented using `ShiftBuffer` and the parsers work on top of the tokenizers. Some subpackages have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up common byte-slice comparisons.
+The tokenizers are implemented using `Shifter` in https://github.com/tdewolff/buffer and the parsers work on top of the tokenizers. Some subpackages have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up common byte-slice comparisons.
 
 ## HTML
 An HTML5 tokenizer. [See README here](https://github.com/tdewolff/parse/tree/master/html).
