@@ -244,6 +244,7 @@ func (p *Parser) Next() (GrammarType, Node) {
 		}
 		i++
 	}
+
 	if atrule := p.parseAtRule(); atrule != nil {
 		return AtRuleGrammar, atrule
 	} else if hasSemicolon {
@@ -292,7 +293,7 @@ func (p *Parser) parseRuleset() *RulesetNode {
 			p.skipWhitespace()
 			continue
 		}
-		if sel := p.parseSelector(); sel != nil {
+		if sel, ok := p.parseSelector(); ok {
 			ruleset.Selectors = append(ruleset.Selectors, sel)
 		}
 		p.skipWhitespace()
@@ -305,8 +306,8 @@ func (p *Parser) parseRuleset() *RulesetNode {
 	return ruleset
 }
 
-func (p *Parser) parseSelector() *SelectorNode {
-	sel := &SelectorNode{}
+func (p *Parser) parseSelector() (SelectorNode, bool) {
+	sel := SelectorNode{}
 	var ws *TokenNode
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
@@ -336,9 +337,9 @@ func (p *Parser) parseSelector() *SelectorNode {
 		}
 	}
 	if len(sel.Elems) == 0 {
-		return nil
+		return sel, false
 	}
-	return sel
+	return sel, true
 }
 
 func (p *Parser) parseDeclaration() *DeclarationNode {
@@ -389,8 +390,8 @@ func (p *Parser) parseFunction() *FunctionNode {
 	return fun
 }
 
-func (p *Parser) parseArgument() *ArgumentNode {
-	arg := &ArgumentNode{}
+func (p *Parser) parseArgument() ArgumentNode {
+	arg := ArgumentNode{}
 	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		arg.Vals = append(arg.Vals, p.shiftComponent())
 		p.skipWhitespace()
