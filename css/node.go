@@ -4,6 +4,17 @@ import (
 	"io"
 )
 
+var (
+	commaBytes            = []byte(",")
+	spaceBytes            = []byte(" ")
+	colonBytes            = []byte(":")
+	semicolonBytes        = []byte(";")
+	leftParenthesisBytes  = []byte("(")
+	rightParenthesisBytes = []byte(")")
+	leftBracketBytes      = []byte("{")
+	rightBracketBytes     = []byte("}")
+)
+
 // Node is an interface that all nodes implement.
 type Node interface {
 	WriteTo(io.Writer) (int64, error)
@@ -71,14 +82,14 @@ func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
 				t = k
 			}
 			if t == nil || t.Data[0] != ',' {
-				n, err = w.Write([]byte(" "))
+				n, err = w.Write(spaceBytes)
 				if err != nil {
 					return
 				}
 				size += int64(n)
 			}
 		} else {
-			n, err = w.Write([]byte(" "))
+			n, err = w.Write(spaceBytes)
 			if err != nil {
 				return
 			}
@@ -91,7 +102,7 @@ func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
 		size += m
 	}
 	if len(atrule.Rules) > 0 {
-		n, err = w.Write([]byte("{"))
+		n, err = w.Write(leftBracketBytes)
 		if err != nil {
 			return
 		}
@@ -103,13 +114,13 @@ func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
 			}
 			size += m
 		}
-		n, err = w.Write([]byte("}"))
+		n, err = w.Write(rightBracketBytes)
 		if err != nil {
 			return
 		}
 		size += int64(n)
 	} else {
-		n, err = w.Write([]byte(";"))
+		n, err = w.Write(semicolonBytes)
 		if err != nil {
 			return
 		}
@@ -122,7 +133,7 @@ func (atrule AtRuleNode) WriteTo(w io.Writer) (size int64, err error) {
 
 // RulesetNode consists of selector groups (separated by commas) and a declaration list.
 type RulesetNode struct {
-	Selectors []*SelectorNode
+	Selectors []SelectorNode
 	Decls     []*DeclarationNode
 }
 
@@ -132,7 +143,7 @@ func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
 	var m int64
 	for i, sel := range ruleset.Selectors {
 		if i != 0 {
-			n, err = w.Write([]byte(","))
+			n, err = w.Write(commaBytes)
 			if err != nil {
 				return
 			}
@@ -144,7 +155,7 @@ func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
 		}
 		size += m
 	}
-	n, err = w.Write([]byte("{"))
+	n, err = w.Write(leftBracketBytes)
 	if err != nil {
 		return
 	}
@@ -156,7 +167,7 @@ func (ruleset RulesetNode) WriteTo(w io.Writer) (size int64, err error) {
 		}
 		size += m
 	}
-	n, err = w.Write([]byte("}"))
+	n, err = w.Write(rightBracketBytes)
 	if err != nil {
 		return
 	}
@@ -202,7 +213,7 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 		return
 	}
 	size += m
-	n, err = w.Write([]byte(":"))
+	n, err = w.Write(colonBytes)
 	if err != nil {
 		return
 	}
@@ -216,7 +227,7 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 				t = k
 			}
 			if t == nil || (t.Data[0] != ',' && t.Data[0] != '/' && t.Data[0] != ':' && t.Data[0] != '.' && t.Data[0] != '!') {
-				n, err = w.Write([]byte(" "))
+				n, err = w.Write(spaceBytes)
 				if err != nil {
 					return
 				}
@@ -229,7 +240,7 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 		}
 		size += m
 	}
-	n, err = w.Write([]byte(";"))
+	n, err = w.Write(semicolonBytes)
 	if err != nil {
 		return
 	}
@@ -242,7 +253,7 @@ func (decl DeclarationNode) WriteTo(w io.Writer) (size int64, err error) {
 // FunctionNode represents a function and its arguments (separated by commas).
 type FunctionNode struct {
 	Name *TokenNode
-	Args []*ArgumentNode
+	Args []ArgumentNode
 }
 
 // WriteTo writes the string representation of the node to the writer.
@@ -254,14 +265,14 @@ func (fun FunctionNode) WriteTo(w io.Writer) (size int64, err error) {
 		return
 	}
 	size += m
-	n, err = w.Write([]byte("("))
+	n, err = w.Write(leftParenthesisBytes)
 	if err != nil {
 		return
 	}
 	size += int64(n)
 	for i, arg := range fun.Args {
 		if i != 0 {
-			n, err = w.Write([]byte(","))
+			n, err = w.Write(commaBytes)
 			if err != nil {
 				return
 			}
@@ -273,7 +284,7 @@ func (fun FunctionNode) WriteTo(w io.Writer) (size int64, err error) {
 		}
 		size += m
 	}
-	n, err = w.Write([]byte(")"))
+	n, err = w.Write(rightParenthesisBytes)
 	if err != nil {
 		return
 	}
@@ -301,7 +312,7 @@ func (arg ArgumentNode) WriteTo(w io.Writer) (size int64, err error) {
 				t = k
 			}
 			if t == nil || (t.Data[0] != '=' && t.Data[0] != '*' && t.Data[0] != '/') {
-				n, err = w.Write([]byte(" "))
+				n, err = w.Write(spaceBytes)
 				if err != nil {
 					return
 				}
@@ -346,7 +357,7 @@ func (block BlockNode) WriteTo(w io.Writer) (size int64, err error) {
 					t = k
 				}
 				if t == nil || t.Data[0] != ':' {
-					n, err = w.Write([]byte(" "))
+					n, err = w.Write(spaceBytes)
 					if err != nil {
 						return
 					}
