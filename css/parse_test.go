@@ -86,7 +86,7 @@ func TestParser(t *testing.T) {
 
 func TestParserSmall(t *testing.T) {
 	buffer.MinBuf = 4
-	buffer.MaxBuf = 4
+	//buffer.MaxBuf = 4
 	z := NewParser(&ReaderMockup{bytes.NewBufferString("a:b; c:d;")})
 	gt, _ := z.Next()
 	assert.Equal(t, DeclarationGrammar, gt, "first grammar must be DeclarationGrammar")

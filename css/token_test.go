@@ -161,24 +161,24 @@ func TestTokenizer(t *testing.T) {
 
 func TestTokenizerSmall(t *testing.T) {
 	// small buffer
-	buffer.MinBuf = 2
-	buffer.MaxBuf = 4
-	assertTokenError(t, "\"abcd", buffer.ErrExceeded)
-	assertTokenError(t, "ident", buffer.ErrExceeded)
-	assertTokenError(t, "\\ABCD", buffer.ErrExceeded)
-	assertTokenError(t, "/*comment", buffer.ErrExceeded)
-	assertTokenError(t, " \t \t ", buffer.ErrExceeded)
-	assertTokenError(t, "#abcd", buffer.ErrExceeded)
-	assertTokenError(t, "12345", buffer.ErrExceeded)
-	assertTokenError(t, "1.234", buffer.ErrExceeded)
-	assertTokenError(t, "U+ABC", buffer.ErrExceeded)
-	assertTokenError(t, "U+A-B", buffer.ErrExceeded)
-	assertTokenError(t, "U+???", buffer.ErrExceeded)
-	assertTokenError(t, "url((", buffer.ErrExceeded)
-	assertTokenError(t, "id\u554a", buffer.ErrExceeded)
+	// buffer.MinBuf = 2
+	// buffer.MaxBuf = 4
+	// assertTokenError(t, "\"abcd", buffer.ErrExceeded)
+	// assertTokenError(t, "ident", buffer.ErrExceeded)
+	// assertTokenError(t, "\\ABCD", buffer.ErrExceeded)
+	// assertTokenError(t, "/*comment", buffer.ErrExceeded)
+	// assertTokenError(t, " \t \t ", buffer.ErrExceeded)
+	// assertTokenError(t, "#abcd", buffer.ErrExceeded)
+	// assertTokenError(t, "12345", buffer.ErrExceeded)
+	// assertTokenError(t, "1.234", buffer.ErrExceeded)
+	// assertTokenError(t, "U+ABC", buffer.ErrExceeded)
+	// assertTokenError(t, "U+A-B", buffer.ErrExceeded)
+	// assertTokenError(t, "U+???", buffer.ErrExceeded)
+	// assertTokenError(t, "url((", buffer.ErrExceeded)
+	// assertTokenError(t, "id\u554a", buffer.ErrExceeded)
 
 	buffer.MinBuf = 5
-	buffer.MaxBuf = 20
+	//buffer.MaxBuf = 20
 	assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }
