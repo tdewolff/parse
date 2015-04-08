@@ -136,6 +136,7 @@ type Parser struct {
 
 	tb   *tokenBuffer
 	copy bool
+	tBuf []*TokenNode
 }
 
 // NewParser returns a new Parser for a io.Reader.
@@ -151,7 +152,9 @@ func NewParser(r io.Reader) *Parser {
 // Parse parses the entire CSS file and returns the root StylesheetNode.
 func Parse(r io.Reader) (*StylesheetNode, error) {
 	p := NewParser(r)
+	p.copy = true
 	p.tb.EnableLookback()
+
 	var err error
 	stylesheet := &StylesheetNode{}
 	for {
@@ -281,6 +284,8 @@ func (p *Parser) parseAtRule() (GrammarType, *AtRuleNode) {
 }
 
 func (p *Parser) parseRuleset() *RulesetNode {
+	p.tBuf = p.tBuf[:0]
+
 	ruleset := &RulesetNode{}
 	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
@@ -302,26 +307,26 @@ func (p *Parser) parseRuleset() *RulesetNode {
 }
 
 func (p *Parser) parseSelector() (SelectorNode, bool) {
-	sel := SelectorNode{}
+	nElems := len(p.tBuf)
 	var ws *TokenNode
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
-			sel.Elems = append(sel.Elems, p.tb.Shift())
+			p.tBuf = append(p.tBuf, p.tb.Shift())
 			p.skipWhitespace()
 		} else {
 			if ws != nil {
-				sel.Elems = append(sel.Elems, ws)
+				p.tBuf = append(p.tBuf, ws)
 			}
 			if p.at(LeftBracketToken) {
 				for !p.at(RightBracketToken) && !p.at(ErrorToken) {
-					sel.Elems = append(sel.Elems, p.tb.Shift())
+					p.tBuf = append(p.tBuf, p.tb.Shift())
 					p.skipWhitespace()
 				}
 				if p.at(RightBracketToken) {
-					sel.Elems = append(sel.Elems, p.tb.Shift())
+					p.tBuf = append(p.tBuf, p.tb.Shift())
 				}
 			} else {
-				sel.Elems = append(sel.Elems, p.tb.Shift())
+				p.tBuf = append(p.tBuf, p.tb.Shift())
 			}
 		}
 		if p.at(WhitespaceToken) {
@@ -330,10 +335,15 @@ func (p *Parser) parseSelector() (SelectorNode, bool) {
 			ws = nil
 		}
 	}
-	if len(sel.Elems) == 0 {
-		return sel, false
+	if len(p.tBuf) == nElems {
+		return SelectorNode{}, false
 	}
-	return sel, true
+	elems := p.tBuf[nElems:]
+	if p.copy {
+		elems = make([]*TokenNode, len(p.tBuf)-nElems)
+		copy(elems, p.tBuf[nElems:])
+	}
+	return SelectorNode{elems}, true
 }
 
 func (p *Parser) parseDeclaration() *DeclarationNode {
