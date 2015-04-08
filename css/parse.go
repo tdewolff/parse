@@ -73,8 +73,9 @@ type GrammarType uint32
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
 	AtRuleGrammar
+	StartAtRuleGrammar
 	EndAtRuleGrammar
-	RulesetGrammar
+	StartRulesetGrammar
 	EndRulesetGrammar
 	DeclarationGrammar
 	TokenGrammar
@@ -87,10 +88,12 @@ func (tt GrammarType) String() string {
 		return "Error"
 	case AtRuleGrammar:
 		return "AtRule"
+	case StartAtRuleGrammar:
+		return "StartAtRule"
 	case EndAtRuleGrammar:
 		return "EndAtRule"
-	case RulesetGrammar:
-		return "Ruleset"
+	case StartRulesetGrammar:
+		return "StartRuleset"
 	case EndRulesetGrammar:
 		return "EndRuleset"
 	case DeclarationGrammar:
@@ -126,32 +129,29 @@ func (tt ParserState) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// MinBuf is the initial internal token buffer size.
-var MinBuf = 16
-
 // Parser is the state for the parser.
 type Parser struct {
 	z     *Tokenizer
 	state []ParserState
 
-	buf  []TokenNode
-	pos  int
+	tb   *tokenBuffer
 	copy bool
 }
 
 // NewParser returns a new Parser for a io.Reader.
 func NewParser(r io.Reader) *Parser {
+	z := NewTokenizer(r)
 	return &Parser{
-		z:     NewTokenizer(r),
+		z:     z,
 		state: []ParserState{StylesheetState},
-		buf:   make([]TokenNode, 0, MinBuf),
+		tb:    newTokenBuffer(z),
 	}
 }
 
 // Parse parses the entire CSS file and returns the root StylesheetNode.
 func Parse(r io.Reader) (*StylesheetNode, error) {
 	p := NewParser(r)
-	p.EnableLookback()
+	p.tb.EnableLookback()
 	var err error
 	stylesheet := &StylesheetNode{}
 	for {
@@ -172,7 +172,7 @@ func Parse(r io.Reader) (*StylesheetNode, error) {
 }
 
 func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
-	if rootGt == AtRuleGrammar {
+	if rootGt == StartAtRuleGrammar {
 		atRule := n.(*AtRuleNode)
 		for {
 			gt, m := p.Next()
@@ -186,7 +186,7 @@ func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
 				return err
 			}
 		}
-	} else if rootGt == RulesetGrammar {
+	} else if rootGt == StartRulesetGrammar {
 		ruleset := n.(*RulesetNode)
 		for {
 			gt, m := p.Next()
@@ -215,14 +215,14 @@ func (p *Parser) Next() (GrammarType, Node) {
 	if p.at(ErrorToken) {
 		return ErrorGrammar, nil
 	}
-	p.reset()
-	p.skipWhitespace()
+	for p.at(WhitespaceToken) || p.at(SemicolonToken) {
+		p.tb.Shift()
+	}
 
-	state := p.State()
-	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) || p.at(SemicolonToken) && state == AtRuleState {
+	state := p.state[len(p.state)-1]
+	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) {
 		// return End types
-		token := p.shift()
-		p.skipWhile(SemicolonToken)
+		token := p.tb.Shift()
 		p.state = p.state[:len(p.state)-1]
 		if state == AtRuleState {
 			return EndAtRuleGrammar, token
@@ -230,66 +230,61 @@ func (p *Parser) Next() (GrammarType, Node) {
 			return EndRulesetGrammar, token
 		}
 	} else if p.at(CDOToken) || p.at(CDCToken) {
-		return TokenGrammar, p.shift()
+		return TokenGrammar, p.tb.Shift()
 	}
 
 	// find out whether this is a declaration or ruleset, because we don't know if we have a stylesheet or a style attribute
 	// second objective is to visit each TokenNodes before taking pointers to them, so that buffer reallocations won't invalidate those pointers
 	i := 0
 	hasSemicolon := false
-	for p.peek(i).TokenType != LeftBraceToken {
-		if p.peek(i).TokenType == SemicolonToken || p.peek(i).TokenType == ErrorToken {
+	for p.tb.Peek(i).TokenType != LeftBraceToken {
+		if p.tb.Peek(i).TokenType == SemicolonToken || p.tb.Peek(i).TokenType == ErrorToken {
 			hasSemicolon = true
 			break
 		}
 		i++
 	}
 
-	if atrule := p.parseAtRule(); atrule != nil {
-		return AtRuleGrammar, atrule
+	if grammar, atrule := p.parseAtRule(); atrule != nil {
+		return grammar, atrule
 	} else if hasSemicolon {
 		if decl := p.parseDeclaration(); decl != nil {
 			return DeclarationGrammar, decl
 		}
 	} else if ruleset := p.parseRuleset(); ruleset != nil {
-		return RulesetGrammar, ruleset
+		return StartRulesetGrammar, ruleset
 	}
-	return TokenGrammar, p.shift()
-}
-
-func (p *Parser) EnableLookback() {
-	p.copy = true
-}
-
-func (p *Parser) State() ParserState {
-	return p.state[len(p.state)-1]
+	return TokenGrammar, p.tb.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
 
-func (p *Parser) parseAtRule() *AtRuleNode {
+func (p *Parser) parseAtRule() (GrammarType, *AtRuleNode) {
 	if !p.at(AtKeywordToken) {
-		return nil
+		return ErrorGrammar, nil
 	}
 	atrule := &AtRuleNode{}
-	atrule.Name = p.shift()
+	atrule.Name = p.tb.Shift()
 	p.skipWhitespace()
 	for !p.at(SemicolonToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		atrule.Nodes = append(atrule.Nodes, p.shiftComponent())
 		p.skipWhitespace()
 	}
 	if p.at(LeftBraceToken) {
-		p.shift()
+		p.tb.Shift()
+		p.state = append(p.state, AtRuleState)
+		return StartAtRuleGrammar, atrule
+	} else if p.at(SemicolonToken) {
+		p.tb.Shift()
 	}
-	p.state = append(p.state, AtRuleState)
-	return atrule
+	return AtRuleGrammar, atrule
 }
 
 func (p *Parser) parseRuleset() *RulesetNode {
 	ruleset := &RulesetNode{}
 	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
-			p.shift()
+			p.tb.Shift()
 			p.skipWhitespace()
 			continue
 		}
@@ -301,7 +296,7 @@ func (p *Parser) parseRuleset() *RulesetNode {
 	if p.at(ErrorToken) {
 		return nil
 	}
-	p.shift()
+	p.tb.Shift()
 	p.state = append(p.state, RulesetState)
 	return ruleset
 }
@@ -311,7 +306,7 @@ func (p *Parser) parseSelector() (SelectorNode, bool) {
 	var ws *TokenNode
 	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
 		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
-			sel.Elems = append(sel.Elems, p.shift())
+			sel.Elems = append(sel.Elems, p.tb.Shift())
 			p.skipWhitespace()
 		} else {
 			if ws != nil {
@@ -319,19 +314,18 @@ func (p *Parser) parseSelector() (SelectorNode, bool) {
 			}
 			if p.at(LeftBracketToken) {
 				for !p.at(RightBracketToken) && !p.at(ErrorToken) {
-					sel.Elems = append(sel.Elems, p.shift())
+					sel.Elems = append(sel.Elems, p.tb.Shift())
 					p.skipWhitespace()
 				}
 				if p.at(RightBracketToken) {
-					sel.Elems = append(sel.Elems, p.shift())
+					sel.Elems = append(sel.Elems, p.tb.Shift())
 				}
 			} else {
-				sel.Elems = append(sel.Elems, p.shift())
+				sel.Elems = append(sel.Elems, p.tb.Shift())
 			}
 		}
-
 		if p.at(WhitespaceToken) {
-			ws = p.shift()
+			ws = p.tb.Shift()
 		} else {
 			ws = nil
 		}
@@ -347,23 +341,25 @@ func (p *Parser) parseDeclaration() *DeclarationNode {
 		return nil
 	}
 	decl := &DeclarationNode{}
-	decl.Prop = p.shift()
+	decl.Prop = p.tb.Shift()
 	parse.ToLower(decl.Prop.Data)
 	p.skipWhitespace()
 	if !p.at(ColonToken) {
 		return nil
 	}
-	p.shift() // colon
+	p.tb.Shift() // colon
 	p.skipWhitespace()
 	for !p.at(SemicolonToken) && !p.at(RightBraceToken) && !p.at(ErrorToken) {
 		if fun := p.parseFunction(); fun != nil {
 			decl.Vals = append(decl.Vals, fun)
 		} else {
-			decl.Vals = append(decl.Vals, p.shift())
+			decl.Vals = append(decl.Vals, p.tb.Shift())
 		}
 		p.skipWhitespace()
 	}
-	p.skipWhile(SemicolonToken)
+	if p.at(SemicolonToken) {
+		p.tb.Shift()
+	}
 	return decl
 }
 
@@ -372,12 +368,12 @@ func (p *Parser) parseFunction() *FunctionNode {
 	if !p.at(FunctionToken) {
 		return nil
 	}
-	fun.Name = p.shift()
+	fun.Name = p.tb.Shift()
 	fun.Name.Data = fun.Name.Data[:len(fun.Name.Data)-1]
 	p.skipWhitespace()
 	for !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
 		if p.at(CommaToken) {
-			p.shift()
+			p.tb.Shift()
 			p.skipWhitespace()
 			continue
 		}
@@ -386,7 +382,7 @@ func (p *Parser) parseFunction() *FunctionNode {
 	if p.at(ErrorToken) {
 		return nil
 	}
-	p.shift()
+	p.tb.Shift() // right parenthesis
 	return fun
 }
 
@@ -404,7 +400,7 @@ func (p *Parser) parseBlock() *BlockNode {
 		return nil
 	}
 	block := &BlockNode{}
-	block.Open = p.shift()
+	block.Open = p.tb.Shift()
 	p.skipWhitespace()
 	for {
 		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
@@ -414,7 +410,7 @@ func (p *Parser) parseBlock() *BlockNode {
 		p.skipWhitespace()
 	}
 	if !p.at(ErrorToken) {
-		block.Close = p.shift()
+		block.Close = p.tb.Shift()
 	}
 	return block
 }
@@ -425,79 +421,22 @@ func (p *Parser) shiftComponent() Node {
 	} else if fun := p.parseFunction(); fun != nil {
 		return fun
 	} else {
-		return p.shift()
+		return p.tb.Shift()
 	}
 }
 
 func (p *Parser) skipWhitespace() {
 	if p.at(WhitespaceToken) {
-		p.shift()
-	}
-}
-
-func (p *Parser) skipWhile(tt TokenType) {
-	for p.at(tt) || p.at(WhitespaceToken) {
-		p.shift()
+		p.tb.Shift()
 	}
 }
 
 ////////////////////////////////////////////////////////////////
 
-func (p *Parser) read() TokenNode {
-	tt, data := p.z.Next()
-	// ignore comments and multiple whitespace
-	for tt == CommentToken || tt == WhitespaceToken && len(p.buf) > 0 && p.buf[len(p.buf)-1].TokenType == WhitespaceToken {
-		tt, data = p.z.Next()
-	}
-	// copy necessary for whenever the tokenizer overwrites its buffer
-	// checking if buffer has EOF optimizes for small files and files already in memory
-	if !p.z.IsEOF() {
-		data = parse.Copy(data)
-	}
-	return TokenNode{
-		tt,
-		data,
-	}
-}
-
-func (p *Parser) peek(i int) *TokenNode {
-	end := p.pos + i
-	if end >= len(p.buf) {
-		c := cap(p.buf)
-		if end >= c {
-			buf1 := make([]TokenNode, len(p.buf), 2*c)
-			copy(buf1, p.buf)
-			p.buf = buf1
-		}
-		for j := len(p.buf); j <= end; j++ {
-			p.buf = append(p.buf, p.read())
-		}
-	}
-	return &p.buf[end]
-}
-
-func (p *Parser) shift() *TokenNode {
-	shifted := p.peek(0)
-	p.pos++
-	return shifted
-}
-
-func (p *Parser) reset() {
-	var buf1 []TokenNode
-	if p.copy {
-		buf1 = make([]TokenNode, len(p.buf[p.pos:]), MinBuf)
-	} else {
-		buf1 = p.buf[:len(p.buf[p.pos:])]
-	}
-	copy(buf1, p.buf[p.pos:])
-	p.buf = buf1
-	p.pos = 0
-}
-
 func (p *Parser) at(tt TokenType) bool {
-	return p.peek(0).TokenType == tt
+	return p.tb.Peek(0).TokenType == tt
 }
 
 func (p *Parser) data() []byte {
-	return p.peek(0).Data
+	return p.tb.Peek(0).Data
 }
