@@ -133,7 +133,6 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 				for z.consumeWhitespace() {
 				}
 				return WhitespaceToken, z.r.Shift()
-				tt = WhitespaceToken
 			} else if z.consumeLineTerminator() {
 				for z.consumeLineTerminator() {
 				}
