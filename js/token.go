@@ -98,7 +98,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 	case '/':
 		if z.consumeCommentToken() {
-			tt = CommentToken
+			return CommentToken, z.r.Shift()
 		} else if z.regexpState && z.consumeRegexpToken() {
 			tt = RegexpToken
 		} else if z.consumeLongPunctuatorToken() {
@@ -119,7 +119,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		z.r.Move(1)
 		for z.consumeWhitespace() {
 		}
-		tt = WhitespaceToken
+		return WhitespaceToken, z.r.Shift()
 	case '\n', '\r':
 		z.r.Move(1)
 		for z.consumeLineTerminator() {
@@ -132,6 +132,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			if z.consumeWhitespace() {
 				for z.consumeWhitespace() {
 				}
+				return WhitespaceToken, z.r.Shift()
 				tt = WhitespaceToken
 			} else if z.consumeLineTerminator() {
 				for z.consumeLineTerminator() {
@@ -150,15 +151,11 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	}
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
-	if tt != WhitespaceToken && tt != CommentToken {
+	// ErrorToken, WhitespaceToken and CommentToken are already returned
+	if tt == LineTerminatorToken || tt == PunctuatorToken && RegexpStateByte[c] {
+		z.regexpState = true
+	} else {
 		z.regexpState = false
-		if tt == PunctuatorToken {
-			if c := z.r.Bytes()[z.r.Pos()-1]; c == '(' || c == ',' || c == '=' || c == ':' || c == '[' || c == '!' || c == '&' || c == '|' || c == '?' || c == '+' || c == '-' || c == '~' || c == '*' || c == '/' || c == '{' || c == '}' || c == ';' {
-				z.regexpState = true
-			}
-		} else if tt == LineTerminatorToken {
-			z.regexpState = true
-		}
 	}
 	return tt, z.r.Shift()
 }
