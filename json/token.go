@@ -20,10 +20,10 @@ const (
 	LiteralToken
 	NumberToken
 	StringToken
-	StartObjectToken
-	EndObjectToken
-	StartArrayToken
-	EndArrayToken
+	StartObjectToken // {
+	EndObjectToken   // }
+	StartArrayToken  // [
+	EndArrayToken    // ]
 )
 
 // String returns the string representation of a TokenType.

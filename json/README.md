@@ -34,12 +34,14 @@ for {
 All tokens:
 ``` go
 ErrorToken          TokenType = iota // extra token when errors occur
-UnknownToken                         // extra token when no token can be matched
 WhitespaceToken                      // space \t \r \n
 LiteralToken                         // null true false
-PunctuatorToken                      // { } [ ] . :
 NumberToken
 StringToken
+StartObjectToken // {
+EndObjectToken   // }
+StartArrayToken  // [
+EndArrayToken    // ]
 ```
 
 ### Examples
