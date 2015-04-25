@@ -37,7 +37,7 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 func helperStringify(t *testing.T, input string) string {
 	s := "\n["
 	z := NewTokenizer(bytes.NewBufferString(input))
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 100; i++ {
 		tt, text := z.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + z.Err().Error() + "')]"
@@ -55,8 +55,12 @@ func helperStringify(t *testing.T, input string) string {
 
 func TestTokenizer(t *testing.T) {
 	assertTokens(t, " \t\n\r") // WhitespaceToken
-	assertTokens(t, "{ } [ ] : ,", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
-	assertTokens(t, "15.2 0.4 5e9 -4E-3", NumberToken, NumberToken, NumberToken, NumberToken)
-	assertTokens(t, "true false null", LiteralToken, LiteralToken, LiteralToken)
-	assertTokens(t, `"" "abc" "\"" "\\"`, StringToken, StringToken, StringToken, StringToken)
+	assertTokens(t, "null", LiteralToken)
+	assertTokens(t, "[]", StartArrayToken, EndArrayToken)
+	assertTokens(t, "[15.2, 0.4, 5e9, -4E-3]", StartArrayToken, NumberToken, NumberToken, NumberToken, NumberToken, EndArrayToken)
+	assertTokens(t, "[true, false, null]", StartArrayToken, LiteralToken, LiteralToken, LiteralToken, EndArrayToken)
+	assertTokens(t, `["", "abc", "\"", "\\"]`, StartArrayToken, StringToken, StringToken, StringToken, StringToken, EndArrayToken)
+	assertTokens(t, "{}", StartObjectToken, EndObjectToken)
+	assertTokens(t, `{"a": "b", "c": "d"}`, StartObjectToken, StringToken, StringToken, StringToken, StringToken, EndObjectToken)
+	assertTokens(t, `{"a": [1, 2], "b": {"c": 3}}`, StartObjectToken, StringToken, StartArrayToken, NumberToken, NumberToken, EndArrayToken, StringToken, StartObjectToken, StringToken, NumberToken, EndObjectToken, EndObjectToken)
 }

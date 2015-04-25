@@ -1,6 +1,7 @@
 package json // import "github.com/tdewolff/parse/json"
 
 import (
+	"errors"
 	"io"
 	"strconv"
 
@@ -14,13 +15,15 @@ type TokenType uint32
 
 // TokenType values.
 const (
-	ErrorToken   TokenType = iota // extra token when errors occur
-	UnknownToken                  // extra token when no token can be matched
+	ErrorToken TokenType = iota // extra token when errors occur
 	WhitespaceToken
 	LiteralToken
-	PunctuatorToken /* { } [ ] , : */
 	NumberToken
 	StringToken
+	StartObjectToken
+	EndObjectToken
+	StartArrayToken
+	EndArrayToken
 )
 
 // String returns the string representation of a TokenType.
@@ -28,38 +31,75 @@ func (tt TokenType) String() string {
 	switch tt {
 	case ErrorToken:
 		return "Error"
-	case UnknownToken:
-		return "Unknown"
 	case WhitespaceToken:
 		return "Whitespace"
 	case LiteralToken:
 		return "Literal"
-	case PunctuatorToken:
-		return "Punctuator"
 	case NumberToken:
 		return "Number"
 	case StringToken:
 		return "String"
+	case StartObjectToken:
+		return "StartObject"
+	case EndObjectToken:
+		return "EndObject"
+	case StartArrayToken:
+		return "StartArray"
+	case EndArrayToken:
+		return "EndArray"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
 ////////////////////////////////////////////////////////////////
 
+type State uint32
+
+const (
+	ValueState State = iota // extra token when errors occur
+	ObjectKeyState
+	ObjectValueState
+	ArrayState
+)
+
+func (state State) String() string {
+	switch state {
+	case ValueState:
+		return "Value"
+	case ObjectKeyState:
+		return "ObjectKey"
+	case ObjectValueState:
+		return "ObjectValue"
+	case ArrayState:
+		return "Array"
+	}
+	return "Invalid(" + strconv.Itoa(int(state)) + ")"
+}
+
+////////////////////////////////////////////////////////////////
+
 // Tokenizer is the state for the tokenizer.
 type Tokenizer struct {
-	r *buffer.Shifter
+	r     *buffer.Shifter
+	state []State
+	err   error
+
+	needComma bool
 }
 
 // NewTokenizer returns a new Tokenizer for a given io.Reader.
 func NewTokenizer(r io.Reader) *Tokenizer {
 	return &Tokenizer{
-		r: buffer.NewShifter(r),
+		r:     buffer.NewShifter(r),
+		state: []State{ValueState},
 	}
 }
 
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
 func (z Tokenizer) Err() error {
+	if z.err != nil {
+		return z.err
+	}
 	return z.r.Err()
 }
 
@@ -70,30 +110,82 @@ func (z Tokenizer) IsEOF() bool {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
-	c := z.r.Peek(0)
-	switch c {
-	case ' ', '\t', '\r', '\n':
-		z.r.Move(1)
-		z.consumeWhitespaceToken()
-		return WhitespaceToken, z.r.Shift()
-	case '[', ']', '{', '}', ',', ':':
-		z.r.Move(1)
-		return PunctuatorToken, z.r.Shift()
-	case '"':
-		if z.consumeStringToken() {
-			return StringToken, z.r.Shift()
+	z.skipWhitespace()
+	if z.r.Peek(0) == ',' {
+		if z.state[len(z.state)-1] != ArrayState && z.state[len(z.state)-1] != ObjectValueState {
+			z.err = errors.New("Unexpected ','")
+			return ErrorToken, []byte{}
 		}
-	default:
-		if z.consumeNumberToken() {
+		z.r.Move(1)
+		z.skipWhitespace()
+		if z.state[len(z.state)-1] == ObjectValueState {
+			z.state[len(z.state)-1] = ObjectKeyState
+		}
+		z.needComma = false
+	}
+	z.r.Skip()
+
+	c := z.r.Peek(0)
+	state := z.state[len(z.state)-1]
+	if z.needComma && c != '}' && c != ']' && c != 0 {
+		z.err = errors.New("Expected ','")
+		return ErrorToken, []byte{}
+	} else if c == '{' {
+		z.state = append(z.state, ObjectKeyState)
+		z.r.Move(1)
+		return StartObjectToken, z.r.Shift()
+	} else if c == '}' {
+		if (z.needComma || state != ObjectKeyState) && state != ObjectValueState {
+			z.err = errors.New("Unexpected '}'" + state.String())
+			return ErrorToken, []byte{}
+		}
+		z.needComma = true
+		z.state = z.state[:len(z.state)-1]
+		z.r.Move(1)
+		return EndObjectToken, z.r.Shift()
+	} else if c == '[' {
+		z.state = append(z.state, ArrayState)
+		z.r.Move(1)
+		return StartArrayToken, z.r.Shift()
+	} else if c == ']' {
+		z.needComma = true
+		if state != ArrayState {
+			z.err = errors.New("Unexpected ']'")
+			return ErrorToken, []byte{}
+		}
+		z.state = z.state[:len(z.state)-1]
+		z.r.Move(1)
+		return EndArrayToken, z.r.Shift()
+	} else if state == ObjectKeyState {
+		if c != '"' || !z.consumeStringToken() {
+			z.err = errors.New("Expected object key to be a string")
+			return ErrorToken, []byte{}
+		}
+		n := z.r.Pos()
+		z.skipWhitespace()
+		if c := z.r.Peek(0); c != ':' {
+			z.err = errors.New("Unexpected '" + string(c) + "', expected ':'")
+			return ErrorToken, []byte{}
+		}
+		z.r.Move(1)
+		z.state[len(z.state)-1] = ObjectValueState
+		return StringToken, z.r.Shift()[1 : n-1]
+	} else {
+		z.needComma = true
+		if c == '"' && z.consumeStringToken() {
+			n := z.r.Pos()
+			return StringToken, z.r.Shift()[1 : n-1]
+		} else if z.consumeNumberToken() {
 			return NumberToken, z.r.Shift()
 		} else if z.consumeLiteralToken() {
 			return LiteralToken, z.r.Shift()
-		} else if z.Err() != nil {
-			return ErrorToken, []byte{}
 		}
 	}
-	z.r.Move(1)
-	return UnknownToken, z.r.Shift()
+	return ErrorToken, []byte{}
+}
+
+func (z *Tokenizer) State() State {
+	return z.state[len(z.state)-1]
 }
 
 ////////////////////////////////////////////////////////////////
@@ -102,10 +194,10 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 The following functions follow the specifications at http://json.org/
 */
 
-func (z *Tokenizer) consumeWhitespaceToken() bool {
+func (z *Tokenizer) skipWhitespace() {
 	for {
 		if c := z.r.Peek(0); c != ' ' && c != '\t' && c != '\r' && c != '\n' {
-			return true
+			break
 		}
 		z.r.Move(1)
 	}
