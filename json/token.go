@@ -112,15 +112,12 @@ func (z Tokenizer) IsEOF() bool {
 func (z *Tokenizer) Next() (TokenType, []byte) {
 	z.skipWhitespace()
 	if z.r.Peek(0) == ',' {
-		if z.state[len(z.state)-1] != ArrayState && z.state[len(z.state)-1] != ObjectValueState {
+		if z.state[len(z.state)-1] != ArrayState && z.state[len(z.state)-1] != ObjectKeyState {
 			z.err = errors.New("Unexpected ','")
 			return ErrorToken, []byte{}
 		}
 		z.r.Move(1)
 		z.skipWhitespace()
-		if z.state[len(z.state)-1] == ObjectValueState {
-			z.state[len(z.state)-1] = ObjectKeyState
-		}
 		z.needComma = false
 	}
 	z.r.Skip()
@@ -135,8 +132,8 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		z.r.Move(1)
 		return StartObjectToken, z.r.Shift()
 	} else if c == '}' {
-		if (z.needComma || state != ObjectKeyState) && state != ObjectValueState {
-			z.err = errors.New("Unexpected '}'" + state.String())
+		if state != ObjectKeyState {
+			z.err = errors.New("Unexpected '}'")
 			return ErrorToken, []byte{}
 		}
 		z.needComma = true
@@ -172,6 +169,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		return StringToken, z.r.Shift()[1 : n-1]
 	} else {
 		z.needComma = true
+		if state == ObjectValueState {
+			z.state[len(z.state)-1] = ObjectKeyState
+		}
 		if c == '"' && z.consumeStringToken() {
 			n := z.r.Pos()
 			return StringToken, z.r.Shift()[1 : n-1]
