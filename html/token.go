@@ -304,7 +304,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 		z.r.Move(1)
 	}
 	name := parse.ToLower(z.r.Shift())
-	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext {
+	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
 		z.rawTag = h
 	}
 	z.skipWhitespace() // before attribute name state
