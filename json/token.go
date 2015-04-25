@@ -138,6 +138,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 		z.needComma = true
 		z.state = z.state[:len(z.state)-1]
+		if z.state[len(z.state)-1] == ObjectValueState {
+			z.state[len(z.state)-1] = ObjectKeyState
+		}
 		z.r.Move(1)
 		return EndObjectToken, z.r.Shift()
 	} else if c == '[' {
@@ -151,6 +154,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			return ErrorToken, []byte{}
 		}
 		z.state = z.state[:len(z.state)-1]
+		if z.state[len(z.state)-1] == ObjectValueState {
+			z.state[len(z.state)-1] = ObjectKeyState
+		}
 		z.r.Move(1)
 		return EndArrayToken, z.r.Shift()
 	} else if state == ObjectKeyState {
