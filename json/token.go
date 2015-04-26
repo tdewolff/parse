@@ -1,5 +1,7 @@
 package json // import "github.com/tdewolff/parse/json"
 
+// TODO: optimize and use skipping after obtaining a value like HTML/XML do (colon and comma characters)
+
 import (
 	"errors"
 	"io"

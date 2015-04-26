@@ -1,5 +1,7 @@
 package xml // import "github.com/tdewolff/parse/xml"
 
+// TODO: optimize
+
 import (
 	"io"
 	"strconv"
