@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/buffer"
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
@@ -33,18 +34,30 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 }
 
 func helperStringify(t *testing.T, input string) string {
-	s := "\n["
-	z := NewTokenizer(bytes.NewBufferString(input))
+	s := ""
+	z := NewTokenizer(&ReaderMockup{bytes.NewBufferString(input)})
 	for i := 0; i < 10; i++ {
 		tt, text := z.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')]"
+			s += tt.String() + "('" + z.Err().Error() + "')"
 			break
 		} else {
-			s += tt.String() + "('" + string(text) + "'), "
+			s += tt.String() + "('" + string(text) + "') "
 		}
 	}
 	return s
+}
+
+type ReaderMockup struct {
+	r io.Reader
+}
+
+func (r *ReaderMockup) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	if n < len(p) {
+		err = io.EOF
+	}
+	return n, err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -72,4 +85,7 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "<script><!--var x='<script></script>';--></script>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
 	assertTokens(t, "<script><!--var x='<script>';--></script>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
 	assertTokens(t, "<![CDATA[ test ]]>", TextToken)
+
+	buffer.MinBuf = 4
+	assert.Equal(t, "StartTag('ab') StartTagClose('>') Error('EOF')", helperStringify(t, "<ab   >"), "buffer reallocation must keep tagname valid")
 }

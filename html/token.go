@@ -303,11 +303,12 @@ func (z *Tokenizer) shiftStartTag() []byte {
 		}
 		z.r.Move(1)
 	}
-	name := parse.ToLower(z.r.Shift())
+	nameEnd := z.r.Pos()
+	z.moveWhitespace() // before attribute name state
+	name := parse.ToLower(z.r.Shift()[:nameEnd])
 	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
 		z.rawTag = h
 	}
-	z.skipWhitespace() // before attribute name state
 	return name
 }
 
@@ -318,11 +319,12 @@ func (z *Tokenizer) shiftAttribute() []byte {
 		}
 		z.r.Move(1)
 	}
-	name := parse.ToLower(z.r.Shift())
-	z.skipWhitespace() // after attribute name state
+	nameEnd := z.r.Pos()
+	z.moveWhitespace() // after attribute name state
 	if z.r.Peek(0) == '=' {
 		z.r.Move(1)
-		z.skipWhitespace() // before attribute value state
+		z.moveWhitespace() // before attribute value state
+		attrPos := z.r.Pos()
 		delim := z.r.Peek(0)
 		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
 			z.r.Move(1)
@@ -341,12 +343,13 @@ func (z *Tokenizer) shiftAttribute() []byte {
 				z.r.Move(1)
 			}
 		}
-		z.attrVal = z.r.Shift()
-		z.skipWhitespace() // before attribute name state or after attribute quoted value state
+		attrEnd := z.r.Pos()
+		z.moveWhitespace() // before attribute name state or after attribute quoted value state
+		z.attrVal = z.r.Bytes()[attrPos:attrEnd]
 	} else {
 		z.attrVal = nil
 	}
-	return name
+	return parse.ToLower(z.r.Shift()[:nameEnd])
 }
 
 func (z *Tokenizer) shiftEndTag() []byte {
@@ -364,7 +367,7 @@ func (z *Tokenizer) shiftEndTag() []byte {
 	}
 }
 
-func (z *Tokenizer) skipWhitespace() {
+func (z *Tokenizer) moveWhitespace() {
 	for {
 		c := z.r.Peek(0)
 		if c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' || c == 0 {
@@ -372,7 +375,6 @@ func (z *Tokenizer) skipWhitespace() {
 		}
 		z.r.Move(1)
 	}
-	z.r.Skip()
 }
 
 func (z *Tokenizer) at(b ...byte) bool {
