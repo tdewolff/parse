@@ -1,7 +1,5 @@
 package json // import "github.com/tdewolff/parse/json"
 
-// TODO: optimize and use skipping after obtaining a value like HTML/XML do (colon and comma characters)
-
 import (
 	"errors"
 	"io"
@@ -112,20 +110,21 @@ func (z Tokenizer) IsEOF() bool {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
-	z.skipWhitespace()
-	if z.r.Peek(0) == ',' {
-		if z.state[len(z.state)-1] != ArrayState && z.state[len(z.state)-1] != ObjectKeyState {
+	z.moveWhitespace()
+	c := z.r.Peek(0)
+	state := z.state[len(z.state)-1]
+	if c == ',' {
+		if state != ArrayState && state != ObjectKeyState {
 			z.err = errors.New("Unexpected ','")
 			return ErrorToken, []byte{}
 		}
 		z.r.Move(1)
-		z.skipWhitespace()
+		z.moveWhitespace()
 		z.needComma = false
+		c = z.r.Peek(0)
 	}
 	z.r.Skip()
 
-	c := z.r.Peek(0)
-	state := z.state[len(z.state)-1]
 	if z.needComma && c != '}' && c != ']' && c != 0 {
 		z.err = errors.New("Expected ','")
 		return ErrorToken, []byte{}
@@ -167,7 +166,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			return ErrorToken, []byte{}
 		}
 		n := z.r.Pos()
-		z.skipWhitespace()
+		z.moveWhitespace()
 		if c := z.r.Peek(0); c != ':' {
 			z.err = errors.New("Unexpected '" + string(c) + "', expected ':'")
 			return ErrorToken, []byte{}
@@ -202,7 +201,7 @@ func (z *Tokenizer) State() State {
 The following functions follow the specifications at http://json.org/
 */
 
-func (z *Tokenizer) skipWhitespace() {
+func (z *Tokenizer) moveWhitespace() {
 	for {
 		if c := z.r.Peek(0); c != ' ' && c != '\t' && c != '\r' && c != '\n' {
 			break
