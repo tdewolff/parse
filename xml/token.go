@@ -155,10 +155,10 @@ The following functions follow the specifications at http://www.w3.org/html/wg/d
 func (z *Tokenizer) shiftCDATAText() []byte {
 	for {
 		if z.r.Peek(0) == 0 {
-			return TextToken, z.r.Shift()
+			return z.r.Shift()
 		} else if z.at(']', ']', '>') {
 			z.r.Move(3)
-			return TextToken, z.r.Shift()
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
@@ -186,9 +186,6 @@ func (z *Tokenizer) shiftStartTag() []byte {
 		z.r.Move(1)
 	}
 	name := parse.ToLower(z.r.Shift())
-	if h := ToHash(name); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
-		z.rawTag = h
-	}
 	z.skipWhitespace() // before attribute name state
 	return name
 }
