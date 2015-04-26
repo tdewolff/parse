@@ -194,6 +194,7 @@ func TestTokenizerUtils(t *testing.T) {
 	assertSplitDataURI(t, "url(data:text/xml,)", "text/xml", "", true)
 	assertSplitDataURI(t, "url(data:,text)", "text/plain", "text", true)
 	assertSplitDataURI(t, "url(data:;base64,dGV4dA==)", "text/plain", "text", true)
+	assertSplitDataURI(t, "url(data:image/svg+xml,)", "image/svg+xml", "", true)
 
 	assert.True(t, IsIdent([]byte("color")))
 	assert.False(t, IsIdent([]byte("4.5")))
