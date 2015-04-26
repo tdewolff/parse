@@ -21,6 +21,10 @@ An ECMAScript5.1 tokenizer. [See README here](https://github.com/tdewolff/parse/
 
 An JSON tokenizer. [See README here](https://github.com/tdewolff/parse/tree/master/json).
 
+**XML**
+
+An XML tokenizer. [See README here](https://github.com/tdewolff/parse/tree/master/xml).
+
 ## License
 Released under the [MIT license](LICENSE.md).
 
