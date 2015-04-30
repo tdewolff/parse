@@ -1,4 +1,4 @@
-package css
+package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"testing"

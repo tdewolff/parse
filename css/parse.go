@@ -58,11 +58,15 @@ Parser using example:
 package css // import "github.com/tdewolff/parse/css"
 
 import (
+	"errors"
 	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse"
 )
+
+var wsBytes = []byte(" ")
+var emptyBytes = []byte("")
 
 ////////////////////////////////////////////////////////////////
 
@@ -72,13 +76,21 @@ type GrammarType uint32
 // GrammarType values.
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
-	AtRuleGrammar
-	StartAtRuleGrammar
+	BeginAtRuleGrammar
+	AtRuleBlockGrammar
 	EndAtRuleGrammar
-	StartRulesetGrammar
+	BeginRulesetGrammar
+	RulesetBlockGrammar
 	EndRulesetGrammar
-	DeclarationGrammar
+	PropertyGrammar
+	BeginValuesGrammar
+	EndValuesGrammar
+	BeginFunctionGrammar
+	EndFunctionGrammar
+	BeginBlockGrammar
+	EndBlockGrammar
 	TokenGrammar
+	WhitespaceGrammar
 )
 
 // String returns the string representation of a GrammarType.
@@ -86,367 +98,360 @@ func (tt GrammarType) String() string {
 	switch tt {
 	case ErrorGrammar:
 		return "Error"
-	case AtRuleGrammar:
-		return "AtRule"
-	case StartAtRuleGrammar:
-		return "StartAtRule"
+	case BeginAtRuleGrammar:
+		return "BeginAtRule"
+	case AtRuleBlockGrammar:
+		return "AtRuleBlock"
 	case EndAtRuleGrammar:
 		return "EndAtRule"
-	case StartRulesetGrammar:
-		return "StartRuleset"
+	case BeginRulesetGrammar:
+		return "BeginRuleset"
+	case RulesetBlockGrammar:
+		return "RulesetBlock"
 	case EndRulesetGrammar:
 		return "EndRuleset"
-	case DeclarationGrammar:
-		return "Declaration"
+	case PropertyGrammar:
+		return "Property"
+	case BeginValuesGrammar:
+		return "BeginValues"
+	case EndValuesGrammar:
+		return "EndValues"
+	case BeginFunctionGrammar:
+		return "BeginFunction"
+	case EndFunctionGrammar:
+		return "EndFunction"
+	case BeginBlockGrammar:
+		return "BeginBlock"
+	case EndBlockGrammar:
+		return "EndBlock"
 	case TokenGrammar:
 		return "Token"
-	}
-	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
-}
-
-// ParserState denotes the state of the parser.
-type ParserState uint32
-
-// ParserState values.
-const (
-	StylesheetState ParserState = iota
-	AtRuleState
-	RulesetState
-)
-
-// String returns the string representation of a ParserState.
-func (tt ParserState) String() string {
-	switch tt {
-	case StylesheetState:
-		return "Stylesheet"
-	case AtRuleState:
-		return "AtRule"
-	case RulesetState:
-		return "Ruleset"
+	case WhitespaceGrammar:
+		return "Whitespace"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
 ////////////////////////////////////////////////////////////////
 
-// Parser is the state for the parser.
+type State func() GrammarType
+
+type Token struct {
+	tt   TokenType
+	data []byte
+}
+
 type Parser struct {
-	z     *Tokenizer
-	state []ParserState
+	z      *Tokenizer
+	state  []State
+	atRule Hash
+	err    error
 
-	tb   *tokenBuffer
-	copy bool
-	tBuf []*TokenNode
+	tt        TokenType
+	data      []byte
+	prevWS    bool
+	reconsume bool
+
+	forward    []Token
+	forwardPos int
 }
 
-// NewParser returns a new Parser for a io.Reader.
-func NewParser(r io.Reader) *Parser {
+func NewParser(r io.Reader, isStylesheet bool) *Parser {
 	z := NewTokenizer(r)
-	return &Parser{
-		z:     z,
-		state: []ParserState{StylesheetState},
-		tb:    newTokenBuffer(z),
+	p := &Parser{
+		z: z,
 	}
+	if isStylesheet {
+		p.state = []State{p.parseStylesheet}
+	} else {
+		p.state = []State{p.parseDeclarationList}
+	}
+	return p
 }
 
-// Parse parses the entire CSS file and returns the root StylesheetNode.
-func Parse(r io.Reader) (*StylesheetNode, error) {
-	p := NewParser(r)
-	p.copy = true
-	p.tb.EnableLookback()
-
-	var err error
-	stylesheet := &StylesheetNode{}
-	for {
-		gt, n := p.Next()
-		if gt == ErrorGrammar {
-			err = p.z.Err()
-			break
-		}
-		stylesheet.Nodes = append(stylesheet.Nodes, n)
-		if err = p.parseRecursively(gt, n); err != nil {
-			break
-		}
-	}
-	if err != io.EOF {
-		return stylesheet, err
-	}
-	return stylesheet, nil
-}
-
-func (p *Parser) parseRecursively(rootGt GrammarType, n Node) error {
-	if rootGt == StartAtRuleGrammar {
-		atRule := n.(*AtRuleNode)
-		for {
-			gt, m := p.Next()
-			if gt == ErrorGrammar {
-				return p.z.Err()
-			} else if gt == EndAtRuleGrammar {
-				break
-			}
-			atRule.Rules = append(atRule.Rules, m)
-			if err := p.parseRecursively(gt, m); err != nil {
-				return err
-			}
-		}
-	} else if rootGt == StartRulesetGrammar {
-		ruleset := n.(*RulesetNode)
-		for {
-			gt, m := p.Next()
-			if gt == ErrorGrammar {
-				return p.z.Err()
-			} else if gt == EndRulesetGrammar {
-				break
-			}
-			if decl, ok := m.(*DeclarationNode); ok {
-				ruleset.Decls = append(ruleset.Decls, decl)
-			}
-		}
-	}
-	return nil
-}
-
-// Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
+	if p.err != nil {
+		return p.err
+	}
 	return p.z.Err()
 }
 
-// Next returns the next grammar unit from the CSS file.
-// This is a lower-level function than Parse and is used to stream parse CSS instead of loading it fully into memory.
-// Returned nodes of AtRule and Ruleset do not contain entries for Decls and Rules respectively. These are returned consecutively with calls to Next.
-func (p *Parser) Next() (GrammarType, Node) {
-	if p.at(ErrorToken) {
-		return ErrorGrammar, nil
-	}
-	for p.at(WhitespaceToken) || p.at(SemicolonToken) {
-		p.tb.Shift()
-	}
-
-	state := p.state[len(p.state)-1]
-	if p.at(RightBraceToken) && (state == AtRuleState || state == RulesetState) {
-		// return End types
-		token := p.tb.Shift()
-		p.state = p.state[:len(p.state)-1]
-		if state == AtRuleState {
-			return EndAtRuleGrammar, token
-		} else {
-			return EndRulesetGrammar, token
-		}
-	} else if p.at(CDOToken) || p.at(CDCToken) {
-		return TokenGrammar, p.tb.Shift()
-	}
-
-	// find out whether this is a declaration or ruleset, because we don't know if we have a stylesheet or a style attribute
-	// second objective is to visit each TokenNodes before taking pointers to them, so that buffer reallocations won't invalidate those pointers
-	i := 0
-	hasSemicolon := false
-	for p.tb.Peek(i).TokenType != LeftBraceToken {
-		if p.tb.Peek(i).TokenType == SemicolonToken || p.tb.Peek(i).TokenType == ErrorToken {
-			hasSemicolon = true
-			break
-		}
-		i++
-	}
-
-	if grammar, atrule := p.parseAtRule(); atrule != nil {
-		return grammar, atrule
-	} else if hasSemicolon {
-		if decl := p.parseDeclaration(); decl != nil {
-			return DeclarationGrammar, decl
-		}
-	} else if ruleset := p.parseRuleset(); ruleset != nil {
-		return StartRulesetGrammar, ruleset
-	}
-	return TokenGrammar, p.tb.Shift()
-}
-
-////////////////////////////////////////////////////////////////
-
-func (p *Parser) parseAtRule() (GrammarType, *AtRuleNode) {
-	if !p.at(AtKeywordToken) {
-		return ErrorGrammar, nil
-	}
-	atrule := &AtRuleNode{}
-	atrule.Name = p.tb.Shift()
-	p.skipWhitespace()
-	for !p.at(SemicolonToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		atrule.Nodes = append(atrule.Nodes, p.shiftComponent())
-		p.skipWhitespace()
-	}
-	if p.at(LeftBraceToken) {
-		p.tb.Shift()
-		p.state = append(p.state, AtRuleState)
-		return StartAtRuleGrammar, atrule
-	} else if p.at(SemicolonToken) {
-		p.tb.Shift()
-	}
-	return AtRuleGrammar, atrule
-}
-
-func (p *Parser) parseRuleset() *RulesetNode {
-	p.tBuf = p.tBuf[:0]
-
-	ruleset := &RulesetNode{}
-	for !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if p.at(CommaToken) {
-			p.tb.Shift()
-			p.skipWhitespace()
-			continue
-		}
-		if sel, ok := p.parseSelector(); ok {
-			ruleset.Selectors = append(ruleset.Selectors, sel)
-		}
-		p.skipWhitespace()
-	}
-	if p.at(ErrorToken) {
-		return nil
-	}
-	p.tb.Shift()
-	p.state = append(p.state, RulesetState)
-	return ruleset
-}
-
-func (p *Parser) parseSelector() (SelectorNode, bool) {
-	nElems := len(p.tBuf)
-	var ws *TokenNode
-	for !p.at(CommaToken) && !p.at(LeftBraceToken) && !p.at(ErrorToken) {
-		if p.at(DelimToken) && (p.data()[0] == '>' || p.data()[0] == '+' || p.data()[0] == '~') {
-			p.tBuf = append(p.tBuf, p.tb.Shift())
-			p.skipWhitespace()
-		} else {
-			if ws != nil {
-				p.tBuf = append(p.tBuf, ws)
-			}
-			if p.at(LeftBracketToken) {
-				for !p.at(RightBracketToken) && !p.at(ErrorToken) {
-					p.tBuf = append(p.tBuf, p.tb.Shift())
-					p.skipWhitespace()
-				}
-				if p.at(RightBracketToken) {
-					p.tBuf = append(p.tBuf, p.tb.Shift())
-				}
-			} else {
-				p.tBuf = append(p.tBuf, p.tb.Shift())
-			}
-		}
-		if p.at(WhitespaceToken) {
-			ws = p.tb.Shift()
-		} else {
-			ws = nil
-		}
-	}
-	if len(p.tBuf) == nElems {
-		return SelectorNode{}, false
-	}
-	elems := p.tBuf[nElems:]
-	if p.copy {
-		elems = make([]*TokenNode, len(p.tBuf)-nElems)
-		copy(elems, p.tBuf[nElems:])
-	}
-	return SelectorNode{elems}, true
-}
-
-func (p *Parser) parseDeclaration() *DeclarationNode {
-	if !p.at(IdentToken) {
-		return nil
-	}
-	decl := &DeclarationNode{}
-	decl.Prop = p.tb.Shift()
-	parse.ToLower(decl.Prop.Data)
-	p.skipWhitespace()
-	if !p.at(ColonToken) {
-		return nil
-	}
-	p.tb.Shift() // colon
-	p.skipWhitespace()
-	for !p.at(SemicolonToken) && !p.at(RightBraceToken) && !p.at(ErrorToken) {
-		if fun := p.parseFunction(); fun != nil {
-			decl.Vals = append(decl.Vals, fun)
-		} else {
-			decl.Vals = append(decl.Vals, p.tb.Shift())
-		}
-		p.skipWhitespace()
-	}
-	if p.at(SemicolonToken) {
-		p.tb.Shift()
-	}
-	return decl
-}
-
-func (p *Parser) parseFunction() *FunctionNode {
-	fun := &FunctionNode{}
-	if !p.at(FunctionToken) {
-		return nil
-	}
-	fun.Name = p.tb.Shift()
-	fun.Name.Data = fun.Name.Data[:len(fun.Name.Data)-1]
-	p.skipWhitespace()
-	for !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
-		if p.at(CommaToken) {
-			p.tb.Shift()
-			p.skipWhitespace()
-			continue
-		}
-		fun.Args = append(fun.Args, p.parseArgument())
-	}
-	if p.at(ErrorToken) {
-		return nil
-	}
-	p.tb.Shift() // right parenthesis
-	return fun
-}
-
-func (p *Parser) parseArgument() ArgumentNode {
-	arg := ArgumentNode{}
-	for !p.at(CommaToken) && !p.at(RightParenthesisToken) && !p.at(ErrorToken) {
-		arg.Vals = append(arg.Vals, p.shiftComponent())
-		p.skipWhitespace()
-	}
-	return arg
-}
-
-func (p *Parser) parseBlock() *BlockNode {
-	if !p.at(LeftParenthesisToken) && !p.at(LeftBraceToken) && !p.at(LeftBracketToken) {
-		return nil
-	}
-	block := &BlockNode{}
-	block.Open = p.tb.Shift()
-	p.skipWhitespace()
-	for {
-		if p.at(RightBraceToken) || p.at(RightParenthesisToken) || p.at(RightBracketToken) || p.at(ErrorToken) {
-			break
-		}
-		block.Nodes = append(block.Nodes, p.shiftComponent())
-		p.skipWhitespace()
-	}
-	if !p.at(ErrorToken) {
-		block.Close = p.tb.Shift()
-	}
-	return block
-}
-
-func (p *Parser) shiftComponent() Node {
-	if block := p.parseBlock(); block != nil {
-		return block
-	} else if fun := p.parseFunction(); fun != nil {
-		return fun
+func (p *Parser) Next() (GrammarType, TokenType, []byte) {
+	if !p.reconsume {
+		p.nextToken()
 	} else {
-		return p.tb.Shift()
+		p.reconsume = false
+		p.prevWS = false
+	}
+	gt := p.state[len(p.state)-1]()
+	if gt == WhitespaceGrammar {
+		return gt, WhitespaceToken, wsBytes
+	} else if p.reconsume {
+		return gt, EmptyToken, emptyBytes
+	}
+	return gt, p.tt, p.data
+}
+
+func (p *Parser) peekToken(i int) (TokenType, []byte) {
+	if len(p.forward) == 0 {
+		p.data = parse.Copy(p.data)
+		tt, data := p.z.Next()
+		p.forward = append(p.forward, Token{tt, data})
+	}
+	for len(p.forward) <= p.forwardPos+i {
+		p.forward[len(p.forward)-1].data = parse.Copy(p.forward[len(p.forward)-1].data)
+		tt, data := p.z.Next()
+		p.forward = append(p.forward, Token{tt, data})
+	}
+	return p.forward[p.forwardPos+i].tt, p.forward[p.forwardPos+i].data
+}
+
+func (p *Parser) shiftToken() {
+	if len(p.forward) > p.forwardPos {
+		p.tt, p.data = p.forward[p.forwardPos].tt, p.forward[p.forwardPos].data
+		p.forwardPos++
+		if len(p.forward) == p.forwardPos {
+			p.forward = p.forward[:0]
+			p.forwardPos = 0
+		}
+	} else {
+		p.tt, p.data = p.z.Next()
 	}
 }
 
-func (p *Parser) skipWhitespace() {
-	if p.at(WhitespaceToken) {
-		p.tb.Shift()
+func (p *Parser) nextToken() {
+	p.prevWS = false
+	p.shiftToken()
+	for p.tt == WhitespaceToken || p.tt == CommentToken {
+		if p.tt == WhitespaceToken {
+			p.prevWS = true
+		}
+		p.shiftToken()
 	}
 }
 
 ////////////////////////////////////////////////////////////////
 
-func (p *Parser) at(tt TokenType) bool {
-	return p.tb.Peek(0).TokenType == tt
+func (p *Parser) parseStylesheet() GrammarType {
+	if p.tt == CDOToken || p.tt == CDCToken {
+		return TokenGrammar
+	} else if p.tt == AtKeywordToken {
+		p.state = append(p.state, p.parseAtRule)
+		p.atRule = ToHash(p.data[1:])
+		return BeginAtRuleGrammar
+	} else if p.tt == ErrorToken {
+		return ErrorGrammar
+	} else {
+		p.state = append(p.state, p.parseQualifiedRule)
+		p.reconsume = true
+		return BeginRulesetGrammar
+	}
 }
 
-func (p *Parser) data() []byte {
-	return p.tb.Peek(0).Data
+func (p *Parser) parseRuleList() GrammarType {
+	if p.tt == AtKeywordToken {
+		p.state = append(p.state, p.parseAtRule)
+		p.atRule = ToHash(p.data[1:])
+		return BeginAtRuleGrammar
+	} else if p.tt == ErrorToken {
+		return ErrorGrammar
+	} else {
+		p.state = append(p.state, p.parseQualifiedRule)
+		p.reconsume = true
+		return BeginRulesetGrammar
+	}
+}
+
+func (p *Parser) parseDeclarationList() GrammarType {
+	for p.tt == SemicolonToken {
+		p.nextToken()
+	}
+	if p.tt == ErrorToken {
+		return ErrorGrammar
+	} else if p.tt == AtKeywordToken {
+		p.state = append(p.state, p.parseAtRule)
+		p.atRule = ToHash(p.data[1:])
+		return BeginAtRuleGrammar
+	} else if p.tt == IdentToken {
+		p.state = append(p.state, p.parseDeclaration)
+		return PropertyGrammar
+	}
+	// parse error
+	for p.tt != SemicolonToken && p.tt != ErrorToken {
+		p.nextToken()
+	}
+	return p.state[len(p.state)-1]()
+}
+
+////////////////////////////////////////////////////////////////
+
+func (p *Parser) parseAtRule() GrammarType {
+	if p.tt == LeftBraceToken {
+		p.state[len(p.state)-1] = p.parseAtRuleBlockSkipWhitespace
+		return AtRuleBlockGrammar
+	} else if p.tt == SemicolonToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndAtRuleGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseAtRuleBlockSkipWhitespace() GrammarType {
+	p.prevWS = false
+	if p.atRule == Font_Face || p.atRule == Page {
+		p.state[len(p.state)-1] = p.parseAtRuleDeclarationList
+	} else if p.atRule == Document || p.atRule == Keyframes || p.atRule == Media || p.atRule == Supports {
+		p.state[len(p.state)-1] = p.parseAtRuleRuleList
+	} else {
+		p.state[len(p.state)-1] = p.parseAtRuleComponents
+	}
+	return p.state[len(p.state)-1]()
+}
+
+func (p *Parser) parseAtRuleComponents() GrammarType {
+	if p.tt == RightBraceToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndAtRuleGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseAtRuleRuleList() GrammarType {
+	if p.tt == RightBraceToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndAtRuleGrammar
+	}
+	return p.parseRuleList()
+}
+
+func (p *Parser) parseAtRuleDeclarationList() GrammarType {
+	for p.tt == SemicolonToken {
+		p.nextToken()
+	}
+	if p.tt == RightBraceToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndAtRuleGrammar
+	}
+	return p.parseDeclarationList()
+}
+
+func (p *Parser) parseQualifiedRule() GrammarType {
+	if p.tt == LeftBraceToken {
+		p.state[len(p.state)-1] = p.parseQualifiedRuleDeclarationList
+		return RulesetBlockGrammar
+	} else if p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		p.reconsume = true
+		return EndRulesetGrammar
+	} else if p.prevWS {
+		p.reconsume = true
+		return WhitespaceGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
+	for p.tt == SemicolonToken {
+		p.nextToken()
+	}
+	if p.tt == RightBraceToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndRulesetGrammar
+	}
+	return p.parseDeclarationList()
+}
+
+func (p *Parser) parseDeclaration() GrammarType {
+	if p.tt != ColonToken {
+		p.err = errors.New("unexpected token for declaration colon: " + p.tt.String())
+		return ErrorGrammar
+	}
+	p.state[len(p.state)-1] = p.parseDeclarationValuesSkipWhitespace
+	return BeginValuesGrammar
+}
+
+func (p *Parser) parseDeclarationValuesSkipWhitespace() GrammarType {
+	p.prevWS = false
+	p.state[len(p.state)-1] = p.parseDeclarationValues
+	return p.parseDeclarationValues()
+}
+
+func (p *Parser) parseDeclarationValues() GrammarType {
+	if p.tt == SemicolonToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndValuesGrammar
+	} else if p.tt == RightBraceToken {
+		p.state = p.state[:len(p.state)-1]
+		p.reconsume = true
+		return EndValuesGrammar
+	} else if p.tt == DelimToken && p.data[0] == '!' {
+		p.state[len(p.state)-1] = p.parseDeclarationValuesImportant
+	} else if p.prevWS {
+		p.reconsume = true
+		return WhitespaceGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseDeclarationValuesImportant() GrammarType {
+	p.state[len(p.state)-1] = p.parseDeclarationValues
+	if p.tt == IdentToken && ToHash(p.data) == Important {
+		return TokenGrammar
+	}
+	return p.parseDeclarationValues()
+}
+
+func (p *Parser) parseComponent() GrammarType {
+	if p.prevWS {
+		p.reconsume = true
+		return WhitespaceGrammar
+	} else if p.tt == LeftParenthesisToken {
+		p.state = append(p.state, p.parseParenthesisBlock)
+		return BeginBlockGrammar
+	} else if p.tt == LeftBraceToken {
+		p.state = append(p.state, p.parseBraceBlock)
+		return BeginBlockGrammar
+	} else if p.tt == LeftBracketToken {
+		p.state = append(p.state, p.parseBracketBlock)
+		return BeginBlockGrammar
+	} else if p.tt == FunctionToken {
+		p.state = append(p.state, p.parseFunction)
+		return BeginFunctionGrammar
+	} else if p.tt == ErrorToken {
+		return ErrorGrammar
+	} else {
+		return TokenGrammar
+	}
+}
+
+func (p *Parser) parseParenthesisBlock() GrammarType {
+	if !p.prevWS && p.tt == RightParenthesisToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndBlockGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseBraceBlock() GrammarType {
+	if !p.prevWS && p.tt == RightBraceToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndBlockGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseBracketBlock() GrammarType {
+	if !p.prevWS && p.tt == RightBracketToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndBlockGrammar
+	}
+	return p.parseComponent()
+}
+
+func (p *Parser) parseFunction() GrammarType {
+	if !p.prevWS && p.tt == RightParenthesisToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndFunctionGrammar
+	}
+	return p.parseComponent()
 }

@@ -49,6 +49,7 @@ const (
 	LeftBraceToken        // {
 	RightBraceToken       // }
 	CommentToken          // extra token for comments
+	EmptyToken
 )
 
 // String returns the string representation of a TokenType.
@@ -120,6 +121,8 @@ func (tt TokenType) String() string {
 		return "RightBrace"
 	case CommentToken:
 		return "Comment"
+	case EmptyToken:
+		return "Empty"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
