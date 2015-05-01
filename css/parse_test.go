@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/parse"
 )
 
 func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
@@ -23,6 +24,7 @@ func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
 			if gt == DeclarationGrammar {
 				data = append(data, ":"...)
 			}
+			data = parse.Copy(data)
 			for _, val := range p.Values() {
 				data = append(data, val.Data...)
 			}

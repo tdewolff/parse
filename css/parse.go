@@ -76,21 +76,13 @@ type GrammarType uint32
 // GrammarType values.
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
+	AtRuleGrammar
 	BeginAtRuleGrammar
-	AtRuleBlockGrammar
 	EndAtRuleGrammar
 	BeginRulesetGrammar
-	RulesetBlockGrammar
 	EndRulesetGrammar
-	PropertyGrammar
-	BeginValuesGrammar
-	EndValuesGrammar
-	BeginFunctionGrammar
-	EndFunctionGrammar
-	BeginBlockGrammar
-	EndBlockGrammar
+	DeclarationGrammar
 	TokenGrammar
-	WhitespaceGrammar
 )
 
 // String returns the string representation of a GrammarType.
@@ -98,36 +90,20 @@ func (tt GrammarType) String() string {
 	switch tt {
 	case ErrorGrammar:
 		return "Error"
+	case AtRuleGrammar:
+		return "AtRule"
 	case BeginAtRuleGrammar:
 		return "BeginAtRule"
-	case AtRuleBlockGrammar:
-		return "AtRuleBlock"
 	case EndAtRuleGrammar:
 		return "EndAtRule"
 	case BeginRulesetGrammar:
 		return "BeginRuleset"
-	case RulesetBlockGrammar:
-		return "RulesetBlock"
 	case EndRulesetGrammar:
 		return "EndRuleset"
-	case PropertyGrammar:
-		return "Property"
-	case BeginValuesGrammar:
-		return "BeginValues"
-	case EndValuesGrammar:
-		return "EndValues"
-	case BeginFunctionGrammar:
-		return "BeginFunction"
-	case EndFunctionGrammar:
-		return "EndFunction"
-	case BeginBlockGrammar:
-		return "BeginBlock"
-	case EndBlockGrammar:
-		return "EndBlock"
+	case DeclarationGrammar:
+		return "Declaration"
 	case TokenGrammar:
 		return "Token"
-	case WhitespaceGrammar:
-		return "Whitespace"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -137,23 +113,28 @@ func (tt GrammarType) String() string {
 type State func() GrammarType
 
 type Token struct {
-	tt   TokenType
-	data []byte
+	TokenType
+	Data []byte
+}
+
+func String(ts []Token) string {
+	var data []byte
+	for _, t := range ts {
+		data = append(data, t.Data...)
+	}
+	return string(data)
 }
 
 type Parser struct {
-	z      *Tokenizer
-	state  []State
-	atRule Hash
-	err    error
+	z     *Tokenizer
+	state []State
+	err   error
 
-	tt        TokenType
-	data      []byte
-	prevWS    bool
-	reconsume bool
+	buf []Token
 
-	forward    []Token
-	forwardPos int
+	tt     TokenType
+	data   []byte
+	prevWS bool
 }
 
 func NewParser(r io.Reader, isStylesheet bool) *Parser {
@@ -177,56 +158,39 @@ func (p *Parser) Err() error {
 }
 
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
-	if !p.reconsume {
-		p.nextToken()
-	} else {
-		p.reconsume = false
-		p.prevWS = false
-	}
+	p.tt, p.data = p.popToken()
 	gt := p.state[len(p.state)-1]()
-	if gt == WhitespaceGrammar {
-		return gt, WhitespaceToken, wsBytes
-	} else if p.reconsume {
-		return gt, EmptyToken, emptyBytes
-	}
 	return gt, p.tt, p.data
 }
 
-func (p *Parser) peekToken(i int) (TokenType, []byte) {
-	if len(p.forward) == 0 {
-		p.data = parse.Copy(p.data)
-		tt, data := p.z.Next()
-		p.forward = append(p.forward, Token{tt, data})
-	}
-	for len(p.forward) <= p.forwardPos+i {
-		p.forward[len(p.forward)-1].data = parse.Copy(p.forward[len(p.forward)-1].data)
-		tt, data := p.z.Next()
-		p.forward = append(p.forward, Token{tt, data})
-	}
-	return p.forward[p.forwardPos+i].tt, p.forward[p.forwardPos+i].data
+func (p *Parser) Values() []Token {
+	return p.buf
 }
 
-func (p *Parser) shiftToken() {
-	if len(p.forward) > p.forwardPos {
-		p.tt, p.data = p.forward[p.forwardPos].tt, p.forward[p.forwardPos].data
-		p.forwardPos++
-		if len(p.forward) == p.forwardPos {
-			p.forward = p.forward[:0]
-			p.forwardPos = 0
-		}
-	} else {
-		p.tt, p.data = p.z.Next()
-	}
-}
-
-func (p *Parser) nextToken() {
+func (p *Parser) popToken() (TokenType, []byte) {
 	p.prevWS = false
-	p.shiftToken()
-	for p.tt == WhitespaceToken || p.tt == CommentToken {
-		if p.tt == WhitespaceToken {
+	tt, data := p.z.Next()
+	for tt == WhitespaceToken || tt == CommentToken {
+		if tt == WhitespaceToken {
 			p.prevWS = true
 		}
-		p.shiftToken()
+		tt, data = p.z.Next()
+	}
+	return tt, data
+}
+
+func (p *Parser) initBuf() {
+	if !p.z.IsEOF() {
+		p.data = parse.Copy(p.data)
+	}
+	p.buf = p.buf[:0]
+}
+
+func (p *Parser) pushBuf(tt TokenType, data []byte) {
+	if p.z.IsEOF() {
+		p.buf = append(p.buf, Token{tt, data})
+	} else {
+		p.buf = append(p.buf, Token{tt, parse.Copy(data)})
 	}
 }
 
@@ -236,49 +200,45 @@ func (p *Parser) parseStylesheet() GrammarType {
 	if p.tt == CDOToken || p.tt == CDCToken {
 		return TokenGrammar
 	} else if p.tt == AtKeywordToken {
-		p.state = append(p.state, p.parseAtRule)
-		p.atRule = ToHash(p.data[1:])
-		return BeginAtRuleGrammar
+		return p.parseAtRule()
 	} else if p.tt == ErrorToken {
 		return ErrorGrammar
 	} else {
-		p.state = append(p.state, p.parseQualifiedRule)
-		p.reconsume = true
-		return BeginRulesetGrammar
+		return p.parseQualifiedRule()
 	}
 }
 
 func (p *Parser) parseRuleList() GrammarType {
 	if p.tt == AtKeywordToken {
-		p.state = append(p.state, p.parseAtRule)
-		p.atRule = ToHash(p.data[1:])
-		return BeginAtRuleGrammar
+		return p.parseAtRule()
 	} else if p.tt == ErrorToken {
 		return ErrorGrammar
 	} else {
-		p.state = append(p.state, p.parseQualifiedRule)
-		p.reconsume = true
-		return BeginRulesetGrammar
+		return p.parseQualifiedRule()
 	}
 }
 
 func (p *Parser) parseDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
-		p.nextToken()
+		p.tt, p.data = p.popToken()
 	}
 	if p.tt == ErrorToken {
 		return ErrorGrammar
 	} else if p.tt == AtKeywordToken {
-		p.state = append(p.state, p.parseAtRule)
-		p.atRule = ToHash(p.data[1:])
-		return BeginAtRuleGrammar
+		return p.parseAtRule()
 	} else if p.tt == IdentToken {
-		p.state = append(p.state, p.parseDeclaration)
-		return PropertyGrammar
+		return p.parseDeclaration()
+	} else if p.tt == DelimToken && p.data[0] == '*' { // CSS hack
+		p.tt, p.data = p.popToken()
+		if p.tt == IdentToken {
+			p.data = append([]byte("*"), p.data...)
+			return p.parseDeclaration()
+		}
+		return p.state[len(p.state)-1]()
 	}
 	// parse error
 	for p.tt != SemicolonToken && p.tt != ErrorToken {
-		p.nextToken()
+		p.tt, p.data = p.popToken()
 	}
 	return p.state[len(p.state)-1]()
 }
@@ -286,34 +246,49 @@ func (p *Parser) parseDeclarationList() GrammarType {
 ////////////////////////////////////////////////////////////////
 
 func (p *Parser) parseAtRule() GrammarType {
-	if p.tt == LeftBraceToken {
-		p.state[len(p.state)-1] = p.parseAtRuleBlockSkipWhitespace
-		return AtRuleBlockGrammar
-	} else if p.tt == SemicolonToken || p.tt == ErrorToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndAtRuleGrammar
+	p.initBuf()
+	parse.ToLower(p.data)
+	atRule := ToHash(p.data[1:])
+	first := true
+	level := 0
+	skipWS := false
+	for {
+		tt, data := p.popToken()
+		if tt == LeftBraceToken && level == 0 {
+			if atRule == Font_Face || atRule == Page {
+				p.state = append(p.state, p.parseAtRuleDeclarationList)
+			} else if atRule == Document || atRule == Keyframes || atRule == Media || atRule == Supports {
+				p.state = append(p.state, p.parseAtRuleRuleList)
+			} else {
+				p.err = errors.New("unknown at-rule '" + string(p.data) + "' with block")
+				return ErrorGrammar
+			}
+			return BeginAtRuleGrammar
+		} else if tt == SemicolonToken && level == 0 || tt == ErrorToken {
+			return AtRuleGrammar
+		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
+			level++
+		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			level--
+		}
+		if first {
+			if tt == LeftParenthesisToken || tt == LeftBracketToken {
+				p.prevWS = false
+			}
+			first = false
+		}
+		if len(data) == 1 && (data[0] == ',' || data[0] == ':') {
+			skipWS = true
+		} else if p.prevWS && !skipWS && tt != RightParenthesisToken {
+			p.pushBuf(WhitespaceToken, wsBytes)
+		} else {
+			skipWS = false
+		}
+		if tt == LeftParenthesisToken {
+			skipWS = true
+		}
+		p.pushBuf(tt, data)
 	}
-	return p.parseComponent()
-}
-
-func (p *Parser) parseAtRuleBlockSkipWhitespace() GrammarType {
-	p.prevWS = false
-	if p.atRule == Font_Face || p.atRule == Page {
-		p.state[len(p.state)-1] = p.parseAtRuleDeclarationList
-	} else if p.atRule == Document || p.atRule == Keyframes || p.atRule == Media || p.atRule == Supports {
-		p.state[len(p.state)-1] = p.parseAtRuleRuleList
-	} else {
-		p.state[len(p.state)-1] = p.parseAtRuleComponents
-	}
-	return p.state[len(p.state)-1]()
-}
-
-func (p *Parser) parseAtRuleComponents() GrammarType {
-	if p.tt == RightBraceToken || p.tt == ErrorToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndAtRuleGrammar
-	}
-	return p.parseComponent()
 }
 
 func (p *Parser) parseAtRuleRuleList() GrammarType {
@@ -326,7 +301,7 @@ func (p *Parser) parseAtRuleRuleList() GrammarType {
 
 func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
-		p.nextToken()
+		p.tt, p.data = p.popToken()
 	}
 	if p.tt == RightBraceToken || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
@@ -336,23 +311,52 @@ func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseQualifiedRule() GrammarType {
-	if p.tt == LeftBraceToken {
-		p.state[len(p.state)-1] = p.parseQualifiedRuleDeclarationList
-		return RulesetBlockGrammar
-	} else if p.tt == ErrorToken {
-		p.state = p.state[:len(p.state)-1]
-		p.reconsume = true
-		return EndRulesetGrammar
-	} else if p.prevWS {
-		p.reconsume = true
-		return WhitespaceGrammar
+	p.initBuf()
+	first := true
+	inAttrSel := false
+	level := 0
+	skipWS := true
+	var tt TokenType
+	var data []byte
+	for {
+		if first {
+			tt, data = p.tt, p.data
+			p.tt = WhitespaceToken
+			p.data = emptyBytes
+			first = false
+		} else {
+			tt, data = p.popToken()
+		}
+		if tt == LeftBraceToken && level == 0 {
+			p.state = append(p.state, p.parseQualifiedRuleDeclarationList)
+			return BeginRulesetGrammar
+		} else if tt == ErrorToken {
+			p.err = errors.New("unexpected error in qualified rule '" + String(p.buf) + "' before encountering '{'")
+			return ErrorGrammar
+		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
+			level++
+		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			level--
+		}
+		if len(data) == 1 && (data[0] == ',' || data[0] == '>' || data[0] == '+' || data[0] == '~') {
+			skipWS = true
+		} else if p.prevWS && !skipWS && !inAttrSel {
+			p.pushBuf(WhitespaceToken, wsBytes)
+		} else {
+			skipWS = false
+		}
+		if tt == LeftBracketToken {
+			inAttrSel = true
+		} else if tt == RightBracketToken {
+			inAttrSel = false
+		}
+		p.pushBuf(tt, data)
 	}
-	return p.parseComponent()
 }
 
 func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
-		p.nextToken()
+		p.tt, p.data = p.popToken()
 	}
 	if p.tt == RightBraceToken || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
@@ -362,96 +366,32 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseDeclaration() GrammarType {
-	if p.tt != ColonToken {
+	p.initBuf()
+	parse.ToLower(p.data)
+	if tt, _ := p.popToken(); tt != ColonToken {
 		p.err = errors.New("unexpected token for declaration colon: " + p.tt.String())
 		return ErrorGrammar
 	}
-	p.state[len(p.state)-1] = p.parseDeclarationValuesSkipWhitespace
-	return BeginValuesGrammar
-}
-
-func (p *Parser) parseDeclarationValuesSkipWhitespace() GrammarType {
-	p.prevWS = false
-	p.state[len(p.state)-1] = p.parseDeclarationValues
-	return p.parseDeclarationValues()
-}
-
-func (p *Parser) parseDeclarationValues() GrammarType {
-	if p.tt == SemicolonToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndValuesGrammar
-	} else if p.tt == RightBraceToken {
-		p.state = p.state[:len(p.state)-1]
-		p.reconsume = true
-		return EndValuesGrammar
-	} else if p.tt == DelimToken && p.data[0] == '!' {
-		p.state[len(p.state)-1] = p.parseDeclarationValuesImportant
-	} else if p.prevWS {
-		p.reconsume = true
-		return WhitespaceGrammar
+	level := 0
+	skipWS := true
+	for {
+		tt, data := p.popToken()
+		if (tt == SemicolonToken || tt == RightBraceToken) && level == 0 {
+			return DeclarationGrammar
+		} else if tt == ErrorToken {
+			return DeclarationGrammar
+		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
+			level++
+		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			level--
+		}
+		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+			skipWS = true
+		} else if p.prevWS && !skipWS {
+			p.pushBuf(WhitespaceToken, wsBytes)
+		} else {
+			skipWS = false
+		}
+		p.pushBuf(tt, data)
 	}
-	return p.parseComponent()
-}
-
-func (p *Parser) parseDeclarationValuesImportant() GrammarType {
-	p.state[len(p.state)-1] = p.parseDeclarationValues
-	if p.tt == IdentToken && ToHash(p.data) == Important {
-		return TokenGrammar
-	}
-	return p.parseDeclarationValues()
-}
-
-func (p *Parser) parseComponent() GrammarType {
-	if p.prevWS {
-		p.reconsume = true
-		return WhitespaceGrammar
-	} else if p.tt == LeftParenthesisToken {
-		p.state = append(p.state, p.parseParenthesisBlock)
-		return BeginBlockGrammar
-	} else if p.tt == LeftBraceToken {
-		p.state = append(p.state, p.parseBraceBlock)
-		return BeginBlockGrammar
-	} else if p.tt == LeftBracketToken {
-		p.state = append(p.state, p.parseBracketBlock)
-		return BeginBlockGrammar
-	} else if p.tt == FunctionToken {
-		p.state = append(p.state, p.parseFunction)
-		return BeginFunctionGrammar
-	} else if p.tt == ErrorToken {
-		return ErrorGrammar
-	} else {
-		return TokenGrammar
-	}
-}
-
-func (p *Parser) parseParenthesisBlock() GrammarType {
-	if !p.prevWS && p.tt == RightParenthesisToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndBlockGrammar
-	}
-	return p.parseComponent()
-}
-
-func (p *Parser) parseBraceBlock() GrammarType {
-	if !p.prevWS && p.tt == RightBraceToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndBlockGrammar
-	}
-	return p.parseComponent()
-}
-
-func (p *Parser) parseBracketBlock() GrammarType {
-	if !p.prevWS && p.tt == RightBracketToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndBlockGrammar
-	}
-	return p.parseComponent()
-}
-
-func (p *Parser) parseFunction() GrammarType {
-	if !p.prevWS && p.tt == RightParenthesisToken {
-		p.state = p.state[:len(p.state)-1]
-		return EndFunctionGrammar
-	}
-	return p.parseComponent()
 }
