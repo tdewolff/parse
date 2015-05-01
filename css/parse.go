@@ -58,6 +58,7 @@ Parser using example:
 package css // import "github.com/tdewolff/parse/css"
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
@@ -135,6 +136,7 @@ type Parser struct {
 	tt     TokenType
 	data   []byte
 	prevWS bool
+	level  int
 }
 
 func NewParser(r io.Reader, isStylesheet bool) *Parser {
@@ -248,28 +250,31 @@ func (p *Parser) parseDeclarationList() GrammarType {
 func (p *Parser) parseAtRule() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
+	if len(p.data) > 0 && p.data[1] == '-' {
+		if i := bytes.IndexByte(p.data[2:], '-'); i != -1 {
+			p.data = p.data[i+3:] // skip vendor specific prefix
+		}
+	}
 	atRule := ToHash(p.data[1:])
 	first := true
-	level := 0
 	skipWS := false
 	for {
 		tt, data := p.popToken()
-		if tt == LeftBraceToken && level == 0 {
+		if tt == LeftBraceToken && p.level == 0 {
 			if atRule == Font_Face || atRule == Page {
 				p.state = append(p.state, p.parseAtRuleDeclarationList)
 			} else if atRule == Document || atRule == Keyframes || atRule == Media || atRule == Supports {
 				p.state = append(p.state, p.parseAtRuleRuleList)
 			} else {
-				p.err = errors.New("unknown at-rule '" + string(p.data) + "' with block")
-				return ErrorGrammar
+				p.state = append(p.state, p.parseAtRuleUnknown)
 			}
 			return BeginAtRuleGrammar
-		} else if tt == SemicolonToken && level == 0 || tt == ErrorToken {
+		} else if tt == SemicolonToken && p.level == 0 || tt == ErrorToken {
 			return AtRuleGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
-			level++
+			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
-			level--
+			p.level--
 		}
 		if first {
 			if tt == LeftParenthesisToken || tt == LeftBracketToken {
@@ -310,11 +315,23 @@ func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 	return p.parseDeclarationList()
 }
 
+func (p *Parser) parseAtRuleUnknown() GrammarType {
+	if p.level == 0 && p.tt == RightBraceToken || p.tt == ErrorToken {
+		p.state = p.state[:len(p.state)-1]
+		return EndAtRuleGrammar
+	}
+	if p.tt == LeftParenthesisToken || p.tt == LeftBraceToken || p.tt == LeftBracketToken || p.tt == FunctionToken {
+		p.level++
+	} else if p.tt == RightParenthesisToken || p.tt == RightBraceToken || p.tt == RightBracketToken {
+		p.level--
+	}
+	return TokenGrammar
+}
+
 func (p *Parser) parseQualifiedRule() GrammarType {
 	p.initBuf()
 	first := true
 	inAttrSel := false
-	level := 0
 	skipWS := true
 	var tt TokenType
 	var data []byte
@@ -327,16 +344,16 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 		} else {
 			tt, data = p.popToken()
 		}
-		if tt == LeftBraceToken && level == 0 {
+		if tt == LeftBraceToken && p.level == 0 {
 			p.state = append(p.state, p.parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
 			p.err = errors.New("unexpected error in qualified rule '" + String(p.buf) + "' before encountering '{'")
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
-			level++
+			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
-			level--
+			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '>' || data[0] == '+' || data[0] == '~') {
 			skipWS = true
@@ -372,18 +389,17 @@ func (p *Parser) parseDeclaration() GrammarType {
 		p.err = errors.New("unexpected token for declaration colon: " + p.tt.String())
 		return ErrorGrammar
 	}
-	level := 0
 	skipWS := true
 	for {
 		tt, data := p.popToken()
-		if (tt == SemicolonToken || tt == RightBraceToken) && level == 0 {
+		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 {
 			return DeclarationGrammar
 		} else if tt == ErrorToken {
 			return DeclarationGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
-			level++
+			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
-			level--
+			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
 			skipWS = true
