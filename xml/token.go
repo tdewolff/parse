@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/tdewolff/buffer"
-	"github.com/tdewolff/parse"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -221,7 +220,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 	}
 	nameEnd := z.r.Pos()
 	z.moveWhitespace() // before attribute name state
-	return parse.ToLower(z.r.Shift()[:nameEnd])
+	return z.r.Shift()[:nameEnd]
 }
 
 func (z *Tokenizer) shiftAttribute() []byte {
@@ -261,7 +260,7 @@ func (z *Tokenizer) shiftAttribute() []byte {
 	} else {
 		z.attrVal = nil
 	}
-	return parse.ToLower(z.r.Shift()[:nameEnd])
+	return z.r.Shift()[:nameEnd]
 }
 
 func (z *Tokenizer) shiftEndTag() []byte {
@@ -270,7 +269,7 @@ func (z *Tokenizer) shiftEndTag() []byte {
 		if c == 0 {
 			return z.r.Shift()
 		} else if c == '>' {
-			name := parse.ToLower(z.r.Shift())
+			name := z.r.Shift()
 			z.r.Move(1)
 			z.r.Skip()
 			return name
