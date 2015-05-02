@@ -68,6 +68,7 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "<!-- comment -->", CommentToken)
 	assertTokens(t, "<p>text</p>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
 	assertTokens(t, "<input type='button'/>", StartTagToken, AttributeToken, StartTagVoidToken)
+	assertTokens(t, "<input  type='button'  value=''/>", StartTagToken, AttributeToken, AttributeToken, StartTagVoidToken)
 	assertTokens(t, "<input type='=/>' \r\n\t\f value=\"'\" name=x checked />", StartTagToken, AttributeToken, AttributeToken, AttributeToken, AttributeToken, StartTagVoidToken)
 	assertTokens(t, "<!doctype html>", DoctypeToken)
 	assertTokens(t, "<?bogus>", CommentToken)
