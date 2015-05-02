@@ -184,9 +184,10 @@ func (z *Tokenizer) shiftDOCTYPEText() []byte {
 func (z *Tokenizer) shiftCDATAText() []byte {
 	z.r.Skip()
 	for {
-		if z.r.Peek(0) == 0 {
+		c := z.r.Peek(0)
+		if c == 0 {
 			return z.r.Shift()
-		} else if z.at(']', ']', '>') {
+		} else if c == ']' && z.r.Peek(1) == ']' && z.r.Peek(2) == '>' {
 			cdata := z.r.Shift()
 			z.r.Move(3)
 			z.r.Skip()
@@ -199,9 +200,10 @@ func (z *Tokenizer) shiftCDATAText() []byte {
 func (z *Tokenizer) shiftCommentText() []byte {
 	z.r.Skip()
 	for {
-		if z.r.Peek(0) == 0 {
+		c := z.r.Peek(0)
+		if c == 0 {
 			return z.r.Shift()
-		} else if z.at('-', '-', '>') {
+		} else if c == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
 			comment := z.r.Shift()
 			z.r.Move(3)
 			z.r.Skip()
