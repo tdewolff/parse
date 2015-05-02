@@ -283,15 +283,14 @@ func (z *Tokenizer) consumeStringToken() bool {
 	z.r.Move(1)
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			break
-		} else if c == '"' {
+		if c == '"' {
 			z.r.Move(1)
+			break
+		} else if c == 0 {
 			break
 		} else if c == '\\' {
 			if z.r.Peek(1) != 0 {
-				z.r.Move(2)
-				continue
+				z.r.Move(1)
 			} else {
 				z.r.Move(1)
 				break
