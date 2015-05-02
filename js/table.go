@@ -1,4 +1,4 @@
-package js
+package js // import "github.com/tdewolff/parse/js"
 
 var RegexpStateByte = [128]bool{
 	false,
