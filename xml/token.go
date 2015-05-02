@@ -19,6 +19,7 @@ type TokenType uint32
 const (
 	ErrorToken TokenType = iota // extra token when errors occur
 	CommentToken
+	DOCTYPEToken
 	CDATAToken
 	StartTagToken
 	StartTagCloseToken
@@ -36,6 +37,8 @@ func (tt TokenType) String() string {
 		return "Error"
 	case CommentToken:
 		return "Comment"
+	case DOCTYPEToken:
+		return "DOCTYPE"
 	case CDATAToken:
 		return "CDATA"
 	case StartTagToken:
@@ -129,6 +132,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 				} else if z.at('[', 'C', 'D', 'A', 'T', 'A', '[') {
 					z.r.Move(7)
 					return CDATAToken, z.shiftCDATAText()
+				} else if z.at('D', 'O', 'C', 'T', 'Y', 'P', 'E') {
+					z.r.Move(7)
+					return DOCTYPEToken, z.shiftDOCTYPEText()
 				}
 				z.r.Move(-2)
 			}
@@ -151,6 +157,30 @@ func (z *Tokenizer) AttrVal() []byte {
 /*
 The following functions follow the specifications at http://www.w3.org/html/wg/drafts/html/master/syntax.html
 */
+
+func (z *Tokenizer) shiftDOCTYPEText() []byte {
+	z.r.Skip()
+	inString := false
+	inBrackets := false
+	for {
+		c := z.r.Peek(0)
+		if c == 0 {
+			return z.r.Shift()
+		} else if c == '>' && !inString && !inBrackets {
+			doctype := z.r.Shift()
+			z.r.Move(1)
+			z.r.Skip()
+			return doctype
+		} else if c == '"' {
+			inString = !inString
+		} else if c == '[' {
+			inBrackets = true
+		} else if c == ']' {
+			inBrackets = false
+		}
+		z.r.Move(1)
+	}
+}
 
 func (z *Tokenizer) shiftCDATAText() []byte {
 	z.r.Skip()
