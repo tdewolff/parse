@@ -74,7 +74,7 @@ func Trim(b []byte, f func(byte) bool) []byte {
 		}
 	}
 	end := n
-	for i := n - 1; i > start; i-- {
+	for i := n - 1; i >= start; i-- {
 		if !f(b[i]) {
 			end = i + 1
 			break

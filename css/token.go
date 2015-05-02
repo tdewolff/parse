@@ -737,17 +737,17 @@ func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
 			i := 0
 			for j, c := range uri {
 				if c == '=' || c == ';' || c == ',' {
-					if c != '=' && parse.Equal(bytes.TrimSpace(uri[i:j]), []byte("base64")) {
+					if c != '=' && parse.Equal(parse.Trim(uri[i:j], parse.IsWhitespace), []byte("base64")) {
 						if len(mediatype) > 0 {
 							mediatype = mediatype[:len(mediatype)-1]
 						}
 						inBase64 = true
 						i = j
 					} else if c != ',' {
-						mediatype = append(append(mediatype, bytes.TrimSpace(uri[i:j])...), c)
+						mediatype = append(append(mediatype, parse.Trim(uri[i:j], parse.IsWhitespace)...), c)
 						i = j + 1
 					} else {
-						mediatype = append(mediatype, bytes.TrimSpace(uri[i:j])...)
+						mediatype = append(mediatype, parse.Trim(uri[i:j], parse.IsWhitespace)...)
 					}
 					if c == ',' {
 						if len(mediatype) == 0 || mediatype[0] == ';' {
