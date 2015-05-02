@@ -50,11 +50,12 @@ func helperStringify(t *testing.T, input string) string {
 ////////////////////////////////////////////////////////////////
 
 func TestTokenizer(t *testing.T) {
-	assertTokens(t, "<?xml?>", StartTagToken, StartTagClosePIToken, EndTagToken)
+	assertTokens(t, "<?xml?>", StartTagPIToken, StartTagClosePIToken)
 	assertTokens(t, "<img/>", StartTagToken, StartTagCloseVoidToken)
 	assertTokens(t, "<!-- comment -->", CommentToken)
 	assertTokens(t, "<p>text</p>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
-	assertTokens(t, "<input type='button'/>", StartTagToken, AttributeToken, StartTagVoidToken)
-	assertTokens(t, "<input type='=/>' \r\n\t\f value=\"'\" name=x checked />", StartTagToken, AttributeToken, AttributeToken, AttributeToken, AttributeToken, StartTagVoidToken)
+	assertTokens(t, "<input type='button'/>", StartTagToken, AttributeToken, StartTagCloseVoidToken)
+	assertTokens(t, "<input  type \n value=''/>", StartTagToken, AttributeToken, AttributeToken, StartTagCloseVoidToken)
+	assertTokens(t, "<input type='=/>' \r\n\t value=\"'\" name=x checked />", StartTagToken, AttributeToken, AttributeToken, AttributeToken, AttributeToken, StartTagCloseVoidToken)
 	assertTokens(t, "<![CDATA[ test ]]>", CDATAToken)
 }

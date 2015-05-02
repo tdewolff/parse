@@ -1,7 +1,5 @@
 package xml // import "github.com/tdewolff/parse/xml"
 
-// TODO: optimize
-
 import (
 	"io"
 	"strconv"
@@ -21,6 +19,7 @@ const (
 	DOCTYPEToken
 	CDATAToken
 	StartTagToken
+	StartTagPIToken
 	StartTagCloseToken
 	StartTagCloseVoidToken
 	StartTagClosePIToken
@@ -42,6 +41,8 @@ func (tt TokenType) String() string {
 		return "CDATA"
 	case StartTagToken:
 		return "StartTag"
+	case StartTagPIToken:
+		return "StartTagPI"
 	case StartTagCloseToken:
 		return "StartTagClose"
 	case StartTagCloseVoidToken:
@@ -136,9 +137,12 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 					return DOCTYPEToken, z.shiftDOCTYPEText()
 				}
 				z.r.Move(-2)
+			} else if c == '?' {
+				z.r.Move(2)
+				z.inTag = true
+				return StartTagPIToken, z.shiftStartTag()
 			}
 			z.r.Move(1)
-			z.r.Skip()
 			z.inTag = true
 			return StartTagToken, z.shiftStartTag()
 		}
@@ -214,8 +218,9 @@ func (z *Tokenizer) shiftCommentText() []byte {
 }
 
 func (z *Tokenizer) shiftStartTag() []byte {
+	z.r.Skip()
 	for {
-		if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -227,7 +232,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 
 func (z *Tokenizer) shiftAttribute() []byte {
 	for { // attribute name state
-		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -250,7 +255,7 @@ func (z *Tokenizer) shiftAttribute() []byte {
 			z.r.Move(1)
 		} else { // attribute value unquoted state
 			for {
-				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
+				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 					break
 				}
 				z.r.Move(1)
