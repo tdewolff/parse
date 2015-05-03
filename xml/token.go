@@ -92,7 +92,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	if z.inTag {
 		z.attrVal = nil
 		c = z.r.Peek(0)
-		if c != '>' && (c != '/' && c != '?' || z.r.Peek(1) != '>') {
+		if c == 0 {
+			return ErrorToken, []byte{}
+		} else if c != '>' && (c != '/' && c != '?' || z.r.Peek(1) != '>') {
 			return AttributeToken, z.shiftAttribute()
 		}
 		z.inTag = false
@@ -110,12 +112,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 
 	for {
 		c = z.r.Peek(0)
-		if c == 0 {
-			if z.r.Pos() > 0 {
-				return TextToken, z.r.Shift()
-			}
-			return ErrorToken, []byte{}
-		} else if c == '<' {
+		if c == '<' {
 			if z.r.Pos() > 0 {
 				return TextToken, z.r.Shift()
 			}
@@ -133,7 +130,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 					z.r.Move(7)
 					return CDATAToken, z.shiftCDATAText()
 				} else if z.at('D', 'O', 'C', 'T', 'Y', 'P', 'E') {
-					z.r.Move(7)
+					z.r.Move(8)
 					return DOCTYPEToken, z.shiftDOCTYPEText()
 				}
 				z.r.Move(-2)
@@ -145,10 +142,14 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 			z.r.Move(1)
 			z.inTag = true
 			return StartTagToken, z.shiftStartTag()
+		} else if c == 0 {
+			if z.r.Pos() > 0 {
+				return TextToken, z.r.Shift()
+			}
+			return ErrorToken, []byte{}
 		}
 		z.r.Move(1)
 	}
-	return ErrorToken, []byte{}
 }
 
 func (z *Tokenizer) AttrVal() []byte {
@@ -167,19 +168,17 @@ func (z *Tokenizer) shiftDOCTYPEText() []byte {
 	inBrackets := false
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			return z.r.Shift()
+		if c == '"' {
+			inString = !inString
+		} else if (c == '[' || c == ']') && !inString {
+			inBrackets = (c == '[')
 		} else if c == '>' && !inString && !inBrackets {
 			doctype := z.r.Shift()
 			z.r.Move(1)
 			z.r.Skip()
 			return doctype
-		} else if c == '"' {
-			inString = !inString
-		} else if c == '[' {
-			inBrackets = true
-		} else if c == ']' {
-			inBrackets = false
+		} else if c == 0 {
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
@@ -189,13 +188,13 @@ func (z *Tokenizer) shiftCDATAText() []byte {
 	z.r.Skip()
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			return z.r.Shift()
-		} else if c == ']' && z.r.Peek(1) == ']' && z.r.Peek(2) == '>' {
+		if c == ']' && z.r.Peek(1) == ']' && z.r.Peek(2) == '>' {
 			cdata := z.r.Shift()
 			z.r.Move(3)
 			z.r.Skip()
 			return cdata
+		} else if c == 0 {
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
@@ -205,13 +204,13 @@ func (z *Tokenizer) shiftCommentText() []byte {
 	z.r.Skip()
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			return z.r.Shift()
-		} else if c == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
+		if c == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
 			comment := z.r.Shift()
 			z.r.Move(3)
 			z.r.Skip()
 			return comment
+		} else if c == 0 {
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
@@ -232,7 +231,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 
 func (z *Tokenizer) shiftAttribute() []byte {
 	for { // attribute name state
-		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -247,15 +246,21 @@ func (z *Tokenizer) shiftAttribute() []byte {
 		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
 			z.r.Move(1)
 			for {
-				if z.r.Peek(0) == delim {
+				c := z.r.Peek(0)
+				if c == delim {
+					z.r.Move(1)
+					break
+				} else if c == 0 {
 					break
 				}
 				z.r.Move(1)
+				if c == '\t' || c == '\n' || c == '\r' {
+					z.r.Bytes()[z.r.Pos()-1] = ' '
+				}
 			}
-			z.r.Move(1)
 		} else { // attribute value unquoted state
 			for {
-				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 					break
 				}
 				z.r.Move(1)
@@ -273,13 +278,13 @@ func (z *Tokenizer) shiftAttribute() []byte {
 func (z *Tokenizer) shiftEndTag() []byte {
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			return z.r.Shift()
-		} else if c == '>' {
+		if c == '>' {
 			name := z.r.Shift()
 			z.r.Move(1)
 			z.r.Skip()
 			return name
+		} else if c == 0 {
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
