@@ -66,7 +66,7 @@ func IsAllWhitespace(b []byte) bool {
 // Trim removes any character from the front and the end that matches the function.
 func Trim(b []byte, f func(byte) bool) []byte {
 	n := len(b)
-	start := 0
+	start := n
 	for i := 0; i < n; i++ {
 		if !f(b[i]) {
 			start = i

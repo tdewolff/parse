@@ -21,12 +21,6 @@ func helperRand(n, m int, chars []byte) [][]byte {
 
 ////////////////////////////////////////////////////////////////
 
-var wsSlices [][]byte
-
-func TestMain(t *testing.T) {
-	wsSlices = helperRand(100, 20, []byte("abcdefg \n\r\f\t"))
-}
-
 func TestReplaceMultipleWhitespace(t *testing.T) {
 	multipleWhitespaceRegexp := regexp.MustCompile("\\s+")
 	for _, e := range wsSlices {
@@ -45,6 +39,15 @@ func TestTrim(t *testing.T) {
 	assert.Equal(t, "a", string(Trim([]byte("a"), IsWhitespace)))
 	assert.Equal(t, "a", string(Trim([]byte(" a"), IsWhitespace)))
 	assert.Equal(t, "a", string(Trim([]byte("a "), IsWhitespace)))
+	assert.Equal(t, "", string(Trim([]byte(" "), IsWhitespace)))
+}
+
+////////////////////////////////////////////////////////////////
+
+var wsSlices [][]byte
+
+func TestMain(t *testing.T) {
+	wsSlices = helperRand(100, 20, []byte("abcdefg \n\r\f\t"))
 }
 
 func BenchmarkBytesTrim(b *testing.B) {
