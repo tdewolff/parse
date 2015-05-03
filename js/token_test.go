@@ -11,24 +11,22 @@ import (
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
+	stringify := helperStringify(t, s)
 	z := NewTokenizer(bytes.NewBufferString(s))
+	assert.True(t, z.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+helperStringify(t, s))
-			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+helperStringify(t, s))
+			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		}
-		if i >= len(tokentypes) {
-			assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+helperStringify(t, s))
-			break
-		}
-		if tt != tokentypes[i] {
-			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+helperStringify(t, s))
-			break
+		assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+stringify)
+		if i < len(tokentypes) {
+			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+stringify)
 		}
 		i++
 	}
@@ -36,17 +34,17 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 }
 
 func helperStringify(t *testing.T, input string) string {
-	s := "\n["
+	s := ""
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
 		tt, text := z.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')]"
+			s += tt.String() + "('" + z.Err().Error() + "')"
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		} else {
-			s += tt.String() + "('" + string(text) + "'), "
+			s += tt.String() + "('" + string(text) + "') "
 		}
 	}
 	return s
@@ -54,7 +52,7 @@ func helperStringify(t *testing.T, input string) string {
 
 ////////////////////////////////////////////////////////////////
 
-func TestTokenizer(t *testing.T) {
+func TestTokens(t *testing.T) {
 	assertTokens(t, " \t\v\f\u00A0\uFEFF\u2000") // WhitespaceToken
 	assertTokens(t, "\n\r\r\n\u2028\u2029", LineTerminatorToken)
 	assertTokens(t, "5.2 .4 0x0F 5e9", NumericToken, NumericToken, NumericToken, NumericToken)
@@ -87,4 +85,7 @@ func TestTokenizer(t *testing.T) {
 	// small buffer
 	buffer.MinBuf = 2
 	assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)
+
+	assert.Equal(t, "Whitespace", WhitespaceToken.String())
+	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }

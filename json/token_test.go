@@ -12,6 +12,7 @@ import (
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	z := NewTokenizer(bytes.NewBufferString(s))
+	assert.True(t, z.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
 		tt, _ := z.Next()
@@ -34,7 +35,6 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 func assertTokensError(t *testing.T, input string, expected error) {
 	stringify := helperStringify(t, input)
 	z := NewTokenizer(bytes.NewBufferString(input))
-	assert.True(t, z.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
 	for {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
