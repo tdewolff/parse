@@ -219,7 +219,7 @@ func (z *Tokenizer) shiftCommentText() []byte {
 func (z *Tokenizer) shiftStartTag() []byte {
 	z.r.Skip()
 	for {
-		if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && z.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -231,7 +231,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 
 func (z *Tokenizer) shiftAttribute() []byte {
 	for { // attribute name state
-		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || (c == '/' || c == '?') && z.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -260,7 +260,7 @@ func (z *Tokenizer) shiftAttribute() []byte {
 			}
 		} else { // attribute value unquoted state
 			for {
-				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '?' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+				if c := z.r.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && z.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 					break
 				}
 				z.r.Move(1)

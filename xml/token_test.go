@@ -68,17 +68,17 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 }
 
 func helperStringify(t *testing.T, input string) string {
-	s := "\n["
+	s := ""
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
 		tt, text := z.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')]"
+			s += tt.String() + "('" + z.Err().Error() + "')"
 			break
 		} else if tt == AttributeToken {
-			s += tt.String() + "('" + string(text) + "=" + string(z.AttrVal()) + "'), "
+			s += tt.String() + "('" + string(text) + "=" + string(z.AttrVal()) + "') "
 		} else {
-			s += tt.String() + "('" + string(text) + "'), "
+			s += tt.String() + "('" + string(text) + "') "
 		}
 	}
 	return s
@@ -105,6 +105,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<?xml a=\"a\" ?>", StartTagPIToken, AttributeToken, StartTagClosePIToken)
 	assertTokens(t, "<?xml a=a?>", StartTagPIToken, AttributeToken, StartTagClosePIToken)
 	assertTokens(t, "<![CDATA[ test ]]>", CDATAToken)
+	assertTokens(t, "<!DOCTYPE>", DOCTYPEToken)
 	assertTokens(t, "<!DOCTYPE note SYSTEM \"Note.dtd\">", DOCTYPEToken)
 	assertTokens(t, `<!DOCTYPE note [<!ENTITY nbsp "&#xA0;"><!ENTITY writer "Writer: Donald Duck."><!ENTITY copyright "Copyright:]> W3Schools.">]>`, DOCTYPEToken)
 	assertTokens(t, "<!foo>", StartTagToken, StartTagCloseToken)
@@ -127,6 +128,7 @@ func TestTokens(t *testing.T) {
 func TestTags(t *testing.T) {
 	assertTags(t, "<foo:bar.qux-norf/>", "foo:bar.qux-norf")
 	assertTags(t, "<?xml?>", "xml")
+	assertTags(t, "<foo?bar/qux>", "foo?bar/qux")
 	assertTags(t, "<!DOCTYPE note SYSTEM \"Note.dtd\">", "note SYSTEM \"Note.dtd\"")
 
 	// early endings
@@ -138,6 +140,7 @@ func TestAttributes(t *testing.T) {
 	assertAttributes(t, "<foo \nchecked \r\n value\r=\t'=/>\"' />", "checked", "", "value", "'=/>\"'")
 	assertAttributes(t, "<foo bar=\" a \n\t\r b \" />", "bar", "\" a     b \"")
 	assertAttributes(t, "<?xml a=b?>", "a", "b")
+	assertAttributes(t, "<foo /=? >", "/", "?")
 
 	// early endings
 	assertAttributes(t, "<foo x", "x", "")
