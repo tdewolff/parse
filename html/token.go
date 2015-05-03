@@ -85,7 +85,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	if z.inTag {
 		z.attrVal = nil
 		c = z.r.Peek(0)
-		if c != '>' && c != '/' {
+		if c == 0 {
+			return ErrorToken, []byte{}
+		} else if c != '>' && (c != '/' || z.r.Peek(1) != '>') {
 			return AttributeToken, z.shiftAttribute()
 		}
 		z.inTag = false
@@ -108,13 +110,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 
 	for {
 		c = z.r.Peek(0)
-		if c == 0 {
-			if z.r.Pos() > 0 {
-				return TextToken, z.r.Shift()
-			} else {
-				return ErrorToken, []byte{}
-			}
-		} else if c == '<' {
+		if c == '<' {
 			c = z.r.Peek(1)
 			if z.r.Pos() > 0 {
 				if c == '/' && z.r.Peek(2) != 0 || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
@@ -140,6 +136,12 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 				z.r.Move(1)
 				z.r.Skip()
 				return CommentToken, z.shiftBogusComment()
+			}
+		} else if c == 0 {
+			if z.r.Pos() > 0 {
+				return TextToken, z.r.Shift()
+			} else {
+				return ErrorToken, []byte{}
 			}
 		}
 		z.r.Move(1)
@@ -172,9 +174,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 	} else { // RCDATA, RAWTEXT and SCRIPT
 		for {
 			c := z.r.Peek(0)
-			if c == 0 {
-				return z.r.Shift()
-			} else if c == '<' {
+			if c == '<' {
 				if z.r.Peek(1) == '/' {
 					nPos := z.r.Pos()
 					z.r.Move(2)
@@ -221,12 +221,16 @@ func (z *Tokenizer) shiftRawText() []byte {
 									inScript = false
 								}
 							}
+						} else if c == 0 {
+							return z.r.Shift()
 						}
 						z.r.Move(1)
 					}
 				} else {
 					z.r.Move(1)
 				}
+			} else if c == 0 {
+				return z.r.Shift()
 			} else {
 				z.r.Move(1)
 			}
@@ -269,6 +273,10 @@ func (z *Tokenizer) readMarkup() (TokenType, []byte) {
 		z.r.Skip()
 		if z.atCaseInsensitive('d', 'o', 'c', 't', 'y', 'p', 'e') {
 			z.r.Move(7)
+			if z.r.Peek(0) == ' ' {
+				z.r.Move(1)
+			}
+			z.r.Skip()
 			for {
 				if c := z.r.Peek(0); c == '>' || c == 0 {
 					doctype := z.r.Shift()
@@ -298,7 +306,7 @@ func (z *Tokenizer) shiftBogusComment() []byte {
 
 func (z *Tokenizer) shiftStartTag() []byte {
 	for {
-		if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '>' || c == '/' && z.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -314,7 +322,7 @@ func (z *Tokenizer) shiftStartTag() []byte {
 
 func (z *Tokenizer) shiftAttribute() []byte {
 	for { // attribute name state
-		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
+		if c := z.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' && z.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
 			break
 		}
 		z.r.Move(1)
@@ -329,12 +337,15 @@ func (z *Tokenizer) shiftAttribute() []byte {
 		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
 			z.r.Move(1)
 			for {
-				if z.r.Peek(0) == delim {
+				c := z.r.Peek(0)
+				if c == delim {
+					z.r.Move(1)
+					break
+				} else if c == 0 {
 					break
 				}
 				z.r.Move(1)
 			}
-			z.r.Move(1)
 		} else { // attribute value unquoted state
 			for {
 				if c := z.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
@@ -355,13 +366,13 @@ func (z *Tokenizer) shiftAttribute() []byte {
 func (z *Tokenizer) shiftEndTag() []byte {
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			return z.r.Shift()
-		} else if c == '>' {
+		if c == '>' {
 			name := parse.ToLower(z.r.Shift())
 			z.r.Move(1)
 			z.r.Skip()
 			return name
+		} else if c == 0 {
+			return z.r.Shift()
 		}
 		z.r.Move(1)
 	}
@@ -369,8 +380,7 @@ func (z *Tokenizer) shiftEndTag() []byte {
 
 func (z *Tokenizer) moveWhitespace() {
 	for {
-		c := z.r.Peek(0)
-		if c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' || c == 0 {
+		if c := z.r.Peek(0); c != ' ' && c != '\t' && c != '\n' && c != '\r' && c != '\f' || c == 0 {
 			break
 		}
 		z.r.Move(1)
