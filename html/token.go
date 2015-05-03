@@ -146,15 +146,10 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		}
 		z.r.Move(1)
 	}
-	return ErrorToken, []byte{}
 }
 
 func (z *Tokenizer) AttrVal() []byte {
 	return z.attrVal
-}
-
-func (z *Tokenizer) RawTag() Hash {
-	return z.rawTag
 }
 
 ////////////////////////////////////////////////////////////////

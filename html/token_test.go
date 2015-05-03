@@ -91,6 +91,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<html></html>", StartTagToken, StartTagCloseToken, EndTagToken)
 	assertTokens(t, "<img/>", StartTagToken, StartTagVoidToken)
 	assertTokens(t, "<!-- comment -->", CommentToken)
+	assertTokens(t, "<!-- comment --!>", CommentToken)
 	assertTokens(t, "<p>text</p>", StartTagToken, StartTagCloseToken, TextToken, EndTagToken)
 	assertTokens(t, "<input type='button'/>", StartTagToken, AttributeToken, StartTagVoidToken)
 	assertTokens(t, "<input  type='button'  value=''/>", StartTagToken, AttributeToken, AttributeToken, StartTagVoidToken)
@@ -99,6 +100,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<!doctype html>", DoctypeToken)
 	assertTokens(t, "<?bogus>", CommentToken)
 	assertTokens(t, "</0bogus>", CommentToken)
+	assertTokens(t, "<!bogus>", CommentToken)
 	assertTokens(t, "< ", TextToken)
 	assertTokens(t, "</", TextToken)
 
@@ -122,12 +124,15 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<foo x='", StartTagToken, AttributeToken)
 	assertTokens(t, "<foo x=''", StartTagToken, AttributeToken)
 	assertTokens(t, "<!DOCTYPE note SYSTEM", DoctypeToken)
+	assertTokens(t, "<![CDATA[ test", TextToken)
 	assertTokens(t, "<script>", StartTagToken, StartTagCloseToken)
 	assertTokens(t, "<script><!--", StartTagToken, StartTagCloseToken, TextToken)
 	assertTokens(t, "<script><!--var x='<script></script>';-->", StartTagToken, StartTagCloseToken, TextToken)
 
 	buffer.MinBuf = 4
 	assert.Equal(t, "StartTag('ab') StartTagClose('>') Error('EOF')", helperStringify(t, "<ab   >"), "buffer reallocation must keep tagname valid")
+
+	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }
 
 func TestTags(t *testing.T) {

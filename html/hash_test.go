@@ -8,9 +8,11 @@ import (
 )
 
 func TestHashTable(t *testing.T) {
-	assert.Equal(t, ToHash([]byte("address")), Address, "'address' must resolve to hash.Address")
-	assert.Equal(t, "address", Address.String(), "hash.Address must resolve to 'address'")
-	assert.Equal(t, "accept-charset", Accept_Charset.String(), "hash.Accept_Charset must resolve to 'accept-charset'")
+	assert.Equal(t, Address, ToHash([]byte("address")), "'address' must resolve to Address")
+	assert.Equal(t, "address", Address.String(), "Address must resolve to 'address'")
+	assert.Equal(t, "accept-charset", Accept_Charset.String(), "Accept_Charset must resolve to 'accept-charset'")
+	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
+	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
 }
 
 ////////////////////////////////////////////////////////////////
