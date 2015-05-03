@@ -377,16 +377,11 @@ func (z *Tokenizer) consumeIdentToken() bool {
 			z.r.Move(1)
 		}
 	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
-	}
 	return true
 }
 
 func (z *Tokenizer) consumeAtKeywordToken() bool {
-	// if z.r.Peek(0) != '@' {
-	// 	return false
-	// }
+	// expect to be on an '@'
 	z.r.Move(1)
 	if !z.consumeIdentToken() {
 		z.r.Move(-1)
@@ -396,9 +391,7 @@ func (z *Tokenizer) consumeAtKeywordToken() bool {
 }
 
 func (z *Tokenizer) consumeHashToken() bool {
-	// if z.r.Peek(0) != '#' {
-	// 	return false
-	// }
+	// expect to be on a '#'
 	nOld := z.r.Pos()
 	z.r.Move(1)
 	c := z.r.Peek(0)
@@ -636,9 +629,6 @@ func (z *Tokenizer) consumeString() TokenType {
 			z.r.Move(1)
 		}
 	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return ErrorToken
-	}
 	return StringToken
 }
 
@@ -660,9 +650,6 @@ func (z *Tokenizer) consumeUnquotedURL() bool {
 		} else {
 			z.r.Move(1)
 		}
-	}
-	if err := z.Err(); err != nil && err != io.EOF {
-		return false
 	}
 	return true
 }

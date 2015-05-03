@@ -21,10 +21,10 @@ func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
 			}
 			break
 		} else if gt == AtRuleGrammar || gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar || gt == DeclarationGrammar {
+			data = parse.Copy(data)
 			if gt == DeclarationGrammar {
 				data = append(data, ":"...)
 			}
-			data = parse.Copy(data)
 			for _, val := range p.Values() {
 				data = append(data, val.Data...)
 			}
@@ -37,6 +37,17 @@ func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
 		output += string(data)
 	}
 	assert.Equal(t, expected, output, "parsed string must match expected result in "+input)
+}
+
+func assertParseError(t *testing.T, isStylesheet bool, input string, expected error) {
+	p := NewParser(bytes.NewBufferString(input), isStylesheet)
+	for {
+		gt, _, _ := p.Next()
+		if gt == ErrorGrammar {
+			assert.Equal(t, expected, p.Err(), "parser must return error '"+expected.Error()+"' in "+input)
+			break
+		}
+	}
 }
 
 func TestParser(t *testing.T) {
@@ -57,18 +68,24 @@ func TestParser(t *testing.T) {
 	assertParse(t, false, "color: linear-gradient(to right, black, white);", "color:linear-gradient(to right,black,white);")
 	assertParse(t, false, "color: calc(100%/2 - 1em);", "color:calc(100%/2 - 1em);")
 	assertParse(t, false, "color: calc(100%/2--1em);", "color:calc(100%/2--1em);")
+	assertParse(t, true, "<!-- @charset; -->", "<!--@charset;-->")
 	assertParse(t, true, "@media print, screen { }", "@media print,screen{}")
 	assertParse(t, true, "@media { @viewport ; }", "@media{@viewport;}")
 	assertParse(t, true, "@keyframes 'diagonal-slide' {  from { left: 0; top: 0; } to { left: 100px; top: 100px; } }", "@keyframes 'diagonal-slide'{from{left:0;top:0;}to{left:100px;top:100px;}}")
 	assertParse(t, true, "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}", "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}")
 	assertParse(t, true, ".foo { color: #fff;}", ".foo{color:#fff;}")
-	assertParse(t, true, ".foo { *color: #fff;}", ".foo{}")
-	assertParse(t, true, ".foo { _color: #fff;}", ".foo{_color:#fff;}")
+	assertParse(t, true, ".foo { *color: #fff;}", ".foo{*color:#fff;}")
+	assertParse(t, true, ".foo { ; _color: #fff;}", ".foo{_color:#fff;}")
 	assertParse(t, true, "a { color: red; border: 0; }", "a{color:red;border:0;}")
 	assertParse(t, true, "a { color: red; border: 0; } b { padding: 0; }", "a{color:red;border:0;}b{padding:0;}")
 
 	// extraordinary
 	assertParse(t, false, "color: red;;", "color:red;")
+	assertParse(t, false, "color:#c0c0c0", "color:#c0c0c0;")
+	assertParse(t, false, "background:URL(x.png);", "background:URL(x.png);")
+	assertParse(t, false, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);")
+	assertParse(t, false, "/*a*/\n/*c*/\nkey: value;", "key:value;")
+	assertParse(t, false, "@-moz-charset;", "@-moz-charset;")
 	assertParse(t, true, "@import;@import;", "@import;@import;")
 	assertParse(t, true, ".a .b#c, .d<.e { x:y; }", ".a .b#c,.d<.e{x:y;}")
 	assertParse(t, true, ".a[b~=c]d { x:y; }", ".a[b~=c]d{x:y;}")
@@ -79,22 +96,28 @@ func TestParser(t *testing.T) {
 	assertParse(t, true, "a{x:; z:q;}", "a{x:;z:q;}")
 	assertParse(t, true, "@font-face { x:y; }", "@font-face{x:y;}")
 	assertParse(t, true, "a:not([controls]){x:y;}", "a:not([controls]){x:y;}")
-	assertParse(t, false, "color:#c0c0c0", "color:#c0c0c0;")
-	assertParse(t, false, "background:URL(x.png);", "background:URL(x.png);")
 	assertParse(t, true, "@document regexp('https:.*') { p { color: red; } }", "@document regexp('https:.*'){p{color:red;}}")
 	assertParse(t, true, "@media all and ( max-width:400px ) { }", "@media all and (max-width:400px){}")
 	assertParse(t, true, "@media (max-width:400px) { }", "@media(max-width:400px){}")
 	assertParse(t, true, "@media (max-width:400px)", "@media(max-width:400px);")
+	assertParse(t, true, "@font-face { ; font:x; }", "@font-face{font:x;}")
+	assertParse(t, true, "@unknown abc { {} lala }", "@unknown abc{{}lala}")
 	assertParse(t, true, "a[x={}]{x:y;}", "a[x={}]{x:y;}")
 	assertParse(t, true, "a[x=,]{x:y;}", "a[x=,]{x:y;}")
 	assertParse(t, true, "a[x=+]{x:y;}", "a[x=+]{x:y;}")
 	assertParse(t, true, ".cla .ss > #id { x:y; }", ".cla .ss>#id{x:y;}")
 	assertParse(t, true, ".cla /*a*/ /*b*/ .ss{}", ".cla .ss{}")
-	assertParse(t, false, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);")
 	assertParse(t, true, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
-	assertParse(t, false, "/*a*/\n/*c*/\nkey: value;", "key:value;")
 	assertParse(t, true, "a{x:y!z;}", "a{x:y!z;}")
 	assertParse(t, true, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}")
+
+	// early endings
+	assertParse(t, false, "~color:red;", "")
+	assertParse(t, true, "selector{", "selector{")
+	assertParse(t, true, "@media{selector{", "@media{selector{")
+
+	assertParseError(t, true, "selector", ErrBadQualifiedRule)
+	assertParseError(t, false, "color 0", ErrBadDeclaration)
 
 	// issues
 	assertParse(t, true, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                  // #6

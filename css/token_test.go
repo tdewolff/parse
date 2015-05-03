@@ -10,70 +10,40 @@ import (
 	"github.com/tdewolff/buffer"
 )
 
-// Don't implement Bytes() to test for buffer exceeding.
-type ReaderMockup struct {
-	r io.Reader
-}
-
-func (r *ReaderMockup) Read(p []byte) (int, error) {
-	n, err := r.r.Read(p)
-	if n < len(p) {
-		err = io.EOF
-	}
-	return n, err
-}
-
-////////////////////////////////////////////////////////////////
-
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
+	stringify := helperStringify(t, s)
 	z := NewTokenizer(bytes.NewBufferString(s))
 	i := 0
 	for {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+helperStringify(t, s))
-			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+helperStringify(t, s))
+			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		}
-		if i >= len(tokentypes) {
-			assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+helperStringify(t, s))
-			break
-		}
-		if tt != tokentypes[i] {
-			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+helperStringify(t, s))
-			break
+		assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+stringify)
+		if i < len(tokentypes) {
+			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+stringify)
 		}
 		i++
 	}
 	return
 }
 
-func assertTokenError(t *testing.T, s string, e error) {
-	z := NewTokenizer(&ReaderMockup{bytes.NewBufferString(s)})
-	for {
-		tt, _ := z.Next()
-		if tt == ErrorToken {
-			assert.Equal(t, e, z.Err(), "errors must match in "+s)
-			break
-		}
-	}
-	return
-}
-
 func helperStringify(t *testing.T, input string) string {
-	s := "\n["
+	s := "["
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
 		tt, text := z.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')]"
+			s += tt.String() + "('" + z.Err().Error() + "')"
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		} else {
-			s += tt.String() + "('" + string(text) + "'), "
+			s += tt.String() + "('" + string(text) + "') "
 		}
 	}
 	return s
@@ -98,7 +68,7 @@ func assertSplitDataURI(t *testing.T, x, e1, e2 string, eok bool) {
 
 ////////////////////////////////////////////////////////////////
 
-func TestTokenizer(t *testing.T) {
+func TestTokens(t *testing.T) {
 	assertTokens(t, " ")
 	assertTokens(t, "5.2 .4", NumberToken, NumberToken)
 	assertTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
@@ -161,28 +131,20 @@ func TestTokenizer(t *testing.T) {
 	assertTokens(t, "\"a\\\"b\"", StringToken)
 	assertTokens(t, "\"s\n", BadStringToken)
 	//assertTokenError(t, "\\\n", ErrBadEscape)
+
+	assert.Equal(t, "Whitespace", WhitespaceToken.String())
+	assert.Equal(t, "Empty", EmptyToken.String())
+	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }
 
-func TestTokenizerSmall(t *testing.T) {
-	// small buffer
-	// buffer.MinBuf = 2
-	// buffer.MaxBuf = 4
-	// assertTokenError(t, "\"abcd", buffer.ErrExceeded)
-	// assertTokenError(t, "ident", buffer.ErrExceeded)
-	// assertTokenError(t, "\\ABCD", buffer.ErrExceeded)
-	// assertTokenError(t, "/*comment", buffer.ErrExceeded)
-	// assertTokenError(t, " \t \t ", buffer.ErrExceeded)
-	// assertTokenError(t, "#abcd", buffer.ErrExceeded)
-	// assertTokenError(t, "12345", buffer.ErrExceeded)
-	// assertTokenError(t, "1.234", buffer.ErrExceeded)
-	// assertTokenError(t, "U+ABC", buffer.ErrExceeded)
-	// assertTokenError(t, "U+A-B", buffer.ErrExceeded)
-	// assertTokenError(t, "U+???", buffer.ErrExceeded)
-	// assertTokenError(t, "url((", buffer.ErrExceeded)
-	// assertTokenError(t, "id\u554a", buffer.ErrExceeded)
+func TestTokensSmall(t *testing.T) {
+	assertTokens(t, "\"abcd", StringToken)
+	assertTokens(t, "/*comment", CommentToken)
+	assertTokens(t, "U+A-B", UnicodeRangeToken)
+	assertTokens(t, "url((", BadURLToken)
+	assertTokens(t, "id\u554a", IdentToken)
 
 	buffer.MinBuf = 5
-	//buffer.MaxBuf = 20
 	assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }
@@ -200,6 +162,7 @@ func TestSplitNumberDimension(t *testing.T) {
 func TestSplitDataURI(t *testing.T) {
 	assertSplitDataURI(t, "url(www.domain.com)", "", "", false)
 	assertSplitDataURI(t, "url(data:,)", "text/plain", "", true)
+	assertSplitDataURI(t, "url('data:,')", "text/plain", "", true)
 	assertSplitDataURI(t, "url(data:text/xml,)", "text/xml", "", true)
 	assertSplitDataURI(t, "url(data:,text)", "text/plain", "text", true)
 	assertSplitDataURI(t, "url(data:;base64,dGV4dA==)", "text/plain", "text", true)

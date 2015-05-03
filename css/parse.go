@@ -69,6 +69,9 @@ import (
 var wsBytes = []byte(" ")
 var emptyBytes = []byte("")
 
+var ErrBadQualifiedRule = errors.New("unexpected ending in qualified rule, expected left brace token")
+var ErrBadDeclaration = errors.New("unexpected token in declaration, expected colon token")
+
 ////////////////////////////////////////////////////////////////
 
 // GrammarType determines the type of grammar.
@@ -116,14 +119,6 @@ type State func() GrammarType
 type Token struct {
 	TokenType
 	Data []byte
-}
-
-func String(ts []Token) string {
-	var data []byte
-	for _, t := range ts {
-		data = append(data, t.Data...)
-	}
-	return string(data)
 }
 
 type Parser struct {
@@ -210,16 +205,6 @@ func (p *Parser) parseStylesheet() GrammarType {
 	}
 }
 
-func (p *Parser) parseRuleList() GrammarType {
-	if p.tt == AtKeywordToken {
-		return p.parseAtRule()
-	} else if p.tt == ErrorToken {
-		return ErrorGrammar
-	} else {
-		return p.parseQualifiedRule()
-	}
-}
-
 func (p *Parser) parseDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
 		p.tt, p.data = p.popToken()
@@ -236,7 +221,6 @@ func (p *Parser) parseDeclarationList() GrammarType {
 			p.data = append([]byte("*"), p.data...)
 			return p.parseDeclaration()
 		}
-		return p.state[len(p.state)-1]()
 	}
 	// parse error
 	for p.tt != SemicolonToken && p.tt != ErrorToken {
@@ -250,12 +234,14 @@ func (p *Parser) parseDeclarationList() GrammarType {
 func (p *Parser) parseAtRule() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
-	if len(p.data) > 0 && p.data[1] == '-' {
-		if i := bytes.IndexByte(p.data[2:], '-'); i != -1 {
-			p.data = p.data[i+3:] // skip vendor specific prefix
+	atRuleName := p.data
+	if len(atRuleName) > 0 && atRuleName[1] == '-' {
+		if i := bytes.IndexByte(atRuleName[2:], '-'); i != -1 {
+			atRuleName = atRuleName[i+3:] // skip vendor specific prefix
 		}
 	}
-	atRule := ToHash(p.data[1:])
+	atRule := ToHash(atRuleName[1:])
+
 	first := true
 	skipWS := false
 	for {
@@ -300,8 +286,11 @@ func (p *Parser) parseAtRuleRuleList() GrammarType {
 	if p.tt == RightBraceToken || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
 		return EndAtRuleGrammar
+	} else if p.tt == AtKeywordToken {
+		return p.parseAtRule()
+	} else {
+		return p.parseQualifiedRule()
 	}
-	return p.parseRuleList()
 }
 
 func (p *Parser) parseAtRuleDeclarationList() GrammarType {
@@ -348,7 +337,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.state = append(p.state, p.parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
-			p.err = errors.New("unexpected error in qualified rule '" + String(p.buf) + "' before encountering '{'")
+			p.err = ErrBadQualifiedRule
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
@@ -386,7 +375,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
 	if tt, _ := p.popToken(); tt != ColonToken {
-		p.err = errors.New("unexpected token for declaration colon: " + p.tt.String())
+		p.err = ErrBadDeclaration
 		return ErrorGrammar
 	}
 	skipWS := true
