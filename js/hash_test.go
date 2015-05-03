@@ -9,4 +9,6 @@ import (
 func TestHashTable(t *testing.T) {
 	assert.Equal(t, ToHash([]byte("break")), Break, "'break' must resolve to hash.Break")
 	assert.Equal(t, "break", Break.String(), "hash.Break must resolve to 'break'")
+	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
+	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
 }

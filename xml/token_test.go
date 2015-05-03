@@ -22,7 +22,9 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 			break
 		}
 		assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+stringify)
-		assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+stringify)
+		if i < len(tokentypes) {
+			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+stringify)
+		}
 		i++
 	}
 	return
@@ -40,8 +42,10 @@ func assertTags(t *testing.T, s string, tags ...string) {
 			break
 		} else if tt == StartTagToken || tt == StartTagPIToken || tt == EndTagToken || tt == DOCTYPEToken {
 			assert.False(t, i >= len(tags), "index must not exceed tags size in "+stringify)
-			assert.Equal(t, tags[i], string(data), "tags must match at index "+strconv.Itoa(i)+" in "+stringify)
-			i++
+			if i < len(tags) {
+				assert.Equal(t, tags[i], string(data), "tags must match at index "+strconv.Itoa(i)+" in "+stringify)
+				i++
+			}
 		}
 	}
 	return
@@ -59,9 +63,11 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 			break
 		} else if tt == AttributeToken {
 			assert.False(t, i+1 >= len(attributes), "index must not exceed attributes size in "+stringify)
-			assert.Equal(t, attributes[i], string(data), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
-			assert.Equal(t, attributes[i+1], string(z.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
-			i += 2
+			if i+1 < len(attributes) {
+				assert.Equal(t, attributes[i], string(data), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
+				assert.Equal(t, attributes[i+1], string(z.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
+				i += 2
+			}
 		}
 	}
 	return

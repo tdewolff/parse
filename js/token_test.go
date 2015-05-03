@@ -86,6 +86,5 @@ func TestTokenizer(t *testing.T) {
 
 	// small buffer
 	buffer.MinBuf = 2
-	buffer.MaxBuf = 4
 	assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)
 }
