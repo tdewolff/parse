@@ -33,7 +33,7 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 }
 
 func helperStringify(t *testing.T, input string) string {
-	s := "["
+	s := ""
 	z := NewTokenizer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
 		tt, text := z.Next()
