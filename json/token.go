@@ -8,6 +8,13 @@ import (
 	"github.com/tdewolff/buffer"
 )
 
+var ErrBadComma = errors.New("unexpected comma character outside an array or object")
+var ErrNoComma = errors.New("expected comma character or an array or object ending")
+var ErrBadObjectKey = errors.New("expected object key to be a quoted string")
+var ErrBadObjectDeclaration = errors.New("expected colon character after object key")
+var ErrBadObjectEnding = errors.New("unexpected right brace character")
+var ErrBadArrayEnding = errors.New("unexpected right bracket character")
+
 ////////////////////////////////////////////////////////////////
 
 // TokenType determines the type of token, eg. a number or a semicolon.
@@ -115,7 +122,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	state := z.state[len(z.state)-1]
 	if c == ',' {
 		if state != ArrayState && state != ObjectKeyState {
-			z.err = errors.New("Unexpected ','")
+			z.err = ErrBadComma
 			return ErrorToken, []byte{}
 		}
 		z.r.Move(1)
@@ -126,7 +133,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	z.r.Skip()
 
 	if z.needComma && c != '}' && c != ']' && c != 0 {
-		z.err = errors.New("Expected ','")
+		z.err = ErrNoComma
 		return ErrorToken, []byte{}
 	} else if c == '{' {
 		z.state = append(z.state, ObjectKeyState)
@@ -134,7 +141,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		return StartObjectToken, z.r.Shift()
 	} else if c == '}' {
 		if state != ObjectKeyState {
-			z.err = errors.New("Unexpected '}'")
+			z.err = ErrBadObjectEnding
 			return ErrorToken, []byte{}
 		}
 		z.needComma = true
@@ -151,7 +158,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	} else if c == ']' {
 		z.needComma = true
 		if state != ArrayState {
-			z.err = errors.New("Unexpected ']'")
+			z.err = ErrBadArrayEnding
 			return ErrorToken, []byte{}
 		}
 		z.state = z.state[:len(z.state)-1]
@@ -162,13 +169,13 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		return EndArrayToken, z.r.Shift()
 	} else if state == ObjectKeyState {
 		if c != '"' || !z.consumeStringToken() {
-			z.err = errors.New("Expected object key to be a string")
+			z.err = ErrBadObjectKey
 			return ErrorToken, []byte{}
 		}
 		n := z.r.Pos()
 		z.moveWhitespace()
 		if c := z.r.Peek(0); c != ':' {
-			z.err = errors.New("Unexpected '" + string(c) + "', expected ':'")
+			z.err = ErrBadObjectDeclaration
 			return ErrorToken, []byte{}
 		}
 		z.r.Move(1)
