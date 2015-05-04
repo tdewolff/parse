@@ -110,6 +110,8 @@ func TestParser(t *testing.T) {
 	assertParse(t, true, "a{x:f(a(),b);}", "a{x:f(a(),b);}")
 	assertParse(t, true, "a{x:y!z;}", "a{x:y!z;}")
 	assertParse(t, true, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}")
+	assertParse(t, true, "@media { @viewport }", "@media{@viewport;}")
+	assertParse(t, true, "table { @unknown }", "table{@unknown;}")
 
 	// early endings
 	assertParse(t, false, "~color:red;", "")
@@ -122,5 +124,6 @@ func TestParser(t *testing.T) {
 	// issues
 	assertParse(t, true, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}")                  // #6
 	assertParse(t, true, ".class{width:calc((50% + 2em)/2 + 14px);}", ".class{width:calc((50% + 2em)/2 + 14px);}") // #7
-	assertParse(t, true, ".class [c=y]{}", ".class [c=y]{}")                                                       // #16
+	assertParse(t, true, ".class [c=y]{}", ".class [c=y]{}")                                                       // tdewolff/minify#16
+	assertParse(t, true, "table{font-family:Verdana}", "table{font-family:Verdana;}")                              // tdewolff/minify#22
 }

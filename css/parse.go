@@ -67,6 +67,7 @@ import (
 )
 
 var wsBytes = []byte(" ")
+var endBytes = []byte("}")
 var emptyBytes = []byte("")
 
 var ErrBadQualifiedRule = errors.New("unexpected ending in qualified rule, expected left brace token")
@@ -126,12 +127,13 @@ type Parser struct {
 	state []State
 	err   error
 
-	buf []Token
+	buf   []Token
+	level int
 
-	tt     TokenType
-	data   []byte
-	prevWS bool
-	level  int
+	tt      TokenType
+	data    []byte
+	prevWS  bool
+	prevEnd bool
 }
 
 func NewParser(r io.Reader, isStylesheet bool) *Parser {
@@ -155,7 +157,12 @@ func (p *Parser) Err() error {
 }
 
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
-	p.tt, p.data = p.popToken()
+	if p.prevEnd {
+		p.tt, p.data = RightBraceToken, endBytes
+		p.prevEnd = false
+	} else {
+		p.tt, p.data = p.popToken()
+	}
 	gt := p.state[len(p.state)-1]()
 	return gt, p.tt, p.data
 }
@@ -255,7 +262,8 @@ func (p *Parser) parseAtRule() GrammarType {
 				p.state = append(p.state, p.parseAtRuleUnknown)
 			}
 			return BeginAtRuleGrammar
-		} else if tt == SemicolonToken && p.level == 0 || tt == ErrorToken {
+		} else if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
+			p.prevEnd = (tt == RightBraceToken)
 			return AtRuleGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
@@ -305,7 +313,7 @@ func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseAtRuleUnknown() GrammarType {
-	if p.level == 0 && p.tt == RightBraceToken || p.tt == ErrorToken {
+	if p.tt == RightBraceToken && p.level == 0 || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
 		return EndAtRuleGrammar
 	}
@@ -381,9 +389,8 @@ func (p *Parser) parseDeclaration() GrammarType {
 	skipWS := true
 	for {
 		tt, data := p.popToken()
-		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 {
-			return DeclarationGrammar
-		} else if tt == ErrorToken {
+		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
+			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
