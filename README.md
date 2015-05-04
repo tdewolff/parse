@@ -8,19 +8,23 @@ The tokenizers are implemented using `Shifter` in https://github.com/tdewolff/bu
 
 This package is a CSS3 tokenizer and parser written in [Go][1]. Both follow the specification at [CSS Syntax Module Level 3](http://www.w3.org/TR/css-syntax-3/). The tokenizer takes an io.Reader and converts it into tokens until the EOF. The parser returns a parse tree of the full io.Reader input stream, but the low-level `Next` function can be used for stream parsing to returns grammar units until the EOF. [See README here](https://github.com/tdewolff/parse/tree/master/css).
 
-**HTML** [![GoDoc](http://godoc.org/github.com/tdewolff/parse/html?status.svg)](http://godoc.org/github.com/tdewolff/parse/html) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/html)](http://gocover.io/github.com/tdewolff/parse/html)
+## HTML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/html?status.svg)](http://godoc.org/github.com/tdewolff/parse/html) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/html)](http://gocover.io/github.com/tdewolff/parse/html)
 
 This package is an HTML5 tokenizer written in [Go][1]. It follows the specification at [The HTML syntax](http://www.w3.org/TR/html5/syntax.html). The tokenizer takes an io.Reader and converts it into tokens until the EOF. [See README here](https://github.com/tdewolff/parse/tree/master/html).
 
-**JS** [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
+## JS [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
 
 This package is a JS tokenizer (ECMA-262, edition 5.1) written in [Go][1]. It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/). The tokenizer takes an io.Reader and converts it into tokens until the EOF. [See README here](https://github.com/tdewolff/parse/tree/master/js).
 
-**JSON** [![GoDoc](http://godoc.org/github.com/tdewolff/parse/json?status.svg)](http://godoc.org/github.com/tdewolff/parse/json) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/json)](http://gocover.io/github.com/tdewolff/parse/json)
+## JSON [![GoDoc](http://godoc.org/github.com/tdewolff/parse/json?status.svg)](http://godoc.org/github.com/tdewolff/parse/json) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/json)](http://gocover.io/github.com/tdewolff/parse/json)
 
 This package is a JSON tokenizer (ECMA-404) written in [Go][1]. It follows the specification at [JSON](http://json.org/). The tokenizer takes an io.Reader and converts it into tokens until the EOF. [See README here](https://github.com/tdewolff/parse/tree/master/json).
 
-**XML** [![GoDoc](http://godoc.org/github.com/tdewolff/parse/xml?status.svg)](http://godoc.org/github.com/tdewolff/parse/xml) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/xml)](http://gocover.io/github.com/tdewolff/parse/xml)
+## SVG [![GoDoc](http://godoc.org/github.com/tdewolff/parse/svg?status.svg)](http://godoc.org/github.com/tdewolff/parse/svg) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/svg)](http://gocover.io/github.com/tdewolff/parse/svg)
+
+This package contains common hashes for SVG tags and attributes.
+
+## XML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/xml?status.svg)](http://godoc.org/github.com/tdewolff/parse/xml) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/xml)](http://gocover.io/github.com/tdewolff/parse/xml)
 
 This package is an XML tokenizer written in [Go][1]. It follows the specification at [Extensible Markup Language (XML) 1.0 (Fifth Edition)](http://www.w3.org/TR/REC-xml/). The tokenizer takes an io.Reader and converts it into tokens until the EOF. [See README here](https://github.com/tdewolff/parse/tree/master/xml).
 
