@@ -37,11 +37,11 @@ func Equal(s, match []byte) bool {
 	return true
 }
 
-func EqualCaseInsensitive(s, match []byte) bool {
-	if len(s) != len(match) {
+func EqualCaseInsensitive(s, matchLower []byte) bool {
+	if len(s) != len(matchLower) {
 		return false
 	}
-	for i, c := range match {
+	for i, c := range matchLower {
 		if s[i] != c && (c < 'A' && c > 'Z' || s[i]+('a'-'A') != c) {
 			return false
 		}
