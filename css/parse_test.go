@@ -117,7 +117,6 @@ func TestParser(t *testing.T) {
 	assertParse(t, false, "~color:red;", "")
 	assertParse(t, true, "selector{", "selector{")
 	assertParse(t, true, "@media{selector{", "@media{selector{")
-
 	assertParseError(t, true, "selector", ErrBadQualifiedRule)
 	assertParseError(t, false, "color 0", ErrBadDeclaration)
 
@@ -126,4 +125,14 @@ func TestParser(t *testing.T) {
 	assertParse(t, true, ".class{width:calc((50% + 2em)/2 + 14px);}", ".class{width:calc((50% + 2em)/2 + 14px);}") // #7
 	assertParse(t, true, ".class [c=y]{}", ".class [c=y]{}")                                                       // tdewolff/minify#16
 	assertParse(t, true, "table{font-family:Verdana}", "table{font-family:Verdana;}")                              // tdewolff/minify#22
+
+	assert.Equal(t, "Error", ErrorGrammar.String())
+	assert.Equal(t, "AtRule", AtRuleGrammar.String())
+	assert.Equal(t, "BeginAtRule", BeginAtRuleGrammar.String())
+	assert.Equal(t, "EndAtRule", EndAtRuleGrammar.String())
+	assert.Equal(t, "BeginRuleset", BeginRulesetGrammar.String())
+	assert.Equal(t, "EndRuleset", EndRulesetGrammar.String())
+	assert.Equal(t, "Declaration", DeclarationGrammar.String())
+	assert.Equal(t, "Token", TokenGrammar.String())
+	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
 }

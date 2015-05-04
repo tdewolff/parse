@@ -38,7 +38,7 @@ func assertTokensError(t *testing.T, input string, expected error) {
 	for {
 		tt, _ := z.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, expected, z.Err(), "tokenizer must return error '"+expected.Error()+"' in "+input)
+			assert.Equal(t, expected, z.Err(), "tokenizer must return error '"+expected.Error()+"' in "+stringify)
 			break
 		}
 	}
