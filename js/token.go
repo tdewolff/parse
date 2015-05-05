@@ -86,7 +86,7 @@ func (z Tokenizer) IsEOF() bool {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (z *Tokenizer) Next() (TokenType, []byte) {
-	var tt TokenType
+	tt := UnknownToken
 	c := z.r.Peek(0)
 	switch c {
 	case '(', ')', '[', ']', '{', '}', ';', ',', '~', '?', ':':
@@ -137,15 +137,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 				for z.consumeLineTerminator() {
 				}
 				tt = LineTerminatorToken
-			} else {
-				z.consumeRune()
-				tt = UnknownToken
 			}
 		} else if z.Err() != nil {
 			return ErrorToken, []byte{}
-		} else {
-			z.r.Move(1)
-			tt = UnknownToken
 		}
 	}
 
@@ -155,6 +149,9 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		z.regexpState = true
 	} else {
 		z.regexpState = false
+	}
+	if tt == UnknownToken {
+		z.consumeRune()
 	}
 	return tt, z.r.Shift()
 }
@@ -231,20 +228,15 @@ func (z *Tokenizer) consumeHexDigit() bool {
 }
 
 func (z *Tokenizer) consumeEscape() bool {
-	if z.r.Peek(0) != '\\' {
-		return false
-	} else if z.consumeHexEscape() || z.consumeUnicodeEscape() {
-		return true
-	}
+	// assume to be on \
 	z.r.Move(1)
 	c := z.r.Peek(0)
 	if c == '0' {
-		nOld := z.r.Pos()
 		z.r.Move(1)
 		if !z.consumeDigit() {
 			return true
 		}
-		z.r.MoveTo(nOld)
+		z.r.Move(-1)
 		return false
 	} else if z.consumeLineTerminator() {
 		return true
@@ -254,20 +246,6 @@ func (z *Tokenizer) consumeEscape() bool {
 		z.r.Move(1)
 		return true
 	}
-}
-func (z *Tokenizer) consumeHexEscape() bool {
-	if z.r.Peek(0) != '\\' || z.r.Peek(1) != 'x' {
-		return false
-	}
-	nOld := z.r.Pos()
-	z.r.Move(2)
-	for k := 0; k < 2; k++ {
-		if !z.consumeHexDigit() {
-			z.r.MoveTo(nOld)
-			return false
-		}
-	}
-	return true
 }
 
 func (z *Tokenizer) consumeUnicodeEscape() bool {
@@ -312,17 +290,11 @@ func (z *Tokenizer) consumeCommentToken() bool {
 		// multi line
 		for {
 			c := z.r.Peek(0)
-			if c == 0 {
-				break
-			} else if c == '*' && z.r.Peek(1) == '/' {
+			if c == '*' && z.r.Peek(1) == '/' {
 				z.r.Move(2)
 				return true
-			} else if c == '\r' || c == '\n' {
-			} else if c >= 0xC0 {
-				if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-					z.consumeRune()
-					continue
-				}
+			} else if c == 0 {
+				break
 			}
 			z.r.Move(1)
 		}
@@ -342,9 +314,7 @@ func (z *Tokenizer) consumeLongPunctuatorToken() bool {
 		} else if (c == '+' || c == '-' || c == '&' || c == '|') && z.r.Peek(0) == c {
 			z.r.Move(1)
 		}
-		return true
-	}
-	if c == '<' || c == '>' {
+	} else { // c == '<' || c == '>'
 		z.r.Move(1)
 		if z.r.Peek(0) == c {
 			z.r.Move(1)
@@ -355,9 +325,8 @@ func (z *Tokenizer) consumeLongPunctuatorToken() bool {
 		if z.r.Peek(0) == '=' {
 			z.r.Move(1)
 		}
-		return true
 	}
-	return false
+	return true
 }
 
 func (z *Tokenizer) consumeIdentifierToken() bool {
@@ -391,10 +360,10 @@ func (z *Tokenizer) consumeIdentifierToken() bool {
 }
 
 func (z *Tokenizer) consumeNumericToken() bool {
+	// assume to be on 0 1 2 3 4 5 6 7 8 9 .
 	nOld := z.r.Pos()
 	c := z.r.Peek(0)
-	firstDigit := false
-	if firstDigit = z.r.Peek(0) == '0'; firstDigit {
+	if c == '0' {
 		z.r.Move(1)
 		if z.r.Peek(0) == 'x' || z.r.Peek(0) == 'X' {
 			z.r.Move(1)
@@ -406,8 +375,7 @@ func (z *Tokenizer) consumeNumericToken() bool {
 			}
 			return true
 		}
-		firstDigit = true
-	} else if firstDigit = z.consumeDigit(); firstDigit {
+	} else if c != '.' {
 		for z.consumeDigit() {
 		}
 	}
@@ -416,7 +384,7 @@ func (z *Tokenizer) consumeNumericToken() bool {
 		if z.consumeDigit() {
 			for z.consumeDigit() {
 			}
-		} else if firstDigit {
+		} else if c != '.' {
 			// . could belong to the next token
 			z.r.Move(-1)
 			return true
@@ -424,9 +392,6 @@ func (z *Tokenizer) consumeNumericToken() bool {
 			z.r.MoveTo(nOld)
 			return false
 		}
-	} else if !firstDigit {
-		z.r.MoveTo(nOld)
-		return false
 	}
 	nOld = z.r.Pos()
 	c = z.r.Peek(0)
@@ -448,17 +413,13 @@ func (z *Tokenizer) consumeNumericToken() bool {
 }
 
 func (z *Tokenizer) consumeStringToken() bool {
-	delim := z.r.Peek(0)
-	if delim != '"' && delim != '\'' {
-		return false
-	}
+	// assume to be on ' or "
 	nOld := z.r.Pos()
+	delim := z.r.Peek(0)
 	z.r.Move(1)
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			break
-		} else if c == delim {
+		if c == delim {
 			z.r.Move(1)
 			break
 		} else if c == '\\' {
@@ -474,6 +435,8 @@ func (z *Tokenizer) consumeStringToken() bool {
 				z.r.MoveTo(nOld)
 				return false
 			}
+		} else if c == 0 {
+			break
 		}
 		z.r.Move(1)
 	}
@@ -481,29 +444,24 @@ func (z *Tokenizer) consumeStringToken() bool {
 }
 
 func (z *Tokenizer) consumeRegexpToken() bool {
-	if z.r.Peek(0) != '/' || z.r.Peek(1) == '*' {
-		return false
-	}
+	// assume to be on / and not /*
 	nOld := z.r.Pos()
 	z.r.Move(1)
 	inClass := false
 	for {
 		c := z.r.Peek(0)
-		if c == 0 {
-			break
-		} else if !inClass && c == '/' {
+		if !inClass && c == '/' {
 			z.r.Move(1)
 			break
-		} else if c == '\\' {
-			if z.consumeLineTerminator() {
-				z.r.MoveTo(nOld)
-				return false
-			}
-			z.r.Move(1)
 		} else if c == '[' {
 			inClass = true
 		} else if c == ']' {
 			inClass = false
+		} else if z.consumeLineTerminator() {
+			z.r.MoveTo(nOld)
+			return false
+		} else if c == 0 {
+			return true
 		}
 		z.r.Move(1)
 	}

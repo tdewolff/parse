@@ -55,7 +55,7 @@ func helperStringify(t *testing.T, input string) string {
 func TestTokens(t *testing.T) {
 	assertTokens(t, " \t\v\f\u00A0\uFEFF\u2000") // WhitespaceToken
 	assertTokens(t, "\n\r\r\n\u2028\u2029", LineTerminatorToken)
-	assertTokens(t, "5.2 .4 0x0F 5e9", NumericToken, NumericToken, NumericToken, NumericToken)
+	assertTokens(t, "5.2 .04 0x0F 5e99", NumericToken, NumericToken, NumericToken, NumericToken)
 	assertTokens(t, "a = 'string'", IdentifierToken, PunctuatorToken, StringToken)
 	assertTokens(t, "/*comment*/ //comment", CommentToken, CommentToken)
 	assertTokens(t, "{ } ( ) [ ]", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
@@ -68,7 +68,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, ">>= >>>= &= |= ^=", PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "a = /.*/g;", IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken)
 
-	assertTokens(t, "/*co\nmm/*ent*/ //co//mment\n//comment", CommentToken, CommentToken, LineTerminatorToken, CommentToken)
+	assertTokens(t, "/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", CommentToken, CommentToken, LineTerminatorToken, CommentToken)
 	assertTokens(t, "$ _\u200C \\u2000 \u200C", IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken)
 	assertTokens(t, ">>>=>>>>=", PunctuatorToken, PunctuatorToken, PunctuatorToken)
 	assertTokens(t, "/", PunctuatorToken)
@@ -81,6 +81,25 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a = /'\\\\/\n", IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken)
 	assertTokens(t, "new RegExp(a + /\\d{1,2}/.source)", IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken)
+
+	// early endings
+	assertTokens(t, "'string", StringToken)
+	assertTokens(t, "'\n '\u2028", UnknownToken, LineTerminatorToken, UnknownToken, LineTerminatorToken)
+	assertTokens(t, "'str\\\U00100000ing\\0'", StringToken)
+	assertTokens(t, "'strin\\00g'", StringToken, NumericToken, IdentifierToken, StringToken)
+	assertTokens(t, "/*comment", CommentToken)
+	assertTokens(t, "a=/regexp", IdentifierToken, PunctuatorToken, RegexpToken)
+
+	// coverage
+	assertTokens(t, "Ø a〉", IdentifierToken, IdentifierToken, UnknownToken)
+	assertTokens(t, "0xg 0.f", NumericToken, IdentifierToken, NumericToken, PunctuatorToken, IdentifierToken)
+	assertTokens(t, "\u00A0\uFEFF\u2000")
+	assertTokens(t, "\u2028\u2029", LineTerminatorToken)
+	assertTokens(t, "\\u0029ident", IdentifierToken)
+	assertTokens(t, "\\ugident", UnknownToken, IdentifierToken)
+	assertTokens(t, "'str\u2028ing'", UnknownToken, IdentifierToken, LineTerminatorToken, IdentifierToken, StringToken)
+	assertTokens(t, "a=/\\\n", IdentifierToken, PunctuatorToken, PunctuatorToken, UnknownToken, LineTerminatorToken)
+	assertTokens(t, "a=/x/\u200C\u3009", IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken)
 
 	// small buffer
 	buffer.MinBuf = 2
