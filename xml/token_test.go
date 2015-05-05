@@ -73,6 +73,13 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 	return
 }
 
+func assertIsAtQuoteEntity(t *testing.T, s string, equote byte, en int, eok bool) {
+	quote, n, ok := IsAtQuoteEntity([]byte(s))
+	assert.Equal(t, eok, ok, "must match ok")
+	assert.Equal(t, en, n, "must match length")
+	assert.Equal(t, equote, quote, "must match quote")
+}
+
 func helperStringify(t *testing.T, input string) string {
 	s := ""
 	z := NewTokenizer(bytes.NewBufferString(input))
@@ -152,4 +159,15 @@ func TestAttributes(t *testing.T) {
 	assertAttributes(t, "<foo x", "x", "")
 	assertAttributes(t, "<foo x=", "x", "")
 	assertAttributes(t, "<foo x='", "x", "'")
+}
+
+func TestIsAtQuoteEntity(t *testing.T) {
+	assertIsAtQuoteEntity(t, "&#34;", '"', 5, true)
+	assertIsAtQuoteEntity(t, "&#039;", '\'', 6, true)
+	assertIsAtQuoteEntity(t, "&#x0022;", '"', 8, true)
+	assertIsAtQuoteEntity(t, "&#x27;", '\'', 6, true)
+	assertIsAtQuoteEntity(t, "&quot;", '"', 6, true)
+	assertIsAtQuoteEntity(t, "&apos;", '\'', 6, true)
+	assertIsAtQuoteEntity(t, "&gt;", 0x00, 0, false)
+	assertIsAtQuoteEntity(t, "&amp;", 0x00, 0, false)
 }
