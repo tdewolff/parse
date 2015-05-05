@@ -59,13 +59,6 @@ func assertSplitNumberDimension(t *testing.T, x, e1, e2 string) {
 	assert.Equal(t, e2, string(s2), "dimension part must match in "+x)
 }
 
-func assertSplitDataURI(t *testing.T, x, e1, e2 string, eok bool) {
-	s1, s2, ok := SplitDataURI([]byte(x))
-	assert.Equal(t, eok, ok, "ok must match in "+x)
-	assert.Equal(t, e1, string(s1), "mediatype part must match in "+x)
-	assert.Equal(t, e2, string(s2), "data part must match in "+x)
-}
-
 ////////////////////////////////////////////////////////////////
 
 func TestTokens(t *testing.T) {
@@ -157,16 +150,6 @@ func TestSplitNumberDimension(t *testing.T) {
 	assertSplitNumberDimension(t, ".2e-51em", ".2e-51", "em")
 	assertSplitNumberDimension(t, "5%", "5", "%")
 	assertSplitNumberDimension(t, "5&%", "", "")
-}
-
-func TestSplitDataURI(t *testing.T) {
-	assertSplitDataURI(t, "url(www.domain.com)", "", "", false)
-	assertSplitDataURI(t, "url(data:,)", "text/plain", "", true)
-	assertSplitDataURI(t, "url('data:,')", "text/plain", "", true)
-	assertSplitDataURI(t, "url(data:text/xml,)", "text/xml", "", true)
-	assertSplitDataURI(t, "url(data:,text)", "text/plain", "text", true)
-	assertSplitDataURI(t, "url(data:;base64,dGV4dA==)", "text/plain", "text", true)
-	assertSplitDataURI(t, "url(data:image/svg+xml,)", "image/svg+xml", "", true)
 }
 
 func TestIsIdent(t *testing.T) {

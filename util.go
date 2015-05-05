@@ -1,5 +1,10 @@
 package parse // import "github.com/tdewolff/parse"
 
+import (
+	"encoding/base64"
+	"net/url"
+)
+
 func Copy(src []byte) (dst []byte) {
 	dst = make([]byte, len(src))
 	copy(dst, src)
@@ -135,4 +140,52 @@ func NormalizeContentType(b []byte) []byte {
 		return ToLower(b[:j])
 	}
 	return ToLower(b)
+}
+
+// SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
+func SplitDataURI(dataURI []byte) ([]byte, []byte, bool) {
+	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
+		dataURI = dataURI[5:]
+		inBase64 := false
+		mediatype := []byte{}
+		i := 0
+		for j, c := range dataURI {
+			if c == '=' || c == ';' || c == ',' {
+				if c != '=' && Equal(Trim(dataURI[i:j], IsWhitespace), []byte("base64")) {
+					if len(mediatype) > 0 {
+						mediatype = mediatype[:len(mediatype)-1]
+					}
+					inBase64 = true
+					i = j
+				} else if c != ',' {
+					mediatype = append(append(mediatype, Trim(dataURI[i:j], IsWhitespace)...), c)
+					i = j + 1
+				} else {
+					mediatype = append(mediatype, Trim(dataURI[i:j], IsWhitespace)...)
+				}
+				if c == ',' {
+					if len(mediatype) == 0 || mediatype[0] == ';' {
+						mediatype = []byte("text/plain")
+					}
+					data := dataURI[j+1:]
+					if inBase64 {
+						decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
+						n, err := base64.StdEncoding.Decode(decoded, data)
+						if err != nil {
+							return []byte{}, []byte{}, false
+						}
+						data = decoded[:n]
+					} else {
+						unescaped, err := url.QueryUnescape(string(data))
+						if err != nil {
+							return []byte{}, []byte{}, false
+						}
+						data = []byte(unescaped)
+					}
+					return mediatype, data, true
+				}
+			}
+		}
+	}
+	return []byte{}, []byte{}, false
 }

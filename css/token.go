@@ -2,9 +2,7 @@ package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"bytes"
-	"encoding/base64"
 	"io"
-	"net/url"
 	"strconv"
 
 	"github.com/tdewolff/buffer"
@@ -716,60 +714,6 @@ func SplitNumberDimension(b []byte) ([]byte, []byte, bool) {
 		}
 	}
 	return b[:split], b[split:], true
-}
-
-// SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
-func SplitDataURI(uri []byte) ([]byte, []byte, bool) {
-	if len(uri) > 10 && parse.Equal(uri[:4], []byte("url(")) {
-		uri = uri[4 : len(uri)-1]
-		if (uri[0] == '\'' || uri[0] == '"') && uri[0] == uri[len(uri)-1] {
-			uri = uri[1 : len(uri)-1]
-		}
-		if parse.Equal(uri[:5], []byte("data:")) {
-			uri = uri[5:]
-			inBase64 := false
-			mediatype := []byte{}
-			i := 0
-			for j, c := range uri {
-				if c == '=' || c == ';' || c == ',' {
-					if c != '=' && parse.Equal(parse.Trim(uri[i:j], parse.IsWhitespace), []byte("base64")) {
-						if len(mediatype) > 0 {
-							mediatype = mediatype[:len(mediatype)-1]
-						}
-						inBase64 = true
-						i = j
-					} else if c != ',' {
-						mediatype = append(append(mediatype, parse.Trim(uri[i:j], parse.IsWhitespace)...), c)
-						i = j + 1
-					} else {
-						mediatype = append(mediatype, parse.Trim(uri[i:j], parse.IsWhitespace)...)
-					}
-					if c == ',' {
-						if len(mediatype) == 0 || mediatype[0] == ';' {
-							mediatype = []byte("text/plain")
-						}
-						data := uri[j+1:]
-						if inBase64 {
-							decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
-							n, err := base64.StdEncoding.Decode(decoded, data)
-							if err != nil {
-								return []byte{}, []byte{}, false
-							}
-							data = decoded[:n]
-						} else {
-							unescaped, err := url.QueryUnescape(string(data))
-							if err != nil {
-								return []byte{}, []byte{}, false
-							}
-							data = []byte(unescaped)
-						}
-						return mediatype, data, true
-					}
-				}
-			}
-		}
-	}
-	return []byte{}, []byte{}, false
 }
 
 // IsIdent returns true if the bytes are a valid identifier.
