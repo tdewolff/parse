@@ -56,20 +56,22 @@ func _Hash_string(i Hash) string {
 
 const _Hash_hash0 = 0x9acb0442
 const _Hash_maxLen = 7
-const _Hash_text = "pathstylesvgversion"
+const _Hash_text = "dpathstylesvgversion"
 
 const (
-	G       Hash = 0xb01
-	Path    Hash = 0x4
-	Style   Hash = 0x405
-	Svg     Hash = 0x903
-	Version Hash = 0xc07
+	D       Hash = 0x1
+	G       Hash = 0xc01
+	Path    Hash = 0x104
+	Style   Hash = 0x505
+	Svg     Hash = 0xa03
+	Version Hash = 0xd07
 )
 
 var _Hash_table = [1 << 3]Hash{
-	0x0: 0x903, // svg
-	0x1: 0x4,   // path
-	0x4: 0xc07, // version
-	0x6: 0x405, // style
-	0x7: 0xb01, // g
+	0x0: 0xa03, // svg
+	0x1: 0x104, // path
+	0x2: 0x1,   // d
+	0x4: 0xd07, // version
+	0x6: 0x505, // style
+	0x7: 0xc01, // g
 }
