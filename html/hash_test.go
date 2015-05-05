@@ -13,6 +13,7 @@ func TestHashTable(t *testing.T) {
 	assert.Equal(t, "accept-charset", Accept_Charset.String(), "Accept_Charset must resolve to 'accept-charset'")
 	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
 	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
+	assert.Equal(t, Hash(0), ToHash([]byte("addressa")), "'addressa' must resolve to zero")
 }
 
 ////////////////////////////////////////////////////////////////
