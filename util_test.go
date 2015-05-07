@@ -19,9 +19,9 @@ func helperRand(n, m int, chars []byte) [][]byte {
 	return r
 }
 
-func assertSplitDataURI(t *testing.T, x, e1, e2 string, eok bool) {
-	s1, s2, ok := SplitDataURI([]byte(x))
-	assert.Equal(t, eok, ok, "ok must match in "+x)
+func assertSplitDataURI(t *testing.T, x, e1, e2 string, eerr error) {
+	s1, s2, err := SplitDataURI([]byte(x))
+	assert.Equal(t, eerr, err, "ok must match in "+x)
 	assert.Equal(t, e1, string(s1), "mediatype part must match in "+x)
 	assert.Equal(t, e2, string(s2), "data part must match in "+x)
 }
@@ -96,12 +96,12 @@ func TestTrim(t *testing.T) {
 }
 
 func TestSplitDataURI(t *testing.T) {
-	assertSplitDataURI(t, "www.domain.com", "", "", false)
-	assertSplitDataURI(t, "data:,", "text/plain", "", true)
-	assertSplitDataURI(t, "data:text/xml,", "text/xml", "", true)
-	assertSplitDataURI(t, "data:,text", "text/plain", "text", true)
-	assertSplitDataURI(t, "data:;base64,dGV4dA==", "text/plain", "text", true)
-	assertSplitDataURI(t, "data:image/svg+xml,", "image/svg+xml", "", true)
+	assertSplitDataURI(t, "www.domain.com", "", "", ErrBadDataURI)
+	assertSplitDataURI(t, "data:,", "text/plain", "", nil)
+	assertSplitDataURI(t, "data:text/xml,", "text/xml", "", nil)
+	assertSplitDataURI(t, "data:,text", "text/plain", "text", nil)
+	assertSplitDataURI(t, "data:;base64,dGV4dA==", "text/plain", "text", nil)
+	assertSplitDataURI(t, "data:image/svg+xml,", "image/svg+xml", "", nil)
 }
 
 ////////////////////////////////////////////////////////////////
