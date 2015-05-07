@@ -189,3 +189,55 @@ func SplitDataURI(dataURI []byte) ([]byte, []byte, bool) {
 	}
 	return []byte{}, []byte{}, false
 }
+
+func ParseNumber(b []byte) (int, bool) {
+	i := 0
+	if i >= len(b) {
+		return 0, false
+	}
+	if b[i] == '+' || b[i] == '-' {
+		i++
+		if i >= len(b) {
+			return 0, false
+		}
+	}
+	firstDigit := (b[i] >= '0' && b[i] <= '9')
+	if firstDigit {
+		i++
+		for i < len(b) && b[i] >= '0' && b[i] <= '9' {
+			i++
+		}
+	}
+	if i < len(b) && b[i] == '.' {
+		i++
+		if i < len(b) && b[i] >= '0' && b[i] <= '9' {
+			i++
+			for i < len(b) && b[i] >= '0' && b[i] <= '9' {
+				i++
+			}
+		} else if firstDigit {
+			// . could belong to the next token
+			i--
+			return i, true
+		} else {
+			return 0, false
+		}
+	} else if !firstDigit {
+		return 0, false
+	}
+	iOld := i
+	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
+		i++
+		if i < len(b) && (b[i] == '+' || b[i] == '-') {
+			i++
+		}
+		if i >= len(b) || b[i] < '0' || b[i] > '9' {
+			// e could belong to next token
+			return iOld, true
+		}
+		for i < len(b) && b[i] >= '0' && b[i] <= '9' {
+			i++
+		}
+	}
+	return i, true
+}
