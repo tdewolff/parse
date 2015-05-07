@@ -2,8 +2,11 @@ package parse // import "github.com/tdewolff/parse"
 
 import (
 	"encoding/base64"
+	"errors"
 	"net/url"
 )
+
+var ErrBadDataURI = errors.New("not a data URI")
 
 func Copy(src []byte) (dst []byte) {
 	dst = make([]byte, len(src))
@@ -143,7 +146,7 @@ func NormalizeContentType(b []byte) []byte {
 }
 
 // SplitDataURI splits the given URLToken and returns the mediatype, data and ok.
-func SplitDataURI(dataURI []byte) ([]byte, []byte, bool) {
+func SplitDataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
 		dataURI = dataURI[5:]
 		inBase64 := false
@@ -172,22 +175,18 @@ func SplitDataURI(dataURI []byte) ([]byte, []byte, bool) {
 						decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
 						n, err := base64.StdEncoding.Decode(decoded, data)
 						if err != nil {
-							return []byte{}, []byte{}, false
+							return []byte{}, []byte{}, err
 						}
 						data = decoded[:n]
-					} else {
-						unescaped, err := url.QueryUnescape(string(data))
-						if err != nil {
-							return []byte{}, []byte{}, false
-						}
+					} else if unescaped, err := url.QueryUnescape(string(data)); err == nil {
 						data = []byte(unescaped)
 					}
-					return mediatype, data, true
+					return mediatype, data, nil
 				}
 			}
 		}
 	}
-	return []byte{}, []byte{}, false
+	return []byte{}, []byte{}, ErrBadDataURI
 }
 
 func ParseNumber(b []byte) (int, bool) {
