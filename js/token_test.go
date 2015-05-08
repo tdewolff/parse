@@ -80,6 +80,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a = /'\\\\/\n", IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken)
+	assertTokens(t, "a=/\\//g1", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "new RegExp(a + /\\d{1,2}/.source)", IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken)
 
 	// early endings

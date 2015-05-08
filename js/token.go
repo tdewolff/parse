@@ -458,11 +458,11 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 		} else if c == ']' {
 			inClass = false
 		} else if c == '\\' {
+			z.r.Move(1)
 			if z.consumeLineTerminator() {
 				z.r.MoveTo(nOld)
 				return false
 			}
-			z.r.Move(1)
 		} else if z.consumeLineTerminator() {
 			z.r.MoveTo(nOld)
 			return false
