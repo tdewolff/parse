@@ -14,7 +14,7 @@ import (
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	l := NewLexer(bytes.NewBufferString(s))
-	assert.True(t, l.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
+	assert.True(t, l.IsEOF(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
 		tt, _ := l.Next()
@@ -113,7 +113,7 @@ func TestTokens(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////
 
-func ExampleNewTokenizer() {
+func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
 	out := ""
 	for {

@@ -1,6 +1,6 @@
 # JS [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
 
-This package is a JS tokenizer (ECMA-262, edition 5.1) written in [Go][1]. It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/). The tokenizer takes an io.Reader and converts it into tokens until the EOF.
+This package is a JS lexer (ECMA-262, edition 5.1) written in [Go][1]. It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/). The lexer takes an io.Reader and converts it into tokens until the EOF.
 
 ## Installation
 Run the following command
@@ -11,9 +11,9 @@ or add the following import and run project with `go get`
 
 	import "github.com/tdewolff/parse/js"
 
-## Tokenizer
+## Lexer
 ### Usage
-The following initializes a new tokenizer with io.Reader `r`:
+The following initializes a new Lexer with io.Reader `r`:
 ``` go
 l := js.NewLexer(r)
 ```
@@ -47,7 +47,7 @@ RegexpToken
 ```
 
 ### Quirks
-Because the ECMAScript specification for `PunctuatorToken` (of which the `/` and `/=` symbols) and `RegexpToken` depends on a parser state to differentiate between the two, the tokenizer (to remain modular) uses different rules. Whenever `/` is encountered and the previous token is one of `(,=:[!&|?{};`, it returns a `RegexpToken`, otherwise it returns a `PunctuatorToken`. This is the same rule JSLint appears to use.
+Because the ECMAScript specification for `PunctuatorToken` (of which the `/` and `/=` symbols) and `RegexpToken` depends on a parser state to differentiate between the two, the lexer (to remain modular) uses different rules. Whenever `/` is encountered and the previous token is one of `(,=:[!&|?{};`, it returns a `RegexpToken`, otherwise it returns a `PunctuatorToken`. This is the same rule JSLint appears to use.
 
 ### Examples
 ``` go

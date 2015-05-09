@@ -1,6 +1,6 @@
 # HTML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/html?status.svg)](http://godoc.org/github.com/tdewolff/parse/html) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/html)](http://gocover.io/github.com/tdewolff/parse/html)
 
-This package is an HTML5 tokenizer written in [Go][1]. It follows the specification at [The HTML syntax](http://www.w3.org/TR/html5/syntax.html). The tokenizer takes an io.Reader and converts it into tokens until the EOF.
+This package is an HTML5 lexer written in [Go][1]. It follows the specification at [The HTML syntax](http://www.w3.org/TR/html5/syntax.html). The lexer takes an io.Reader and converts it into tokens until the EOF.
 
 ## Installation
 Run the following command
@@ -11,9 +11,9 @@ or add the following import and run project with `go get`
 
 	import "github.com/tdewolff/parse/html"
 
-## Tokenizer
+## Lexer
 ### Usage
-The following initializes a new tokenizer with io.Reader `r`:
+The following initializes a new Lexer with io.Reader `r`:
 ``` go
 l := html.NewLexer(r)
 ```

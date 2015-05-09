@@ -135,7 +135,7 @@ func TestTokensSmall(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////
 
-func ExampleNewTokenizer() {
+func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("color: red;"))
 	out := ""
 	for {

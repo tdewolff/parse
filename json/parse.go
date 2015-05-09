@@ -100,7 +100,7 @@ func (state State) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// Parser is the state for the tokenizer.
+// Parser is the state for the lexer.
 type Parser struct {
 	r     *buffer.Shifter
 	state []State
