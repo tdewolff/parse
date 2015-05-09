@@ -13,13 +13,13 @@ import (
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
-	z := NewTokenizer(bytes.NewBufferString(s))
-	assert.True(t, z.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
+	l := NewLexer(bytes.NewBufferString(s))
+	assert.True(t, l.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
-		tt, _ := z.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceToken {
@@ -36,11 +36,11 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	z := NewTokenizer(bytes.NewBufferString(input))
+	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := z.Next()
+		tt, text := l.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')"
+			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
 		} else if tt == WhitespaceToken {
 			continue
@@ -114,10 +114,10 @@ func TestTokens(t *testing.T) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewTokenizer() {
-	p := NewTokenizer(bytes.NewBufferString("var x = 'lorem ipsum';"))
+	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
 	out := ""
 	for {
-		tt, data := p.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		}

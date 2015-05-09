@@ -23,14 +23,14 @@ func SplitNumberDimension(b []byte) ([]byte, []byte, bool) {
 
 // IsIdent returns true if the bytes are a valid identifier.
 func IsIdent(b []byte) bool {
-	z := NewTokenizer(bytes.NewBuffer(b))
-	z.consumeIdentToken()
-	return z.r.Pos() == len(b)
+	l := NewLexer(bytes.NewBuffer(b))
+	l.consumeIdentToken()
+	return l.r.Pos() == len(b)
 }
 
 // IsUrlUnquoted returns true if the bytes are a valid unquoted URL.
 func IsUrlUnquoted(b []byte) bool {
-	z := NewTokenizer(bytes.NewBuffer(b))
-	z.consumeUnquotedURL()
-	return z.r.Pos() == len(b)
+	l := NewLexer(bytes.NewBuffer(b))
+	l.consumeUnquotedURL()
+	return l.r.Pos() == len(b)
 }

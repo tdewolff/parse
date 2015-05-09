@@ -1,4 +1,4 @@
-// Package js is an ECMAScript5.1 tokenizer following the specifications at http://www.ecma-international.org/ecma-262/5.1/.
+// Package js is an ECMAScript5.1 lexer following the specifications at http://www.ecma-international.org/ecma-262/5.1/.
 package js // import "github.com/tdewolff/parse/js"
 
 import (
@@ -61,85 +61,85 @@ func (tt TokenType) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// Tokenizer is the state for the tokenizer.
-type Tokenizer struct {
+// Lexer is the state for the lexer.
+type Lexer struct {
 	r *buffer.Shifter
 
 	regexpState bool
 }
 
-// NewTokenizer returns a new Tokenizer for a given io.Reader.
-func NewTokenizer(r io.Reader) *Tokenizer {
-	return &Tokenizer{
+// NewLexer returns a new Lexer for a given io.Reader.
+func NewLexer(r io.Reader) *Lexer {
+	return &Lexer{
 		r: buffer.NewShifter(r),
 	}
 }
 
-// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
-func (z Tokenizer) Err() error {
-	return z.r.Err()
+// Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
+func (l Lexer) Err() error {
+	return l.r.Err()
 }
 
 // IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (z Tokenizer) IsEOF() bool {
-	return z.r.IsEOF()
+func (l Lexer) IsEOF() bool {
+	return l.r.IsEOF()
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (z *Tokenizer) Next() (TokenType, []byte) {
+func (l *Lexer) Next() (TokenType, []byte) {
 	tt := UnknownToken
-	c := z.r.Peek(0)
+	c := l.r.Peek(0)
 	switch c {
 	case '(', ')', '[', ']', '{', '}', ';', ',', '~', '?', ':':
-		z.r.Move(1)
+		l.r.Move(1)
 		tt = PunctuatorToken
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
-		if z.consumeLongPunctuatorToken() {
+		if l.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '/':
-		if z.consumeCommentToken() {
-			return CommentToken, z.r.Shift()
-		} else if z.regexpState && z.consumeRegexpToken() {
+		if l.consumeCommentToken() {
+			return CommentToken, l.r.Shift()
+		} else if l.regexpState && l.consumeRegexpToken() {
 			tt = RegexpToken
-		} else if z.consumeLongPunctuatorToken() {
+		} else if l.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
-		if z.consumeNumericToken() {
+		if l.consumeNumericToken() {
 			tt = NumericToken
 		} else if c == '.' {
-			z.r.Move(1)
+			l.r.Move(1)
 			tt = PunctuatorToken
 		}
 	case '\'', '"':
-		if z.consumeStringToken() {
+		if l.consumeStringToken() {
 			tt = StringToken
 		}
 	case ' ', '\t', '\v', '\f':
-		z.r.Move(1)
-		for z.consumeWhitespace() {
+		l.r.Move(1)
+		for l.consumeWhitespace() {
 		}
-		return WhitespaceToken, z.r.Shift()
+		return WhitespaceToken, l.r.Shift()
 	case '\n', '\r':
-		z.r.Move(1)
-		for z.consumeLineTerminator() {
+		l.r.Move(1)
+		for l.consumeLineTerminator() {
 		}
 		tt = LineTerminatorToken
 	default:
-		if z.consumeIdentifierToken() {
+		if l.consumeIdentifierToken() {
 			tt = IdentifierToken
 		} else if c >= 0xC0 {
-			if z.consumeWhitespace() {
-				for z.consumeWhitespace() {
+			if l.consumeWhitespace() {
+				for l.consumeWhitespace() {
 				}
-				return WhitespaceToken, z.r.Shift()
-			} else if z.consumeLineTerminator() {
-				for z.consumeLineTerminator() {
+				return WhitespaceToken, l.r.Shift()
+			} else if l.consumeLineTerminator() {
+				for l.consumeLineTerminator() {
 				}
 				tt = LineTerminatorToken
 			}
-		} else if z.Err() != nil {
+		} else if l.Err() != nil {
 			return ErrorToken, []byte{}
 		}
 	}
@@ -147,15 +147,15 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
 	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
-		z.regexpState = true
+		l.regexpState = true
 	} else {
-		z.regexpState = false
+		l.regexpState = false
 	}
 	if tt == UnknownToken {
-		_, n := z.r.PeekRune(0)
-		z.r.Move(n)
+		_, n := l.r.PeekRune(0)
+		l.r.Move(n)
 	}
-	return tt, z.r.Shift()
+	return tt, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -164,91 +164,91 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
 
-func (z *Tokenizer) consumeWhitespace() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeWhitespace() bool {
+	c := l.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\v' || c == '\f' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	} else if c >= 0xC0 {
-		if r, n := z.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
-			z.r.Move(n)
+		if r, n := l.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
+			l.r.Move(n)
 			return true
 		}
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeLineTerminator() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeLineTerminator() bool {
+	c := l.r.Peek(0)
 	if c == '\n' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	} else if c == '\r' {
-		if z.r.Peek(1) == '\n' {
-			z.r.Move(2)
+		if l.r.Peek(1) == '\n' {
+			l.r.Move(2)
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 		return true
 	} else if c >= 0xC0 {
-		if r, n := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-			z.r.Move(n)
+		if r, n := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+			l.r.Move(n)
 			return true
 		}
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeDigit() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeDigit() bool {
+	c := l.r.Peek(0)
 	if c >= '0' && c <= '9' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeHexDigit() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeHexDigit() bool {
+	c := l.r.Peek(0)
 	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeEscape() bool {
+func (l *Lexer) consumeEscape() bool {
 	// assume to be on \
-	z.r.Move(1)
-	c := z.r.Peek(0)
+	l.r.Move(1)
+	c := l.r.Peek(0)
 	if c == '0' {
-		z.r.Move(1)
-		if !z.consumeDigit() {
+		l.r.Move(1)
+		if !l.consumeDigit() {
 			return true
 		}
-		z.r.Move(-1)
+		l.r.Move(-1)
 		return false
-	} else if z.consumeLineTerminator() {
+	} else if l.consumeLineTerminator() {
 		return true
 	} else if c >= 0xC0 {
-		_, n := z.r.PeekRune(0)
-		z.r.Move(n)
+		_, n := l.r.PeekRune(0)
+		l.r.Move(n)
 		return true
 	} else {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 }
 
-func (z *Tokenizer) consumeUnicodeEscape() bool {
-	if z.r.Peek(0) != '\\' || z.r.Peek(1) != 'u' {
+func (l *Lexer) consumeUnicodeEscape() bool {
+	if l.r.Peek(0) != '\\' || l.r.Peek(1) != 'u' {
 		return false
 	}
-	nOld := z.r.Pos()
-	z.r.Move(2)
+	nOld := l.r.Pos()
+	l.r.Move(2)
 	for k := 0; k < 4; k++ {
-		if !z.consumeHexDigit() {
-			z.r.MoveTo(nOld)
+		if !l.consumeHexDigit() {
+			l.r.MoveTo(nOld)
 			return false
 		}
 	}
@@ -257,90 +257,90 @@ func (z *Tokenizer) consumeUnicodeEscape() bool {
 
 ////////////////////////////////////////////////////////////////
 
-func (z *Tokenizer) consumeCommentToken() bool {
-	if z.r.Peek(0) != '/' || z.r.Peek(1) != '/' && z.r.Peek(1) != '*' {
+func (l *Lexer) consumeCommentToken() bool {
+	if l.r.Peek(0) != '/' || l.r.Peek(1) != '/' && l.r.Peek(1) != '*' {
 		return false
 	}
-	if z.r.Peek(1) == '/' {
-		z.r.Move(2)
+	if l.r.Peek(1) == '/' {
+		l.r.Move(2)
 		// single line
 		for {
-			c := z.r.Peek(0)
+			c := l.r.Peek(0)
 			if c == '\r' || c == '\n' || c == 0 {
 				break
 			} else if c >= 0xC0 {
-				nOld := z.r.Pos()
-				if r, _ := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-					z.r.MoveTo(nOld)
+				nOld := l.r.Pos()
+				if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+					l.r.MoveTo(nOld)
 					break
 				}
 			}
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	} else {
-		z.r.Move(2)
+		l.r.Move(2)
 		// multi line
 		for {
-			c := z.r.Peek(0)
-			if c == '*' && z.r.Peek(1) == '/' {
-				z.r.Move(2)
+			c := l.r.Peek(0)
+			if c == '*' && l.r.Peek(1) == '/' {
+				l.r.Move(2)
 				return true
 			} else if c == 0 {
 				break
 			}
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeLongPunctuatorToken() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeLongPunctuatorToken() bool {
+	c := l.r.Peek(0)
 	if c == '!' || c == '=' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '^' {
-		z.r.Move(1)
-		if z.r.Peek(0) == '=' {
-			z.r.Move(1)
-			if (c == '!' || c == '=') && z.r.Peek(0) == '=' {
-				z.r.Move(1)
+		l.r.Move(1)
+		if l.r.Peek(0) == '=' {
+			l.r.Move(1)
+			if (c == '!' || c == '=') && l.r.Peek(0) == '=' {
+				l.r.Move(1)
 			}
-		} else if (c == '+' || c == '-' || c == '&' || c == '|') && z.r.Peek(0) == c {
-			z.r.Move(1)
+		} else if (c == '+' || c == '-' || c == '&' || c == '|') && l.r.Peek(0) == c {
+			l.r.Move(1)
 		}
 	} else { // c == '<' || c == '>'
-		z.r.Move(1)
-		if z.r.Peek(0) == c {
-			z.r.Move(1)
-			if c == '>' && z.r.Peek(0) == '>' {
-				z.r.Move(1)
+		l.r.Move(1)
+		if l.r.Peek(0) == c {
+			l.r.Move(1)
+			if c == '>' && l.r.Peek(0) == '>' {
+				l.r.Move(1)
 			}
 		}
-		if z.r.Peek(0) == '=' {
-			z.r.Move(1)
+		if l.r.Peek(0) == '=' {
+			l.r.Move(1)
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeIdentifierToken() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeIdentifierToken() bool {
+	c := l.r.Peek(0)
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '$' || c == '_' {
-		z.r.Move(1)
+		l.r.Move(1)
 	} else if c >= 0xC0 {
-		if r, n := z.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
-			z.r.Move(n)
+		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
+			l.r.Move(n)
 		} else {
 			return false
 		}
-	} else if !z.consumeUnicodeEscape() {
+	} else if !l.consumeUnicodeEscape() {
 		return false
 	}
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
-			z.r.Move(1)
+			l.r.Move(1)
 		} else if c >= 0xC0 {
-			if r, n := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
-				z.r.Move(n)
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+				l.r.Move(n)
 			} else {
 				break
 			}
@@ -351,126 +351,126 @@ func (z *Tokenizer) consumeIdentifierToken() bool {
 	return true
 }
 
-func (z *Tokenizer) consumeNumericToken() bool {
+func (l *Lexer) consumeNumericToken() bool {
 	// assume to be on 0 1 2 3 4 5 6 7 8 9 .
-	nOld := z.r.Pos()
-	c := z.r.Peek(0)
+	nOld := l.r.Pos()
+	c := l.r.Peek(0)
 	if c == '0' {
-		z.r.Move(1)
-		if z.r.Peek(0) == 'x' || z.r.Peek(0) == 'X' {
-			z.r.Move(1)
-			if z.consumeHexDigit() {
-				for z.consumeHexDigit() {
+		l.r.Move(1)
+		if l.r.Peek(0) == 'x' || l.r.Peek(0) == 'X' {
+			l.r.Move(1)
+			if l.consumeHexDigit() {
+				for l.consumeHexDigit() {
 				}
 			} else {
-				z.r.Move(-1) // return just the zero
+				l.r.Move(-1) // return just the zero
 			}
 			return true
 		}
 	} else if c != '.' {
-		for z.consumeDigit() {
+		for l.consumeDigit() {
 		}
 	}
-	if z.r.Peek(0) == '.' {
-		z.r.Move(1)
-		if z.consumeDigit() {
-			for z.consumeDigit() {
+	if l.r.Peek(0) == '.' {
+		l.r.Move(1)
+		if l.consumeDigit() {
+			for l.consumeDigit() {
 			}
 		} else if c != '.' {
 			// . could belong to the next token
-			z.r.Move(-1)
+			l.r.Move(-1)
 			return true
 		} else {
-			z.r.MoveTo(nOld)
+			l.r.MoveTo(nOld)
 			return false
 		}
 	}
-	nOld = z.r.Pos()
-	c = z.r.Peek(0)
+	nOld = l.r.Pos()
+	c = l.r.Peek(0)
 	if c == 'e' || c == 'E' {
-		z.r.Move(1)
-		c = z.r.Peek(0)
+		l.r.Move(1)
+		c = l.r.Peek(0)
 		if c == '+' || c == '-' {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
-		if !z.consumeDigit() {
+		if !l.consumeDigit() {
 			// e could belong to the next token
-			z.r.MoveTo(nOld)
+			l.r.MoveTo(nOld)
 			return true
 		}
-		for z.consumeDigit() {
+		for l.consumeDigit() {
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeStringToken() bool {
+func (l *Lexer) consumeStringToken() bool {
 	// assume to be on ' or "
-	nOld := z.r.Pos()
-	delim := z.r.Peek(0)
-	z.r.Move(1)
+	nOld := l.r.Pos()
+	delim := l.r.Peek(0)
+	l.r.Move(1)
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if c == delim {
-			z.r.Move(1)
+			l.r.Move(1)
 			break
 		} else if c == '\\' {
-			if !z.consumeEscape() {
+			if !l.consumeEscape() {
 				break
 			}
 			continue
 		} else if c == '\n' || c == '\r' {
-			z.r.MoveTo(nOld)
+			l.r.MoveTo(nOld)
 			return false
 		} else if c >= 0xC0 {
-			if r, _ := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-				z.r.MoveTo(nOld)
+			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+				l.r.MoveTo(nOld)
 				return false
 			}
 		} else if c == 0 {
 			break
 		}
-		z.r.Move(1)
+		l.r.Move(1)
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeRegexpToken() bool {
+func (l *Lexer) consumeRegexpToken() bool {
 	// assume to be on / and not /*
-	nOld := z.r.Pos()
-	z.r.Move(1)
+	nOld := l.r.Pos()
+	l.r.Move(1)
 	inClass := false
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if !inClass && c == '/' {
-			z.r.Move(1)
+			l.r.Move(1)
 			break
 		} else if c == '[' {
 			inClass = true
 		} else if c == ']' {
 			inClass = false
 		} else if c == '\\' {
-			z.r.Move(1)
-			if z.consumeLineTerminator() {
-				z.r.MoveTo(nOld)
+			l.r.Move(1)
+			if l.consumeLineTerminator() {
+				l.r.MoveTo(nOld)
 				return false
 			}
-		} else if z.consumeLineTerminator() {
-			z.r.MoveTo(nOld)
+		} else if l.consumeLineTerminator() {
+			l.r.MoveTo(nOld)
 			return false
 		} else if c == 0 {
 			return true
 		}
-		z.r.Move(1)
+		l.r.Move(1)
 	}
 	// flags
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
-			z.r.Move(1)
+			l.r.Move(1)
 		} else if c >= 0xC0 {
-			if r, n := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
-				z.r.Move(n)
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+				l.r.Move(n)
 			} else {
 				break
 			}

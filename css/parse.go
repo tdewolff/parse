@@ -1,4 +1,3 @@
-// Package css is a CSS3 tokenizer and parser following the specifications at http://www.w3.org/TR/css-syntax-3/.
 package css // import "github.com/tdewolff/parse/css"
 
 import (
@@ -73,7 +72,7 @@ type Token struct {
 
 // Parser is the state for the parser.
 type Parser struct {
-	z     *Tokenizer
+	l     *Lexer
 	state []State
 	err   error
 
@@ -88,9 +87,9 @@ type Parser struct {
 
 // NewParser returns a new CSS parser from an io.Reader. isStylesheet specifies whether this is a regular stylesheet (true) or an inline style attribute (false).
 func NewParser(r io.Reader, isStylesheet bool) *Parser {
-	z := NewTokenizer(r)
+	l := NewLexer(r)
 	p := &Parser{
-		z: z,
+		l: l,
 	}
 	if isStylesheet {
 		p.state = []State{p.parseStylesheet}
@@ -105,7 +104,7 @@ func (p *Parser) Err() error {
 	if p.err != nil {
 		return p.err
 	}
-	return p.z.Err()
+	return p.l.Err()
 }
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
@@ -127,25 +126,25 @@ func (p *Parser) Values() []Token {
 
 func (p *Parser) popToken() (TokenType, []byte) {
 	p.prevWS = false
-	tt, data := p.z.Next()
+	tt, data := p.l.Next()
 	for tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
 		}
-		tt, data = p.z.Next()
+		tt, data = p.l.Next()
 	}
 	return tt, data
 }
 
 func (p *Parser) initBuf() {
-	if !p.z.IsEOF() {
+	if !p.l.IsEOF() {
 		p.data = parse.Copy(p.data)
 	}
 	p.buf = p.buf[:0]
 }
 
 func (p *Parser) pushBuf(tt TokenType, data []byte) {
-	if p.z.IsEOF() {
+	if p.l.IsEOF() {
 		p.buf = append(p.buf, Token{tt, data})
 	} else {
 		p.buf = append(p.buf, Token{tt, parse.Copy(data)})

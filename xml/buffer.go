@@ -11,31 +11,31 @@ type Token struct {
 
 // TokenBuffer is a buffer that allows for token look-ahead.
 type TokenBuffer struct {
-	tokenizer *Tokenizer
+	l *Lexer
 
 	buf []Token
 	pos int
 }
 
 // NewTokenBuffer returns a new TokenBuffer.
-func NewTokenBuffer(tokenizer *Tokenizer) *TokenBuffer {
+func NewTokenBuffer(l *Lexer) *TokenBuffer {
 	return &TokenBuffer{
-		tokenizer: tokenizer,
-		buf:       make([]Token, 0, 8),
+		l:   l,
+		buf: make([]Token, 0, 8),
 	}
 }
 
 func (z *TokenBuffer) read(p []Token) int {
 	for i := 0; i < len(p); i++ {
-		tt, data := z.tokenizer.Next()
-		if !z.tokenizer.IsEOF() {
+		tt, data := z.l.Next()
+		if !z.l.IsEOF() {
 			data = parse.Copy(data)
 		}
 
 		var attrVal []byte
 		if tt == AttributeToken {
-			attrVal = z.tokenizer.AttrVal()
-			if !z.tokenizer.IsEOF() {
+			attrVal = z.l.AttrVal()
+			if !z.l.IsEOF() {
 				attrVal = parse.Copy(attrVal)
 			}
 		}

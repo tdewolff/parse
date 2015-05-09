@@ -1,3 +1,4 @@
+// Package css is a CSS3 lexer and parser following the specifications at http://www.w3.org/TR/css-syntax-3/.
 package css // import "github.com/tdewolff/parse/css"
 
 import (
@@ -127,114 +128,114 @@ func (tt TokenType) String() string {
 
 ////////////////////////////////////////////////////////////////
 
-// Tokenizer is the state for the tokenizer.
-type Tokenizer struct {
+// Lexer is the state for the lexer.
+type Lexer struct {
 	r *buffer.Shifter
 }
 
-// NewTokenizer returns a new Tokenizer for a given io.Reader.
-func NewTokenizer(r io.Reader) *Tokenizer {
-	return &Tokenizer{
+// NewLexer returns a new Lexer for a given io.Reader.
+func NewLexer(r io.Reader) *Lexer {
+	return &Lexer{
 		buffer.NewShifter(r),
 	}
 }
 
-// Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
-func (z Tokenizer) Err() error {
-	return z.r.Err()
+// Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
+func (l Lexer) Err() error {
+	return l.r.Err()
 }
 
 // IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (z Tokenizer) IsEOF() bool {
-	return z.r.IsEOF()
+func (l Lexer) IsEOF() bool {
+	return l.r.IsEOF()
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (z *Tokenizer) Next() (TokenType, []byte) {
-	switch z.r.Peek(0) {
+func (l *Lexer) Next() (TokenType, []byte) {
+	switch l.r.Peek(0) {
 	case ' ', '\t', '\n', '\r', '\f':
-		z.r.Move(1)
-		for z.consumeWhitespace() {
+		l.r.Move(1)
+		for l.consumeWhitespace() {
 		}
-		return WhitespaceToken, z.r.Shift()
+		return WhitespaceToken, l.r.Shift()
 	case ':':
-		z.r.Move(1)
-		return ColonToken, z.r.Shift()
+		l.r.Move(1)
+		return ColonToken, l.r.Shift()
 	case ';':
-		z.r.Move(1)
-		return SemicolonToken, z.r.Shift()
+		l.r.Move(1)
+		return SemicolonToken, l.r.Shift()
 	case ',':
-		z.r.Move(1)
-		return CommaToken, z.r.Shift()
+		l.r.Move(1)
+		return CommaToken, l.r.Shift()
 	case '(', ')', '[', ']', '{', '}':
-		if t := z.consumeBracket(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeBracket(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '#':
-		if z.consumeHashToken() {
-			return HashToken, z.r.Shift()
+		if l.consumeHashToken() {
+			return HashToken, l.r.Shift()
 		}
 	case '"', '\'':
-		if t := z.consumeString(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeString(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '.', '+':
-		if t := z.consumeNumeric(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeNumeric(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '-':
-		if t := z.consumeNumeric(); t != ErrorToken {
-			return t, z.r.Shift()
-		} else if t := z.consumeIdentlike(); t != ErrorToken {
-			return t, z.r.Shift()
-		} else if z.consumeCDCToken() {
-			return CDCToken, z.r.Shift()
+		if t := l.consumeNumeric(); t != ErrorToken {
+			return t, l.r.Shift()
+		} else if t := l.consumeIdentlike(); t != ErrorToken {
+			return t, l.r.Shift()
+		} else if l.consumeCDCToken() {
+			return CDCToken, l.r.Shift()
 		}
 	case '@':
-		if z.consumeAtKeywordToken() {
-			return AtKeywordToken, z.r.Shift()
+		if l.consumeAtKeywordToken() {
+			return AtKeywordToken, l.r.Shift()
 		}
 	case '$', '*', '^', '~':
-		if t := z.consumeMatch(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeMatch(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '/':
-		if z.consumeComment() {
-			return CommentToken, z.r.Shift()
+		if l.consumeComment() {
+			return CommentToken, l.r.Shift()
 		}
 	case '<':
-		if z.consumeCDOToken() {
-			return CDOToken, z.r.Shift()
+		if l.consumeCDOToken() {
+			return CDOToken, l.r.Shift()
 		}
 	case '\\':
-		if t := z.consumeIdentlike(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeIdentlike(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case 'u', 'U':
-		if z.consumeUnicodeRangeToken() {
-			return UnicodeRangeToken, z.r.Shift()
-		} else if t := z.consumeIdentlike(); t != ErrorToken {
-			return t, z.r.Shift()
+		if l.consumeUnicodeRangeToken() {
+			return UnicodeRangeToken, l.r.Shift()
+		} else if t := l.consumeIdentlike(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '|':
-		if t := z.consumeMatch(); t != ErrorToken {
-			return t, z.r.Shift()
-		} else if z.consumeColumnToken() {
-			return ColumnToken, z.r.Shift()
+		if t := l.consumeMatch(); t != ErrorToken {
+			return t, l.r.Shift()
+		} else if l.consumeColumnToken() {
+			return ColumnToken, l.r.Shift()
 		}
 	default:
-		if t := z.consumeNumeric(); t != ErrorToken {
-			return t, z.r.Shift()
-		} else if t := z.consumeIdentlike(); t != ErrorToken {
-			return t, z.r.Shift()
+		if t := l.consumeNumeric(); t != ErrorToken {
+			return t, l.r.Shift()
+		} else if t := l.consumeIdentlike(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	}
-	if z.Err() != nil {
+	if l.Err() != nil {
 		return ErrorToken, []byte{}
 	}
 	// can't be rune for consumeIdentlike consumes that as an identifier
-	z.r.Move(1)
-	return DelimToken, z.r.Shift()
+	l.r.Move(1)
+	return DelimToken, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -243,248 +244,248 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 The following functions follow the railroad diagrams in http://www.w3.org/TR/css3-syntax/
 */
 
-func (z *Tokenizer) consumeByte(c byte) bool {
-	if z.r.Peek(0) == c {
-		z.r.Move(1)
+func (l *Lexer) consumeByte(c byte) bool {
+	if l.r.Peek(0) == c {
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeComment() bool {
-	if z.r.Peek(0) != '/' || z.r.Peek(1) != '*' {
+func (l *Lexer) consumeComment() bool {
+	if l.r.Peek(0) != '/' || l.r.Peek(1) != '*' {
 		return false
 	}
-	z.r.Move(2)
+	l.r.Move(2)
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if c == 0 {
 			break
-		} else if c == '*' && z.r.Peek(1) == '/' {
-			z.r.Move(2)
+		} else if c == '*' && l.r.Peek(1) == '/' {
+			l.r.Move(2)
 			return true
 		}
-		z.r.Move(1)
+		l.r.Move(1)
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeNewline() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeNewline() bool {
+	c := l.r.Peek(0)
 	if c == '\n' || c == '\f' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	} else if c == '\r' {
-		if z.r.Peek(1) == '\n' {
-			z.r.Move(2)
+		if l.r.Peek(1) == '\n' {
+			l.r.Move(2)
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeWhitespace() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeWhitespace() bool {
+	c := l.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeDigit() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeDigit() bool {
+	c := l.r.Peek(0)
 	if c >= '0' && c <= '9' {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeHexDigit() bool {
-	c := z.r.Peek(0)
+func (l *Lexer) consumeHexDigit() bool {
+	c := l.r.Peek(0)
 	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
-		z.r.Move(1)
+		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
 // TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
-func (z *Tokenizer) consumeEscape() bool {
-	if z.r.Peek(0) != '\\' {
+func (l *Lexer) consumeEscape() bool {
+	if l.r.Peek(0) != '\\' {
 		return false
 	}
-	nOld := z.r.Pos()
-	z.r.Move(1)
-	if z.consumeNewline() {
-		z.r.MoveTo(nOld)
+	nOld := l.r.Pos()
+	l.r.Move(1)
+	if l.consumeNewline() {
+		l.r.MoveTo(nOld)
 		return false
-	} else if z.consumeHexDigit() {
+	} else if l.consumeHexDigit() {
 		for k := 1; k < 6; k++ {
-			if !z.consumeHexDigit() {
+			if !l.consumeHexDigit() {
 				break
 			}
 		}
-		z.consumeWhitespace()
+		l.consumeWhitespace()
 		return true
-	} else if z.r.Peek(0) >= 0xC0 {
-		_, n := z.r.PeekRune(0)
-		z.r.Move(n)
+	} else if l.r.Peek(0) >= 0xC0 {
+		_, n := l.r.PeekRune(0)
+		l.r.Move(n)
 		return true
 	}
-	z.r.Move(1)
+	l.r.Move(1)
 	return true
 }
 
-func (z *Tokenizer) consumeIdentToken() bool {
-	nOld := z.r.Pos()
-	if z.r.Peek(0) == '-' {
-		z.r.Move(1)
+func (l *Lexer) consumeIdentToken() bool {
+	nOld := l.r.Pos()
+	if l.r.Peek(0) == '-' {
+		l.r.Move(1)
 	}
-	c := z.r.Peek(0)
+	c := l.r.Peek(0)
 	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
-		if c != '\\' || !z.consumeEscape() {
-			z.r.MoveTo(nOld)
+		if c != '\\' || !l.consumeEscape() {
+			l.r.MoveTo(nOld)
 			return false
 		}
 	} else {
-		z.r.Move(1)
+		l.r.Move(1)
 	}
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
-			if c != '\\' || !z.consumeEscape() {
+			if c != '\\' || !l.consumeEscape() {
 				break
 			}
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeAtKeywordToken() bool {
+func (l *Lexer) consumeAtKeywordToken() bool {
 	// expect to be on an '@'
-	z.r.Move(1)
-	if !z.consumeIdentToken() {
-		z.r.Move(-1)
+	l.r.Move(1)
+	if !l.consumeIdentToken() {
+		l.r.Move(-1)
 		return false
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeHashToken() bool {
+func (l *Lexer) consumeHashToken() bool {
 	// expect to be on a '#'
-	nOld := z.r.Pos()
-	z.r.Move(1)
-	c := z.r.Peek(0)
+	nOld := l.r.Pos()
+	l.r.Move(1)
+	c := l.r.Peek(0)
 	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
-		if c != '\\' || !z.consumeEscape() {
-			z.r.MoveTo(nOld)
+		if c != '\\' || !l.consumeEscape() {
+			l.r.MoveTo(nOld)
 			return false
 		}
 	} else {
-		z.r.Move(1)
+		l.r.Move(1)
 	}
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
-			if c != '\\' || !z.consumeEscape() {
+			if c != '\\' || !l.consumeEscape() {
 				break
 			}
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeNumberToken() bool {
-	nOld := z.r.Pos()
-	c := z.r.Peek(0)
+func (l *Lexer) consumeNumberToken() bool {
+	nOld := l.r.Pos()
+	c := l.r.Peek(0)
 	if c == '+' || c == '-' {
-		z.r.Move(1)
+		l.r.Move(1)
 	}
-	firstDigit := z.consumeDigit()
+	firstDigit := l.consumeDigit()
 	if firstDigit {
-		for z.consumeDigit() {
+		for l.consumeDigit() {
 		}
 	}
-	if z.r.Peek(0) == '.' {
-		z.r.Move(1)
-		if z.consumeDigit() {
-			for z.consumeDigit() {
+	if l.r.Peek(0) == '.' {
+		l.r.Move(1)
+		if l.consumeDigit() {
+			for l.consumeDigit() {
 			}
 		} else if firstDigit {
 			// . could belong to the next token
-			z.r.Move(-1)
+			l.r.Move(-1)
 			return true
 		} else {
-			z.r.MoveTo(nOld)
+			l.r.MoveTo(nOld)
 			return false
 		}
 	} else if !firstDigit {
-		z.r.MoveTo(nOld)
+		l.r.MoveTo(nOld)
 		return false
 	}
-	nOld = z.r.Pos()
-	c = z.r.Peek(0)
+	nOld = l.r.Pos()
+	c = l.r.Peek(0)
 	if c == 'e' || c == 'E' {
-		z.r.Move(1)
-		c = z.r.Peek(0)
+		l.r.Move(1)
+		c = l.r.Peek(0)
 		if c == '+' || c == '-' {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
-		if !z.consumeDigit() {
+		if !l.consumeDigit() {
 			// e could belong to next token
-			z.r.MoveTo(nOld)
+			l.r.MoveTo(nOld)
 			return true
 		}
-		for z.consumeDigit() {
+		for l.consumeDigit() {
 		}
 	}
 	return true
 }
 
-func (z *Tokenizer) consumeUnicodeRangeToken() bool {
-	c := z.r.Peek(0)
-	if (c != 'u' && c != 'U') || z.r.Peek(1) != '+' {
+func (l *Lexer) consumeUnicodeRangeToken() bool {
+	c := l.r.Peek(0)
+	if (c != 'u' && c != 'U') || l.r.Peek(1) != '+' {
 		return false
 	}
-	nOld := z.r.Pos()
-	z.r.Move(2)
-	if z.consumeHexDigit() {
+	nOld := l.r.Pos()
+	l.r.Move(2)
+	if l.consumeHexDigit() {
 		// consume up to 6 hexDigits
 		k := 1
 		for ; k < 6; k++ {
-			if !z.consumeHexDigit() {
+			if !l.consumeHexDigit() {
 				break
 			}
 		}
 
 		// either a minus or a quenstion mark or the end is expected
-		if z.consumeByte('-') {
+		if l.consumeByte('-') {
 			// consume another up to 6 hexDigits
-			if z.consumeHexDigit() {
+			if l.consumeHexDigit() {
 				for k := 1; k < 6; k++ {
-					if !z.consumeHexDigit() {
+					if !l.consumeHexDigit() {
 						break
 					}
 				}
 			} else {
-				z.r.MoveTo(nOld)
+				l.r.MoveTo(nOld)
 				return false
 			}
 		} else {
 			// could be filled up to 6 characters with question marks or else regular hexDigits
-			if z.consumeByte('?') {
+			if l.consumeByte('?') {
 				k++
 				for ; k < 6; k++ {
-					if !z.consumeByte('?') {
-						z.r.MoveTo(nOld)
+					if !l.consumeByte('?') {
+						l.r.MoveTo(nOld)
 						return false
 					}
 				}
@@ -493,8 +494,8 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 	} else {
 		// consume 6 question marks
 		for k := 0; k < 6; k++ {
-			if !z.consumeByte('?') {
-				z.r.MoveTo(nOld)
+			if !l.consumeByte('?') {
+				l.r.MoveTo(nOld)
 				return false
 			}
 		}
@@ -502,25 +503,25 @@ func (z *Tokenizer) consumeUnicodeRangeToken() bool {
 	return true
 }
 
-func (z *Tokenizer) consumeColumnToken() bool {
-	if z.r.Peek(0) == '|' && z.r.Peek(1) == '|' {
-		z.r.Move(2)
+func (l *Lexer) consumeColumnToken() bool {
+	if l.r.Peek(0) == '|' && l.r.Peek(1) == '|' {
+		l.r.Move(2)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeCDOToken() bool {
-	if z.r.Peek(0) == '<' && z.r.Peek(1) == '!' && z.r.Peek(2) == '-' && z.r.Peek(3) == '-' {
-		z.r.Move(4)
+func (l *Lexer) consumeCDOToken() bool {
+	if l.r.Peek(0) == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
+		l.r.Move(4)
 		return true
 	}
 	return false
 }
 
-func (z *Tokenizer) consumeCDCToken() bool {
-	if z.r.Peek(0) == '-' && z.r.Peek(1) == '-' && z.r.Peek(2) == '>' {
-		z.r.Move(3)
+func (l *Lexer) consumeCDCToken() bool {
+	if l.r.Peek(0) == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
+		l.r.Move(3)
 		return true
 	}
 	return false
@@ -529,23 +530,23 @@ func (z *Tokenizer) consumeCDCToken() bool {
 ////////////////////////////////////////////////////////////////
 
 // consumeMatch consumes any MatchToken.
-func (z *Tokenizer) consumeMatch() TokenType {
-	if z.r.Peek(1) == '=' {
-		switch z.r.Peek(0) {
+func (l *Lexer) consumeMatch() TokenType {
+	if l.r.Peek(1) == '=' {
+		switch l.r.Peek(0) {
 		case '~':
-			z.r.Move(2)
+			l.r.Move(2)
 			return IncludeMatchToken
 		case '|':
-			z.r.Move(2)
+			l.r.Move(2)
 			return DashMatchToken
 		case '^':
-			z.r.Move(2)
+			l.r.Move(2)
 			return PrefixMatchToken
 		case '$':
-			z.r.Move(2)
+			l.r.Move(2)
 			return SuffixMatchToken
 		case '*':
-			z.r.Move(2)
+			l.r.Move(2)
 			return SubstringMatchToken
 		}
 	}
@@ -553,36 +554,36 @@ func (z *Tokenizer) consumeMatch() TokenType {
 }
 
 // consumeBracket consumes any bracket token.
-func (z *Tokenizer) consumeBracket() TokenType {
-	switch z.r.Peek(0) {
+func (l *Lexer) consumeBracket() TokenType {
+	switch l.r.Peek(0) {
 	case '(':
-		z.r.Move(1)
+		l.r.Move(1)
 		return LeftParenthesisToken
 	case ')':
-		z.r.Move(1)
+		l.r.Move(1)
 		return RightParenthesisToken
 	case '[':
-		z.r.Move(1)
+		l.r.Move(1)
 		return LeftBracketToken
 	case ']':
-		z.r.Move(1)
+		l.r.Move(1)
 		return RightBracketToken
 	case '{':
-		z.r.Move(1)
+		l.r.Move(1)
 		return LeftBraceToken
 	case '}':
-		z.r.Move(1)
+		l.r.Move(1)
 		return RightBraceToken
 	}
 	return ErrorToken
 }
 
 // consumeNumeric consumes NumberToken, PercentageToken or DimensionToken.
-func (z *Tokenizer) consumeNumeric() TokenType {
-	if z.consumeNumberToken() {
-		if z.consumeByte('%') {
+func (l *Lexer) consumeNumeric() TokenType {
+	if l.consumeNumberToken() {
+		if l.consumeByte('%') {
 			return PercentageToken
-		} else if z.consumeIdentToken() {
+		} else if l.consumeIdentToken() {
 			return DimensionToken
 		}
 		return NumberToken
@@ -591,91 +592,91 @@ func (z *Tokenizer) consumeNumeric() TokenType {
 }
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
-func (z *Tokenizer) consumeString() TokenType {
-	delim := z.r.Peek(0)
+func (l *Lexer) consumeString() TokenType {
+	delim := l.r.Peek(0)
 	if delim != '"' && delim != '\'' {
 		return ErrorToken
 	}
-	z.r.Move(1)
+	l.r.Move(1)
 	for {
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if c == 0 {
 			break
 		} else if c == '\n' || c == '\r' || c == '\f' {
 			return BadStringToken
 		} else if c == delim {
-			z.r.Move(1)
+			l.r.Move(1)
 			break
 		} else if c == '\\' {
-			if !z.consumeEscape() {
-				z.r.Move(1)
-				z.consumeNewline()
+			if !l.consumeEscape() {
+				l.r.Move(1)
+				l.consumeNewline()
 			}
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	}
 	return StringToken
 }
 
-func (z *Tokenizer) consumeUnquotedURL() bool {
+func (l *Lexer) consumeUnquotedURL() bool {
 	for {
-		if z.consumeWhitespace() {
+		if l.consumeWhitespace() {
 			break
-		} else if z.consumeByte(')') {
-			z.r.Move(-1)
+		} else if l.consumeByte(')') {
+			l.r.Move(-1)
 			break
 		}
-		c := z.r.Peek(0)
+		c := l.r.Peek(0)
 		if c == 0 {
 			break
 		} else if c == '"' || c == '\'' || c == '(' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F || c == '\\' {
-			if c != '\\' || !z.consumeEscape() {
+			if c != '\\' || !l.consumeEscape() {
 				return false
 			}
 		} else {
-			z.r.Move(1)
+			l.r.Move(1)
 		}
 	}
 	return true
 }
 
 // consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
-func (z *Tokenizer) consumeRemnantsBadURL() {
+func (l *Lexer) consumeRemnantsBadURL() {
 	for {
-		if z.consumeByte(')') || z.Err() != nil {
+		if l.consumeByte(')') || l.Err() != nil {
 			break
-		} else if !z.consumeEscape() {
-			z.r.Move(1)
+		} else if !l.consumeEscape() {
+			l.r.Move(1)
 		}
 	}
 }
 
 // consumeIdentlike consumes IdentToken, FunctionToken or UrlToken.
-func (z *Tokenizer) consumeIdentlike() TokenType {
-	if z.consumeIdentToken() {
-		if !z.consumeByte('(') {
+func (l *Lexer) consumeIdentlike() TokenType {
+	if l.consumeIdentToken() {
+		if !l.consumeByte('(') {
 			return IdentToken
-		} else if !parse.EqualCaseInsensitive(bytes.Replace(z.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
+		} else if !parse.EqualCaseInsensitive(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
 			return FunctionToken
 		}
 
 		// consume url
-		for z.consumeWhitespace() {
+		for l.consumeWhitespace() {
 		}
-		if t := z.consumeString(); t != ErrorToken {
+		if t := l.consumeString(); t != ErrorToken {
 			if t == BadStringToken {
-				z.consumeRemnantsBadURL()
+				l.consumeRemnantsBadURL()
 				return BadURLToken
 			}
-		} else if !z.consumeUnquotedURL() {
-			z.consumeRemnantsBadURL()
+		} else if !l.consumeUnquotedURL() {
+			l.consumeRemnantsBadURL()
 			return BadURLToken
 		}
-		for z.consumeWhitespace() {
+		for l.consumeWhitespace() {
 		}
-		if !z.consumeByte(')') && z.Err() != io.EOF {
-			z.consumeRemnantsBadURL()
+		if !l.consumeByte(')') && l.Err() != io.EOF {
+			l.consumeRemnantsBadURL()
 			return BadURLToken
 		}
 		return URLToken

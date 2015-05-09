@@ -13,12 +13,12 @@ import (
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
-	z := NewTokenizer(bytes.NewBufferString(s))
+	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, _ := z.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceToken {
@@ -35,11 +35,11 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	z := NewTokenizer(bytes.NewBufferString(input))
+	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := z.Next()
+		tt, text := l.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')"
+			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
 		} else if tt == WhitespaceToken {
 			continue
@@ -48,16 +48,6 @@ func helperStringify(t *testing.T, input string) string {
 		}
 	}
 	return s
-}
-
-func assertSplitNumberDimension(t *testing.T, x, e1, e2 string) {
-	s1, s2, ok := SplitNumberDimension([]byte(x))
-	if !ok && e1 == "" && e2 == "" {
-		return
-	}
-	assert.Equal(t, true, ok, "ok must be true in "+x)
-	assert.Equal(t, e1, string(s1), "number part must match in "+x)
-	assert.Equal(t, e2, string(s2), "dimension part must match in "+x)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -143,33 +133,13 @@ func TestTokensSmall(t *testing.T) {
 	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }
 
-func TestSplitNumberDimension(t *testing.T) {
-	assertSplitNumberDimension(t, "5em", "5", "em")
-	assertSplitNumberDimension(t, "+5em", "+5", "em")
-	assertSplitNumberDimension(t, "-5.01em", "-5.01", "em")
-	assertSplitNumberDimension(t, ".2em", ".2", "em")
-	assertSplitNumberDimension(t, ".2e-51em", ".2e-51", "em")
-	assertSplitNumberDimension(t, "5%", "5", "%")
-	assertSplitNumberDimension(t, "5&%", "", "")
-}
-
-func TestIsIdent(t *testing.T) {
-	assert.True(t, IsIdent([]byte("color")))
-	assert.False(t, IsIdent([]byte("4.5")))
-}
-
-func TestIsUrlUnquoted(t *testing.T) {
-	assert.True(t, IsUrlUnquoted([]byte("http://x")))
-	assert.False(t, IsUrlUnquoted([]byte(")")))
-}
-
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewTokenizer() {
-	p := NewTokenizer(bytes.NewBufferString("color: red;"))
+	l := NewLexer(bytes.NewBufferString("color: red;"))
 	out := ""
 	for {
-		tt, data := p.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		} else if tt == WhitespaceToken || tt == CommentToken {

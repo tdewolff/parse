@@ -13,13 +13,13 @@ import (
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
-	z := NewTokenizer(bytes.NewBufferString(s))
-	assert.True(t, z.IsEOF(), "tokenizer must have buffer fully in memory in "+stringify)
+	l := NewLexer(bytes.NewBufferString(s))
+	assert.True(t, l.IsEOF(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
-		tt, _ := z.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		}
@@ -34,12 +34,12 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 
 func assertTags(t *testing.T, s string, tags ...string) {
 	stringify := helperStringify(t, s)
-	z := NewTokenizer(bytes.NewBufferString(s))
+	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := z.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tags), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == StartTagToken || tt == EndTagToken || tt == DoctypeToken {
@@ -55,19 +55,19 @@ func assertTags(t *testing.T, s string, tags ...string) {
 
 func assertAttributes(t *testing.T, s string, attributes ...string) {
 	stringify := helperStringify(t, s)
-	z := NewTokenizer(bytes.NewBufferString(s))
+	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := z.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, z.Err(), "error must be EOF in "+stringify)
+			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(attributes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == AttributeToken {
 			assert.False(t, i+1 >= len(attributes), "index must not exceed attributes size in "+stringify)
 			if i+1 < len(attributes) {
 				assert.Equal(t, attributes[i], string(data), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
-				assert.Equal(t, attributes[i+1], string(z.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
+				assert.Equal(t, attributes[i+1], string(l.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
 				i += 2
 			}
 		}
@@ -77,14 +77,14 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	z := NewTokenizer(bytes.NewBufferString(input))
+	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := z.Next()
+		tt, text := l.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + z.Err().Error() + "')"
+			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
 		} else if tt == AttributeToken {
-			s += tt.String() + "('" + string(text) + "=" + string(z.AttrVal()) + "') "
+			s += tt.String() + "('" + string(text) + "=" + string(l.AttrVal()) + "') "
 		} else {
 			s += tt.String() + "('" + string(text) + "') "
 		}
@@ -166,11 +166,11 @@ func TestAttributes(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////
 
-func ExampleNewTokenizer() {
-	p := NewTokenizer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
+func ExampleNewLexer() {
+	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
-		tt, data := p.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		}
@@ -185,7 +185,7 @@ func ExampleNewTokenizer() {
 		} else if tt == EndTagToken {
 			out += ">"
 		} else if tt == AttributeToken {
-			out += "=" + string(p.AttrVal())
+			out += "=" + string(l.AttrVal())
 		}
 	}
 	fmt.Println(out)
