@@ -6,17 +6,19 @@ import (
 	"net/url"
 )
 
+// Returned by DataURI when the byte slice does not start with 'data:' or is too short.
 var ErrBadDataURI = errors.New("not a data URI")
 
-func Number(b []byte) (n int, ok bool) {
+// Number returns the number of bytes that parse as a number of the format (+|-)?([0-9]+(\.[0-9]+)?|\.[0-9]+)((e|E)(+|-)?[0-9]+)?.
+func Number(b []byte) int {
 	i := 0
 	if i >= len(b) {
-		return 0, false
+		return 0
 	}
 	if b[i] == '+' || b[i] == '-' {
 		i++
 		if i >= len(b) {
-			return 0, false
+			return 0
 		}
 	}
 	firstDigit := (b[i] >= '0' && b[i] <= '9')
@@ -36,12 +38,12 @@ func Number(b []byte) (n int, ok bool) {
 		} else if firstDigit {
 			// . could belong to the next token
 			i--
-			return i, true
+			return i
 		} else {
-			return 0, false
+			return 0
 		}
 	} else if !firstDigit {
-		return 0, false
+		return 0
 	}
 	iOld := i
 	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
@@ -51,16 +53,16 @@ func Number(b []byte) (n int, ok bool) {
 		}
 		if i >= len(b) || b[i] < '0' || b[i] > '9' {
 			// e could belong to next token
-			return iOld, true
+			return iOld
 		}
 		for i < len(b) && b[i] >= '0' && b[i] <= '9' {
 			i++
 		}
 	}
-	return i, true
+	return i
 }
 
-// DataURI splits the given URLToken and returns the mediatype, data and ok.
+// DataURI parses the given data URI and returns the mediatype, data and ok.
 func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
 		dataURI = dataURI[5:]
@@ -104,6 +106,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	return []byte{}, []byte{}, ErrBadDataURI
 }
 
+// QuoteEntity parses the given byte slice and returns the quote that got matched (' or "), its entity length and ok.
 func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
 	if len(b) < 5 || b[0] != '&' {
 		return 0, 0, false

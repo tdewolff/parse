@@ -7,12 +7,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertNumber(t *testing.T, s string, en int, eok bool) {
-	n, ok := Number([]byte(s))
-	assert.Equal(t, eok, ok, "must match ok in "+s)
-	assert.Equal(t, en, n, "must match length in "+s)
-}
-
 func assertDataURI(t *testing.T, x, e1, e2 string, eerr error) {
 	s1, s2, err := DataURI([]byte(x))
 	assert.Equal(t, eerr, err, "err must match in "+x)
@@ -30,17 +24,17 @@ func assertQuoteEntity(t *testing.T, s string, equote byte, en int, eok bool) {
 ////////////////////////////////////////////////////////////////
 
 func TestParseNumber(t *testing.T) {
-	assertNumber(t, "5", 1, true)
-	assertNumber(t, "0.51", 4, true)
-	assertNumber(t, "0.5e-99", 7, true)
-	assertNumber(t, "0.5e-", 3, true)
-	assertNumber(t, "+50.0", 5, true)
-	assertNumber(t, ".0", 2, true)
-	assertNumber(t, "0.", 1, true)
-	assertNumber(t, "", 0, false)
-	assertNumber(t, "+", 0, false)
-	assertNumber(t, ".", 0, false)
-	assertNumber(t, "a", 0, false)
+	assert.Equal(t, 1, Number([]byte("5")))
+	assert.Equal(t, 4, Number([]byte("0.51")))
+	assert.Equal(t, 7, Number([]byte("0.5e-99")))
+	assert.Equal(t, 3, Number([]byte("0.5e-")))
+	assert.Equal(t, 5, Number([]byte("+50.0")))
+	assert.Equal(t, 2, Number([]byte(".0")))
+	assert.Equal(t, 1, Number([]byte("0.")))
+	assert.Equal(t, 0, Number([]byte("")))
+	assert.Equal(t, 0, Number([]byte("+")))
+	assert.Equal(t, 0, Number([]byte(".")))
+	assert.Equal(t, 0, Number([]byte("a")))
 }
 
 func TestParseDataURI(t *testing.T) {

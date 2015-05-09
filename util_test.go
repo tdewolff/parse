@@ -43,14 +43,6 @@ func TestToLower(t *testing.T) {
 	assert.Equal(t, "aBc", string(bar))
 }
 
-func TestCopyToLower(t *testing.T) {
-	foo := []byte("Abc")
-	bar := CopyToLower(foo)
-	bar[1] = 'B'
-	assert.Equal(t, "Abc", string(foo))
-	assert.Equal(t, "aBc", string(bar))
-}
-
 func TestEqual(t *testing.T) {
 	assert.Equal(t, true, Equal([]byte("abc"), []byte("abc")))
 	assert.Equal(t, false, Equal([]byte("abcd"), []byte("abc")))

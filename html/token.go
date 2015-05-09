@@ -179,7 +179,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 						}
 						z.r.Move(1)
 					}
-					if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos+2:])); h == z.rawTag {
+					if h := ToHash(parse.ToLower(parse.Copy(z.r.Bytes()[nPos+2:]))); h == z.rawTag {
 						z.r.MoveTo(nPos)
 						return z.r.Shift()
 					}
@@ -205,7 +205,7 @@ func (z *Tokenizer) shiftRawText() []byte {
 								}
 								z.r.Move(1)
 							}
-							if h := ToHash(parse.CopyToLower(z.r.Bytes()[nPos:])); h == Script {
+							if h := ToHash(parse.ToLower(parse.Copy(z.r.Bytes()[nPos:]))); h == Script {
 								if !isEnd {
 									inScript = true
 								} else {
