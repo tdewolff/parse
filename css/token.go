@@ -251,20 +251,6 @@ func (z *Tokenizer) consumeByte(c byte) bool {
 	return false
 }
 
-func (z *Tokenizer) consumeRune() bool {
-	c := z.r.Peek(0)
-	if c < 0xC0 {
-		z.r.Move(1)
-	} else if c < 0xE0 {
-		z.r.Move(2)
-	} else if c < 0xF0 {
-		z.r.Move(3)
-	} else {
-		z.r.Move(4)
-	}
-	return true
-}
-
 func (z *Tokenizer) consumeComment() bool {
 	if z.r.Peek(0) != '/' || z.r.Peek(1) != '*' {
 		return false
@@ -345,7 +331,9 @@ func (z *Tokenizer) consumeEscape() bool {
 		z.consumeWhitespace()
 		return true
 	} else if z.r.Peek(0) >= 0xC0 {
-		return z.consumeRune()
+		_, n := z.r.PeekRune(0)
+		z.r.Move(n)
+		return true
 	}
 	z.r.Move(1)
 	return true

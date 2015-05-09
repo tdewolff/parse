@@ -151,7 +151,8 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 		z.regexpState = false
 	}
 	if tt == UnknownToken {
-		z.consumeRune()
+		_, n := z.r.PeekRune(0)
+		z.r.Move(n)
 	}
 	return tt, z.r.Shift()
 }
@@ -162,28 +163,15 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
 
-func (z *Tokenizer) consumeRune() bool {
-	c := z.r.Peek(0)
-	if c < 0xC0 {
-		z.r.Move(1)
-	} else if c < 0xE0 {
-		z.r.Move(2)
-	} else if c < 0xF0 {
-		z.r.Move(3)
-	} else {
-		z.r.Move(4)
-	}
-	return true
-}
-
 func (z *Tokenizer) consumeWhitespace() bool {
 	c := z.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\v' || c == '\f' {
 		z.r.Move(1)
 		return true
 	} else if c >= 0xC0 {
-		if r := z.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
-			return z.consumeRune()
+		if r, n := z.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
+			z.r.Move(n)
+			return true
 		}
 	}
 	return false
@@ -202,8 +190,9 @@ func (z *Tokenizer) consumeLineTerminator() bool {
 		}
 		return true
 	} else if c >= 0xC0 {
-		if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-			return z.consumeRune()
+		if r, n := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+			z.r.Move(n)
+			return true
 		}
 	}
 	return false
@@ -241,7 +230,9 @@ func (z *Tokenizer) consumeEscape() bool {
 	} else if z.consumeLineTerminator() {
 		return true
 	} else if c >= 0xC0 {
-		return z.consumeRune()
+		_, n := z.r.PeekRune(0)
+		z.r.Move(n)
+		return true
 	} else {
 		z.r.Move(1)
 		return true
@@ -278,7 +269,7 @@ func (z *Tokenizer) consumeCommentToken() bool {
 				break
 			} else if c >= 0xC0 {
 				nOld := z.r.Pos()
-				if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+				if r, _ := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
 					z.r.MoveTo(nOld)
 					break
 				}
@@ -334,8 +325,8 @@ func (z *Tokenizer) consumeIdentifierToken() bool {
 	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '$' || c == '_' {
 		z.r.Move(1)
 	} else if c >= 0xC0 {
-		if r := z.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
-			z.consumeRune()
+		if r, n := z.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
+			z.r.Move(n)
 		} else {
 			return false
 		}
@@ -347,8 +338,8 @@ func (z *Tokenizer) consumeIdentifierToken() bool {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
 			z.r.Move(1)
 		} else if c >= 0xC0 {
-			if r := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
-				z.consumeRune()
+			if r, n := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+				z.r.Move(n)
 			} else {
 				break
 			}
@@ -431,7 +422,7 @@ func (z *Tokenizer) consumeStringToken() bool {
 			z.r.MoveTo(nOld)
 			return false
 		} else if c >= 0xC0 {
-			if r := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+			if r, _ := z.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
 				z.r.MoveTo(nOld)
 				return false
 			}
@@ -477,8 +468,8 @@ func (z *Tokenizer) consumeRegexpToken() bool {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
 			z.r.Move(1)
 		} else if c >= 0xC0 {
-			if r := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
-				z.consumeRune()
+			if r, n := z.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+				z.r.Move(n)
 			} else {
 				break
 			}
