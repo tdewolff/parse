@@ -153,15 +153,14 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	}
 }
 
+// AttrVal returns the attribute value when an AttributeToken was returned from Next.
 func (z *Tokenizer) AttrVal() []byte {
 	return z.attrVal
 }
 
 ////////////////////////////////////////////////////////////////
 
-/*
-The following functions follow the specifications at http://www.w3.org/html/wg/drafts/html/master/syntax.html
-*/
+// The following functions follow the specifications at http://www.w3.org/html/wg/drafts/html/master/syntax.html
 
 func (z *Tokenizer) shiftDOCTYPEText() []byte {
 	z.r.Skip()
