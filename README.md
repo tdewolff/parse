@@ -30,11 +30,11 @@ This package is a JSON tokenizer (ECMA-404). It follows the specification at [JS
 
 ## SVG [![GoDoc](http://godoc.org/github.com/tdewolff/parse/svg?status.svg)](http://godoc.org/github.com/tdewolff/parse/svg) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/svg)](http://gocover.io/github.com/tdewolff/parse/svg)
 
-This package contains common hashes for SVG tags and attributes.
+This package contains common hashes for SVG1.1 tags and attributes.
 
 ## XML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/xml?status.svg)](http://godoc.org/github.com/tdewolff/parse/xml) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/xml)](http://gocover.io/github.com/tdewolff/parse/xml)
 
-This package is an XML tokenizer. It follows the specification at [Extensible Markup Language (XML) 1.0 (Fifth Edition)](http://www.w3.org/TR/REC-xml/). The tokenizer takes an io.Reader and converts it into tokens until the EOF.
+This package is an XML1.0 tokenizer. It follows the specification at [Extensible Markup Language (XML) 1.0 (Fifth Edition)](http://www.w3.org/TR/xml/). The tokenizer takes an io.Reader and converts it into tokens until the EOF.
 
 [See README here](https://github.com/tdewolff/parse/tree/master/xml).
 
