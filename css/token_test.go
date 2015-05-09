@@ -2,6 +2,7 @@ package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -160,4 +161,22 @@ func TestIsIdent(t *testing.T) {
 func TestIsUrlUnquoted(t *testing.T) {
 	assert.True(t, IsUrlUnquoted([]byte("http://x")))
 	assert.False(t, IsUrlUnquoted([]byte(")")))
+}
+
+////////////////////////////////////////////////////////////////
+
+func ExampleNewTokenizer() {
+	p := NewTokenizer(bytes.NewBufferString("color: red;"))
+	out := ""
+	for {
+		tt, data := p.Next()
+		if tt == ErrorToken {
+			break
+		} else if tt == WhitespaceToken || tt == CommentToken {
+			continue
+		}
+		out += string(data)
+	}
+	fmt.Println(out)
+	// Output: color:red;
 }

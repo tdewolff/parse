@@ -1,3 +1,4 @@
+// Package xml is an XML tokenizer. It is implemented using the specifications at http://www.w3.org/TR/REC-xml/.
 package xml // import "github.com/tdewolff/parse/xml"
 
 import (

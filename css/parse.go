@@ -1,60 +1,4 @@
-/*
-Package css is a CSS3 tokenizer and parser written in Go. Both are implemented using the specifications at http://www.w3.org/TR/css-syntax-3/
-Tokenizer using example:
-	package main
-	import (
-		"fmt"
-		"io"
-		"os"
-		"github.com/tdewolff/css"
-	)
-	// Tokenize CSS3 from stdin.
-	func main() {
-		z := css.NewTokenizer(os.Stdin)
-		for {
-			tt, data := z.Next()
-			switch tt {
-			case css.ErrorToken:
-				if z.Err() != io.EOF {
-					fmt.Println("Error on line", z.Line(), ":", z.Err())
-				}
-				return
-			case css.IdentToken:
-				fmt.Println("Identifier", data)
-			case css.NumberToken:
-				fmt.Println("Number", data)
-			// ...
-			}
-		}
-	}
-Parser using example:
-	package main
-	import (
-		"fmt"
-		"os"
-		"github.com/tdewolff/css"
-	)
-	// Parse CSS3 from stdin.
-	func main() {
-		stylesheet, err := css.Parse(os.Stdin)
-		if err != nil {
-			fmt.Println("Error:", err)
-			return
-		}
-		for _, node := range stylesheet.Nodes {
-			switch m := node.(type) {
-			case *css.TokenNode:
-				fmt.Println("Token", string(m.Data))
-			case *css.DeclarationNode:
-				fmt.Println("Declaration for property", string(m.Prop.Data))
-			case *css.RulesetNode:
-				fmt.Println("Ruleset with", len(m.Decls), "declarations")
-			case *css.AtRuleNode:
-				fmt.Println("AtRule", string(m.At.Data))
-			}
-		}
-	}
-*/
+// Package css is a CSS3 tokenizer and parser. Both are implemented using the specifications at http://www.w3.org/TR/css-syntax-3/.
 package css // import "github.com/tdewolff/parse/css"
 
 import (
@@ -70,7 +14,10 @@ var wsBytes = []byte(" ")
 var endBytes = []byte("}")
 var emptyBytes = []byte("")
 
+// ErrBadQualifiedRule is returned when a qualitied rule is expected, but an error or EOF happened earlier.
 var ErrBadQualifiedRule = errors.New("unexpected ending in qualified rule, expected left brace token")
+
+// ErrBadDeclaration is returned when a declaration is expected but the colon token is lacking.
 var ErrBadDeclaration = errors.New("unexpected token in declaration, expected colon token")
 
 ////////////////////////////////////////////////////////////////
@@ -115,13 +62,16 @@ func (tt GrammarType) String() string {
 
 ////////////////////////////////////////////////////////////////
 
+// State is the state function the parser currently is in.
 type State func() GrammarType
 
+// Token is a single TokenType and its associated data.
 type Token struct {
 	TokenType
 	Data []byte
 }
 
+// Parser is the state for the parser.
 type Parser struct {
 	z     *Tokenizer
 	state []State
@@ -136,6 +86,7 @@ type Parser struct {
 	prevEnd bool
 }
 
+// NewParser returns a new CSS parser from an io.Reader. isStylesheet specifies whether this is a regular stylesheet (true) or an inline style attribute (false).
 func NewParser(r io.Reader, isStylesheet bool) *Parser {
 	z := NewTokenizer(r)
 	p := &Parser{
@@ -149,6 +100,7 @@ func NewParser(r io.Reader, isStylesheet bool) *Parser {
 	return p
 }
 
+// Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
 	if p.err != nil {
 		return p.err
@@ -156,6 +108,7 @@ func (p *Parser) Err() error {
 	return p.z.Err()
 }
 
+// Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	if p.prevEnd {
 		p.tt, p.data = RightBraceToken, endBytes
@@ -167,6 +120,7 @@ func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	return gt, p.tt, p.data
 }
 
+// Values returns a slice of Tokens for the last Grammar. Only AtRuleGrammar, BeginAtRuleGrammar, BeginRulesetGrammar and Declaration will return the at-rule components, ruleset selector and declaration values respectively.
 func (p *Parser) Values() []Token {
 	return p.buf
 }

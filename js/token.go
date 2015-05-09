@@ -1,3 +1,4 @@
+// Package js is an ECMAScript5.1 tokenizer. It is implemented using the specifications at http://www.ecma-international.org/ecma-262/5.1/.
 package js // import "github.com/tdewolff/parse/js"
 
 import (

@@ -2,6 +2,7 @@ package json // import "github.com/tdewolff/parse/json"
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -126,4 +127,28 @@ func TestStates(t *testing.T) {
 	assertStates(t, "null", ValueState)
 	assertStates(t, "[null]", ArrayState, ArrayState, ValueState)
 	assertStates(t, "{\"\":null}", ObjectKeyState, ObjectValueState, ObjectKeyState, ValueState)
+}
+
+////////////////////////////////////////////////////////////////
+
+func ExampleNewTokenizer() {
+	p := NewTokenizer(bytes.NewBufferString(`{"key": 5}`))
+	out := ""
+	for {
+		state := p.State()
+		tt, data := p.Next()
+		if tt == ErrorToken {
+			break
+		}
+		if state == ObjectKeyState && tt != EndObjectToken {
+			out += "\""
+		}
+		out += string(data)
+		if state == ObjectKeyState && tt != EndObjectToken {
+			out += "\":"
+		}
+		// not handling comma insertion
+	}
+	fmt.Println(out)
+	// Output: {"key":5}
 }

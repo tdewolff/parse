@@ -2,6 +2,7 @@ package js // import "github.com/tdewolff/parse/js"
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -108,4 +109,20 @@ func TestTokens(t *testing.T) {
 
 	assert.Equal(t, "Whitespace", WhitespaceToken.String())
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
+}
+
+////////////////////////////////////////////////////////////////
+
+func ExampleNewTokenizer() {
+	p := NewTokenizer(bytes.NewBufferString("var x = 'lorem ipsum';"))
+	out := ""
+	for {
+		tt, data := p.Next()
+		if tt == ErrorToken {
+			break
+		}
+		out += string(data)
+	}
+	fmt.Println(out)
+	// Output: var x = 'lorem ipsum';
 }

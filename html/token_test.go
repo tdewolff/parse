@@ -2,6 +2,7 @@ package html // import "github.com/tdewolff/parse/html"
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 	"testing"
@@ -161,4 +162,32 @@ func TestAttributes(t *testing.T) {
 	assertAttributes(t, "<foo x", "x", "")
 	assertAttributes(t, "<foo x=", "x", "")
 	assertAttributes(t, "<foo x='", "x", "'")
+}
+
+////////////////////////////////////////////////////////////////
+
+func ExampleNewTokenizer() {
+	p := NewTokenizer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
+	out := ""
+	for {
+		tt, data := p.Next()
+		if tt == ErrorToken {
+			break
+		}
+		if tt == StartTagToken {
+			out += "<"
+		} else if tt == EndTagToken {
+			out += "</"
+		}
+		out += string(data)
+		if tt == StartTagToken {
+			out += " "
+		} else if tt == EndTagToken {
+			out += ">"
+		} else if tt == AttributeToken {
+			out += "=" + string(p.AttrVal())
+		}
+	}
+	fmt.Println(out)
+	// Output: <span class='user'>John Doe</span>
 }

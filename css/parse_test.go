@@ -2,6 +2,7 @@ package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"testing"
 
@@ -49,6 +50,8 @@ func assertParseError(t *testing.T, isStylesheet bool, input string, expected er
 		}
 	}
 }
+
+////////////////////////////////////////////////////////////////
 
 func TestParser(t *testing.T) {
 	assertParse(t, false, " x : y ; ", "x:y;")
@@ -135,4 +138,34 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, "Declaration", DeclarationGrammar.String())
 	assert.Equal(t, "Token", TokenGrammar.String())
 	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
+}
+
+////////////////////////////////////////////////////////////////
+
+func ExampleNewParser() {
+	p := NewParser(bytes.NewBufferString("color: red;"), false) // false because this is the content of an inline style attribute
+	out := ""
+	for {
+		gt, _, data := p.Next()
+		if gt == ErrorGrammar {
+			break
+		} else if gt == AtRuleGrammar || gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar || gt == DeclarationGrammar {
+			out += string(data)
+			if gt == DeclarationGrammar {
+				out += ":"
+			}
+			for _, val := range p.Values() {
+				out += string(val.Data)
+			}
+			if gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar {
+				out += "{"
+			} else if gt == AtRuleGrammar || gt == DeclarationGrammar {
+				out += ";"
+			}
+		} else {
+			out += string(data)
+		}
+	}
+	fmt.Println(out)
+	// Output: color:red;
 }
