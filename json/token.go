@@ -9,11 +9,22 @@ import (
 	"github.com/tdewolff/buffer"
 )
 
+// ErrBadComma is returned when an unexpected comma is encountered.
 var ErrBadComma = errors.New("unexpected comma character outside an array or object")
+
+// ErrNoComma is returned when no comma is present between two values.
 var ErrNoComma = errors.New("expected comma character or an array or object ending")
+
+// ErrBadObjectKey is returned when the object key is not a quoted string.
 var ErrBadObjectKey = errors.New("expected object key to be a quoted string")
+
+// ErrBadObjectDeclaration is returned when the object key is not followed by a colon character.
 var ErrBadObjectDeclaration = errors.New("expected colon character after object key")
+
+// ErrBadObjectEnding is returned when an unexpected right brace is encountered.
 var ErrBadObjectEnding = errors.New("unexpected right brace character")
+
+// ErrBadArrayEnding is returned when an unexpected right bracket is encountered.
 var ErrBadArrayEnding = errors.New("unexpected right bracket character")
 
 ////////////////////////////////////////////////////////////////
@@ -61,8 +72,10 @@ func (tt TokenType) String() string {
 
 ////////////////////////////////////////////////////////////////
 
+// State determines the current state the parser is in.
 type State uint32
 
+// State values.
 const (
 	ValueState State = iota // extra token when errors occur
 	ObjectKeyState
@@ -70,6 +83,7 @@ const (
 	ArrayState
 )
 
+// String returns the string representation of a State.
 func (state State) String() string {
 	switch state {
 	case ValueState:
@@ -199,6 +213,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 	return ErrorToken, []byte{}
 }
 
+// State returns the state the parser is currently in (ie. which token is expected).
 func (z *Tokenizer) State() State {
 	return z.state[len(z.state)-1]
 }
