@@ -19,13 +19,6 @@ func helperRand(n, m int, chars []byte) [][]byte {
 	return r
 }
 
-func assertSplitDataURI(t *testing.T, x, e1, e2 string, eerr error) {
-	s1, s2, err := SplitDataURI([]byte(x))
-	assert.Equal(t, eerr, err, "ok must match in "+x)
-	assert.Equal(t, e1, string(s1), "mediatype part must match in "+x)
-	assert.Equal(t, e2, string(s2), "data part must match in "+x)
-}
-
 ////////////////////////////////////////////////////////////////
 
 var wsSlices [][]byte
@@ -81,27 +74,11 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 	}
 }
 
-func TestNormalizeContentType(t *testing.T) {
-	assert.Equal(t, "text/html", string(NormalizeContentType([]byte("text/html"))))
-	assert.Equal(t, "text/html;charset=utf-8", string(NormalizeContentType([]byte("text/html; charset=UTF-8"))))
-	assert.Equal(t, "text/html;charset=utf-8;param=\" ; \"", string(NormalizeContentType([]byte("text/html; charset=UTF-8 ; param = \" ; \""))))
-	assert.Equal(t, "text/html,text/css", string(NormalizeContentType([]byte("text/html, text/css"))))
-}
-
 func TestTrim(t *testing.T) {
 	assert.Equal(t, "a", string(Trim([]byte("a"), IsWhitespace)))
 	assert.Equal(t, "a", string(Trim([]byte(" a"), IsWhitespace)))
 	assert.Equal(t, "a", string(Trim([]byte("a "), IsWhitespace)))
 	assert.Equal(t, "", string(Trim([]byte(" "), IsWhitespace)))
-}
-
-func TestSplitDataURI(t *testing.T) {
-	assertSplitDataURI(t, "www.domain.com", "", "", ErrBadDataURI)
-	assertSplitDataURI(t, "data:,", "text/plain", "", nil)
-	assertSplitDataURI(t, "data:text/xml,", "text/xml", "", nil)
-	assertSplitDataURI(t, "data:,text", "text/plain", "text", nil)
-	assertSplitDataURI(t, "data:;base64,dGV4dA==", "text/plain", "text", nil)
-	assertSplitDataURI(t, "data:image/svg+xml,", "image/svg+xml", "", nil)
 }
 
 ////////////////////////////////////////////////////////////////

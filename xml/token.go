@@ -5,7 +5,6 @@ import (
 	"strconv"
 
 	"github.com/tdewolff/buffer"
-	"github.com/tdewolff/parse"
 )
 
 ////////////////////////////////////////////////////////////////
@@ -310,47 +309,4 @@ func (z *Tokenizer) at(b ...byte) bool {
 		}
 	}
 	return true
-}
-
-////////////////////////////////////////////////////////////////
-
-// it is assumed that b[0] equals '&'
-func IsAtQuoteEntity(b []byte) (quote byte, n int, ok bool) {
-	if len(b) < 5 {
-		return 0, 0, false
-	}
-	if b[1] == '#' {
-		if b[2] == 'x' {
-			i := 3
-			for i < len(b) && b[i] == '0' {
-				i++
-			}
-			if i+2 < len(b) && b[i] == '2' && b[i+2] == ';' {
-				if b[i+1] == '2' {
-					return '"', i + 3, true // &#x22;
-				} else if b[i+1] == '7' {
-					return '\'', i + 3, true // &#x27;
-				}
-			}
-		} else {
-			i := 2
-			for i < len(b) && b[i] == '0' {
-				i++
-			}
-			if i+2 < len(b) && b[i] == '3' && b[i+2] == ';' {
-				if b[i+1] == '4' {
-					return '"', i + 3, true // &#34;
-				} else if b[i+1] == '9' {
-					return '\'', i + 3, true // &#39;
-				}
-			}
-		}
-	} else if len(b) >= 6 && b[5] == ';' {
-		if parse.EqualCaseInsensitive(b[1:5], []byte{'q', 'u', 'o', 't'}) {
-			return '"', 6, true // &quot;
-		} else if parse.EqualCaseInsensitive(b[1:5], []byte{'a', 'p', 'o', 's'}) {
-			return '\'', 6, true // &apos;
-		}
-	}
-	return 0, 0, false
 }
