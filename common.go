@@ -9,7 +9,7 @@ import (
 // Returned by DataURI when the byte slice does not start with 'data:' or is too short.
 var ErrBadDataURI = errors.New("not a data URI")
 
-// Number returns the number of bytes that parse as a number of the format (+|-)?([0-9]+(\.[0-9]+)?|\.[0-9]+)((e|E)(+|-)?[0-9]+)?.
+// Number returns the number of bytes that parse as a number of the regex format (+|-)?([0-9]+(\.[0-9]+)?|\.[0-9]+)((e|E)(+|-)?[0-9]+)?.
 func Number(b []byte) int {
 	i := 0
 	if i >= len(b) {

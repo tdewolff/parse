@@ -78,7 +78,7 @@ func Trim(b []byte, f func(byte) bool) []byte {
 	return b[start:end]
 }
 
-// ReplaceMultiple replaces any character serie for which the function return true into a single character `r`.
+// ReplaceMultiple replaces any character serie for which the function return true into a single character given by r.
 func ReplaceMultiple(b []byte, f func(byte) bool, r byte) []byte {
 	j := 0
 	start := 0
