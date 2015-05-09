@@ -15,16 +15,16 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new tokenizer with io.Reader `r`:
 ``` go
-z := css.NewTokenizer(r)
+l := css.NewLexer(r)
 ```
 
 To tokenize until EOF an error, use:
 ``` go
 for {
-	tt, text := z.Next()
+	tt, text := l.Next()
 	switch tt {
 	case css.ErrorToken:
-		// error or EOF set in z.Err()
+		// error or EOF set in l.Err()
 		return
 	// ...
 	}
@@ -75,13 +75,13 @@ import (
 
 // Tokenize CSS3 from stdin.
 func main() {
-	z := css.NewTokenizer(os.Stdin)
+	l := css.NewLexer(os.Stdin)
 	for {
-		tt, text := z.Next()
+		tt, text := l.Next()
 		switch tt {
 		case css.ErrorToken:
-			if z.Err() != io.EOF {
-				fmt.Println("Error on line", z.Line(), ":", z.Err())
+			if l.Err() != io.EOF {
+				fmt.Println("Error on line", l.Line(), ":", l.Err())
 			}
 			return
 		case css.IdentToken:

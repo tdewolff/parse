@@ -15,16 +15,16 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new tokenizer with io.Reader `r`:
 ``` go
-z := js.NewTokenizer(r)
+l := js.NewLexer(r)
 ```
 
 To tokenize until EOF an error, use:
 ``` go
 for {
-	tt, text := z.Next()
+	tt, text := l.Next()
 	switch tt {
 	case js.ErrorToken:
-		// error or EOF set in z.Err()
+		// error or EOF set in l.Err()
 		return
 	// ...
 	}
@@ -61,13 +61,13 @@ import (
 
 // Tokenize JS from stdin.
 func main() {
-	z := js.NewTokenizer(os.Stdin)
+	l := js.NewLexer(os.Stdin)
 	for {
-		tt, text := z.Next()
+		tt, text := l.Next()
 		switch tt {
 		case js.ErrorToken:
-			if z.Err() != io.EOF {
-				fmt.Println("Error on line", z.Line(), ":", z.Err())
+			if l.Err() != io.EOF {
+				fmt.Println("Error on line", l.Line(), ":", l.Err())
 			}
 			return
 		case js.IdentifierToken:

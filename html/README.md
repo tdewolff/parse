@@ -15,21 +15,21 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new tokenizer with io.Reader `r`:
 ``` go
-z := html.NewTokenizer(r)
+l := html.NewLexer(r)
 ```
 
 To tokenize until EOF an error, use:
 ``` go
 for {
-	tt, data := z.Next()
+	tt, data := l.Next()
 	switch tt {
 	case html.ErrorToken:
-		// error or EOF set in z.Err()
+		// error or EOF set in l.Err()
 		return
 	case html.StartTagToken:
 		// ...
 		for {
-			ttAttr, dataAttr := z.Next()
+			ttAttr, dataAttr := l.Next()
 			if ttAttr != html.AttributeToken {
 				break
 			}
@@ -65,25 +65,25 @@ import (
 
 // Tokenize HTML from stdin.
 func main() {
-	z := html.NewTokenizer(os.Stdin)
+	l := html.NewLexer(os.Stdin)
 	for {
-		tt, data := z.Next()
+		tt, data := l.Next()
 		switch tt {
 		case html.ErrorToken:
-			if z.Err() != io.EOF {
-				fmt.Println("Error on line", z.Line(), ":", z.Err())
+			if l.Err() != io.EOF {
+				fmt.Println("Error on line", l.Line(), ":", l.Err())
 			}
 			return
 		case html.StartTagToken:
 			fmt.Println("Tag", string(data))
 			for {
-				ttAttr, dataAttr := z.Next()
+				ttAttr, dataAttr := l.Next()
 				if ttAttr != html.AttributeToken {
 					break
 				}
 
 				key := dataAttr
-				val := z.AttrVal()
+				val := l.AttrVal()
 				fmt.Println("Attribute", string(key), "=", string(val))
 			}
 		// ...

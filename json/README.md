@@ -15,33 +15,33 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new tokenizer with io.Reader `r`:
 ``` go
-z := json.NewTokenizer(r)
+p := json.NewParser(r)
 ```
 
 To tokenize until EOF an error, use:
 ``` go
 for {
-	tt, text := z.Next()
-	switch tt {
-	case json.ErrorToken:
-		// error or EOF set in z.Err()
+	gt, text := p.Next()
+	switch gt {
+	case json.ErrorGrammar:
+		// error or EOF set in p.Err()
 		return
 	// ...
 	}
 }
 ```
 
-All tokens:
+All grammars:
 ``` go
-ErrorToken          TokenType = iota // extra token when errors occur
-WhitespaceToken                      // space \t \r \n
-LiteralToken                         // null true false
-NumberToken
-StringToken
-StartObjectToken // {
-EndObjectToken   // }
-StartArrayToken  // [
-EndArrayToken    // ]
+ErrorGrammar       GrammarType = iota // extra grammar when errors occur
+WhitespaceGrammar                     // space \t \r \n
+LiteralGrammar                        // null true false
+NumberGrammar
+StringGrammar
+StartObjectGrammar // {
+EndObjectGrammar   // }
+StartArrayGrammar  // [
+EndArrayGrammar    // ]
 ```
 
 ### Examples
@@ -56,18 +56,18 @@ import (
 
 // Tokenize JSON from stdin.
 func main() {
-	z := json.NewTokenizer(os.Stdin)
+	p := json.NewParser(os.Stdin)
 	for {
-		tt, text := z.Next()
-		switch tt {
-		case json.ErrorToken:
-			if z.Err() != io.EOF {
-				fmt.Println("Error on line", z.Line(), ":", z.Err())
+		gt, text := p.Next()
+		switch gt {
+		case json.ErrorGrammar:
+			if p.Err() != io.EOF {
+				fmt.Println("Error on line", p.Line(), ":", p.Err())
 			}
 			return
-		case json.LiteralToken:
+		case json.LiteralGrammar:
 			fmt.Println("Literal", string(text))
-		case json.NumberToken:
+		case json.NumberGrammar:
 			fmt.Println("Number", string(text))
 		// ...
 		}
