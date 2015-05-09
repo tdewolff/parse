@@ -146,7 +146,7 @@ func (z *Tokenizer) Next() (TokenType, []byte) {
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
-	if tt == LineTerminatorToken || tt == PunctuatorToken && RegexpStateByte[c] {
+	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
 		z.regexpState = true
 	} else {
 		z.regexpState = false
