@@ -8,30 +8,7 @@ import (
 
 var ErrBadDataURI = errors.New("not a data URI")
 
-func NormalizeContentType(b []byte) []byte {
-	j := 0
-	start := 0
-	inString := false
-	for i, c := range b {
-		if !inString && IsWhitespace(c) {
-			if start != 0 {
-				j += copy(b[j:], b[start:i])
-			} else {
-				j += i
-			}
-			start = i + 1
-		} else if c == '"' {
-			inString = !inString
-		}
-	}
-	if start != 0 {
-		j += copy(b[j:], b[start:])
-		return ToLower(b[:j])
-	}
-	return ToLower(b)
-}
-
-func ParseNumber(b []byte) (n int, ok bool) {
+func Number(b []byte) (n int, ok bool) {
 	i := 0
 	if i >= len(b) {
 		return 0, false
@@ -83,8 +60,8 @@ func ParseNumber(b []byte) (n int, ok bool) {
 	return i, true
 }
 
-// ParseDataURI splits the given URLToken and returns the mediatype, data and ok.
-func ParseDataURI(dataURI []byte) ([]byte, []byte, error) {
+// DataURI splits the given URLToken and returns the mediatype, data and ok.
+func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
 		dataURI = dataURI[5:]
 		inBase64 := false
@@ -127,7 +104,7 @@ func ParseDataURI(dataURI []byte) ([]byte, []byte, error) {
 	return []byte{}, []byte{}, ErrBadDataURI
 }
 
-func ParseQuoteEntity(b []byte) (quote byte, n int, ok bool) {
+func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
 	if len(b) < 5 || b[0] != '&' {
 		return 0, 0, false
 	}
