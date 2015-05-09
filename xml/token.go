@@ -1,4 +1,4 @@
-// Package xml is an XML1.0 tokenizer. It is implemented using the specifications at http://www.w3.org/TR/xml/.
+// Package xml is an XML1.0 tokenizer following the specifications at http://www.w3.org/TR/xml/.
 package xml // import "github.com/tdewolff/parse/xml"
 
 import (

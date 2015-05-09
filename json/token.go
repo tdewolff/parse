@@ -1,4 +1,4 @@
-// Package jsom is a JSON tokenizer. It is implemented using the specifications at http://json.org/.
+// Package jsom is a JSON tokenizer following the specifications at http://json.org/.
 package json // import "github.com/tdewolff/parse/json"
 
 import (

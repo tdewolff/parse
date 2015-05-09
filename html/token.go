@@ -1,4 +1,4 @@
-// Package html is an HTML5 tokenizer. It is implemented using the specifications at http://www.w3.org/TR/html5/syntax.html.
+// Package html is an HTML5 tokenizer following the specifications at http://www.w3.org/TR/html5/syntax.html.
 package html // import "github.com/tdewolff/parse/html"
 
 import (

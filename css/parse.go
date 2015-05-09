@@ -1,4 +1,4 @@
-// Package css is a CSS3 tokenizer and parser. Both are implemented using the specifications at http://www.w3.org/TR/css-syntax-3/.
+// Package css is a CSS3 tokenizer and parser following the specifications at http://www.w3.org/TR/css-syntax-3/.
 package css // import "github.com/tdewolff/parse/css"
 
 import (
