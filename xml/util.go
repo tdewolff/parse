@@ -29,19 +29,22 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 		}
 	}
 
+	n := len(b) + 2
 	var quote byte
 	var escapedQuote []byte
 	if doubles > singles {
+		n += singles * 4
 		quote = '\''
 		escapedQuote = singleQuoteEntityBytes
 	} else {
+		n += doubles * 4
 		quote = '"'
 		escapedQuote = doubleQuoteEntityBytes
 	}
-	if len(b)+2 > cap(*buf) {
-		*buf = make([]byte, 0, len(b)+2) // maximum size, not actual size
+	if n > cap(*buf) {
+		*buf = make([]byte, 0, n) // maximum size, not actual size
 	}
-	t := (*buf)[:len(b)+2] // maximum size, not actual size
+	t := (*buf)[:n] // maximum size, not actual size
 	t[0] = quote
 	j := 1
 	start := 0

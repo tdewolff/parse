@@ -19,4 +19,5 @@ func TestAttrVal(t *testing.T) {
 	assertAttrVal(t, "x&amp;z", "\"x&amp;z\"")
 	assertAttrVal(t, "x'z", "\"x'z\"")
 	assertAttrVal(t, "x\"z", "'x\"z'")
+	assertAttrVal(t, "a'b=\"\"", "'a&#39;b=\"\"'")
 }

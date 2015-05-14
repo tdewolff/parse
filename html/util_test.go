@@ -32,4 +32,5 @@ func TestAttrVal(t *testing.T) {
 	assertAttrVal(t, "'x&#x00022;z'", "'x\"z'")
 	assertAttrVal(t, "'x\"&gt;'", "'x\"&gt;'")
 	assertAttrVal(t, "You&#039;re encouraged to log in; however, it&#039;s not mandatory. [o]", "\"You're encouraged to log in; however, it's not mandatory. [o]\"")
+	assertAttrVal(t, "a'b=\"\"", "'a&#39;b=\"\"'")
 }
