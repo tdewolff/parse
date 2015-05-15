@@ -12,10 +12,10 @@ var ErrBadDataURI = errors.New("not a data URI")
 
 // Number returns the number of bytes that parse as a number of the regex format (+|-)?([0-9]+(\.[0-9]+)?|\.[0-9]+)((e|E)(+|-)?[0-9]+)?.
 func Number(b []byte) int {
-	i := 0
-	if i >= len(b) {
+	if len(b) == 0 {
 		return 0
 	}
+	i := 0
 	if b[i] == '+' || b[i] == '-' {
 		i++
 		if i >= len(b) {
@@ -108,9 +108,9 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 }
 
 // QuoteEntity parses the given byte slice and returns the quote that got matched (' or "), its entity length and ok.
-func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
+func QuoteEntity(b []byte) (quote byte, n int) {
 	if len(b) < 5 || b[0] != '&' {
-		return 0, 0, false
+		return 0, 0
 	}
 	if b[1] == '#' {
 		if b[2] == 'x' {
@@ -120,9 +120,9 @@ func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
 			}
 			if i+2 < len(b) && b[i] == '2' && b[i+2] == ';' {
 				if b[i+1] == '2' {
-					return '"', i + 3, true // &#x22;
+					return '"', i + 3 // &#x22;
 				} else if b[i+1] == '7' {
-					return '\'', i + 3, true // &#x27;
+					return '\'', i + 3 // &#x27;
 				}
 			}
 		} else {
@@ -132,18 +132,18 @@ func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
 			}
 			if i+2 < len(b) && b[i] == '3' && b[i+2] == ';' {
 				if b[i+1] == '4' {
-					return '"', i + 3, true // &#34;
+					return '"', i + 3 // &#34;
 				} else if b[i+1] == '9' {
-					return '\'', i + 3, true // &#39;
+					return '\'', i + 3 // &#39;
 				}
 			}
 		}
 	} else if len(b) >= 6 && b[5] == ';' {
 		if EqualFold(b[1:5], []byte{'q', 'u', 'o', 't'}) {
-			return '"', 6, true // &quot;
+			return '"', 6 // &quot;
 		} else if EqualFold(b[1:5], []byte{'a', 'p', 'o', 's'}) {
-			return '\'', 6, true // &apos;
+			return '\'', 6 // &apos;
 		}
 	}
-	return 0, 0, false
+	return 0, 0
 }

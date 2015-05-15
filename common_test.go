@@ -14,9 +14,8 @@ func assertDataURI(t *testing.T, x, e1, e2 string, eerr error) {
 	assert.Equal(t, e2, string(s2), "data part must match in "+x)
 }
 
-func assertQuoteEntity(t *testing.T, s string, equote byte, en int, eok bool) {
-	quote, n, ok := QuoteEntity([]byte(s))
-	assert.Equal(t, eok, ok, "must match ok in "+s)
+func assertQuoteEntity(t *testing.T, s string, equote byte, en int) {
+	quote, n := QuoteEntity([]byte(s))
 	assert.Equal(t, en, n, "must match length in "+s)
 	assert.Equal(t, equote, quote, "must match quote in "+s)
 }
@@ -48,12 +47,12 @@ func TestParseDataURI(t *testing.T) {
 }
 
 func TestParseQuoteEntity(t *testing.T) {
-	assertQuoteEntity(t, "&#34;", '"', 5, true)
-	assertQuoteEntity(t, "&#039;", '\'', 6, true)
-	assertQuoteEntity(t, "&#x0022;", '"', 8, true)
-	assertQuoteEntity(t, "&#x27;", '\'', 6, true)
-	assertQuoteEntity(t, "&quot;", '"', 6, true)
-	assertQuoteEntity(t, "&apos;", '\'', 6, true)
-	assertQuoteEntity(t, "&gt;", 0x00, 0, false)
-	assertQuoteEntity(t, "&amp;", 0x00, 0, false)
+	assertQuoteEntity(t, "&#34;", '"', 5)
+	assertQuoteEntity(t, "&#039;", '\'', 6)
+	assertQuoteEntity(t, "&#x0022;", '"', 8)
+	assertQuoteEntity(t, "&#x27;", '\'', 6)
+	assertQuoteEntity(t, "&quot;", '"', 6)
+	assertQuoteEntity(t, "&apos;", '\'', 6)
+	assertQuoteEntity(t, "&gt;", 0x00, 0)
+	assertQuoteEntity(t, "&amp;", 0x00, 0)
 }
