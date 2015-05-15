@@ -144,11 +144,10 @@ func (p *Parser) initBuf() {
 }
 
 func (p *Parser) pushBuf(tt TokenType, data []byte) {
-	if p.l.IsEOF() {
-		p.buf = append(p.buf, Token{tt, data})
-	} else {
-		p.buf = append(p.buf, Token{tt, parse.Copy(data)})
+	if !p.l.IsEOF() {
+		data = parse.Copy(data)
 	}
+	p.buf = append(p.buf, Token{tt, data})
 }
 
 ////////////////////////////////////////////////////////////////
