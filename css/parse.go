@@ -196,7 +196,7 @@ func (p *Parser) parseAtRule() GrammarType {
 	atRuleName := p.data
 	if len(atRuleName) > 0 && atRuleName[1] == '-' {
 		if i := bytes.IndexByte(atRuleName[2:], '-'); i != -1 {
-			atRuleName = atRuleName[i+3:] // skip vendor specific prefix
+			atRuleName = atRuleName[i+2:] // skip vendor specific prefix
 		}
 	}
 	atRule := ToHash(atRuleName[1:])

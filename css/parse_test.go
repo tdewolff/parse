@@ -129,6 +129,9 @@ func TestParser(t *testing.T) {
 	assertParse(t, true, ".class [c=y]{}", ".class [c=y]{}")                                                       // tdewolff/minify#16
 	assertParse(t, true, "table{font-family:Verdana}", "table{font-family:Verdana;}")                              // tdewolff/minify#22
 
+	// go-fuzz
+	assertParse(t, true, "@-webkit-", "@-webkit-;")
+
 	assert.Equal(t, "Error", ErrorGrammar.String())
 	assert.Equal(t, "AtRule", AtRuleGrammar.String())
 	assert.Equal(t, "BeginAtRule", BeginAtRuleGrammar.String())
