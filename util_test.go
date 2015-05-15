@@ -48,9 +48,9 @@ func TestEqual(t *testing.T) {
 	assert.Equal(t, false, Equal([]byte("abcd"), []byte("abc")))
 	assert.Equal(t, false, Equal([]byte("bbc"), []byte("abc")))
 
-	assert.Equal(t, true, EqualCaseInsensitive([]byte("Abc"), []byte("abc")))
-	assert.Equal(t, false, EqualCaseInsensitive([]byte("Abcd"), []byte("abc")))
-	assert.Equal(t, false, EqualCaseInsensitive([]byte("Bbc"), []byte("abc")))
+	assert.Equal(t, true, EqualFold([]byte("Abc"), []byte("abc")))
+	assert.Equal(t, false, EqualFold([]byte("Abcd"), []byte("abc")))
+	assert.Equal(t, false, EqualFold([]byte("Bbc"), []byte("abc")))
 }
 
 func TestWhitespace(t *testing.T) {

@@ -654,7 +654,7 @@ func (l *Lexer) consumeIdentlike() TokenType {
 	if l.consumeIdentToken() {
 		if !l.consumeByte('(') {
 			return IdentToken
-		} else if !parse.EqualCaseInsensitive(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
+		} else if !parse.EqualFold(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
 			return FunctionToken
 		}
 

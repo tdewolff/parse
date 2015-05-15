@@ -139,9 +139,9 @@ func QuoteEntity(b []byte) (quote byte, n int, ok bool) {
 			}
 		}
 	} else if len(b) >= 6 && b[5] == ';' {
-		if EqualCaseInsensitive(b[1:5], []byte{'q', 'u', 'o', 't'}) {
+		if EqualFold(b[1:5], []byte{'q', 'u', 'o', 't'}) {
 			return '"', 6, true // &quot;
-		} else if EqualCaseInsensitive(b[1:5], []byte{'a', 'p', 'o', 's'}) {
+		} else if EqualFold(b[1:5], []byte{'a', 'p', 'o', 's'}) {
 			return '\'', 6, true // &apos;
 		}
 	}

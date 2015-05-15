@@ -30,8 +30,8 @@ func Equal(s, target []byte) bool {
 	return true
 }
 
-// EqualCaseInsensitive returns true when s matches case-insensitively the targetLower (which must be lowercase).
-func EqualCaseInsensitive(s, targetLower []byte) bool {
+// EqualFold returns true when s matches case-insensitively the targetLower (which must be lowercase).
+func EqualFold(s, targetLower []byte) bool {
 	if len(s) != len(targetLower) {
 		return false
 	}
