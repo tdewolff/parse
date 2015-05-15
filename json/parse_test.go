@@ -19,7 +19,7 @@ func assertGrammars(t *testing.T, s string, grammartypes ...GrammarType) {
 		tt, _ := p.Next()
 		if tt == ErrorGrammar {
 			assert.Equal(t, io.EOF, p.Err(), "error must be EOF in "+stringify)
-			assert.Equal(t, len(grammartypes), i, "when error occurred we must be at the end in "+stringify)
+			assert.Equal(t, len(grammartypes), i, "when error occurred we must be at the end in "+s)
 			break
 		} else if tt == WhitespaceGrammar {
 			continue
@@ -99,10 +99,6 @@ func TestGrammars(t *testing.T) {
 	assertGrammars(t, `{"a": [1, 2], "b": {"c": 3}}`, StartObjectGrammar, StringGrammar, StartArrayGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar, StringGrammar, StartObjectGrammar, StringGrammar, NumberGrammar, EndObjectGrammar, EndObjectGrammar)
 	assertGrammars(t, "[null,]", StartArrayGrammar, LiteralGrammar, EndArrayGrammar)
 
-	// early endings
-	assertGrammars(t, "\"a", StringGrammar)
-	assertGrammars(t, "\"a\\", StringGrammar)
-
 	assert.Equal(t, "Whitespace", WhitespaceGrammar.String())
 	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
 	assert.Equal(t, "Value", ValueState.String())
@@ -121,6 +117,7 @@ func TestGrammarsError(t *testing.T) {
 	assertGrammarsError(t, "{\"a\" 1}", ErrBadObjectDeclaration)
 	assertGrammarsError(t, "1.", ErrNoComma)
 	assertGrammarsError(t, "1e+", ErrNoComma)
+	assertGrammarsError(t, `{"":"`, io.EOF)
 }
 
 func TestStates(t *testing.T) {

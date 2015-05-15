@@ -310,13 +310,12 @@ func (p *Parser) consumeStringToken() bool {
 			p.r.Move(1)
 			break
 		} else if c == 0 {
-			break
+			return false
 		} else if c == '\\' {
 			if p.r.Peek(1) != 0 {
 				p.r.Move(1)
 			} else {
-				p.r.Move(1)
-				break
+				return false
 			}
 		}
 		p.r.Move(1)
