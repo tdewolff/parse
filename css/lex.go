@@ -603,6 +603,7 @@ func (l *Lexer) consumeString() TokenType {
 		if c == 0 {
 			break
 		} else if c == '\n' || c == '\r' || c == '\f' {
+			l.r.Move(1)
 			return BadStringToken
 		} else if c == delim {
 			l.r.Move(1)
