@@ -104,6 +104,7 @@ func TestParser(t *testing.T) {
 	assertParse(t, true, "@media (max-width:400px) { }", "@media(max-width:400px){}")
 	assertParse(t, true, "@media (max-width:400px)", "@media(max-width:400px);")
 	assertParse(t, true, "@font-face { ; font:x; }", "@font-face{font:x;}")
+	assertParse(t, true, "@-moz-font-face { ; font:x; }", "@-moz-font-face{font:x;}")
 	assertParse(t, true, "@unknown abc { {} lala }", "@unknown abc{{}lala}")
 	assertParse(t, true, "a[x={}]{x:y;}", "a[x={}]{x:y;}")
 	assertParse(t, true, "a[x=,]{x:y;}", "a[x=,]{x:y;}")
