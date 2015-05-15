@@ -36,6 +36,13 @@ func TestParseNumber(t *testing.T) {
 	assert.Equal(t, 0, Number([]byte("a")))
 }
 
+func TestParseInt(t *testing.T) {
+	assert.Equal(t, 5, Int([]byte("5")))
+	assert.Equal(t, 99, Int([]byte("99")))
+	assert.Equal(t, 990, Int([]byte("0990")))
+	assert.Equal(t, -5, Int([]byte("-5")))
+}
+
 func TestParseDataURI(t *testing.T) {
 	assertDataURI(t, "www.domain.com", "", "", ErrBadDataURI)
 	assertDataURI(t, "data:,", "text/plain", "", nil)

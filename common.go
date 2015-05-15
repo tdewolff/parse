@@ -63,6 +63,24 @@ func Number(b []byte) int {
 	return i
 }
 
+// Int parses a byte-slice and returns the integer it represents
+func Int(b []byte) int {
+	i := 0
+	neg := false
+	for _, c := range b {
+		if c == '-' {
+			neg = true
+		} else {
+			i *= 10
+			i += int(c - '0')
+		}
+	}
+	if neg {
+		return -i
+	}
+	return i
+}
+
 // DataURI parses the given data URI and returns the mediatype, data and ok.
 func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
