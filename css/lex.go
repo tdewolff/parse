@@ -624,16 +624,10 @@ func (l *Lexer) consumeString() TokenType {
 
 func (l *Lexer) consumeUnquotedURL() bool {
 	for {
-		if l.consumeWhitespace() {
-			break
-		} else if l.consumeByte(')') {
-			l.r.Move(-1)
-			break
-		}
 		c := l.r.Peek(0)
-		if c == 0 {
+		if c == 0 || c == ')' {
 			break
-		} else if c == '"' || c == '\'' || c == '(' || (c >= 0 && c <= 8) || c == 0x0B || (c >= 0x0E && c <= 0x1F) || c == 0x7F || c == '\\' {
+		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || c == ' ' || c <= 0x1F || c == 0x7F {
 			if c != '\\' || !l.consumeEscape() {
 				return false
 			}
@@ -673,8 +667,10 @@ func (l *Lexer) consumeIdentlike() TokenType {
 				return BadURLToken
 			}
 		} else if !l.consumeUnquotedURL() {
-			l.consumeRemnantsBadURL()
-			return BadURLToken
+			if !l.consumeWhitespace() {
+				l.consumeRemnantsBadURL()
+				return BadURLToken
+			}
 		}
 		for l.consumeWhitespace() {
 		}
