@@ -4,6 +4,7 @@ package parse // import "github.com/tdewolff/parse"
 import (
 	"encoding/base64"
 	"errors"
+	"math"
 	"net/url"
 )
 
@@ -64,21 +65,23 @@ func Number(b []byte) int {
 }
 
 // Int parses a byte-slice and returns the integer it represents
-func Int(b []byte) int {
-	i := 0
+func Int(b []byte) (int64, bool) {
+	i := int64(0)
 	neg := false
 	for _, c := range b {
 		if c == '-' {
 			neg = true
+		} else if i+1 > math.MaxInt64/10 {
+			return 0, false
 		} else {
 			i *= 10
-			i += int(c - '0')
+			i += int64(c - '0')
 		}
 	}
 	if neg {
-		return -i
+		return -i, true
 	}
-	return i
+	return i, true
 }
 
 // DataURI parses the given data URI and returns the mediatype, data and ok.
