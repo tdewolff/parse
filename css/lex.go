@@ -595,10 +595,11 @@ func (l *Lexer) consumeNumeric() TokenType {
 
 // consumeString consumes a string and may return BadStringToken when a newline is encountered.
 func (l *Lexer) consumeString() TokenType {
+	// assume to be on " or '
 	delim := l.r.Peek(0)
-	if delim != '"' && delim != '\'' {
-		return ErrorToken
-	}
+	// if delim != '"' && delim != '\'' {
+	// 	return ErrorToken
+	// }
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
@@ -652,25 +653,25 @@ func (l *Lexer) consumeRemnantsBadURL() {
 // consumeIdentlike consumes IdentToken, FunctionToken or UrlToken.
 func (l *Lexer) consumeIdentlike() TokenType {
 	if l.consumeIdentToken() {
-		if !l.consumeByte('(') {
+		if l.r.Peek(0) != '(' {
 			return IdentToken
-		} else if !parse.EqualFold(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l', '('}) {
+		} else if !parse.EqualFold(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l'}) {
+			l.r.Move(1)
 			return FunctionToken
 		}
+		l.r.Move(1)
 
 		// consume url
 		for l.consumeWhitespace() {
 		}
-		if t := l.consumeString(); t != ErrorToken {
-			if t == BadStringToken {
+		if c := l.r.Peek(0); c == '"' || c == '\'' {
+			if l.consumeString() == BadStringToken {
 				l.consumeRemnantsBadURL()
 				return BadURLToken
 			}
-		} else if !l.consumeUnquotedURL() {
-			if !l.consumeWhitespace() {
-				l.consumeRemnantsBadURL()
-				return BadURLToken
-			}
+		} else if !l.consumeUnquotedURL() && !l.consumeWhitespace() {
+			l.consumeRemnantsBadURL()
+			return BadURLToken
 		}
 		for l.consumeWhitespace() {
 		}
