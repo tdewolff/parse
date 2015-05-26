@@ -96,53 +96,22 @@ func main() {
 
 ## Parser
 ### Usage
-The following parses until EOF with io.Reader `r`:
+The following creates a new Parser.
 ``` go
-stylesheet, err := css.Parse(r)
-if err != nil {
-	fmt.Println("Error", err)
-	return
-}
+// false because this is the content of an inline style attribute
+p := css.NewParser(bytes.NewBufferString("color: red;"), false)
 ```
 
 To iterate over the stylesheet, use:
 ``` go
-for _, node := range stylesheet.Nodes {
-	switch node.(type) {
-	case *css.TokenNode:
-		// ...
-	}
+for {
+    gt, _, data := p.Next()
+    if gt == css.ErrorGrammar {
+        break
+    }
+    // ...
 }
 ```
-
-Nodes:
-
-	StylesheetNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
-	RulesetNode.SelGroups := SelectorGroupNode*
-	RulesetNode.Decls := DeclarationNode*
-
-	SelectorGroupNode.Selectors := SelectorNode*
-	SelectorNode.Nodes := (TokenNode | AttributeSelectorNode)*
-	AttributeSelectorNode.Vals := TokenNode*
-
-	DeclarationNode.Prop := TokenNode
-	DeclarationNode.Vals := (FunctionNode | TokenNode)*
-
-	FunctionNode.Func := TokenNode
-	FunctionNode.Args := ArgumentNode*
-	ArgumentNode.Key := TokenNode | nil
-	ArgumentNode.Val := TokenNode
-
-	AtRuleNode.At := TokenNode
-	AtRuleNode.Nodes := TokenNode*
-	AtRuleNode.Block := BlockNode | nil
-
-	BlockNode.Open := TokenNode
-	BlockNode.Nodes := (RulesetNode | DeclarationNode | AtRuleNode | TokenNode)*
-	BlockNode.Close := TokenNode
-
-	TokenNode.TokenType := TokenType
-	TokenNode.Data := string
 
 All grammar units returned by `Next`:
 ``` go
@@ -160,33 +129,40 @@ TokenGrammar
 package main
 
 import (
+	"bytes"
 	"fmt"
-	"os"
 
 	"github.com/tdewolff/parse/css"
 )
 
-// Parse CSS3 from stdin.
 func main() {
-	stylesheet, err := css.Parse(os.Stdin)
-	if err != nil {
-		fmt.Println("Error:", err)
-		return
-	}
-
-	for _, node := range stylesheet.Nodes {
-		switch m := node.(type) {
-		case *css.TokenNode:
-			fmt.Println("Token", string(m.Data))
-		case *css.DeclarationNode:
-			fmt.Println("Declaration for property", string(m.Prop.Data))
-		case *css.RulesetNode:
-			fmt.Println("Ruleset with", len(m.Decls), "declarations")
-		case *css.AtRuleNode:
-			fmt.Println("AtRule", string(m.At.Data))
+	// false because this is the content of an inline style attribute
+	p := css.NewParser(bytes.NewBufferString("color: red;"), false)
+	out := ""
+	for {
+		gt, _, data := p.Next()
+		if gt == css.ErrorGrammar {
+			break
+		} else if gt == css.AtRuleGrammar || gt == css.BeginAtRuleGrammar || gt == css.BeginRulesetGrammar || gt == css.DeclarationGrammar {
+			out += string(data)
+			if gt == css.DeclarationGrammar {
+				out += ":"
+			}
+			for _, val := range p.Values() {
+				out += string(val.Data)
+			}
+			if gt == css.BeginAtRuleGrammar || gt == css.BeginRulesetGrammar {
+				out += "{"
+			} else if gt == css.AtRuleGrammar || gt == css.DeclarationGrammar {
+				out += ";"
+			}
+		} else {
+			out += string(data)
 		}
 	}
+	fmt.Println(out)
 }
+
 ```
 
 ## License
