@@ -20,6 +20,12 @@ func assertQuoteEntity(t *testing.T, s string, equote byte, en int) {
 	assert.Equal(t, equote, quote, "must match quote in "+s)
 }
 
+func assertInt(t *testing.T, s string, ei int64) {
+	i, valid := Int([]byte(s))
+	assert.Equal(t, true, valid, "must be an integer in "+s)
+	assert.Equal(t, ei, i, "must match integer in "+s)
+}
+
 ////////////////////////////////////////////////////////////////
 
 func TestParseNumber(t *testing.T) {
@@ -37,10 +43,10 @@ func TestParseNumber(t *testing.T) {
 }
 
 func TestParseInt(t *testing.T) {
-	assert.Equal(t, 5, Int([]byte("5")))
-	assert.Equal(t, 99, Int([]byte("99")))
-	assert.Equal(t, 990, Int([]byte("0990")))
-	assert.Equal(t, -5, Int([]byte("-5")))
+	assertInt(t, "5", 5)
+	assertInt(t, "99", 99)
+	assertInt(t, "999", 999)
+	assertInt(t, "-5", -5)
 }
 
 func TestParseDataURI(t *testing.T) {
