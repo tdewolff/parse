@@ -7,12 +7,13 @@ package svg
 type Hash uint32
 
 const (
-	D       Hash = 0x1
-	G       Hash = 0xc01
-	Path    Hash = 0x104
-	Style   Hash = 0x505
-	Svg     Hash = 0xa03
-	Version Hash = 0xd07
+	D        Hash = 0x401
+	G        Hash = 0x1301
+	Metadata Hash = 0x8
+	Path     Hash = 0x804
+	Style    Hash = 0xc05
+	Svg      Hash = 0x1103
+	Version  Hash = 0x1407
 )
 
 // String returns the hash' name.
@@ -65,14 +66,15 @@ func _Hash_string(i Hash) string {
 }
 
 const _Hash_hash0 = 0x9acb0442
-const _Hash_maxLen = 7
-const _Hash_text = "dpathstylesvgversion"
+const _Hash_maxLen = 8
+const _Hash_text = "metadatapathstylesvgversion"
 
 var _Hash_table = [1 << 3]Hash{
-	0x0: 0xa03, // svg
-	0x1: 0x104, // path
-	0x2: 0x1,   // d
-	0x4: 0xd07, // version
-	0x6: 0x505, // style
-	0x7: 0xc01, // g
+	0x0: 0x1103, // svg
+	0x1: 0x804,  // path
+	0x2: 0x401,  // d
+	0x4: 0x1407, // version
+	0x5: 0x8,    // metadata
+	0x6: 0xc05,  // style
+	0x7: 0x1301, // g
 }
