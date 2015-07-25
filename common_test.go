@@ -20,6 +20,12 @@ func assertQuoteEntity(t *testing.T, s string, equote byte, en int) {
 	assert.Equal(t, equote, quote, "must match quote in "+s)
 }
 
+func assertDimension(t *testing.T, s string, enum int, eunit int) {
+	num, unit := Dimension([]byte(s))
+	assert.Equal(t, enum, num, "must match number length in "+s)
+	assert.Equal(t, eunit, unit, "must match unit length in "+s)
+}
+
 func assertInt(t *testing.T, s string, ei int64) {
 	i, valid := Int([]byte(s))
 	assert.Equal(t, true, valid, "must be an integer in "+s)
@@ -40,6 +46,13 @@ func TestParseNumber(t *testing.T) {
 	assert.Equal(t, 0, Number([]byte("+")))
 	assert.Equal(t, 0, Number([]byte(".")))
 	assert.Equal(t, 0, Number([]byte("a")))
+}
+
+func TestParseDimension(t *testing.T) {
+	assertDimension(t, "5px", 1, 2)
+	assertDimension(t, "5px ", 1, 2)
+	assertDimension(t, "5%", 1, 1)
+	assertDimension(t, "5em", 1, 2)
 }
 
 func TestParseInt(t *testing.T) {

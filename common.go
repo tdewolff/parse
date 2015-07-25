@@ -64,6 +64,22 @@ func Number(b []byte) int {
 	return i
 }
 
+func Dimension(b []byte) (int, int) {
+	num := Number(b)
+	if num == 0 || num == len(b) {
+		return num, 0
+	} else if b[num] == '%' {
+		return num, 1
+	} else if b[num] >= 'a' && b[num] <= 'z' || b[num] >= 'A' && b[num] <= 'Z' {
+		i := num + 1
+		for i < len(b) && (b[i] >= 'a' && b[i] <= 'z' || b[i] >= 'A' && b[i] <= 'Z') {
+			i++
+		}
+		return num, i - num
+	}
+	return num, 0
+}
+
 // Int parses a byte-slice and returns the integer it represents
 func Int(b []byte) (int64, bool) {
 	i := int64(0)
