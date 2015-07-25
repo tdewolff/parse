@@ -11,22 +11,33 @@ const (
 	D             Hash = 0x1
 	Defs          Hash = 0x4
 	G             Hash = 0x2301
-	Line          Hash = 0x4004
+	Height        Hash = 0x2906
+	Line          Hash = 0x4d04
 	Marker        Hash = 0x806
 	Mask          Hash = 0x1104
 	Metadata      Hash = 0x1508
 	Missing_Glyph Hash = 0x1d0d
-	Path          Hash = 0x2a04
-	Pattern       Hash = 0x2e07
-	Polygon       Hash = 0x3507
-	Polyline      Hash = 0x3c08
+	Path          Hash = 0x2f04
+	Pattern       Hash = 0x3307
+	Points        Hash = 0x3a06
+	Polygon       Hash = 0x4207
+	Polyline      Hash = 0x4908
 	Rect          Hash = 0xd04
+	Rx            Hash = 0x5102
+	Ry            Hash = 0x5402
 	Style         Hash = 0x305
-	Svg           Hash = 0x4403
-	Switch        Hash = 0x4706
-	Symbol        Hash = 0x4d06
-	Version       Hash = 0x5307
-	ViewBox       Hash = 0x5a07
+	Svg           Hash = 0x3f03
+	Switch        Hash = 0x5706
+	Symbol        Hash = 0x5d06
+	Version       Hash = 0x6307
+	ViewBox       Hash = 0x6a07
+	Width         Hash = 0x7205
+	X             Hash = 0x5201
+	X1            Hash = 0x5202
+	X2            Hash = 0x7002
+	Y             Hash = 0x501
+	Y1            Hash = 0x5502
+	Y2            Hash = 0x7702
 )
 
 // String returns the hash' name.
@@ -78,30 +89,42 @@ func _Hash_string(i Hash) string {
 	return _Hash_text[i>>8 : i>>8+i&0xff]
 }
 
-const _Hash_hash0 = 0xaa209b8e
+const _Hash_hash0 = 0x9110278f
 const _Hash_maxLen = 13
-const _Hash_text = "defstylemarkerectmaskmetadatamissing-glyphpathpatternpolygon" +
-	"polylinesvgswitchsymbolversionviewBox"
+const _Hash_text = "defstylemarkerectmaskmetadatamissing-glypheightpathpatternpo" +
+	"intsvgpolygonpolylinerx1ry1switchsymbolversionviewBox2widthy" +
+	"2"
 
 var _Hash_table = [1 << 5]Hash{
-	0x2:  0x1508, // metadata
-	0x3:  0x305,  // style
-	0x4:  0x4004, // line
-	0x5:  0x2a04, // path
-	0x6:  0x4d06, // symbol
-	0xb:  0x3507, // polygon
-	0xc:  0x1104, // mask
-	0xd:  0x1d0d, // missing-glyph
-	0x10: 0x5a07, // viewBox
-	0x12: 0x5307, // version
-	0x14: 0x806,  // marker
-	0x15: 0x2301, // g
-	0x16: 0x4706, // switch
-	0x17: 0x4403, // svg
-	0x18: 0x4,    // defs
-	0x1a: 0x3c08, // polyline
-	0x1b: 0x2e07, // pattern
-	0x1c: 0xd04,  // rect
-	0x1d: 0x901,  // a
-	0x1e: 0x1,    // d
+	0x0:  0x2906, // height
+	0x1:  0x7205, // width
+	0x2:  0x501,  // y
+	0x3:  0x5d06, // symbol
+	0x4:  0x2f04, // path
+	0x5:  0x7002, // x2
+	0x6:  0x4,    // defs
+	0x7:  0x6a07, // viewBox
+	0x8:  0x5102, // rx
+	0x9:  0x5502, // y1
+	0xa:  0x901,  // a
+	0xb:  0x1104, // mask
+	0xc:  0x5202, // x1
+	0xd:  0x4d04, // line
+	0xe:  0x1,    // d
+	0xf:  0x3307, // pattern
+	0x10: 0x806,  // marker
+	0x11: 0xd04,  // rect
+	0x12: 0x305,  // style
+	0x13: 0x3f03, // svg
+	0x15: 0x5201, // x
+	0x16: 0x6307, // version
+	0x17: 0x7702, // y2
+	0x18: 0x2301, // g
+	0x19: 0x5706, // switch
+	0x1a: 0x5402, // ry
+	0x1b: 0x4908, // polyline
+	0x1c: 0x3a06, // points
+	0x1d: 0x1508, // metadata
+	0x1e: 0x1d0d, // missing-glyph
+	0x1f: 0x4207, // polygon
 }
