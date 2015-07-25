@@ -8,12 +8,17 @@ type Hash uint32
 
 const (
 	D        Hash = 0x401
-	G        Hash = 0x1301
+	G        Hash = 0x1001
+	Line     Hash = 0x1704
 	Metadata Hash = 0x8
 	Path     Hash = 0x804
-	Style    Hash = 0xc05
-	Svg      Hash = 0x1103
-	Version  Hash = 0x1407
+	Polygon  Hash = 0xc07
+	Polyline Hash = 0x1308
+	Rect     Hash = 0x1b04
+	Style    Hash = 0x1f05
+	Svg      Hash = 0x2403
+	Version  Hash = 0x2707
+	ViewBox  Hash = 0x2e07
 )
 
 // String returns the hash' name.
@@ -67,14 +72,19 @@ func _Hash_string(i Hash) string {
 
 const _Hash_hash0 = 0x9acb0442
 const _Hash_maxLen = 8
-const _Hash_text = "metadatapathstylesvgversion"
+const _Hash_text = "metadatapathpolygonpolylinerectstylesvgversionviewBox"
 
-var _Hash_table = [1 << 3]Hash{
-	0x0: 0x1103, // svg
+var _Hash_table = [1 << 4]Hash{
+	0x0: 0x1b04, // rect
 	0x1: 0x804,  // path
-	0x2: 0x401,  // d
-	0x4: 0x1407, // version
-	0x5: 0x8,    // metadata
-	0x6: 0xc05,  // style
-	0x7: 0x1301, // g
+	0x2: 0x1704, // line
+	0x4: 0x2707, // version
+	0x6: 0x1308, // polyline
+	0x7: 0x401,  // d
+	0x8: 0x2403, // svg
+	0xa: 0xc07,  // polygon
+	0xc: 0x2e07, // viewBox
+	0xd: 0x8,    // metadata
+	0xe: 0x1f05, // style
+	0xf: 0x1001, // g
 }
