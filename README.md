@@ -1,4 +1,4 @@
-# Parse [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse)](http://gocover.io/github.com/tdewolff/parse)
+# Parse [![Build Status](https://travis-ci.org/tdewolff/parse.svg?branch=master)](https://travis-ci.org/tdewolff/parse) [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse)](http://gocover.io/github.com/tdewolff/parse)
 
 This package contains several lexers and parsers. All subpackages are built to be streaming, high performance and to be in accordance with the official (latest) specifications.
 
