@@ -7,37 +7,42 @@ package svg
 type Hash uint32
 
 const (
-	A             Hash = 0x901
-	D             Hash = 0x1
-	Defs          Hash = 0x4
-	G             Hash = 0x2301
-	Height        Hash = 0x2906
-	Line          Hash = 0x4d04
-	Marker        Hash = 0x806
-	Mask          Hash = 0x1104
-	Metadata      Hash = 0x1508
-	Missing_Glyph Hash = 0x1d0d
-	Path          Hash = 0x2f04
-	Pattern       Hash = 0x3307
-	Points        Hash = 0x3a06
-	Polygon       Hash = 0x4207
-	Polyline      Hash = 0x4908
-	Rect          Hash = 0xd04
-	Rx            Hash = 0x5102
-	Ry            Hash = 0x5402
-	Style         Hash = 0x305
-	Svg           Hash = 0x3f03
-	Switch        Hash = 0x5706
-	Symbol        Hash = 0x5d06
-	Version       Hash = 0x6307
-	ViewBox       Hash = 0x6a07
-	Width         Hash = 0x7205
-	X             Hash = 0x5201
-	X1            Hash = 0x5202
-	X2            Hash = 0x7002
-	Y             Hash = 0x501
-	Y1            Hash = 0x5502
-	Y2            Hash = 0x7702
+	A              Hash = 0x3101
+	D              Hash = 0x1
+	Defs           Hash = 0x4
+	Fill           Hash = 0x1004
+	Flood_Color    Hash = 0x230b
+	G              Hash = 0x1501
+	Height         Hash = 0x4e06
+	Lighting_Color Hash = 0x130e
+	Line           Hash = 0x7504
+	Marker         Hash = 0x3006
+	Mask           Hash = 0x3604
+	Metadata       Hash = 0x3a08
+	Missing_Glyph  Hash = 0x420d
+	Path           Hash = 0x5404
+	Pattern        Hash = 0x5807
+	Points         Hash = 0x5f06
+	Polygon        Hash = 0x6a07
+	Polyline       Hash = 0x7108
+	Rect           Hash = 0xc04
+	Rx             Hash = 0x2002
+	Ry             Hash = 0x2d02
+	Stop_Color     Hash = 0x30a
+	Stroke         Hash = 0x6406
+	Style          Hash = 0x7905
+	Svg            Hash = 0x7e03
+	Switch         Hash = 0x8106
+	Symbol         Hash = 0x8706
+	Version        Hash = 0x8d07
+	ViewBox        Hash = 0x9407
+	Width          Hash = 0x9c05
+	X              Hash = 0x2101
+	X1             Hash = 0x2102
+	X2             Hash = 0x9a02
+	Y              Hash = 0x2e01
+	Y1             Hash = 0x2e02
+	Y2             Hash = 0xa102
 )
 
 // String returns the hash' name.
@@ -89,42 +94,47 @@ func _Hash_string(i Hash) string {
 	return _Hash_text[i>>8 : i>>8+i&0xff]
 }
 
-const _Hash_hash0 = 0x9110278f
-const _Hash_maxLen = 13
-const _Hash_text = "defstylemarkerectmaskmetadatamissing-glypheightpathpatternpo" +
-	"intsvgpolygonpolylinerx1ry1switchsymbolversionviewBox2widthy" +
-	"2"
+const _Hash_hash0 = 0xaa209b8e
+const _Hash_maxLen = 14
+const _Hash_text = "defstop-colorectfillighting-colorx1flood-colory1markermaskme" +
+	"tadatamissing-glypheightpathpatternpointstrokepolygonpolylin" +
+	"estylesvgswitchsymbolversionviewBox2widthy2"
 
-var _Hash_table = [1 << 5]Hash{
-	0x0:  0x2906, // height
-	0x1:  0x7205, // width
-	0x2:  0x501,  // y
-	0x3:  0x5d06, // symbol
-	0x4:  0x2f04, // path
-	0x5:  0x7002, // x2
-	0x6:  0x4,    // defs
-	0x7:  0x6a07, // viewBox
-	0x8:  0x5102, // rx
-	0x9:  0x5502, // y1
-	0xa:  0x901,  // a
-	0xb:  0x1104, // mask
-	0xc:  0x5202, // x1
-	0xd:  0x4d04, // line
-	0xe:  0x1,    // d
-	0xf:  0x3307, // pattern
-	0x10: 0x806,  // marker
-	0x11: 0xd04,  // rect
-	0x12: 0x305,  // style
-	0x13: 0x3f03, // svg
-	0x15: 0x5201, // x
-	0x16: 0x6307, // version
-	0x17: 0x7702, // y2
-	0x18: 0x2301, // g
-	0x19: 0x5706, // switch
-	0x1a: 0x5402, // ry
-	0x1b: 0x4908, // polyline
-	0x1c: 0x3a06, // points
-	0x1d: 0x1508, // metadata
-	0x1e: 0x1d0d, // missing-glyph
-	0x1f: 0x4207, // polygon
+var _Hash_table = [1 << 6]Hash{
+	0x2:  0x2101, // x
+	0x3:  0x1004, // fill
+	0x6:  0x8706, // symbol
+	0x9:  0x2102, // x1
+	0xa:  0x5404, // path
+	0xb:  0x1501, // g
+	0xc:  0x3604, // mask
+	0xd:  0x9c05, // width
+	0x10: 0x9a02, // x2
+	0x14: 0x30a,  // stop-color
+	0x15: 0x2e01, // y
+	0x18: 0x4,    // defs
+	0x1c: 0x5807, // pattern
+	0x1d: 0x7504, // line
+	0x1e: 0x1,    // d
+	0x20: 0x230b, // flood-color
+	0x21: 0xa102, // y2
+	0x22: 0x6406, // stroke
+	0x24: 0x2002, // rx
+	0x25: 0x4e06, // height
+	0x26: 0xc04,  // rect
+	0x29: 0x5f06, // points
+	0x2b: 0x6a07, // polygon
+	0x2c: 0x2e02, // y1
+	0x2d: 0x420d, // missing-glyph
+	0x2e: 0x2d02, // ry
+	0x2f: 0x3006, // marker
+	0x30: 0x9407, // viewBox
+	0x32: 0x8d07, // version
+	0x34: 0x7905, // style
+	0x36: 0x8106, // switch
+	0x37: 0x7e03, // svg
+	0x3a: 0x7108, // polyline
+	0x3b: 0x3a08, // metadata
+	0x3c: 0x130e, // lighting-color
+	0x3d: 0x3101, // a
 }
