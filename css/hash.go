@@ -291,6 +291,7 @@ const (
 	Writing_Mode                Hash = 0x66b0c
 	Yellow                      Hash = 0x5ec06
 	Yellowgreen                 Hash = 0x79b0b
+	Z_Index                     Hash = 0xa1907
 )
 
 // String returns the hash' name.
@@ -387,7 +388,7 @@ const _Hash_text = "background-position-ybackground-repeatext-justifybehaviorgba
 	"crollbar-track-colorspeak-headerspeak-numeralayer-background" +
 	"-imagespeak-punctuationspeech-ratext-indentsupportscrollbar-" +
 	"highlight-colorunicode-bidirectionvisibilityvoice-familyvolu" +
-	"media"
+	"mediaz-index"
 
 var _Hash_table = [1 << 9]Hash{
 	0x0:   0x4cc0a, // sandybrown
@@ -586,6 +587,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x15e: 0x36103, // cue
 	0x15f: 0x4fd0c, // table-layout
 	0x160: 0x90a0b, // pitch-range
+	0x161: 0xa1907, // z-index
 	0x162: 0x29106, // stress
 	0x163: 0x80815, // background-position-x
 	0x165: 0x4d506, // normal
