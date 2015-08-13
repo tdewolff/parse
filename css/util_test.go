@@ -15,3 +15,10 @@ func TestIsUrlUnquoted(t *testing.T) {
 	assert.True(t, IsUrlUnquoted([]byte("http://x")))
 	assert.False(t, IsUrlUnquoted([]byte(")")))
 }
+
+func TestHsl2Rgb(t *testing.T) {
+	r, g, b := Hsl2Rgb(0.0, 1.0, 0.5)
+	assert.Equal(t, r, 1.0)
+	assert.Equal(t, g, 0.0)
+	assert.Equal(t, b, 0.0)
+}
