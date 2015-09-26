@@ -49,8 +49,8 @@ func (z *TokenBuffer) read(p []Token) int {
 
 // Peek returns the ith element and possibly does an allocation.
 // Peeking past an error will panic.
-func (z *TokenBuffer) Peek(i int) *Token {
-	end := z.pos + i
+func (z *TokenBuffer) Peek(end int) *Token {
+	end += z.pos
 	if end >= len(z.buf) {
 		c := cap(z.buf)
 		d := len(z.buf) - z.pos
