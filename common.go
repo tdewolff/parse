@@ -89,9 +89,11 @@ func Int(b []byte) (int64, bool) {
 			neg = true
 		} else if i+1 > math.MaxInt64/10 {
 			return 0, false
-		} else {
+		} else if c >= '0' && c <= '9' {
 			i *= 10
 			i += int64(c - '0')
+		} else {
+			return 0, false
 		}
 	}
 	if neg {
