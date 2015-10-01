@@ -31,6 +31,11 @@ func assertInt(t *testing.T, s string, ei int64) {
 	assert.Equal(t, ei, i, "must match integer in "+s)
 }
 
+func assertFloat(t *testing.T, s string, ef float64) {
+	f, _ := Float([]byte(s))
+	assert.Equal(t, ef, f, "must match float in "+s)
+}
+
 ////////////////////////////////////////////////////////////////
 
 func TestParseNumber(t *testing.T) {
@@ -70,6 +75,17 @@ func TestParseInt(t *testing.T) {
 	assertInt(t, "-9223372036854775809", 0)
 	assertInt(t, "18446744073709551620", 0)
 	assertInt(t, "a", 0)
+}
+
+func TestParseFloat(t *testing.T) {
+	assertFloat(t, "5", 5)
+	assertFloat(t, "5.1", 5.1)
+	assertFloat(t, "5.1e-2", 5.1e-2)
+	assertFloat(t, "5.1e+2", 5.1e+2)
+	assertFloat(t, "0.0e1", 0.0e1)
+	// TODO: hard to test due to float imprecision
+	// assertFloat(t, "1.7976931348623e+308", 1.7976931348623e+308)
+	// assertFloat(t, "4.9406564584124e-308", 4.9406564584124e-308)
 }
 
 func TestParseDataURI(t *testing.T) {
