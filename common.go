@@ -82,24 +82,28 @@ func Dimension(b []byte) (int, int) {
 
 // Int parses a byte-slice and returns the integer it represents
 func Int(b []byte) (int64, bool) {
-	i := int64(0)
+	n := uint64(0)
 	neg := false
+	if len(b) > 0 && (b[0] == '+' || b[0] == '-') {
+		neg = b[0] == '-'
+		b = b[1:]
+	}
 	for _, c := range b {
-		if c == '-' {
-			neg = true
-		} else if i+1 > math.MaxInt64/10 {
+		if n > math.MaxUint64/10 {
 			return 0, false
 		} else if c >= '0' && c <= '9' {
-			i *= 10
-			i += int64(c - '0')
+			n *= 10
+			n += uint64(c - '0')
 		} else {
 			return 0, false
 		}
 	}
-	if neg {
-		return -i, true
+	if !neg && n > uint64(math.MaxInt64) || n > uint64(math.MaxInt64)+1 {
+		return 0, false
+	} else if neg {
+		return -int64(n), true
 	}
-	return i, true
+	return int64(n), true
 }
 
 // DataURI parses the given data URI and returns the mediatype, data and ok.

@@ -27,8 +27,7 @@ func assertDimension(t *testing.T, s string, enum int, eunit int) {
 }
 
 func assertInt(t *testing.T, s string, ei int64) {
-	i, valid := Int([]byte(s))
-	assert.Equal(t, true, valid, "must be an integer in "+s)
+	i, _ := Int([]byte(s))
 	assert.Equal(t, ei, i, "must match integer in "+s)
 }
 
@@ -53,6 +52,9 @@ func TestParseDimension(t *testing.T) {
 	assertDimension(t, "5px ", 1, 2)
 	assertDimension(t, "5%", 1, 1)
 	assertDimension(t, "5em", 1, 2)
+	assertDimension(t, "px", 0, 0)
+	assertDimension(t, "1", 1, 0)
+	assertDimension(t, "1~", 1, 0)
 }
 
 func TestParseInt(t *testing.T) {
@@ -60,6 +62,14 @@ func TestParseInt(t *testing.T) {
 	assertInt(t, "99", 99)
 	assertInt(t, "999", 999)
 	assertInt(t, "-5", -5)
+	assertInt(t, "+5", 5)
+	assertInt(t, "9223372036854775807", 9223372036854775807)
+	assertInt(t, "9223372036854775808", 0)
+	assertInt(t, "-9223372036854775807", -9223372036854775807)
+	assertInt(t, "-9223372036854775808", -9223372036854775808)
+	assertInt(t, "-9223372036854775809", 0)
+	assertInt(t, "18446744073709551620", 0)
+	assertInt(t, "a", 0)
 }
 
 func TestParseDataURI(t *testing.T) {
