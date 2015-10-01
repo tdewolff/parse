@@ -1,5 +1,4 @@
 package parse // import "github.com/tdewolff/parse"
-import "unsafe"
 
 // Copy returns a copy of the given byte slice.
 func Copy(src []byte) (dst []byte) {
@@ -108,8 +107,4 @@ func ReplaceMultiple(b []byte, f func(byte) bool, r byte) []byte {
 		return b[:j]
 	}
 	return b
-}
-
-func UnsafeToString(b []byte) string {
-	return *(*string)(unsafe.Pointer(&b))
 }
