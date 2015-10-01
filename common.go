@@ -150,7 +150,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	return []byte{}, []byte{}, ErrBadDataURI
 }
 
-// QuoteEntity parses the given byte slice and returns the quote that got matched (' or "), its entity length and ok.
+// QuoteEntity parses the given byte slice and returns the quote that got matched (' or ") and its entity length.
 func QuoteEntity(b []byte) (quote byte, n int) {
 	if len(b) < 5 || b[0] != '&' {
 		return 0, 0
