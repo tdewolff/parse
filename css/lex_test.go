@@ -97,6 +97,11 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "color/*\\**/: blue\\9;", IdentToken, CommentToken, ColonToken, IdentToken, SemicolonToken)
 	assertTokens(t, "color: blue !ie;", IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken)
 
+	// escapes, null and replacement character
+	assertTokens(t, "c\\\x00olor: white;", IdentToken, ColonToken, IdentToken, SemicolonToken)
+	assertTokens(t, "null\\0", IdentToken)
+	assertTokens(t, "eof\\", IdentToken)
+
 	// coverage
 	assertTokens(t, "  \n\r\n\r\"\\\r\n\\\r\"", StringToken)
 	assertTokens(t, "U+?????? U+ABCD?? U+ABC-DEF", UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken)

@@ -225,6 +225,10 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		} else if l.consumeColumnToken() {
 			return ColumnToken, l.r.Shift()
 		}
+	case 0:
+		if l.Err() != nil {
+			return ErrorToken, []byte{}
+		}
 	default:
 		if t := l.consumeNumeric(); t != ErrorToken {
 			return t, l.r.Shift()
@@ -232,10 +236,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return t, l.r.Shift()
 		}
 	}
-	if l.Err() != nil {
-		return ErrorToken, []byte{}
-	}
-	// can't be rune for consumeIdentlike consumes that as an identifier
+	// can't be rune because consumeIdentlike consumes that as an identifier
 	l.r.Move(1)
 	return DelimToken, l.r.Shift()
 }
@@ -315,7 +316,6 @@ func (l *Lexer) consumeHexDigit() bool {
 	return false
 }
 
-// TODO: doesn't return replacement character when encountering EOF or when hexdigits are zero or ??? "surrogate code point".
 func (l *Lexer) consumeEscape() bool {
 	if l.r.Peek(0) != '\\' {
 		return false
@@ -333,10 +333,15 @@ func (l *Lexer) consumeEscape() bool {
 		}
 		l.consumeWhitespace()
 		return true
-	} else if l.r.Peek(0) >= 0xC0 {
-		_, n := l.r.PeekRune(0)
-		l.r.Move(n)
-		return true
+	} else {
+		c := l.r.Peek(0)
+		if c >= 0xC0 {
+			_, n := l.r.PeekRune(0)
+			l.r.Move(n)
+			return true
+		} else if c == 0 && l.r.Err() != nil {
+			return true
+		}
 	}
 	l.r.Move(1)
 	return true
