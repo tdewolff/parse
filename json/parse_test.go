@@ -74,7 +74,11 @@ func helperStringify(t *testing.T, input string) string {
 	for i := 0; i < 10; i++ {
 		tt, text := p.Next()
 		if tt == ErrorGrammar {
-			s += tt.String() + "('" + p.Err().Error() + "')"
+			if p.Err() != nil {
+				s += tt.String() + "('" + p.Err().Error() + "')"
+			} else {
+				s += tt.String() + "('')"
+			}
 			break
 		} else if tt == WhitespaceGrammar {
 			continue
@@ -98,6 +102,7 @@ func TestGrammars(t *testing.T) {
 	assertGrammars(t, `{"a": "b", "c": "d"}`, StartObjectGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndObjectGrammar)
 	assertGrammars(t, `{"a": [1, 2], "b": {"c": 3}}`, StartObjectGrammar, StringGrammar, StartArrayGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar, StringGrammar, StartObjectGrammar, StringGrammar, NumberGrammar, EndObjectGrammar, EndObjectGrammar)
 	assertGrammars(t, "[null,]", StartArrayGrammar, LiteralGrammar, EndArrayGrammar)
+	assertGrammars(t, "[\"x\\\x00y\", 0]", StartArrayGrammar, StringGrammar, NumberGrammar, EndArrayGrammar)
 
 	assert.Equal(t, "Whitespace", WhitespaceGrammar.String())
 	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
@@ -118,6 +123,7 @@ func TestGrammarsError(t *testing.T) {
 	assertGrammarsError(t, "1.", ErrNoComma)
 	assertGrammarsError(t, "1e+", ErrNoComma)
 	assertGrammarsError(t, `{"":"`, io.EOF)
+	assertGrammarsError(t, "\"a\\", io.EOF)
 }
 
 func TestStates(t *testing.T) {

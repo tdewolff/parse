@@ -8,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/tdewolff/parse"
+	"github.com/tdewolff/test"
 )
 
 func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
@@ -142,6 +143,17 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, "Declaration", DeclarationGrammar.String())
 	assert.Equal(t, "Token", TokenGrammar.String())
 	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
+}
+
+func TestReader(t *testing.T) {
+	input := "x:a;"
+	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), false)
+	for {
+		gt, _, _ := p.Next()
+		if gt == ErrorGrammar {
+			break
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////

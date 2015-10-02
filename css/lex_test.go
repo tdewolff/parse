@@ -119,6 +119,7 @@ func TestTokens(t *testing.T) {
 	assert.Equal(t, "Whitespace", WhitespaceToken.String())
 	assert.Equal(t, "Empty", EmptyToken.String())
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
+	assert.Equal(t, ErrorToken, NewLexer(bytes.NewBufferString("x")).consumeBracket())
 }
 
 func TestTokensSmall(t *testing.T) {

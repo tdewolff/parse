@@ -13,4 +13,5 @@ func TestHashTable(t *testing.T) {
 	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
 	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
 	assert.Equal(t, Hash(0), ToHash([]byte("fonts")), "'fonts' must resolve to zero")
+	assert.Equal(t, false, _Hash_match("a", []byte("b")))
 }

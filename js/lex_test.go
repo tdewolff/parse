@@ -102,6 +102,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "'str\u2028ing'", UnknownToken, IdentifierToken, LineTerminatorToken, IdentifierToken, StringToken)
 	assertTokens(t, "a=/\\\n", IdentifierToken, PunctuatorToken, PunctuatorToken, UnknownToken, LineTerminatorToken)
 	assertTokens(t, "a=/x/\u200C\u3009", IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken)
+	assertTokens(t, "a=/x\n", IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken)
 
 	// small buffer
 	buffer.MinBuf = 2
