@@ -4,7 +4,6 @@ package parse // import "github.com/tdewolff/parse"
 import (
 	"encoding/base64"
 	"errors"
-	"fmt"
 	"math"
 	"net/url"
 )
@@ -154,6 +153,8 @@ func Float(b []byte) (float64, bool) {
 			trunk = i
 		}
 		mantExp = int64(trunk - dot - 1)
+	} else if trunk != -1 {
+		mantExp = int64(trunk - i)
 	}
 	expExp := int64(0)
 	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
@@ -163,7 +164,6 @@ func Float(b []byte) (float64, bool) {
 		}
 	}
 	exp := expExp - mantExp
-	fmt.Println(n, f, mantExp, expExp, exp)
 	// copied from strconv/atof.go
 	if exp == 0 {
 		return f, true
@@ -174,15 +174,12 @@ func Float(b []byte) (float64, bool) {
 			f *= float64pow10[exp-22]
 			exp = 22
 		}
-		if f > 1e15 || f < -1e15 {
-			// the exponent was really too large.
-			return 0.0, false
+		if f <= 1e15 && f >= -1e15 {
+			return f * float64pow10[exp], true
 		}
-		return f * float64pow10[exp], true
 	} else if exp < 0 && exp >= -22 { // int / 10^k
 		return f / float64pow10[-exp], true
 	}
-	fmt.Println(mantExp, expExp, math.Pow10(int(mantExp)), math.Pow10(int(expExp)))
 	f *= math.Pow10(int(-mantExp))
 	return f * math.Pow10(int(expExp)), true
 }
