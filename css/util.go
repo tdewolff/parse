@@ -28,10 +28,10 @@ func Hsl2Rgb(h, s, l float64) (float64, float64, float64) {
 }
 
 func hue2rgb(m1, m2, h float64) float64 {
-	for h < 0.0 {
+	if h < 0.0 {
 		h += 1.0
 	}
-	for h > 1.0 {
+	if h > 1.0 {
 		h -= 1.0
 	}
 	if h*6.0 < 1.0 {
