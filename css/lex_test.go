@@ -101,6 +101,10 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "c\\\x00olor: white;", IdentToken, ColonToken, IdentToken, SemicolonToken)
 	assertTokens(t, "null\\0", IdentToken)
 	assertTokens(t, "eof\\", IdentToken)
+	assertTokens(t, "\"a\x00b\"", StringToken)
+	assertTokens(t, "a\\\x00b", IdentToken)
+	assertTokens(t, "url(a\x00b)", BadURLToken) // null character cannot be unquoted
+	assertTokens(t, "/*a\x00b*/", CommentToken)
 
 	// coverage
 	assertTokens(t, "  \n\r\n\r\"\\\r\n\\\r\"", StringToken)
