@@ -14,7 +14,9 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 	unquoted := true
 	entities := false
 	for i, c := range b {
-		if c == '&' {
+		if unquoted && (parse.IsWhitespace(c) || c == '`' || c == '<' || c == '=' || c == '>') {
+			unquoted = false
+		} else if c == '&' {
 			entities = true
 			if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				if quote == '"' {
@@ -30,8 +32,6 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 			unquoted = false
 		} else if c == '\'' {
 			singles++
-			unquoted = false
-		} else if unquoted && (c == '`' || c == '<' || c == '=' || c == '>' || parse.IsWhitespace(c)) {
 			unquoted = false
 		}
 	}
@@ -65,7 +65,8 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				j += copy(t[j:], b[start:i])
 				if entityQuote != quote {
-					j += copy(t[j:], []byte{entityQuote})
+					t[j] = entityQuote
+					j++
 				} else {
 					j += copy(t[j:], escapedQuote)
 				}
