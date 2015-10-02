@@ -312,10 +312,8 @@ func (p *Parser) consumeStringToken() bool {
 		} else if c == 0 {
 			return false
 		} else if c == '\\' {
-			if p.r.Peek(1) != 0 {
+			if p.r.Peek(1) != 0 || p.r.Err() == nil {
 				p.r.Move(1)
-			} else {
-				return false
 			}
 		}
 		p.r.Move(1)
