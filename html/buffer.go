@@ -1,13 +1,12 @@
 package html // import "github.com/tdewolff/parse/html"
 
-import "github.com/tdewolff/parse"
-
 // Token is a single token unit with an attribute value (if given) and hash of the data.
 type Token struct {
 	TokenType
 	Data    []byte
 	AttrVal []byte
 	Hash    Hash
+	n       int
 }
 
 // TokenBuffer is a buffer that allows for token look-ahead.
@@ -28,23 +27,23 @@ func NewTokenBuffer(l *Lexer) *TokenBuffer {
 
 func (z *TokenBuffer) read(p []Token) int {
 	for i := 0; i < len(p); i++ {
-		tt, data := z.l.Next()
-		if !z.l.IsEOF() {
-			data = parse.Copy(data)
-		}
+		tt, data, n := z.l.Next()
+		// if !z.l.IsEOF() {
+		// 	data = parse.Copy(data)
+		// }
 
 		var attrVal []byte
 		var hash Hash
 		if tt == AttributeToken {
 			attrVal = z.l.AttrVal()
-			if !z.l.IsEOF() {
-				attrVal = parse.Copy(attrVal)
-			}
+			// if !z.l.IsEOF() {
+			// 	attrVal = parse.Copy(attrVal)
+			// }
 			hash = ToHash(data)
 		} else if tt == StartTagToken || tt == EndTagToken {
 			hash = ToHash(data)
 		}
-		p[i] = Token{tt, data, attrVal, hash}
+		p[i] = Token{tt, data, attrVal, hash, n}
 		if tt == ErrorToken {
 			return i + 1
 		}
@@ -77,6 +76,7 @@ func (z *TokenBuffer) Peek(end int) *Token {
 // Shift returns the first element and advances position.
 func (z *TokenBuffer) Shift() *Token {
 	t := z.Peek(0)
+	z.l.r.Free(t.n)
 	z.pos++
 	return t
 }

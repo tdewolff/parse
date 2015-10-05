@@ -56,7 +56,7 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.Shifter
+	r *buffer.Lexer
 
 	rawTag  Hash
 	inTag   bool
@@ -66,7 +66,7 @@ type Lexer struct {
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r: buffer.NewShifter(r),
+		r: buffer.NewLexer(r),
 	}
 }
 
@@ -76,35 +76,36 @@ func (l Lexer) Err() error {
 }
 
 // IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (l Lexer) IsEOF() bool {
-	return l.r.IsEOF()
-}
+// func (l Lexer) IsEOF() bool {
+// 	return l.r.IsEOF()
+// }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte) {
+func (l *Lexer) Next() (TokenType, []byte, int) {
+	pos := l.r.Pos()
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
 		c = l.r.Peek(0)
 		if c == 0 {
-			return ErrorToken, []byte{}
+			return ErrorToken, []byte{}, 0
 		} else if c != '>' && (c != '/' || l.r.Peek(1) != '>') {
-			return AttributeToken, l.shiftAttribute()
+			return AttributeToken, l.shiftAttribute(), l.r.Pos() - pos
 		}
 		l.inTag = false
 		if c == '/' {
 			l.r.Move(2)
-			return StartTagVoidToken, l.r.Shift()
+			return StartTagVoidToken, l.r.Shift(), l.r.Pos() - pos
 		} else {
 			l.r.Move(1)
-			return StartTagCloseToken, l.r.Shift()
+			return StartTagCloseToken, l.r.Shift(), l.r.Pos() - pos
 		}
 	}
 
 	if l.rawTag != 0 {
 		if rawText := l.shiftRawText(); len(rawText) > 0 {
 			l.rawTag = 0
-			return TextToken, rawText
+			return TextToken, rawText, l.r.Pos() - pos
 		}
 		l.rawTag = 0
 	}
@@ -115,34 +116,35 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			c = l.r.Peek(1)
 			if l.r.Pos() > 0 {
 				if c == '/' && l.r.Peek(2) != 0 || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
-					return TextToken, l.r.Shift()
+					return TextToken, l.r.Shift(), l.r.Pos() - pos
 				}
 			} else if c == '/' && l.r.Peek(2) != 0 {
 				l.r.Move(2)
 				l.r.Skip()
 				if c = l.r.Peek(0); c != '>' && !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
-					return CommentToken, l.shiftBogusComment()
+					return CommentToken, l.shiftBogusComment(), l.r.Pos() - pos
 				}
-				return EndTagToken, l.shiftEndTag()
+				return EndTagToken, l.shiftEndTag(), l.r.Pos() - pos
 			} else if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
 				l.r.Move(1)
 				l.r.Skip()
 				l.inTag = true
-				return StartTagToken, l.shiftStartTag()
+				return StartTagToken, l.shiftStartTag(), l.r.Pos() - pos
 			} else if c == '!' {
 				l.r.Move(2)
 				l.r.Skip()
-				return l.readMarkup()
+				tt, b := l.readMarkup()
+				return tt, b, l.r.Pos() - pos
 			} else if c == '?' {
 				l.r.Move(1)
 				l.r.Skip()
-				return CommentToken, l.shiftBogusComment()
+				return CommentToken, l.shiftBogusComment(), l.r.Pos() - pos
 			}
 		} else if c == 0 {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+				return TextToken, l.r.Shift(), l.r.Pos() - pos
 			} else {
-				return ErrorToken, []byte{}
+				return ErrorToken, []byte{}, 0
 			}
 		}
 		l.r.Move(1)
