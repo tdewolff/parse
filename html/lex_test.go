@@ -13,7 +13,6 @@ import (
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	l := NewLexer(bytes.NewBufferString(s))
-	//assert.Equal(t, io.EOF, l.Err(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
 		tt, _, _ := l.Next()
