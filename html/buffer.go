@@ -44,7 +44,10 @@ func (z *TokenBuffer) read(p []Token) int {
 		} else if tt == StartTagToken || tt == EndTagToken {
 			hash = ToHash(data)
 		}
-		p[i] = Token{tt, data, attrVal, hash}
+		p[i].TokenType = tt
+		p[i].Data = data
+		p[i].AttrVal = attrVal
+		p[i].Hash = hash
 		if tt == ErrorToken {
 			return i + 1
 		}
