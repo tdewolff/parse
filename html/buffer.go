@@ -73,7 +73,7 @@ func (z *TokenBuffer) Peek(end int) *Token {
 // Shift returns the first element and advances position.
 func (z *TokenBuffer) Shift() *Token {
 	t := z.Peek(0)
-	z.l.r.Free(t.n)
+	z.l.Free(t.n)
 	z.pos++
 	return t
 }
