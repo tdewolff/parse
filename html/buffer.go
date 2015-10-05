@@ -28,22 +28,19 @@ func NewTokenBuffer(l *Lexer) *TokenBuffer {
 func (z *TokenBuffer) read(p []Token) int {
 	for i := 0; i < len(p); i++ {
 		tt, data, n := z.l.Next()
-		// if !z.l.IsEOF() {
-		// 	data = parse.Copy(data)
-		// }
-
 		var attrVal []byte
 		var hash Hash
 		if tt == AttributeToken {
 			attrVal = z.l.AttrVal()
-			// if !z.l.IsEOF() {
-			// 	attrVal = parse.Copy(attrVal)
-			// }
 			hash = ToHash(data)
 		} else if tt == StartTagToken || tt == EndTagToken {
 			hash = ToHash(data)
 		}
-		p[i] = Token{tt, data, attrVal, hash, n}
+		p[i].TokenType = tt
+		p[i].Data = data
+		p[i].AttrVal = attrVal
+		p[i].Hash = hash
+		p[i].n = n
 		if tt == ErrorToken {
 			return i + 1
 		}
