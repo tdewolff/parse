@@ -3,9 +3,9 @@ package html // import "github.com/tdewolff/parse/html"
 // Token is a single token unit with an attribute value (if given) and hash of the data.
 type Token struct {
 	TokenType
+	Hash    Hash
 	Data    []byte
 	AttrVal []byte
-	Hash    Hash
 	n       int
 }
 
@@ -25,34 +25,28 @@ func NewTokenBuffer(l *Lexer) *TokenBuffer {
 	}
 }
 
-func (z *TokenBuffer) read(p []Token) int {
-	for i := 0; i < len(p); i++ {
-		tt, data, n := z.l.Next()
-		var attrVal []byte
-		var hash Hash
-		if tt == AttributeToken {
-			attrVal = z.l.AttrVal()
-			hash = ToHash(data)
-		} else if tt == StartTagToken || tt == EndTagToken {
-			hash = ToHash(data)
-		}
-		p[i].TokenType = tt
-		p[i].Data = data
-		p[i].AttrVal = attrVal
-		p[i].Hash = hash
-		p[i].n = n
-		if tt == ErrorToken {
-			return i + 1
-		}
+func (z *TokenBuffer) read(t *Token) {
+	tt, data, n := z.l.Next()
+	var attrVal []byte
+	var hash Hash
+	if tt == AttributeToken {
+		attrVal = z.l.AttrVal()
+		hash = ToHash(data)
+	} else if tt == StartTagToken || tt == EndTagToken {
+		hash = ToHash(data)
 	}
-	return len(p)
+	t.TokenType = tt
+	t.Data = data
+	t.AttrVal = attrVal
+	t.Hash = hash
+	t.n = n
 }
 
 // Peek returns the ith element and possibly does an allocation.
 // Peeking past an error will panic.
-func (z *TokenBuffer) Peek(end int) *Token {
-	end += z.pos
-	if end >= len(z.buf) {
+func (z *TokenBuffer) Peek(pos int) *Token {
+	pos += z.pos
+	if pos >= len(z.buf) {
 		c := cap(z.buf)
 		d := len(z.buf) - z.pos
 		var buf []Token
@@ -63,15 +57,31 @@ func (z *TokenBuffer) Peek(end int) *Token {
 		}
 		copy(buf, z.buf[z.pos:])
 
-		n := z.read(buf[d:cap(buf)])
-		end -= z.pos
+		readinBuf := buf[d:cap(buf)]
+		n := len(readinBuf)
+		for i := 0; i < n; i++ {
+			z.read(&readinBuf[i])
+			if readinBuf[i].TokenType == ErrorToken {
+				n = i + 1
+				break
+			}
+		}
+		pos -= z.pos
 		z.pos, z.buf = 0, buf[:d+n]
 	}
-	return &z.buf[end]
+	return &z.buf[pos]
 }
 
 // Shift returns the first element and advances position.
 func (z *TokenBuffer) Shift() *Token {
+	if z.pos == len(z.buf) {
+		z.buf = z.buf[:1]
+		z.pos = 1
+		t := &z.buf[0]
+		z.read(t)
+		z.l.Free(t.n)
+		return t
+	}
 	t := z.Peek(0)
 	z.l.Free(t.n)
 	z.pos++
