@@ -43,12 +43,12 @@ func EqualFold(s, targetLower []byte) bool {
 	return true
 }
 
-// IsWhitespace returns true for space, \n, \t, \f, \r.
+// IsWhitespace returns true for space, \n, \r, \t, \f.
 func IsWhitespace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'
+	return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f'
 }
 
-// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \t, \f, \r.
+// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \r, \t, \f.
 func IsAllWhitespace(b []byte) bool {
 	for _, c := range b {
 		if !IsWhitespace(c) {
@@ -78,16 +78,16 @@ func Trim(b []byte, f func(byte) bool) []byte {
 	return b[start:end]
 }
 
-// ReplaceMultiple replaces any character serie for which the function return true into a single character given by r.
-func ReplaceMultiple(b []byte, f func(byte) bool, r byte) []byte {
+// ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space.
+func ReplaceMultipleWhitespace(b []byte) []byte {
 	j := 0
 	start := 0
 	prevMatch := false
-	for i, c := range b {
-		if f(c) {
+	for i := 0; i < len(b); i++ {
+		if IsWhitespace(b[i]) {
 			if !prevMatch {
 				prevMatch = true
-				b[i] = r
+				b[i] = ' '
 			} else {
 				if start < i {
 					if start != 0 {
