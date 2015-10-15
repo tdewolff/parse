@@ -90,7 +90,8 @@ func Int(b []byte) (int64, bool) {
 		b = b[1:]
 	}
 	n := uint64(0)
-	for _, c := range b {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
 		if n > math.MaxUint64/10 {
 			return 0, false
 		} else if c >= '0' && c <= '9' {
@@ -191,7 +192,8 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 		inBase64 := false
 		mediatype := []byte{}
 		i := 0
-		for j, c := range dataURI {
+		for j := 0; j < len(dataURI); j++ {
+			c := dataURI[j]
 			if c == '=' || c == ';' || c == ',' {
 				if c != '=' && Equal(Trim(dataURI[i:j], IsWhitespace), []byte("base64")) {
 					if len(mediatype) > 0 {

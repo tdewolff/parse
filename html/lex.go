@@ -381,8 +381,8 @@ func (l *Lexer) moveWhitespace() {
 }
 
 func (l *Lexer) at(b ...byte) bool {
-	for i, c := range b {
-		if l.r.Peek(i) != c {
+	for i := 0; i < len(b); i++ {
+		if l.r.Peek(i) != b[i] {
 			return false
 		}
 	}
@@ -390,7 +390,8 @@ func (l *Lexer) at(b ...byte) bool {
 }
 
 func (l *Lexer) atCaseInsensitive(b ...byte) bool {
-	for i, c := range b {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
 		if l.r.Peek(i) != c && (l.r.Peek(i)+('a'-'A')) != c {
 			return false
 		}
