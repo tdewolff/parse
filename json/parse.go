@@ -138,7 +138,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	if c == ',' {
 		if state != ArrayState && state != ObjectKeyState {
 			p.err = ErrBadComma
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.r.Move(1)
 		p.moveWhitespace()
@@ -149,7 +149,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 
 	if p.needComma && c != '}' && c != ']' && c != 0 {
 		p.err = ErrNoComma
-		return ErrorGrammar, []byte{}
+		return ErrorGrammar, nil
 	} else if c == '{' {
 		p.state = append(p.state, ObjectKeyState)
 		p.r.Move(1)
@@ -157,7 +157,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	} else if c == '}' {
 		if state != ObjectKeyState {
 			p.err = ErrBadObjectEnding
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.needComma = true
 		p.state = p.state[:len(p.state)-1]
@@ -174,7 +174,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 		p.needComma = true
 		if state != ArrayState {
 			p.err = ErrBadArrayEnding
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.state = p.state[:len(p.state)-1]
 		if p.state[len(p.state)-1] == ObjectValueState {
@@ -185,13 +185,13 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	} else if state == ObjectKeyState {
 		if c != '"' || !p.consumeStringToken() {
 			p.err = ErrBadObjectKey
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		n := p.r.Pos()
 		p.moveWhitespace()
 		if c := p.r.Peek(0); c != ':' {
 			p.err = ErrBadObjectDeclaration
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.r.Move(1)
 		p.state[len(p.state)-1] = ObjectValueState
@@ -210,7 +210,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 			return LiteralGrammar, p.r.Shift()
 		}
 	}
-	return ErrorGrammar, []byte{}
+	return ErrorGrammar, nil
 }
 
 // State returns the state the parser is currently in (ie. which token is expected).

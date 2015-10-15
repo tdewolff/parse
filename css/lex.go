@@ -227,7 +227,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	case 0:
 		if l.Err() != nil {
-			return ErrorToken, []byte{}
+			return ErrorToken, nil
 		}
 	default:
 		if t := l.consumeNumeric(); t != ErrorToken {
@@ -657,7 +657,7 @@ func (l *Lexer) consumeIdentlike() TokenType {
 	if l.consumeIdentToken() {
 		if l.r.Peek(0) != '(' {
 			return IdentToken
-		} else if !parse.EqualFold(bytes.Replace(l.r.Bytes(), []byte{'\\'}, []byte{}, -1), []byte{'u', 'r', 'l'}) {
+		} else if !parse.EqualFold(bytes.Replace(l.r.Bytes(), []byte{'\\'}, nil, -1), []byte{'u', 'r', 'l'}) {
 			l.r.Move(1)
 			return FunctionToken
 		}

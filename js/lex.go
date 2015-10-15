@@ -139,7 +139,7 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 				tt = LineTerminatorToken
 			}
 		} else if l.Err() != nil {
-			return ErrorToken, []byte{}, l.r.ShiftLen()
+			return ErrorToken, nil, l.r.ShiftLen()
 		}
 	}
 

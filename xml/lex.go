@@ -94,7 +94,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.attrVal = nil
 		c = l.r.Peek(0)
 		if c == 0 {
-			return ErrorToken, []byte{}
+			return ErrorToken, nil
 		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
 			return AttributeToken, l.shiftAttribute()
 		}
@@ -147,7 +147,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			if l.r.Pos() > 0 {
 				return TextToken, l.r.Shift()
 			}
-			return ErrorToken, []byte{}
+			return ErrorToken, nil
 		}
 		l.r.Move(1)
 	}
