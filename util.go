@@ -23,8 +23,8 @@ func Equal(s, target []byte) bool {
 	if len(s) != len(target) {
 		return false
 	}
-	for i := 0; i < len(src); i++ {
-		if s[i] != src[i] {
+	for i := 0; i < len(target); i++ {
+		if s[i] != target[i] {
 			return false
 		}
 	}
