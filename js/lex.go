@@ -233,10 +233,9 @@ func (l *Lexer) consumeEscape() bool {
 		_, n := l.r.PeekRune(0)
 		l.r.Move(n)
 		return true
-	} else {
-		l.r.Move(1)
-		return true
 	}
+	l.r.Move(1)
+	return true
 }
 
 func (l *Lexer) consumeUnicodeEscape() bool {

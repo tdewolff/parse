@@ -94,10 +94,9 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		if c == '/' {
 			l.r.Move(2)
 			return StartTagVoidToken, l.r.Shift(), l.r.ShiftLen()
-		} else {
-			l.r.Move(1)
-			return StartTagCloseToken, l.r.Shift(), l.r.ShiftLen()
 		}
+		l.r.Move(1)
+		return StartTagCloseToken, l.r.Shift(), l.r.ShiftLen()
 	}
 
 	if l.rawTag != 0 {
@@ -141,9 +140,8 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		} else if c == 0 {
 			if l.r.Pos() > 0 {
 				return TextToken, l.r.Shift(), l.r.ShiftLen()
-			} else {
-				return ErrorToken, nil, l.r.ShiftLen()
 			}
+			return ErrorToken, nil, l.r.ShiftLen()
 		}
 		l.r.Move(1)
 	}

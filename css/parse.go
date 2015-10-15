@@ -159,9 +159,8 @@ func (p *Parser) parseStylesheet() GrammarType {
 		return p.parseAtRule()
 	} else if p.tt == ErrorToken {
 		return ErrorGrammar
-	} else {
-		return p.parseQualifiedRule()
 	}
+	return p.parseQualifiedRule()
 }
 
 func (p *Parser) parseDeclarationList() GrammarType {

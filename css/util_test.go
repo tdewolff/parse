@@ -11,23 +11,23 @@ func TestIsIdent(t *testing.T) {
 	assert.False(t, IsIdent([]byte("4.5")))
 }
 
-func TestIsUrlUnquoted(t *testing.T) {
-	assert.True(t, IsUrlUnquoted([]byte("http://x")))
-	assert.False(t, IsUrlUnquoted([]byte(")")))
+func TestIsURLUnquoted(t *testing.T) {
+	assert.True(t, IsURLUnquoted([]byte("http://x")))
+	assert.False(t, IsURLUnquoted([]byte(")")))
 }
 
 func TestHsl2Rgb(t *testing.T) {
-	r, g, b := Hsl2Rgb(0.0, 1.0, 0.5)
+	r, g, b := HSL2RGB(0.0, 1.0, 0.5)
 	assert.Equal(t, r, 1.0)
 	assert.Equal(t, g, 0.0)
 	assert.Equal(t, b, 0.0)
 
-	r, g, b = Hsl2Rgb(1.0, 1.0, 0.5)
+	r, g, b = HSL2RGB(1.0, 1.0, 0.5)
 	assert.Equal(t, r, 1.0)
 	assert.Equal(t, g, 0.0)
 	assert.Equal(t, b, 0.0)
 
-	r, g, b = Hsl2Rgb(0.66, 0.0, 1.0)
+	r, g, b = HSL2RGB(0.66, 0.0, 1.0)
 	assert.Equal(t, r, 1.0)
 	assert.Equal(t, g, 1.0)
 	assert.Equal(t, b, 1.0)
