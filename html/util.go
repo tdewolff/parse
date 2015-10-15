@@ -7,32 +7,78 @@ var (
 	doubleQuoteEntityBytes = []byte("&#34;")
 )
 
+var charTable = [256]bool{
+	// ASCII
+	false, false, false, false, false, false, false, false,
+	false, true, true, true, true, true, false, false, // tab, new line, vertical tab, form feed, carriage return
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	true, false, true, false, false, false, true, true, // space, ", &, '
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, true, true, true, false, // <, =, >
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	true, false, false, false, false, false, false, false, // `
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	// non-ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+}
+
 // EscapeAttrVal returns the escaped attribute value bytes without quotes.
 func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 	singles := 0
 	doubles := 0
 	unquoted := true
 	entities := false
-	for i, c := range b {
-		if unquoted && (parse.IsWhitespace(c) || c == '`' || c == '<' || c == '=' || c == '>') {
-			unquoted = false
-		} else if c == '&' {
-			entities = true
-			if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
-				if quote == '"' {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if charTable[c] {
+			if c == '&' {
+				entities = true
+				if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
+					if quote == '"' {
+						unquoted = false
+						doubles++
+					} else {
+						unquoted = false
+						singles++
+					}
+				}
+			} else {
+				unquoted = false
+				if c == '"' {
 					doubles++
-					unquoted = false
-				} else {
+				} else if c == '\'' {
 					singles++
-					unquoted = false
 				}
 			}
-		} else if c == '"' {
-			doubles++
-			unquoted = false
-		} else if c == '\'' {
-			singles++
-			unquoted = false
 		}
 	}
 	if unquoted {
@@ -60,7 +106,8 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 	t[0] = quote
 	j := 1
 	start := 0
-	for i, c := range b {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
 		if c == '&' {
 			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				j += copy(t[j:], b[start:i])
