@@ -47,42 +47,44 @@ func (z *TokenBuffer) read(t *Token) {
 func (z *TokenBuffer) Peek(pos int) *Token {
 	pos += z.pos
 	if pos >= len(z.buf) {
-		c := cap(z.buf)
-		d := len(z.buf) - z.pos
-		var buf []Token
-		if 2*d > c {
-			buf = make([]Token, d, 2*c)
-		} else {
-			buf = z.buf[:d]
+		if len(z.buf) > 0 && z.buf[len(z.buf)-1].TokenType == ErrorToken {
+			return &z.buf[len(z.buf)-1]
 		}
-		copy(buf, z.buf[z.pos:])
 
-		readinBuf := buf[d:cap(buf)]
-		n := len(readinBuf)
-		for i := 0; i < n; i++ {
-			z.read(&readinBuf[i])
-			if readinBuf[i].TokenType == ErrorToken {
-				n = i + 1
+		c := cap(z.buf)
+		p := pos - z.pos + 1
+		var buf []Token
+		if 2*p > c {
+			buf = make([]Token, 0, 2*c+p)
+		} else {
+			buf = z.buf
+		}
+		d := len(z.buf) - z.pos
+		copy(buf[:d], z.buf[z.pos:])
+
+		buf = buf[:p]
+		for i := d; i < p; i++ {
+			z.read(&buf[i])
+			if buf[i].TokenType == ErrorToken {
+				p = i + 1
 				break
 			}
 		}
-		pos -= z.pos
-		z.pos, z.buf = 0, buf[:d+n]
+		pos = p - 1
+		z.pos, z.buf = 0, buf[:p]
 	}
 	return &z.buf[pos]
 }
 
 // Shift returns the first element and advances position.
 func (z *TokenBuffer) Shift() *Token {
-	if z.pos == len(z.buf) {
-		z.buf = z.buf[:1]
-		z.pos = 1
-		t := &z.buf[0]
+	if z.pos >= len(z.buf) {
+		t := &z.buf[:1][0]
 		z.read(t)
 		z.l.Free(t.n)
 		return t
 	}
-	t := z.Peek(0)
+	t := &z.buf[z.pos]
 	z.l.Free(t.n)
 	z.pos++
 	return t
