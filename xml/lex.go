@@ -64,7 +64,7 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.Shifter
+	r *buffer.Lexer
 
 	inTag   bool
 	attrVal []byte
@@ -73,7 +73,7 @@ type Lexer struct {
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r: buffer.NewShifter(r),
+		r: buffer.NewLexer(r),
 	}
 }
 
@@ -82,32 +82,32 @@ func (l Lexer) Err() error {
 	return l.r.Err()
 }
 
-// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (l Lexer) IsEOF() bool {
-	return l.r.IsEOF()
+//
+func (l *Lexer) Free(n int) {
+	l.r.Free(n)
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte) {
+func (l *Lexer) Next() (TokenType, []byte, int) {
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
 		c = l.r.Peek(0)
 		if c == 0 {
-			return ErrorToken, nil
+			return ErrorToken, nil, l.r.ShiftLen()
 		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
-			return AttributeToken, l.shiftAttribute()
+			return AttributeToken, l.shiftAttribute(), l.r.ShiftLen()
 		}
 		l.inTag = false
 		if c == '/' {
 			l.r.Move(2)
-			return StartTagCloseVoidToken, l.r.Shift()
+			return StartTagCloseVoidToken, l.r.Shift(), l.r.ShiftLen()
 		} else if c == '?' {
 			l.r.Move(2)
-			return StartTagClosePIToken, l.r.Shift()
+			return StartTagClosePIToken, l.r.Shift(), l.r.ShiftLen()
 		} else {
 			l.r.Move(1)
-			return StartTagCloseToken, l.r.Shift()
+			return StartTagCloseToken, l.r.Shift(), l.r.ShiftLen()
 		}
 	}
 
@@ -115,39 +115,39 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		c = l.r.Peek(0)
 		if c == '<' {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+				return TextToken, l.r.Shift(), l.r.ShiftLen()
 			}
 			c = l.r.Peek(1)
 			if c == '/' {
 				l.r.Move(2)
 				l.r.Skip()
-				return EndTagToken, l.shiftEndTag()
+				return EndTagToken, l.shiftEndTag(), l.r.ShiftLen()
 			} else if c == '!' {
 				l.r.Move(2)
 				if l.at('-', '-') {
 					l.r.Move(2)
-					return CommentToken, l.shiftCommentText()
+					return CommentToken, l.shiftCommentText(), l.r.ShiftLen()
 				} else if l.at('[', 'C', 'D', 'A', 'T', 'A', '[') {
 					l.r.Move(7)
-					return CDATAToken, l.shiftCDATAText()
+					return CDATAToken, l.shiftCDATAText(), l.r.ShiftLen()
 				} else if l.at('D', 'O', 'C', 'T', 'Y', 'P', 'E') {
 					l.r.Move(8)
-					return DOCTYPEToken, l.shiftDOCTYPEText()
+					return DOCTYPEToken, l.shiftDOCTYPEText(), l.r.ShiftLen()
 				}
 				l.r.Move(-2)
 			} else if c == '?' {
 				l.r.Move(2)
 				l.inTag = true
-				return StartTagPIToken, l.shiftStartTag()
+				return StartTagPIToken, l.shiftStartTag(), l.r.ShiftLen()
 			}
 			l.r.Move(1)
 			l.inTag = true
-			return StartTagToken, l.shiftStartTag()
+			return StartTagToken, l.shiftStartTag(), l.r.ShiftLen()
 		} else if c == 0 {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+				return TextToken, l.r.Shift(), l.r.ShiftLen()
 			}
-			return ErrorToken, nil
+			return ErrorToken, nil, l.r.ShiftLen()
 		}
 		l.r.Move(1)
 	}
@@ -255,7 +255,7 @@ func (l *Lexer) shiftAttribute() []byte {
 				}
 				l.r.Move(1)
 				if c == '\t' || c == '\n' || c == '\r' {
-					l.r.Bytes()[l.r.Pos()-1] = ' '
+					l.r.Lexeme()[l.r.Pos()-1] = ' '
 				}
 			}
 		} else { // attribute value unquoted state
@@ -268,7 +268,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		attrEnd := l.r.Pos()
 		l.moveWhitespace() // before attribute name state or after attribute quoted value state
-		l.attrVal = l.r.Bytes()[attrPos:attrEnd]
+		l.attrVal = l.r.Lexeme()[attrPos:attrEnd]
 	} else {
 		l.attrVal = nil
 	}
