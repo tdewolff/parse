@@ -61,22 +61,22 @@ type Lexer struct {
 	rawTag  Hash
 	inTag   bool
 	attrVal []byte
-
-	Free func(int)
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
-	l := &Lexer{
+	return &Lexer{
 		r: buffer.NewLexer(r),
 	}
-	l.Free = l.r.Free
-	return l
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
-func (l Lexer) Err() error {
+func (l *Lexer) Err() error {
 	return l.r.Err()
+}
+
+func (l *Lexer) Free(n int) {
+	l.r.Free(n)
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.

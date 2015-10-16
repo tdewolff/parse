@@ -169,7 +169,8 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
-		tt, data, _ := l.Next()
+		tt, data, n := l.Next()
+		l.Free(n)
 		if tt == ErrorToken {
 			break
 		}
