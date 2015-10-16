@@ -68,7 +68,7 @@ func Trim(b []byte, f func(byte) bool) []byte {
 var whitespaceTable = [256]bool{
 	// ASCII
 	false, false, false, false, false, false, false, false,
-	false, true, true, true, true, true, false, false, // tab, new line, vertical tab, form feed, carriage return
+	false, true, true, false, true, true, false, false, // tab, new line, form feed, carriage return
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
 
