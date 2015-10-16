@@ -102,7 +102,7 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.Shifter
+	r     *buffer.Lexer
 	state []State
 	err   error
 
@@ -112,7 +112,7 @@ type Parser struct {
 // NewParser returns a new Parser for a given io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		r:     buffer.NewShifter(r),
+		r:     buffer.NewLexer(r),
 		state: []State{ValueState},
 	}
 }
@@ -125,13 +125,10 @@ func (p Parser) Err() error {
 	return p.r.Err()
 }
 
-// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (p Parser) IsEOF() bool {
-	return p.r.IsEOF()
-}
-
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
+	p.r.Free(p.r.ShiftLen())
+
 	p.moveWhitespace()
 	c := p.r.Peek(0)
 	state := p.state[len(p.state)-1]
@@ -249,7 +246,7 @@ func (p *Parser) consumeLiteralToken() bool {
 }
 
 func (p *Parser) consumeNumberToken() bool {
-	nOld := p.r.Pos()
+	mark := p.r.Pos()
 	if p.r.Peek(0) == '-' {
 		p.r.Move(1)
 	}
@@ -263,7 +260,7 @@ func (p *Parser) consumeNumberToken() bool {
 			p.r.Move(1)
 		}
 	} else if c != '0' {
-		p.r.MoveTo(nOld)
+		p.r.Rewind(mark)
 		return false
 	} else {
 		p.r.Move(1) // 0
@@ -281,14 +278,14 @@ func (p *Parser) consumeNumberToken() bool {
 			p.r.Move(1)
 		}
 	}
-	nOld = p.r.Pos()
+	mark = p.r.Pos()
 	if c := p.r.Peek(0); c == 'e' || c == 'E' {
 		p.r.Move(1)
 		if c := p.r.Peek(0); c == '+' || c == '-' {
 			p.r.Move(1)
 		}
 		if c := p.r.Peek(0); c < '0' || c > '9' {
-			p.r.MoveTo(nOld)
+			p.r.Rewind(mark)
 			return true
 		}
 		for {

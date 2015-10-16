@@ -13,12 +13,10 @@ import (
 func assertGrammars(t *testing.T, s string, grammartypes ...GrammarType) {
 	stringify := helperStringify(t, s)
 	p := NewParser(bytes.NewBufferString(s))
-	assert.True(t, p.IsEOF(), "parser must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
 		tt, _ := p.Next()
 		if tt == ErrorGrammar {
-			assert.Equal(t, io.EOF, p.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(grammartypes), i, "when error occurred we must be at the end in "+s)
 			break
 		} else if tt == WhitespaceGrammar {
@@ -53,7 +51,6 @@ func assertStates(t *testing.T, s string, states ...State) {
 		tt, _ := p.Next()
 		state := p.State()
 		if tt == ErrorGrammar {
-			assert.Equal(t, io.EOF, p.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(states), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceGrammar {
