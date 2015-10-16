@@ -83,6 +83,7 @@ type Parser struct {
 	data    []byte
 	prevWS  bool
 	prevEnd bool
+	n       int
 }
 
 // NewParser returns a new CSS parser from an io.Reader. isStylesheet specifies whether this is a regular stylesheet (true) or an inline style attribute (false).
@@ -109,6 +110,9 @@ func (p *Parser) Err() error {
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
+	p.l.Free(p.n)
+	p.n = 0
+
 	if p.prevEnd {
 		p.tt, p.data = RightBraceToken, endBytes
 		p.prevEnd = false
@@ -126,27 +130,23 @@ func (p *Parser) Values() []Token {
 
 func (p *Parser) popToken() (TokenType, []byte) {
 	p.prevWS = false
-	tt, data := p.l.Next()
+	tt, data, n := p.l.Next()
+	p.n += n
 	for tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
 		}
-		tt, data = p.l.Next()
+		tt, data, n = p.l.Next()
+		p.n += n
 	}
 	return tt, data
 }
 
 func (p *Parser) initBuf() {
-	if !p.l.IsEOF() {
-		p.data = parse.Copy(p.data)
-	}
 	p.buf = p.buf[:0]
 }
 
 func (p *Parser) pushBuf(tt TokenType, data []byte) {
-	if !p.l.IsEOF() {
-		data = parse.Copy(data)
-	}
 	p.buf = append(p.buf, Token{tt, data})
 }
 
