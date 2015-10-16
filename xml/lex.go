@@ -78,7 +78,7 @@ func NewLexer(r io.Reader) *Lexer {
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
-func (l Lexer) Err() error {
+func (l *Lexer) Err() error {
 	return l.r.Err()
 }
 
