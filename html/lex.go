@@ -75,6 +75,7 @@ func (l *Lexer) Err() error {
 	return l.r.Err()
 }
 
+// Free frees up bytes of length n from previously shifted tokens.
 func (l *Lexer) Free(n int) {
 	l.r.Free(n)
 }
