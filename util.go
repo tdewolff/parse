@@ -45,21 +45,6 @@ func EqualFold(s, targetLower []byte) bool {
 	return true
 }
 
-// IsWhitespace returns true for space, \n, \r, \t, \f.
-func IsWhitespace(c byte) bool {
-	return c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f'
-}
-
-// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \r, \t, \f.
-func IsAllWhitespace(b []byte) bool {
-	for i := 0; i < len(b); i++ {
-		if !IsWhitespace(b[i]) {
-			return false
-		}
-	}
-	return true
-}
-
 // Trim removes any character from the start and end for which the function returns true.
 func Trim(b []byte, f func(byte) bool) []byte {
 	n := len(b)
@@ -78,6 +63,65 @@ func Trim(b []byte, f func(byte) bool) []byte {
 		}
 	}
 	return b[start:end]
+}
+
+var whitespaceTable = [256]bool{
+	// ASCII
+	false, false, false, false, false, false, false, false,
+	false, true, true, true, true, true, false, false, // tab, new line, vertical tab, form feed, carriage return
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	true, false, false, false, false, false, false, false, // space
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	// non-ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+}
+
+// IsWhitespace returns true for space, \n, \r, \t, \f.
+func IsWhitespace(c byte) bool {
+	return whitespaceTable[c]
+}
+
+// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \r, \t, \f.
+func IsAllWhitespace(b []byte) bool {
+	for i := 0; i < len(b); i++ {
+		if !IsWhitespace(b[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 // ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space.
