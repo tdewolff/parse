@@ -170,7 +170,6 @@ func ExampleNewLexer() {
 	out := ""
 	for {
 		tt, data, n := l.Next()
-		l.Free(n)
 		if tt == ErrorToken {
 			break
 		}
@@ -187,6 +186,7 @@ func ExampleNewLexer() {
 		} else if tt == AttributeToken {
 			out += "=" + string(l.AttrVal())
 		}
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: <span class='user'>John Doe</span>

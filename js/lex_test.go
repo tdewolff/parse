@@ -116,11 +116,12 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
 	out := ""
 	for {
-		tt, data, _ := l.Next()
+		tt, data, n := l.Next()
 		if tt == ErrorToken {
 			break
 		}
 		out += string(data)
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: var x = 'lorem ipsum';
