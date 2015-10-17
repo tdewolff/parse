@@ -227,7 +227,7 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		}
 	case 0:
 		if l.Err() != nil {
-			return ErrorToken, nil, l.r.ShiftLen()
+			return ErrorToken, nil, 0
 		}
 	default:
 		if t := l.consumeNumeric(); t != ErrorToken {
