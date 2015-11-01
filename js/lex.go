@@ -451,7 +451,7 @@ func (l *Lexer) consumeStringToken() bool {
 		} else if c == '\\' {
 			l.r.Move(1)
 			if !l.consumeLineTerminator() {
-				if c := l.r.Peek(0); c == delim {
+				if c := l.r.Peek(0); c == delim || c == '\\' {
 					l.r.Move(1)
 				}
 			}

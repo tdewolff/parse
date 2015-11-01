@@ -75,6 +75,7 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "010xF", NumericToken, NumericToken, IdentifierToken)
 	assertTokens(t, "50e+-0", NumericToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken)
 	assertTokens(t, "'str\\i\\'ng'", StringToken)
+	assertTokens(t, "'str\\\\'abc", StringToken, IdentifierToken)
 	assertTokens(t, "'str\\\ni\\\\u00A0ng'", StringToken)
 	assertTokens(t, "a = /[a-z/]/g", IdentifierToken, PunctuatorToken, RegexpToken)
 	assertTokens(t, "a=/=/g1", IdentifierToken, PunctuatorToken, RegexpToken)
