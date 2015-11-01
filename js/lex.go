@@ -9,8 +9,8 @@ import (
 	"github.com/tdewolff/buffer"
 )
 
-var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl}
-var identifierPart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc}
+var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
+var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc, unicode.Other_ID_Continue}
 
 ////////////////////////////////////////////////////////////////
 
@@ -26,10 +26,11 @@ const (
 	CommentToken
 	IdentifierToken
 	PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
-	   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= */
+	   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= >= */
 	NumericToken
 	StringToken
 	RegexpToken
+	TemplateToken
 )
 
 // String returns the string representation of a TokenType.
@@ -55,6 +56,8 @@ func (tt TokenType) String() string {
 		return "String"
 	case RegexpToken:
 		return "Regexp"
+	case TemplateToken:
+		return "Template"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -65,7 +68,8 @@ func (tt TokenType) String() string {
 type Lexer struct {
 	r *buffer.Lexer
 
-	regexpState bool
+	regexpState   bool
+	templateState bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
@@ -91,8 +95,12 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 	c := l.r.Peek(0)
 	switch c {
 	case '(', ')', '[', ']', '{', '}', ';', ',', '~', '?', ':':
-		l.r.Move(1)
-		tt = PunctuatorToken
+		if c == '}' && l.templateState && l.consumeTemplateToken() {
+			tt = TemplateToken
+		} else {
+			l.r.Move(1)
+			tt = PunctuatorToken
+		}
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
 		if l.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
@@ -126,6 +134,11 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		for l.consumeLineTerminator() {
 		}
 		tt = LineTerminatorToken
+	case '`':
+		l.templateState = true
+		if l.consumeTemplateToken() {
+			tt = TemplateToken
+		}
 	default:
 		if l.consumeIdentifierToken() {
 			tt = IdentifierToken
@@ -200,8 +213,7 @@ func (l *Lexer) consumeLineTerminator() bool {
 }
 
 func (l *Lexer) consumeDigit() bool {
-	c := l.r.Peek(0)
-	if c >= '0' && c <= '9' {
+	if c := l.r.Peek(0); c >= '0' && c <= '9' {
 		l.r.Move(1)
 		return true
 	}
@@ -209,34 +221,27 @@ func (l *Lexer) consumeDigit() bool {
 }
 
 func (l *Lexer) consumeHexDigit() bool {
-	c := l.r.Peek(0)
-	if (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
+	if c := l.r.Peek(0); (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F') {
 		l.r.Move(1)
 		return true
 	}
 	return false
 }
 
-func (l *Lexer) consumeEscape() bool {
-	// assume to be on \
-	l.r.Move(1)
-	c := l.r.Peek(0)
-	if c == '0' {
+func (l *Lexer) consumeBinaryDigit() bool {
+	if c := l.r.Peek(0); c == '0' || c == '1' {
 		l.r.Move(1)
-		if !l.consumeDigit() {
-			return true
-		}
-		l.r.Move(-1)
-		return false
-	} else if l.consumeLineTerminator() {
-		return true
-	} else if c >= 0xC0 {
-		_, n := l.r.PeekRune(0)
-		l.r.Move(n)
 		return true
 	}
-	l.r.Move(1)
-	return true
+	return false
+}
+
+func (l *Lexer) consumeOctalDigit() bool {
+	if c := l.r.Peek(0); c >= '0' && c <= '7' {
+		l.r.Move(1)
+		return true
+	}
+	return false
 }
 
 func (l *Lexer) consumeUnicodeEscape() bool {
@@ -245,11 +250,21 @@ func (l *Lexer) consumeUnicodeEscape() bool {
 	}
 	mark := l.r.Pos()
 	l.r.Move(2)
-	for k := 0; k < 4; k++ {
-		if !l.consumeHexDigit() {
-			l.r.Rewind(mark)
-			return false
+	if c := l.r.Peek(0); c == '{' {
+		l.r.Move(1)
+		if l.consumeHexDigit() {
+			for l.consumeHexDigit() {
+			}
+			if c := l.r.Peek(0); c == '}' {
+				l.r.Move(1)
+				return true
+			}
 		}
+		l.r.Rewind(mark)
+		return false
+	} else if !l.consumeHexDigit() || !l.consumeHexDigit() || !l.consumeHexDigit() || !l.consumeHexDigit() {
+		l.r.Rewind(mark)
+		return false
 	}
 	return true
 }
@@ -304,6 +319,8 @@ func (l *Lexer) consumeLongPunctuatorToken() bool {
 			}
 		} else if (c == '+' || c == '-' || c == '&' || c == '|') && l.r.Peek(0) == c {
 			l.r.Move(1)
+		} else if c == '=' && l.r.Peek(0) == '>' {
+			l.r.Move(1)
 		}
 	} else { // c == '<' || c == '>'
 		l.r.Move(1)
@@ -338,7 +355,7 @@ func (l *Lexer) consumeIdentifierToken() bool {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
 			l.r.Move(1)
 		} else if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
 				l.r.Move(n)
 			} else {
 				break
@@ -360,6 +377,24 @@ func (l *Lexer) consumeNumericToken() bool {
 			l.r.Move(1)
 			if l.consumeHexDigit() {
 				for l.consumeHexDigit() {
+				}
+			} else {
+				l.r.Move(-1) // return just the zero
+			}
+			return true
+		} else if l.r.Peek(0) == 'b' || l.r.Peek(0) == 'B' {
+			l.r.Move(1)
+			if l.consumeBinaryDigit() {
+				for l.consumeBinaryDigit() {
+				}
+			} else {
+				l.r.Move(-1) // return just the zero
+			}
+			return true
+		} else if l.r.Peek(0) == 'o' || l.r.Peek(0) == 'O' {
+			l.r.Move(1)
+			if l.consumeOctalDigit() {
+				for l.consumeOctalDigit() {
 				}
 			} else {
 				l.r.Move(-1) // return just the zero
@@ -414,8 +449,11 @@ func (l *Lexer) consumeStringToken() bool {
 			l.r.Move(1)
 			break
 		} else if c == '\\' {
-			if !l.consumeEscape() {
-				break
+			l.r.Move(1)
+			if !l.consumeLineTerminator() {
+				if c := l.r.Peek(0); c == delim {
+					l.r.Move(1)
+				}
 			}
 			continue
 		} else if c == '\n' || c == '\r' {
@@ -468,7 +506,7 @@ func (l *Lexer) consumeRegexpToken() bool {
 		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
 			l.r.Move(1)
 		} else if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierPart, r) {
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
 				l.r.Move(n)
 			} else {
 				break
@@ -478,4 +516,21 @@ func (l *Lexer) consumeRegexpToken() bool {
 		}
 	}
 	return true
+}
+
+func (l *Lexer) consumeTemplateToken() bool {
+	// assume to be on ` or } when already within template
+	l.r.Move(1)
+	for {
+		c := l.r.Peek(0)
+		if c == '`' {
+			l.templateState = false
+			l.r.Move(1)
+			return true
+		} else if c == '$' && l.r.Peek(1) == '{' {
+			l.r.Move(2)
+			return true
+		}
+		l.r.Move(1)
+	}
 }
