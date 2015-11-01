@@ -9,7 +9,8 @@ func Copy(src []byte) (dst []byte) {
 
 // ToLower converts all characters in the byte slice from A-Z to a-z.
 func ToLower(src []byte) []byte {
-	for i, c := range src {
+	for i := 0; i < len(src); i++ {
+		c := src[i]
 		if c >= 'A' && c <= 'Z' {
 			src[i] = c + ('a' - 'A')
 		}
@@ -22,8 +23,8 @@ func Equal(s, target []byte) bool {
 	if len(s) != len(target) {
 		return false
 	}
-	for i, c := range target {
-		if s[i] != c {
+	for i := 0; i < len(target); i++ {
+		if s[i] != target[i] {
 			return false
 		}
 	}
@@ -35,23 +36,9 @@ func EqualFold(s, targetLower []byte) bool {
 	if len(s) != len(targetLower) {
 		return false
 	}
-	for i, c := range targetLower {
+	for i := 0; i < len(targetLower); i++ {
+		c := targetLower[i]
 		if s[i] != c && (c < 'A' && c > 'Z' || s[i]+('a'-'A') != c) {
-			return false
-		}
-	}
-	return true
-}
-
-// IsWhitespace returns true for space, \n, \t, \f, \r.
-func IsWhitespace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '\f'
-}
-
-// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \t, \f, \r.
-func IsAllWhitespace(b []byte) bool {
-	for _, c := range b {
-		if !IsWhitespace(c) {
 			return false
 		}
 	}
@@ -78,16 +65,75 @@ func Trim(b []byte, f func(byte) bool) []byte {
 	return b[start:end]
 }
 
-// ReplaceMultiple replaces any character serie for which the function return true into a single character given by r.
-func ReplaceMultiple(b []byte, f func(byte) bool, r byte) []byte {
+var whitespaceTable = [256]bool{
+	// ASCII
+	false, false, false, false, false, false, false, false,
+	false, true, true, false, true, true, false, false, // tab, new line, form feed, carriage return
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	true, false, false, false, false, false, false, false, // space
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	// non-ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+}
+
+// IsWhitespace returns true for space, \n, \r, \t, \f.
+func IsWhitespace(c byte) bool {
+	return whitespaceTable[c]
+}
+
+// IsAllWhitespace returns true when the entire byte slice consists of space, \n, \r, \t, \f.
+func IsAllWhitespace(b []byte) bool {
+	for i := 0; i < len(b); i++ {
+		if !IsWhitespace(b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space.
+func ReplaceMultipleWhitespace(b []byte) []byte {
 	j := 0
 	start := 0
 	prevMatch := false
-	for i, c := range b {
-		if f(c) {
+	for i := 0; i < len(b); i++ {
+		if IsWhitespace(b[i]) {
 			if !prevMatch {
 				prevMatch = true
-				b[i] = r
+				b[i] = ' '
 			} else {
 				if start < i {
 					if start != 0 {

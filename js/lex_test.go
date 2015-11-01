@@ -8,16 +8,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/buffer"
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	l := NewLexer(bytes.NewBufferString(s))
-	assert.True(t, l.IsEOF(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
-		tt, _ := l.Next()
+		tt, _, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
@@ -38,7 +36,7 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := l.Next()
+		tt, text, _ := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
@@ -104,9 +102,9 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "a=/x/\u200C\u3009", IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken)
 	assertTokens(t, "a=/x\n", IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken)
 
-	// small buffer
-	buffer.MinBuf = 2
-	assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)
+	// TODO: small buffer
+	// buffer.MinBuf = 2
+	// assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)
 
 	assert.Equal(t, "Whitespace", WhitespaceToken.String())
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
@@ -118,11 +116,12 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
 	out := ""
 	for {
-		tt, data := l.Next()
+		tt, data, n := l.Next()
 		if tt == ErrorToken {
 			break
 		}
 		out += string(data)
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: var x = 'lorem ipsum';

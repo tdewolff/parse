@@ -90,7 +90,8 @@ func Int(b []byte) (int64, bool) {
 		b = b[1:]
 	}
 	n := uint64(0)
-	for _, c := range b {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
 		if n > math.MaxUint64/10 {
 			return 0, false
 		} else if c >= '0' && c <= '9' {
@@ -189,9 +190,10 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
 		dataURI = dataURI[5:]
 		inBase64 := false
-		mediatype := []byte{}
+		var mediatype []byte
 		i := 0
-		for j, c := range dataURI {
+		for j := 0; j < len(dataURI); j++ {
+			c := dataURI[j]
 			if c == '=' || c == ';' || c == ',' {
 				if c != '=' && Equal(Trim(dataURI[i:j], IsWhitespace), []byte("base64")) {
 					if len(mediatype) > 0 {
@@ -214,7 +216,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 						decoded := make([]byte, base64.StdEncoding.DecodedLen(len(data)))
 						n, err := base64.StdEncoding.Decode(decoded, data)
 						if err != nil {
-							return []byte{}, []byte{}, err
+							return nil, nil, err
 						}
 						data = decoded[:n]
 					} else if unescaped, err := url.QueryUnescape(string(data)); err == nil {
@@ -225,7 +227,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 			}
 		}
 	}
-	return []byte{}, []byte{}, ErrBadDataURI
+	return nil, nil, ErrBadDataURI
 }
 
 // QuoteEntity parses the given byte slice and returns the quote that got matched (' or ") and its entity length.

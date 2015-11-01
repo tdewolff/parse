@@ -3,7 +3,6 @@ package xml // import "github.com/tdewolff/parse/xml"
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"testing"
 
@@ -13,12 +12,10 @@ import (
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	l := NewLexer(bytes.NewBufferString(s))
-	assert.True(t, l.IsEOF(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
-		tt, _ := l.Next()
+		tt, _, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		}
@@ -36,9 +33,8 @@ func assertTags(t *testing.T, s string, tags ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := l.Next()
+		tt, data, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tags), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == StartTagToken || tt == StartTagPIToken || tt == EndTagToken || tt == DOCTYPEToken {
@@ -57,9 +53,8 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := l.Next()
+		tt, data, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(attributes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == AttributeToken {
@@ -78,7 +73,7 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := l.Next()
+		tt, text, _ := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
@@ -161,7 +156,7 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
-		tt, data := l.Next()
+		tt, data, n := l.Next()
 		if tt == ErrorToken {
 			break
 		}
@@ -178,6 +173,7 @@ func ExampleNewLexer() {
 		} else if tt == AttributeToken {
 			out += "=" + string(l.AttrVal())
 		}
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: <span class='user'>John Doe</span>

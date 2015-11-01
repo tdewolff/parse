@@ -9,16 +9,16 @@ func IsIdent(b []byte) bool {
 	return l.r.Pos() == len(b)
 }
 
-// IsUrlUnquoted returns true if the bytes are a valid unquoted URL.
-func IsUrlUnquoted(b []byte) bool {
+// IsURLUnquoted returns true if the bytes are a valid unquoted URL.
+func IsURLUnquoted(b []byte) bool {
 	l := NewLexer(bytes.NewBuffer(b))
 	l.consumeUnquotedURL()
 	return l.r.Pos() == len(b)
 }
 
-// Hsl2Rgb converts HSL to RGB with all of range [0,1]
+// HSL2RGB converts HSL to RGB with all of range [0,1]
 // from http://www.w3.org/TR/css3-color/#hsl-color
-func Hsl2Rgb(h, s, l float64) (float64, float64, float64) {
+func HSL2RGB(h, s, l float64) (float64, float64, float64) {
 	m2 := l * (s + 1)
 	if l > 0.5 {
 		m2 = l + s - l*s

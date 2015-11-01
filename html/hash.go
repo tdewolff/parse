@@ -386,43 +386,37 @@ func (i Hash) String() string {
 	return _Hash_text[start : start+n]
 }
 
-// Hash returns the hash whose name is s. It returns zero if there is no
+// ToHash returns the hash whose name is s. It returns zero if there is no
 // such hash. It is case sensitive.
 func ToHash(s []byte) Hash {
 	if len(s) == 0 || len(s) > _Hash_maxLen {
 		return 0
 	}
-	h := _Hash_fnv(s)
-	if i := _Hash_table[h&uint32(len(_Hash_table)-1)]; int(i&0xff) == len(s) && _Hash_match(_Hash_string(i), s) {
-		return i
-	}
-	if i := _Hash_table[(h>>16)&uint32(len(_Hash_table)-1)]; int(i&0xff) == len(s) && _Hash_match(_Hash_string(i), s) {
-		return i
-	}
-	return 0
-}
-
-// _Hash_fnv computes the FNV hash with an arbitrary starting value h.
-func _Hash_fnv(s []byte) uint32 {
 	h := uint32(_Hash_hash0)
-	for i := range s {
+	for i := 0; i < len(s); i++ {
 		h ^= uint32(s[i])
 		h *= 16777619
 	}
-	return h
-}
-
-func _Hash_match(s string, t []byte) bool {
-	for i, c := range t {
-		if s[i] != c {
-			return false
+	if i := _Hash_table[h&uint32(len(_Hash_table)-1)]; int(i&0xff) == len(s) {
+		t := _Hash_text[i>>8 : i>>8+i&0xff]
+		for i := 0; i < len(s); i++ {
+			if t[i] != s[i] {
+				goto NEXT
+			}
 		}
+		return i
 	}
-	return true
-}
-
-func _Hash_string(i Hash) string {
-	return _Hash_text[i>>8 : i>>8+i&0xff]
+NEXT:
+	if i := _Hash_table[(h>>16)&uint32(len(_Hash_table)-1)]; int(i&0xff) == len(s) {
+		t := _Hash_text[i>>8 : i>>8+i&0xff]
+		for i := 0; i < len(s); i++ {
+			if t[i] != s[i] {
+				return 0
+			}
+		}
+		return i
+	}
+	return 0
 }
 
 const _Hash_hash0 = 0x5334b67c

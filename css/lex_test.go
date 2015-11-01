@@ -3,12 +3,10 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/buffer"
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
@@ -16,9 +14,8 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, _ := l.Next()
+		tt, _, _ := l.Next()
 		if tt == ErrorToken {
-			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == WhitespaceToken {
@@ -37,7 +34,7 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := l.Next()
+		tt, text, _ := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
@@ -138,9 +135,10 @@ func TestTokensSmall(t *testing.T) {
 	assertTokens(t, "url((", BadURLToken)
 	assertTokens(t, "id\u554a", IdentToken)
 
-	buffer.MinBuf = 5
-	assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
-	assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
+	// TODO
+	// buffer.MinBuf = 5
+	// assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
+	// assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -149,13 +147,14 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("color: red;"))
 	out := ""
 	for {
-		tt, data := l.Next()
+		tt, data, n := l.Next()
 		if tt == ErrorToken {
 			break
 		} else if tt == WhitespaceToken || tt == CommentToken {
 			continue
 		}
 		out += string(data)
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: color:red;

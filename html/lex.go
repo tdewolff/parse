@@ -56,7 +56,7 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.Shifter
+	r *buffer.Lexer
 
 	rawTag  Hash
 	inTag   bool
@@ -66,45 +66,44 @@ type Lexer struct {
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r: buffer.NewShifter(r),
+		r: buffer.NewLexer(r),
 	}
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
-func (l Lexer) Err() error {
+func (l *Lexer) Err() error {
 	return l.r.Err()
 }
 
-// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (l Lexer) IsEOF() bool {
-	return l.r.IsEOF()
+// Free frees up bytes of length n from previously shifted tokens.
+func (l *Lexer) Free(n int) {
+	l.r.Free(n)
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte) {
+func (l *Lexer) Next() (TokenType, []byte, int) {
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
 		c = l.r.Peek(0)
 		if c == 0 {
-			return ErrorToken, []byte{}
+			return ErrorToken, nil, 0
 		} else if c != '>' && (c != '/' || l.r.Peek(1) != '>') {
-			return AttributeToken, l.shiftAttribute()
+			return AttributeToken, l.shiftAttribute(), l.r.ShiftLen()
 		}
 		l.inTag = false
 		if c == '/' {
 			l.r.Move(2)
-			return StartTagVoidToken, l.r.Shift()
-		} else {
-			l.r.Move(1)
-			return StartTagCloseToken, l.r.Shift()
+			return StartTagVoidToken, l.r.Shift(), l.r.ShiftLen()
 		}
+		l.r.Move(1)
+		return StartTagCloseToken, l.r.Shift(), l.r.ShiftLen()
 	}
 
 	if l.rawTag != 0 {
 		if rawText := l.shiftRawText(); len(rawText) > 0 {
 			l.rawTag = 0
-			return TextToken, rawText
+			return TextToken, rawText, l.r.ShiftLen()
 		}
 		l.rawTag = 0
 	}
@@ -115,35 +114,35 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			c = l.r.Peek(1)
 			if l.r.Pos() > 0 {
 				if c == '/' && l.r.Peek(2) != 0 || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
-					return TextToken, l.r.Shift()
+					return TextToken, l.r.Shift(), l.r.ShiftLen()
 				}
 			} else if c == '/' && l.r.Peek(2) != 0 {
 				l.r.Move(2)
 				l.r.Skip()
 				if c = l.r.Peek(0); c != '>' && !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
-					return CommentToken, l.shiftBogusComment()
+					return CommentToken, l.shiftBogusComment(), l.r.ShiftLen()
 				}
-				return EndTagToken, l.shiftEndTag()
+				return EndTagToken, l.shiftEndTag(), l.r.ShiftLen()
 			} else if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
 				l.r.Move(1)
 				l.r.Skip()
 				l.inTag = true
-				return StartTagToken, l.shiftStartTag()
+				return StartTagToken, l.shiftStartTag(), l.r.ShiftLen()
 			} else if c == '!' {
 				l.r.Move(2)
 				l.r.Skip()
-				return l.readMarkup()
+				tt, b := l.readMarkup()
+				return tt, b, l.r.ShiftLen()
 			} else if c == '?' {
 				l.r.Move(1)
 				l.r.Skip()
-				return CommentToken, l.shiftBogusComment()
+				return CommentToken, l.shiftBogusComment(), l.r.ShiftLen()
 			}
 		} else if c == 0 {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
-			} else {
-				return ErrorToken, []byte{}
+				return TextToken, l.r.Shift(), l.r.ShiftLen()
 			}
+			return ErrorToken, nil, 0
 		}
 		l.r.Move(1)
 	}
@@ -171,7 +170,7 @@ func (l *Lexer) shiftRawText() []byte {
 			c := l.r.Peek(0)
 			if c == '<' {
 				if l.r.Peek(1) == '/' {
-					nPos := l.r.Pos()
+					mark := l.r.Pos()
 					l.r.Move(2)
 					for {
 						if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
@@ -179,8 +178,8 @@ func (l *Lexer) shiftRawText() []byte {
 						}
 						l.r.Move(1)
 					}
-					if h := ToHash(parse.ToLower(parse.Copy(l.r.Bytes()[nPos+2:]))); h == l.rawTag {
-						l.r.MoveTo(nPos)
+					if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == l.rawTag {
+						l.r.Rewind(mark)
 						return l.r.Shift()
 					}
 				} else if l.rawTag == Script && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
@@ -198,19 +197,19 @@ func (l *Lexer) shiftRawText() []byte {
 							} else {
 								l.r.Move(1)
 							}
-							nPos := l.r.Pos()
+							mark := l.r.Pos()
 							for {
 								if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 									break
 								}
 								l.r.Move(1)
 							}
-							if h := ToHash(parse.ToLower(parse.Copy(l.r.Bytes()[nPos:]))); h == Script {
+							if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark:]))); h == Script {
 								if !isEnd {
 									inScript = true
 								} else {
 									if !inScript {
-										l.r.MoveTo(nPos - 2)
+										l.r.Rewind(mark - 2)
 										return l.r.Shift()
 									}
 									inScript = false
@@ -351,7 +350,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		attrEnd := l.r.Pos()
 		l.moveWhitespace() // before attribute name state or after attribute quoted value state
-		l.attrVal = l.r.Bytes()[attrPos:attrEnd]
+		l.attrVal = l.r.Lexeme()[attrPos:attrEnd]
 	} else {
 		l.attrVal = nil
 	}
@@ -383,8 +382,8 @@ func (l *Lexer) moveWhitespace() {
 }
 
 func (l *Lexer) at(b ...byte) bool {
-	for i, c := range b {
-		if l.r.Peek(i) != c {
+	for i := 0; i < len(b); i++ {
+		if l.r.Peek(i) != b[i] {
 			return false
 		}
 	}
@@ -392,7 +391,8 @@ func (l *Lexer) at(b ...byte) bool {
 }
 
 func (l *Lexer) atCaseInsensitive(b ...byte) bool {
-	for i, c := range b {
+	for i := 0; i < len(b); i++ {
+		c := b[i]
 		if l.r.Peek(i) != c && (l.r.Peek(i)+('a'-'A')) != c {
 			return false
 		}

@@ -62,7 +62,7 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 	multipleWhitespaceRegexp := regexp.MustCompile("\\s+")
 	for _, e := range wsSlices {
 		reference := multipleWhitespaceRegexp.ReplaceAll(e, []byte(" "))
-		assert.Equal(t, string(reference), string(ReplaceMultiple(e, IsWhitespace, ' ')), "must remove all multiple whitespace")
+		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespace(e)), "must remove all multiple whitespace")
 	}
 }
 

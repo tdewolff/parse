@@ -1,4 +1,4 @@
-// Package jsom is a JSON parser following the specifications at http://json.org/.
+// Package json is a JSON parser following the specifications at http://json.org/.
 package json // import "github.com/tdewolff/parse/json"
 
 import (
@@ -102,7 +102,7 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.Shifter
+	r     *buffer.Lexer
 	state []State
 	err   error
 
@@ -112,7 +112,7 @@ type Parser struct {
 // NewParser returns a new Parser for a given io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		r:     buffer.NewShifter(r),
+		r:     buffer.NewLexer(r),
 		state: []State{ValueState},
 	}
 }
@@ -125,20 +125,17 @@ func (p Parser) Err() error {
 	return p.r.Err()
 }
 
-// IsEOF returns true when it has encountered EOF and thus loaded the last buffer in memory.
-func (p Parser) IsEOF() bool {
-	return p.r.IsEOF()
-}
-
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
+	p.r.Free(p.r.ShiftLen())
+
 	p.moveWhitespace()
 	c := p.r.Peek(0)
 	state := p.state[len(p.state)-1]
 	if c == ',' {
 		if state != ArrayState && state != ObjectKeyState {
 			p.err = ErrBadComma
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.r.Move(1)
 		p.moveWhitespace()
@@ -149,7 +146,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 
 	if p.needComma && c != '}' && c != ']' && c != 0 {
 		p.err = ErrNoComma
-		return ErrorGrammar, []byte{}
+		return ErrorGrammar, nil
 	} else if c == '{' {
 		p.state = append(p.state, ObjectKeyState)
 		p.r.Move(1)
@@ -157,7 +154,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	} else if c == '}' {
 		if state != ObjectKeyState {
 			p.err = ErrBadObjectEnding
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.needComma = true
 		p.state = p.state[:len(p.state)-1]
@@ -174,7 +171,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 		p.needComma = true
 		if state != ArrayState {
 			p.err = ErrBadArrayEnding
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.state = p.state[:len(p.state)-1]
 		if p.state[len(p.state)-1] == ObjectValueState {
@@ -185,13 +182,13 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	} else if state == ObjectKeyState {
 		if c != '"' || !p.consumeStringToken() {
 			p.err = ErrBadObjectKey
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		n := p.r.Pos()
 		p.moveWhitespace()
 		if c := p.r.Peek(0); c != ':' {
 			p.err = ErrBadObjectDeclaration
-			return ErrorGrammar, []byte{}
+			return ErrorGrammar, nil
 		}
 		p.r.Move(1)
 		p.state[len(p.state)-1] = ObjectValueState
@@ -210,7 +207,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 			return LiteralGrammar, p.r.Shift()
 		}
 	}
-	return ErrorGrammar, []byte{}
+	return ErrorGrammar, nil
 }
 
 // State returns the state the parser is currently in (ie. which token is expected).
@@ -249,7 +246,7 @@ func (p *Parser) consumeLiteralToken() bool {
 }
 
 func (p *Parser) consumeNumberToken() bool {
-	nOld := p.r.Pos()
+	mark := p.r.Pos()
 	if p.r.Peek(0) == '-' {
 		p.r.Move(1)
 	}
@@ -263,7 +260,7 @@ func (p *Parser) consumeNumberToken() bool {
 			p.r.Move(1)
 		}
 	} else if c != '0' {
-		p.r.MoveTo(nOld)
+		p.r.Rewind(mark)
 		return false
 	} else {
 		p.r.Move(1) // 0
@@ -281,14 +278,14 @@ func (p *Parser) consumeNumberToken() bool {
 			p.r.Move(1)
 		}
 	}
-	nOld = p.r.Pos()
+	mark = p.r.Pos()
 	if c := p.r.Peek(0); c == 'e' || c == 'E' {
 		p.r.Move(1)
 		if c := p.r.Peek(0); c == '+' || c == '-' {
 			p.r.Move(1)
 		}
 		if c := p.r.Peek(0); c < '0' || c > '9' {
-			p.r.MoveTo(nOld)
+			p.r.Rewind(mark)
 			return true
 		}
 		for {

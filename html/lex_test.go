@@ -8,16 +8,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/buffer"
 )
 
 func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	stringify := helperStringify(t, s)
 	l := NewLexer(bytes.NewBufferString(s))
-	assert.True(t, l.IsEOF(), "lexer must have buffer fully in memory in "+stringify)
 	i := 0
 	for {
-		tt, _ := l.Next()
+		tt, _, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
@@ -37,7 +35,7 @@ func assertTags(t *testing.T, s string, tags ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := l.Next()
+		tt, data, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tags), i, "when error occurred we must be at the end in "+stringify)
@@ -58,7 +56,7 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data := l.Next()
+		tt, data, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(attributes), i, "when error occurred we must be at the end in "+stringify)
@@ -79,7 +77,7 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text := l.Next()
+		tt, text, _ := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
@@ -136,8 +134,9 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<script><!--", StartTagToken, StartTagCloseToken, TextToken)
 	assertTokens(t, "<script><!--var x='<script></script>';-->", StartTagToken, StartTagCloseToken, TextToken)
 
-	buffer.MinBuf = 4
-	assert.Equal(t, "StartTag('ab') StartTagClose('>') Error('EOF')", helperStringify(t, "<ab   >"), "buffer reallocation must keep tagname valid")
+	// TODO
+	// 	buffer.MinBuf = 4
+	// 	assert.Equal(t, "StartTag('ab') StartTagClose('>') Error('EOF')", helperStringify(t, "<ab   >"), "buffer reallocation must keep tagname valid")
 
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }
@@ -170,7 +169,7 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
-		tt, data := l.Next()
+		tt, data, n := l.Next()
 		if tt == ErrorToken {
 			break
 		}
@@ -187,6 +186,7 @@ func ExampleNewLexer() {
 		} else if tt == AttributeToken {
 			out += "=" + string(l.AttrVal())
 		}
+		l.Free(n)
 	}
 	fmt.Println(out)
 	// Output: <span class='user'>John Doe</span>
