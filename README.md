@@ -18,7 +18,7 @@ This package is an HTML5 lexer. It follows the specification at [The HTML syntax
 
 ## JS [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/js)](http://gocover.io/github.com/tdewolff/parse/js)
 
-This package is a JS lexer (ECMA-262, edition 5.1). It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/5.1/). The lexer takes an io.Reader and converts it into tokens until the EOF.
+This package is a JS lexer (ECMA-262, edition 6). It follows the specification at [ECMAScript Language Specification](http://www.ecma-international.org/ecma-262/6/). The lexer takes an io.Reader and converts it into tokens until the EOF.
 
 [See README here](https://github.com/tdewolff/parse/tree/master/js).
 
