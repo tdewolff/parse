@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tdewolff/parse"
 	"github.com/tdewolff/test"
 )
 
@@ -23,7 +22,6 @@ func assertParse(t *testing.T, isStylesheet bool, input, expected string) {
 			}
 			break
 		} else if gt == AtRuleGrammar || gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar || gt == DeclarationGrammar {
-			data = parse.Copy(data)
 			if gt == DeclarationGrammar {
 				data = append(data, ":"...)
 			}

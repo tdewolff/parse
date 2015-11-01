@@ -178,7 +178,7 @@ func (l *Lexer) shiftRawText() []byte {
 						}
 						l.r.Move(1)
 					}
-					if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == l.rawTag {
+					if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == l.rawTag { // copy so that ToLower doesn't change the case of the underlying slice
 						l.r.Rewind(mark)
 						return l.r.Shift()
 					}
@@ -204,7 +204,7 @@ func (l *Lexer) shiftRawText() []byte {
 								}
 								l.r.Move(1)
 							}
-							if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark:]))); h == Script {
+							if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark:]))); h == Script { // copy so that ToLower doesn't change the case of the underlying slice
 								if !isEnd {
 									inScript = true
 								} else {
