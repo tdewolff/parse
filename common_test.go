@@ -2,6 +2,7 @@ package parse // import "github.com/tdewolff/parse"
 
 import (
 	"encoding/base64"
+	"mime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,6 +13,12 @@ func assertDataURI(t *testing.T, x, e1, e2 string, eerr error) {
 	assert.Equal(t, eerr, err, "err must match in "+x)
 	assert.Equal(t, e1, string(s1), "mediatype part must match in "+x)
 	assert.Equal(t, e2, string(s2), "data part must match in "+x)
+}
+
+func assertMediatype(t *testing.T, x, e string, eParams map[string]string) {
+	mimetype, params := Mediatype([]byte(x))
+	assert.Equal(t, e, string(mimetype), "Mediatype must give expected result in "+x)
+	assert.Equal(t, eParams, params, "Mediatype must give nil parameters in "+x)
 }
 
 func assertQuoteEntity(t *testing.T, s string, equote byte, en int) {
@@ -91,6 +98,14 @@ func TestParseFloat(t *testing.T) {
 	// assertFloat(t, "4.9406564584124e-308", 4.9406564584124e-308)
 }
 
+func TestMediatype(t *testing.T) {
+	assertMediatype(t, "text/plain", "text/plain", nil)
+	assertMediatype(t, "text/plain;charset=US-ASCII", "text/plain", map[string]string{"charset": "US-ASCII"})
+	assertMediatype(t, " text/plain ; charset = US-ASCII ", "text/plain", map[string]string{"charset": "US-ASCII"})
+	assertMediatype(t, "text/plain;base64", "text/plain", map[string]string{"base64": ""})
+	assertMediatype(t, "text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""})
+}
+
 func TestParseDataURI(t *testing.T) {
 	assertDataURI(t, "www.domain.com", "", "", ErrBadDataURI)
 	assertDataURI(t, "data:,", "text/plain", "", nil)
@@ -110,4 +125,48 @@ func TestParseQuoteEntity(t *testing.T) {
 	assertQuoteEntity(t, "&apos;", '\'', 6)
 	assertQuoteEntity(t, "&gt;", 0x00, 0)
 	assertQuoteEntity(t, "&amp;", 0x00, 0)
+}
+
+////////////////////////////////////////////////////////////////
+
+func BenchmarkParseMediatypeStd(b *testing.B) {
+	mediatype := "text/plain"
+	for i := 0; i < b.N; i++ {
+		mime.ParseMediaType(mediatype)
+	}
+}
+
+func BenchmarkParseMediatypeParamStd(b *testing.B) {
+	mediatype := "text/plain;inline=1"
+	for i := 0; i < b.N; i++ {
+		mime.ParseMediaType(mediatype)
+	}
+}
+
+func BenchmarkParseMediatypeParamsStd(b *testing.B) {
+	mediatype := "text/plain;charset=US-ASCII;language=US-EN;compression=gzip;base64"
+	for i := 0; i < b.N; i++ {
+		mime.ParseMediaType(mediatype)
+	}
+}
+
+func BenchmarkParseMediatypeParse(b *testing.B) {
+	mediatype := []byte("text/plain")
+	for i := 0; i < b.N; i++ {
+		Mediatype(mediatype)
+	}
+}
+
+func BenchmarkParseMediatypeParamParse(b *testing.B) {
+	mediatype := []byte("text/plain;inline=1")
+	for i := 0; i < b.N; i++ {
+		Mediatype(mediatype)
+	}
+}
+
+func BenchmarkParseMediatypeParamsParse(b *testing.B) {
+	mediatype := []byte("text/plain;charset=US-ASCII;language=US-EN;compression=gzip;base64")
+	for i := 0; i < b.N; i++ {
+		Mediatype(mediatype)
+	}
 }

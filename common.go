@@ -185,6 +185,67 @@ func Float(b []byte) (float64, bool) {
 	return f * math.Pow10(int(expExp)), true
 }
 
+func Mediatype(b []byte) ([]byte, map[string]string) {
+	i := 0
+	for i < len(b) && b[i] == ' ' {
+		i++
+	}
+	b = b[i:]
+	n := len(b)
+	mimetype := b
+	var params map[string]string
+	for i := 3; i < n; i++ { // mimetype is at least three characters long
+		if b[i] == ';' || b[i] == ' ' {
+			mimetype = b[:i]
+			if b[i] == ' ' {
+				i++
+				for i < n && b[i] == ' ' {
+					i++
+				}
+				if i < n && b[i] != ';' {
+					break
+				}
+			}
+			params = map[string]string{}
+			s := string(b)
+		PARAM:
+			i++
+			for i < n && s[i] == ' ' {
+				i++
+			}
+			start := i
+			for i < n && s[i] != '=' && s[i] != ';' && s[i] != ' ' {
+				i++
+			}
+			key := s[start:i]
+			for i < n && s[i] == ' ' {
+				i++
+			}
+			if i < n && s[i] == '=' {
+				i++
+				for i < n && s[i] == ' ' {
+					i++
+				}
+				start = i
+				for i < n && s[i] != ';' && s[i] != ' ' {
+					i++
+				}
+			} else {
+				start = i
+			}
+			params[key] = s[start:i]
+			for i < n && s[i] == ' ' {
+				i++
+			}
+			if i < n && s[i] == ';' {
+				goto PARAM
+			}
+			break
+		}
+	}
+	return mimetype, params
+}
+
 // DataURI parses the given data URI and returns the mediatype, data and ok.
 func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	if len(dataURI) > 5 && Equal(dataURI[:5], []byte("data:")) {
