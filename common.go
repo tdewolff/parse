@@ -256,17 +256,17 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 		for j := 0; j < len(dataURI); j++ {
 			c := dataURI[j]
 			if c == '=' || c == ';' || c == ',' {
-				if c != '=' && Equal(Trim(dataURI[i:j], IsWhitespace), []byte("base64")) {
+				if c != '=' && Equal(TrimWhitespace(dataURI[i:j]), []byte("base64")) {
 					if len(mediatype) > 0 {
 						mediatype = mediatype[:len(mediatype)-1]
 					}
 					inBase64 = true
 					i = j
 				} else if c != ',' {
-					mediatype = append(append(mediatype, Trim(dataURI[i:j], IsWhitespace)...), c)
+					mediatype = append(append(mediatype, TrimWhitespace(dataURI[i:j])...), c)
 					i = j + 1
 				} else {
-					mediatype = append(mediatype, Trim(dataURI[i:j], IsWhitespace)...)
+					mediatype = append(mediatype, TrimWhitespace(dataURI[i:j])...)
 				}
 				if c == ',' {
 					if len(mediatype) == 0 || mediatype[0] == ';' {

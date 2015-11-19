@@ -45,26 +45,6 @@ func EqualFold(s, targetLower []byte) bool {
 	return true
 }
 
-// Trim removes any character from the start and end for which the function returns true.
-func Trim(b []byte, f func(byte) bool) []byte {
-	n := len(b)
-	start := n
-	for i := 0; i < n; i++ {
-		if !f(b[i]) {
-			start = i
-			break
-		}
-	}
-	end := n
-	for i := n - 1; i >= start; i-- {
-		if !f(b[i]) {
-			end = i + 1
-			break
-		}
-	}
-	return b[start:end]
-}
-
 var whitespaceTable = [256]bool{
 	// ASCII
 	false, false, false, false, false, false, false, false,
@@ -122,6 +102,26 @@ func IsAllWhitespace(b []byte) bool {
 		}
 	}
 	return true
+}
+
+// Trim removes any character from the start and end for which the function returns true.
+func TrimWhitespace(b []byte) []byte {
+	n := len(b)
+	start := n
+	for i := 0; i < n; i++ {
+		if IsWhitespace(b[i]) {
+			start = i
+			break
+		}
+	}
+	end := n
+	for i := n - 1; i >= start; i-- {
+		if IsWhitespace(b[i]) {
+			end = i + 1
+			break
+		}
+	}
+	return b[start:end]
 }
 
 // ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space.
