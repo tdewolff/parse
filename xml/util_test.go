@@ -17,7 +17,7 @@ func assertAttrVal(t *testing.T, input, expected string) {
 
 func assertCDATAVal(t *testing.T, input, expected string, eUse bool) {
 	s := []byte(input)
-	buf := make([]byte, len(s))
+	var buf []byte
 	text, use := EscapeCDATAVal(&buf, s)
 	assert.Equal(t, eUse, use)
 	assert.Equal(t, expected, string(text))
@@ -34,6 +34,7 @@ func TestAttrVal(t *testing.T) {
 	assertAttrVal(t, "a'b=\"\"", "'a&#39;b=\"\"'")
 	assertAttrVal(t, "'x&#39;\"&#39;z'", "\"x'&#34;'z\"")
 	assertAttrVal(t, "\"x&#34;'&#34;z\"", "'x\"&#39;\"z'")
+	assertAttrVal(t, "a&#39;b=\"\"", "'a&#39;b=\"\"'")
 }
 
 func TestCDATAVal(t *testing.T) {
