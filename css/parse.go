@@ -86,16 +86,16 @@ type Parser struct {
 	n       int
 }
 
-// NewParser returns a new CSS parser from an io.Reader. isStylesheet specifies whether this is a regular stylesheet (true) or an inline style attribute (false).
-func NewParser(r io.Reader, isStylesheet bool) *Parser {
+// NewParser returns a new CSS parser from an io.Reader. isInline specifies whether this is an inline style attribute.
+func NewParser(r io.Reader, isInline bool) *Parser {
 	l := NewLexer(r)
 	p := &Parser{
 		l: l,
 	}
-	if isStylesheet {
-		p.state = []State{p.parseStylesheet}
-	} else {
+	if isInline {
 		p.state = []State{p.parseDeclarationList}
+	} else {
+		p.state = []State{p.parseStylesheet}
 	}
 	return p
 }
