@@ -38,11 +38,11 @@ func TestAttrVal(t *testing.T) {
 }
 
 func TestCDATAVal(t *testing.T) {
-	assertCDATAVal(t, "<![CDATA[<b>]]>", "&lt;b>", true)
-	assertCDATAVal(t, "<![CDATA[abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz]]>", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", true)
-	assertCDATAVal(t, "<![CDATA[ <b> ]]>", " &lt;b> ", true)
-	assertCDATAVal(t, "<![CDATA[<<<<<]]>", "<![CDATA[<<<<<]]>", false)
-	assertCDATAVal(t, "<![CDATA[&]]>", "&amp;", true)
-	assertCDATAVal(t, "<![CDATA[&&&&]]>", "<![CDATA[&&&&]]>", false)
-	assertCDATAVal(t, "<![CDATA[ a ]]>", " a ", true)
+	assertCDATAVal(t, "<b>", "&lt;b>", true)
+	assertCDATAVal(t, "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", true)
+	assertCDATAVal(t, " <b> ", " &lt;b> ", true)
+	assertCDATAVal(t, "<<<<<", "<<<<<", false)
+	assertCDATAVal(t, "&", "&amp;", true)
+	assertCDATAVal(t, "&&&&", "&&&&", false)
+	assertCDATAVal(t, " a ", " a ", true)
 }

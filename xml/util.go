@@ -74,8 +74,7 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 }
 
 // EscapeCDATAVal returns the escaped text bytes.
-func EscapeCDATAVal(buf *[]byte, orig []byte) ([]byte, bool) {
-	b := orig[9 : len(orig)-3]
+func EscapeCDATAVal(buf *[]byte, b []byte) ([]byte, bool) {
 	n := 0
 	for i := 0; i < len(b); i++ {
 		c := b[i]
@@ -86,7 +85,7 @@ func EscapeCDATAVal(buf *[]byte, orig []byte) ([]byte, bool) {
 				n += 4 // &amp;
 			}
 			if n > len("<![CDATA[]]>") {
-				return orig, false
+				return b, false
 			}
 		}
 	}
