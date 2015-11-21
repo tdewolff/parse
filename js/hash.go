@@ -4,8 +4,11 @@ package js
 
 // uses github.com/tdewolff/hasher
 //go:generate hasher -type=Hash -file=hash.go
+
+// Hash defines perfect hashes for a predefined list of strings
 type Hash uint32
 
+// Unique hash definitions to be used instead of strings
 const (
 	Break      Hash = 0x5
 	Case       Hash = 0x3404

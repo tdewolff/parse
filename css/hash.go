@@ -4,8 +4,11 @@ package css
 
 // uses github.com/tdewolff/hasher
 //go:generate hasher -type=Hash -file=hash.go
+
+// Hash defines perfect hashes for a predefined list of strings
 type Hash uint32
 
+// Unique hash definitions to be used instead of strings
 const (
 	Accelerator                 Hash = 0x47f0b
 	Aliceblue                   Hash = 0x52509

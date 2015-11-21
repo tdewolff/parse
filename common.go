@@ -8,7 +8,7 @@ import (
 	"net/url"
 )
 
-// Returned by DataURI when the byte slice does not start with 'data:' or is too short.
+// ErrBadDataURI is returned by DataURI when the byte slice does not start with 'data:' or is too short.
 var ErrBadDataURI = errors.New("not a data URI")
 
 // Number returns the number of bytes that parse as a number of the regex format (+|-)?([0-9]+(\.[0-9]+)?|\.[0-9]+)((e|E)(+|-)?[0-9]+)?.
@@ -185,6 +185,8 @@ func Float(b []byte) (float64, bool) {
 	return f * math.Pow10(int(expExp)), true
 }
 
+// Mediatype parses a given mediatype and splits the mimetype from the parameters.
+// It works similar to mime.ParseMediaType but is faster.
 func Mediatype(b []byte) ([]byte, map[string]string) {
 	i := 0
 	for i < len(b) && b[i] == ' ' {

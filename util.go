@@ -104,7 +104,7 @@ func IsAllWhitespace(b []byte) bool {
 	return true
 }
 
-// Trim removes any character from the start and end for which the function returns true.
+// TrimWhitespace removes any leading and trailing whitespace characters.
 func TrimWhitespace(b []byte) []byte {
 	n := len(b)
 	start := n
