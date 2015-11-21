@@ -140,12 +140,9 @@ func ExampleNewParser() {
 		if tt == ErrorGrammar {
 			break
 		}
-		if state == ObjectKeyState && tt != EndObjectGrammar {
-			out += "\""
-		}
 		out += string(data)
 		if state == ObjectKeyState && tt != EndObjectGrammar {
-			out += "\":"
+			out += ":"
 		}
 		// not handling comma insertion
 	}
