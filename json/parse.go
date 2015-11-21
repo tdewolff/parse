@@ -192,15 +192,14 @@ func (p *Parser) Next() (GrammarType, []byte) {
 		}
 		p.r.Move(1)
 		p.state[len(p.state)-1] = ObjectValueState
-		return StringGrammar, p.r.Shift()[1 : n-1]
+		return StringGrammar, p.r.Shift()[:n]
 	} else {
 		p.needComma = true
 		if state == ObjectValueState {
 			p.state[len(p.state)-1] = ObjectKeyState
 		}
 		if c == '"' && p.consumeStringToken() {
-			n := p.r.Pos()
-			return StringGrammar, p.r.Shift()[1 : n-1]
+			return StringGrammar, p.r.Shift()
 		} else if p.consumeNumberToken() {
 			return NumberGrammar, p.r.Shift()
 		} else if p.consumeLiteralToken() {
@@ -306,12 +305,10 @@ func (p *Parser) consumeStringToken() bool {
 		if c == '"' {
 			p.r.Move(1)
 			break
+		} else if c == '\\' && (p.r.Peek(1) != 0 || p.r.Err() == nil) {
+			p.r.Move(1)
 		} else if c == 0 {
 			return false
-		} else if c == '\\' {
-			if p.r.Peek(1) != 0 || p.r.Err() == nil {
-				p.r.Move(1)
-			}
 		}
 		p.r.Move(1)
 	}
