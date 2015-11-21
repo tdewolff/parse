@@ -101,7 +101,8 @@ func TestParseFloat(t *testing.T) {
 func TestMediatype(t *testing.T) {
 	assertMediatype(t, "text/plain", "text/plain", nil)
 	assertMediatype(t, "text/plain;charset=US-ASCII", "text/plain", map[string]string{"charset": "US-ASCII"})
-	assertMediatype(t, " text/plain ; charset = US-ASCII ", "text/plain", map[string]string{"charset": "US-ASCII"})
+	assertMediatype(t, " text/plain  ; charset = US-ASCII ", "text/plain", map[string]string{"charset": "US-ASCII"})
+	assertMediatype(t, " text/plain  a", "text/plain", nil)
 	assertMediatype(t, "text/plain;base64", "text/plain", map[string]string{"base64": ""})
 	assertMediatype(t, "text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""})
 }

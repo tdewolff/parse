@@ -109,14 +109,14 @@ func TrimWhitespace(b []byte) []byte {
 	n := len(b)
 	start := n
 	for i := 0; i < n; i++ {
-		if IsWhitespace(b[i]) {
+		if !IsWhitespace(b[i]) {
 			start = i
 			break
 		}
 	}
 	end := n
 	for i := n - 1; i >= start; i-- {
-		if IsWhitespace(b[i]) {
+		if !IsWhitespace(b[i]) {
 			end = i + 1
 			break
 		}

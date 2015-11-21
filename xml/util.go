@@ -55,7 +55,8 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				j += copy(t[j:], b[start:i])
 				if entityQuote != quote {
-					j += copy(t[j:], []byte{entityQuote})
+					t[j] = entityQuote
+					j++
 				} else {
 					j += copy(t[j:], escapedQuote)
 				}
@@ -73,7 +74,8 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 }
 
 // EscapeCDATAVal returns the escaped text bytes.
-func EscapeCDATAVal(buf *[]byte, b []byte) ([]byte, bool) {
+func EscapeCDATAVal(buf *[]byte, orig []byte) ([]byte, bool) {
+	b := orig[9 : len(orig)-3]
 	n := 0
 	for i := 0; i < len(b); i++ {
 		c := b[i]
@@ -84,7 +86,7 @@ func EscapeCDATAVal(buf *[]byte, b []byte) ([]byte, bool) {
 				n += 4 // &amp;
 			}
 			if n > len("<![CDATA[]]>") {
-				return b, true
+				return orig, false
 			}
 		}
 	}
@@ -107,5 +109,5 @@ func EscapeCDATAVal(buf *[]byte, b []byte) ([]byte, bool) {
 		}
 	}
 	j += copy(t[j:], b[start:])
-	return t[:j], false
+	return t[:j], true
 }

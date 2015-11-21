@@ -67,10 +67,10 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 }
 
 func TestTrim(t *testing.T) {
-	assert.Equal(t, "a", string(Trim([]byte("a"), IsWhitespace)))
-	assert.Equal(t, "a", string(Trim([]byte(" a"), IsWhitespace)))
-	assert.Equal(t, "a", string(Trim([]byte("a "), IsWhitespace)))
-	assert.Equal(t, "", string(Trim([]byte(" "), IsWhitespace)))
+	assert.Equal(t, "a", string(TrimWhitespace([]byte("a"))))
+	assert.Equal(t, "a", string(TrimWhitespace([]byte(" a"))))
+	assert.Equal(t, "a", string(TrimWhitespace([]byte("a "))))
+	assert.Equal(t, "", string(TrimWhitespace([]byte(" "))))
 }
 
 ////////////////////////////////////////////////////////////////
@@ -86,7 +86,7 @@ func BenchmarkBytesTrim(b *testing.B) {
 func BenchmarkTrim(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
-			e = Trim(e, IsWhitespace)
+			e = TrimWhitespace(e)
 		}
 	}
 }
