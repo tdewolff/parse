@@ -15,11 +15,10 @@ func assertAttrVal(t *testing.T, input, expected string) {
 	assert.Equal(t, expected, string(EscapeAttrVal(&buf, []byte(s))))
 }
 
-func assertCDATAVal(t *testing.T, input, expected string, eUse bool) {
+func assertCDATAVal(t *testing.T, input, expected string) {
 	s := []byte(input)
 	var buf []byte
-	text, use := EscapeCDATAVal(&buf, s)
-	assert.Equal(t, eUse, use)
+	text, _ := EscapeCDATAVal(&buf, s)
 	assert.Equal(t, expected, string(text))
 }
 
@@ -38,11 +37,11 @@ func TestAttrVal(t *testing.T) {
 }
 
 func TestCDATAVal(t *testing.T) {
-	assertCDATAVal(t, "<b>", "&lt;b>", true)
-	assertCDATAVal(t, "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz", true)
-	assertCDATAVal(t, " <b> ", " &lt;b> ", true)
-	assertCDATAVal(t, "<<<<<", "<<<<<", false)
-	assertCDATAVal(t, "&", "&amp;", true)
-	assertCDATAVal(t, "&&&&", "&&&&", false)
-	assertCDATAVal(t, " a ", " a ", true)
+	assertCDATAVal(t, "<![CDATA[<b>]]>", "&lt;b>")
+	assertCDATAVal(t, "<![CDATA[abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz]]>", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz")
+	assertCDATAVal(t, "<![CDATA[ <b> ]]>", " &lt;b> ")
+	assertCDATAVal(t, "<![CDATA[<<<<<]]>", "<![CDATA[<<<<<]]>")
+	assertCDATAVal(t, "<![CDATA[&]]>", "&amp;")
+	assertCDATAVal(t, "<![CDATA[&&&&]]>", "<![CDATA[&&&&]]>")
+	assertCDATAVal(t, "<![CDATA[ a ]]>", " a ")
 }
