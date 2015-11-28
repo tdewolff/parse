@@ -14,7 +14,7 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, _, _ := l.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
@@ -33,14 +33,14 @@ func assertTags(t *testing.T, s string, tags ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data, _ := l.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, len(tags), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == StartTagToken || tt == StartTagPIToken || tt == EndTagToken || tt == DOCTYPEToken {
 			assert.False(t, i >= len(tags), "index must not exceed tags size in "+stringify)
 			if i < len(tags) {
-				assert.Equal(t, tags[i], string(data), "tags must match at index "+strconv.Itoa(i)+" in "+stringify)
+				assert.Equal(t, tags[i], string(l.Text()), "tags must match at index "+strconv.Itoa(i)+" in "+stringify)
 				i++
 			}
 		}
@@ -53,14 +53,14 @@ func assertAttributes(t *testing.T, s string, attributes ...string) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, data, _ := l.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, len(attributes), i, "when error occurred we must be at the end in "+stringify)
 			break
 		} else if tt == AttributeToken {
 			assert.False(t, i+1 >= len(attributes), "index must not exceed attributes size in "+stringify)
 			if i+1 < len(attributes) {
-				assert.Equal(t, attributes[i], string(data), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
+				assert.Equal(t, attributes[i], string(l.Text()), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
 				assert.Equal(t, attributes[i+1], string(l.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
 				i += 2
 			}
@@ -73,14 +73,14 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text, _ := l.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
 		} else if tt == AttributeToken {
-			s += tt.String() + "('" + string(text) + "=" + string(l.AttrVal()) + "') "
+			s += tt.String() + "('" + string(data) + "=" + string(l.AttrVal()) + "') "
 		} else {
-			s += tt.String() + "('" + string(text) + "') "
+			s += tt.String() + "('" + string(data) + "') "
 		}
 	}
 	return s
@@ -131,7 +131,7 @@ func TestTags(t *testing.T) {
 	assertTags(t, "<foo:bar.qux-norf/>", "foo:bar.qux-norf")
 	assertTags(t, "<?xml?>", "xml")
 	assertTags(t, "<foo?bar/qux>", "foo?bar/qux")
-	assertTags(t, "<!DOCTYPE note SYSTEM \"Note.dtd\">", "note SYSTEM \"Note.dtd\"")
+	assertTags(t, "<!DOCTYPE note SYSTEM \"Note.dtd\">", " note SYSTEM \"Note.dtd\"")
 
 	// early endings
 	assertTags(t, "<foo ", "foo")
@@ -156,24 +156,12 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
-		tt, data, n := l.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		}
-		if tt == StartTagToken {
-			out += "<"
-		} else if tt == EndTagToken {
-			out += "</"
-		}
 		out += string(data)
-		if tt == StartTagToken {
-			out += " "
-		} else if tt == EndTagToken {
-			out += ">"
-		} else if tt == AttributeToken {
-			out += "=" + string(l.AttrVal())
-		}
-		l.Free(n)
+		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: <span class='user'>John Doe</span>
