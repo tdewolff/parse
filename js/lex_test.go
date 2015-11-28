@@ -15,7 +15,7 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, _, _ := l.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
@@ -36,14 +36,14 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text, _ := l.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
 		} else if tt == WhitespaceToken {
 			continue
 		} else {
-			s += tt.String() + "('" + string(text) + "') "
+			s += tt.String() + "('" + string(data) + "') "
 		}
 	}
 	return s
@@ -126,12 +126,12 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
 	out := ""
 	for {
-		tt, data, n := l.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		}
 		out += string(data)
-		l.Free(n)
+		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: var x = 'lorem ipsum';

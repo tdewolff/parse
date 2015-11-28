@@ -90,7 +90,7 @@ func (l *Lexer) Free(n int) {
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte, int) {
+func (l *Lexer) Next() (TokenType, []byte) {
 	tt := UnknownToken
 	c := l.r.Peek(0)
 	switch c {
@@ -107,7 +107,7 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		}
 	case '/':
 		if l.consumeCommentToken() {
-			return CommentToken, l.r.Shift(), l.r.ShiftLen()
+			return CommentToken, l.r.Shift()
 		} else if l.regexpState && l.consumeRegexpToken() {
 			tt = RegexpToken
 		} else if l.consumeLongPunctuatorToken() {
@@ -128,7 +128,7 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		l.r.Move(1)
 		for l.consumeWhitespace() {
 		}
-		return WhitespaceToken, l.r.Shift(), l.r.ShiftLen()
+		return WhitespaceToken, l.r.Shift()
 	case '\n', '\r':
 		l.r.Move(1)
 		for l.consumeLineTerminator() {
@@ -146,14 +146,14 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 			if l.consumeWhitespace() {
 				for l.consumeWhitespace() {
 				}
-				return WhitespaceToken, l.r.Shift(), l.r.ShiftLen()
+				return WhitespaceToken, l.r.Shift()
 			} else if l.consumeLineTerminator() {
 				for l.consumeLineTerminator() {
 				}
 				tt = LineTerminatorToken
 			}
 		} else if l.Err() != nil {
-			return ErrorToken, nil, 0
+			return ErrorToken, nil
 		}
 	}
 
@@ -168,7 +168,7 @@ func (l *Lexer) Next() (TokenType, []byte, int) {
 		_, n := l.r.PeekRune(0)
 		l.r.Move(n)
 	}
-	return tt, l.r.Shift(), l.r.ShiftLen()
+	return tt, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
