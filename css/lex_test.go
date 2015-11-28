@@ -14,7 +14,7 @@ func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
 	l := NewLexer(bytes.NewBufferString(s))
 	i := 0
 	for {
-		tt, _, _ := l.Next()
+		tt, _ := l.Next()
 		if tt == ErrorToken {
 			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
 			break
@@ -34,7 +34,7 @@ func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
 	for i := 0; i < 10; i++ {
-		tt, text, _ := l.Next()
+		tt, text := l.Next()
 		if tt == ErrorToken {
 			s += tt.String() + "('" + l.Err().Error() + "')"
 			break
@@ -147,14 +147,14 @@ func ExampleNewLexer() {
 	l := NewLexer(bytes.NewBufferString("color: red;"))
 	out := ""
 	for {
-		tt, data, n := l.Next()
+		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		} else if tt == WhitespaceToken || tt == CommentToken {
 			continue
 		}
 		out += string(data)
-		l.Free(n)
+		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: color:red;

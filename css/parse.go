@@ -130,14 +130,14 @@ func (p *Parser) Values() []Token {
 
 func (p *Parser) popToken() (TokenType, []byte) {
 	p.prevWS = false
-	tt, data, n := p.l.Next()
-	p.n += n
+	tt, data := p.l.Next()
+	p.n += len(data)
 	for tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
 		}
-		tt, data, n = p.l.Next()
-		p.n += n
+		tt, data = p.l.Next()
+		p.n += len(data)
 	}
 	return tt, data
 }

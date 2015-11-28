@@ -153,92 +153,92 @@ func (l *Lexer) Free(n int) {
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte, int) {
+func (l *Lexer) Next() (TokenType, []byte) {
 	switch l.r.Peek(0) {
 	case ' ', '\t', '\n', '\r', '\f':
 		l.r.Move(1)
 		for l.consumeWhitespace() {
 		}
-		return WhitespaceToken, l.r.Shift(), l.r.ShiftLen()
+		return WhitespaceToken, l.r.Shift()
 	case ':':
 		l.r.Move(1)
-		return ColonToken, l.r.Shift(), l.r.ShiftLen()
+		return ColonToken, l.r.Shift()
 	case ';':
 		l.r.Move(1)
-		return SemicolonToken, l.r.Shift(), l.r.ShiftLen()
+		return SemicolonToken, l.r.Shift()
 	case ',':
 		l.r.Move(1)
-		return CommaToken, l.r.Shift(), l.r.ShiftLen()
+		return CommaToken, l.r.Shift()
 	case '(', ')', '[', ']', '{', '}':
 		if t := l.consumeBracket(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case '#':
 		if l.consumeHashToken() {
-			return HashToken, l.r.Shift(), l.r.ShiftLen()
+			return HashToken, l.r.Shift()
 		}
 	case '"', '\'':
 		if t := l.consumeString(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case '.', '+':
 		if t := l.consumeNumeric(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case '-':
 		if t := l.consumeNumeric(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		} else if t := l.consumeIdentlike(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		} else if l.consumeCDCToken() {
-			return CDCToken, l.r.Shift(), l.r.ShiftLen()
+			return CDCToken, l.r.Shift()
 		}
 	case '@':
 		if l.consumeAtKeywordToken() {
-			return AtKeywordToken, l.r.Shift(), l.r.ShiftLen()
+			return AtKeywordToken, l.r.Shift()
 		}
 	case '$', '*', '^', '~':
 		if t := l.consumeMatch(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case '/':
 		if l.consumeComment() {
-			return CommentToken, l.r.Shift(), l.r.ShiftLen()
+			return CommentToken, l.r.Shift()
 		}
 	case '<':
 		if l.consumeCDOToken() {
-			return CDOToken, l.r.Shift(), l.r.ShiftLen()
+			return CDOToken, l.r.Shift()
 		}
 	case '\\':
 		if t := l.consumeIdentlike(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case 'u', 'U':
 		if l.consumeUnicodeRangeToken() {
-			return UnicodeRangeToken, l.r.Shift(), l.r.ShiftLen()
+			return UnicodeRangeToken, l.r.Shift()
 		} else if t := l.consumeIdentlike(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	case '|':
 		if t := l.consumeMatch(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		} else if l.consumeColumnToken() {
-			return ColumnToken, l.r.Shift(), l.r.ShiftLen()
+			return ColumnToken, l.r.Shift()
 		}
 	case 0:
 		if l.Err() != nil {
-			return ErrorToken, nil, 0
+			return ErrorToken, nil
 		}
 	default:
 		if t := l.consumeNumeric(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		} else if t := l.consumeIdentlike(); t != ErrorToken {
-			return t, l.r.Shift(), l.r.ShiftLen()
+			return t, l.r.Shift()
 		}
 	}
 	// can't be rune because consumeIdentlike consumes that as an identifier
 	l.r.Move(1)
-	return DelimToken, l.r.Shift(), l.r.ShiftLen()
+	return DelimToken, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
