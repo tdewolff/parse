@@ -94,13 +94,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
-		var c byte
 		for { // before attribute name state
 			if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 				l.r.Move(1)
-			} else {
-				break
+				continue
 			}
+			break
 		}
 		if c == 0 {
 			return ErrorToken, nil
@@ -165,10 +164,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	}
 }
 
+// Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.
 func (l *Lexer) Text() []byte {
 	return l.text
 }
 
+// AttrVal returns the attribute value when an AttributeToken was returned from Next.
 func (l *Lexer) AttrVal() []byte {
 	return l.attrVal
 }
@@ -187,8 +188,8 @@ func (l *Lexer) shiftDOCTYPEText() []byte {
 		} else if (c == '[' || c == ']') && !inString {
 			inBrackets = (c == '[')
 		} else if c == '>' && !inString && !inBrackets {
+			l.text = l.r.Lexeme()[9:]
 			l.r.Move(1)
-			l.text = l.r.Lexeme()[9 : l.r.Pos()-1]
 			return l.r.Shift()
 		} else if c == 0 {
 			l.text = l.r.Lexeme()[9:]
@@ -202,8 +203,8 @@ func (l *Lexer) shiftCDATAText() []byte {
 	for {
 		c := l.r.Peek(0)
 		if c == ']' && l.r.Peek(1) == ']' && l.r.Peek(2) == '>' {
+			l.text = l.r.Lexeme()[9:]
 			l.r.Move(3)
-			l.text = l.r.Lexeme()[9 : l.r.Pos()-3]
 			return l.r.Shift()
 		} else if c == 0 {
 			l.text = l.r.Lexeme()[9:]
@@ -217,8 +218,8 @@ func (l *Lexer) shiftCommentText() []byte {
 	for {
 		c := l.r.Peek(0)
 		if c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
+			l.text = l.r.Lexeme()[4:]
 			l.r.Move(3)
-			l.text = l.r.Lexeme()[4 : l.r.Pos()-3]
 			return l.r.Shift()
 		} else if c == 0 {
 			return l.r.Shift()
@@ -252,21 +253,21 @@ func (l *Lexer) shiftAttribute() []byte {
 	for { // after attribute name state
 		if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 			l.r.Move(1)
-		} else {
-			break
+			continue
 		}
+		break
 	}
-	if l.r.Peek(0) == '=' {
+	if c == '=' {
 		l.r.Move(1)
 		for { // before attribute value state
 			if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
 				l.r.Move(1)
-			} else {
-				break
+				continue
 			}
+			break
 		}
 		attrPos := l.r.Pos()
-		delim := l.r.Peek(0)
+		delim := c
 		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
 			l.r.Move(1)
 			for {
@@ -292,6 +293,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		l.attrVal = l.r.Lexeme()[attrPos:]
 	} else {
+		l.r.Rewind(nameEnd)
 		l.attrVal = nil
 	}
 	l.text = l.r.Lexeme()[nameStart:nameEnd]
@@ -302,8 +304,8 @@ func (l *Lexer) shiftEndTag() []byte {
 	for {
 		c := l.r.Peek(0)
 		if c == '>' {
+			l.text = l.r.Lexeme()[2:]
 			l.r.Move(1)
-			l.text = l.r.Lexeme()[2 : l.r.Pos()-1]
 			break
 		} else if c == 0 {
 			l.text = l.r.Lexeme()[2:]
