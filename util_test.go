@@ -59,20 +59,12 @@ func TestWhitespace(t *testing.T) {
 }
 
 func TestReplaceMultipleWhitespace(t *testing.T) {
-	multipleWhitespaceRegexp := regexp.MustCompile("\\s+")
-	for _, e := range wsSlices {
-		reference := multipleWhitespaceRegexp.ReplaceAll(e, []byte(" "))
-		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespace(e)), "must remove all multiple whitespace")
-	}
-}
-
-func TestReplaceMultipleWhitespace2(t *testing.T) {
 	wsRegexp := regexp.MustCompile("[ \t\f]+")
 	wsNewlinesRegexp := regexp.MustCompile("[ ]*[\r\n][ \r\n]*")
 	for _, e := range wsSlices {
 		reference := wsRegexp.ReplaceAll(e, []byte(" "))
 		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
-		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespaceKeepNewline(e)), "must remove all multiple whitespace but keep newlines")
+		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespace(e)), "must remove all multiple whitespace but keep newlines")
 	}
 }
 
@@ -105,14 +97,6 @@ func BenchmarkReplace(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
 			e = ReplaceMultipleWhitespace(e)
-		}
-	}
-}
-
-func BenchmarkReplaceKeepNewline(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		for _, e := range wsSlices {
-			e = ReplaceMultipleWhitespaceKeepNewline(e)
 		}
 	}
 }
