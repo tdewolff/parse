@@ -66,6 +66,16 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 	}
 }
 
+func TestReplaceMultipleWhitespace2(t *testing.T) {
+	wsRegexp := regexp.MustCompile("[ \t\f]+")
+	wsNewlinesRegexp := regexp.MustCompile("[ ]*[\r\n][ \r\n]*")
+	for _, e := range wsSlices {
+		reference := wsRegexp.ReplaceAll(e, []byte(" "))
+		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
+		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespaceKeepNewline(e)), "must remove all multiple whitespace but keep newlines")
+	}
+}
+
 func TestTrim(t *testing.T) {
 	assert.Equal(t, "a", string(TrimWhitespace([]byte("a"))))
 	assert.Equal(t, "a", string(TrimWhitespace([]byte(" a"))))
@@ -87,6 +97,100 @@ func BenchmarkTrim(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
 			e = TrimWhitespace(e)
+		}
+	}
+}
+
+func BenchmarkReplace(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			e = ReplaceMultipleWhitespace(e)
+		}
+	}
+}
+
+func BenchmarkReplaceKeepNewline(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			e = ReplaceMultipleWhitespaceKeepNewline(e)
+		}
+	}
+}
+
+func BenchmarkWhitespaceTable(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if IsWhitespace(c) {
+					n++
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkWhitespaceIf1(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if c == ' ' {
+					n++
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkWhitespaceIf2(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if c == ' ' || c == '\n' {
+					n++
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkWhitespaceIf3(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if c == ' ' || c == '\n' || c == '\r' {
+					n++
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkWhitespaceIf4(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if c == ' ' || c == '\n' || c == '\r' || c == '\t' {
+					n++
+				}
+			}
+		}
+	}
+}
+
+func BenchmarkWhitespaceIf5(b *testing.B) {
+	n := 0
+	for i := 0; i < b.N; i++ {
+		for _, e := range wsSlices {
+			for _, c := range e {
+				if c == ' ' || c == '\n' || c == '\r' || c == '\t' || c == '\f' {
+					n++
+				}
+			}
 		}
 	}
 }

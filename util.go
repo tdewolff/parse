@@ -127,30 +127,59 @@ func TrimWhitespace(b []byte) []byte {
 // ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space.
 func ReplaceMultipleWhitespace(b []byte) []byte {
 	j := 0
-	start := 0
-	prevMatch := false
+	prevWS := false
 	for i := 0; i < len(b); i++ {
 		if IsWhitespace(b[i]) {
-			if !prevMatch {
-				prevMatch = true
-				b[i] = ' '
-			} else {
-				if start < i {
-					if start != 0 {
-						j += copy(b[j:], b[start:i])
-					} else {
-						j += i
-					}
-				}
-				start = i + 1
+			if !prevWS {
+				prevWS = true
+				b[j] = ' '
+				j++
 			}
 		} else {
-			prevMatch = false
+			prevWS = false
+			if j < i {
+				b[j] = b[i]
+			}
+			j++
 		}
 	}
-	if start != 0 {
-		j += copy(b[j:], b[start:])
-		return b[:j]
+	return b[:j]
+}
+
+// ReplaceMultipleWhitespaceKeepNewline replaces character series of space, \n, \t, \f, \r into a single space or newline (when the serie contained a \n or \r).
+func ReplaceMultipleWhitespaceKeepNewline(b []byte) []byte {
+	j := 0
+	prevWS := false
+	hasNewline := false
+	for i := 0; i < len(b); i++ {
+		c := b[i]
+		if IsWhitespace(c) {
+			prevWS = true
+			if c == '\n' || c == '\r' {
+				hasNewline = true
+			}
+		} else {
+			if prevWS {
+				prevWS = false
+				if hasNewline {
+					hasNewline = false
+					b[j] = '\n'
+				} else {
+					b[j] = ' '
+				}
+				j++
+			}
+			b[j] = b[i]
+			j++
+		}
 	}
-	return b
+	if prevWS {
+		if hasNewline {
+			b[j] = '\n'
+		} else {
+			b[j] = ' '
+		}
+		j++
+	}
+	return b[:j]
 }
