@@ -134,6 +134,9 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<script><!--", StartTagToken, StartTagCloseToken, TextToken)
 	assertTokens(t, "<script><!--var x='<script></script>';-->", StartTagToken, StartTagCloseToken, TextToken)
 
+	// go-fuzz
+	assertTokens(t, "</>", EndTagToken)
+
 	// TODO
 	// 	buffer.MinBuf = 4
 	// 	assert.Equal(t, "StartTag('ab') StartTagClose('>') Error('EOF')", helperStringify(t, "<ab   >"), "buffer reallocation must keep tagname valid")
