@@ -112,6 +112,9 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "a=/x/\u200C\u3009", IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken)
 	assertTokens(t, "a=/x\n", IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken)
 
+	// go fuzz
+	assertTokens(t, "`", UnknownToken)
+
 	// TODO: small buffer
 	// buffer.MinBuf = 2
 	// assertTokens(t, `"*(?:'((?:\\\\.|[^\\\\'])*)'|\"((?:\\\\.|[^\\\\\"])*)\"|("`, StringToken)

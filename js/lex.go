@@ -520,6 +520,7 @@ func (l *Lexer) consumeRegexpToken() bool {
 
 func (l *Lexer) consumeTemplateToken() bool {
 	// assume to be on ` or } when already within template
+	mark := l.r.Pos()
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
@@ -530,6 +531,9 @@ func (l *Lexer) consumeTemplateToken() bool {
 		} else if c == '$' && l.r.Peek(1) == '{' {
 			l.r.Move(2)
 			return true
+		} else if c == 0 {
+			l.r.Rewind(mark)
+			return false
 		}
 		l.r.Move(1)
 	}
