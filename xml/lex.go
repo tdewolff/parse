@@ -313,17 +313,16 @@ func (l *Lexer) shiftEndTag() []byte {
 		}
 		l.r.Move(1)
 	}
+
 	end := len(l.text)
-	if end > 0 {
-		for {
-			if c := l.text[end-1]; c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-				end--
-				continue
-			}
-			break
+	for end > 0 {
+		if c := l.text[end-1]; c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			end--
+			continue
 		}
-		l.text = l.text[:end]
+		break
 	}
+	l.text = l.text[:end]
 	return l.r.Shift()
 }
 

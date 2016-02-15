@@ -126,6 +126,7 @@ func TestTokens(t *testing.T) {
 
 	// go fuzz
 	assertTokens(t, "</", EndTagToken)
+	assertTokens(t, "</\n", EndTagToken)
 
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }
