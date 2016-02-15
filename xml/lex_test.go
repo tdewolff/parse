@@ -124,6 +124,9 @@ func TestTokens(t *testing.T) {
 	assertTokens(t, "<![CDATA[ test", CDATAToken)
 	assertTokens(t, "<!DOCTYPE note SYSTEM", DOCTYPEToken)
 
+	// go fuzz
+	assertTokens(t, "</", EndTagToken)
+
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 }
 
