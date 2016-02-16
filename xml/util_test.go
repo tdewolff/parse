@@ -44,4 +44,5 @@ func TestCDATAVal(t *testing.T) {
 	assertCDATAVal(t, "<![CDATA[&]]>", "&amp;")
 	assertCDATAVal(t, "<![CDATA[&&&&]]>", "<![CDATA[&&&&]]>")
 	assertCDATAVal(t, "<![CDATA[ a ]]>", " a ")
+	assertCDATAVal(t, "<![CDATA[", "<![CDATA[")
 }
