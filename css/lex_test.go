@@ -9,27 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertTokens(t *testing.T, s string, tokentypes ...TokenType) {
-	stringify := helperStringify(t, s)
-	l := NewLexer(bytes.NewBufferString(s))
-	i := 0
-	for {
-		tt, _ := l.Next()
-		if tt == ErrorToken {
-			assert.Equal(t, len(tokentypes), i, "when error occurred we must be at the end in "+stringify)
-			break
-		} else if tt == WhitespaceToken {
-			continue
-		}
-		assert.False(t, i >= len(tokentypes), "index must not exceed tokentypes size in "+stringify)
-		if i < len(tokentypes) {
-			assert.Equal(t, tokentypes[i], tt, "tokentypes must match at index "+strconv.Itoa(i)+" in "+stringify)
-		}
-		i++
-	}
-	return
-}
-
 func helperStringify(t *testing.T, input string) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
@@ -49,96 +28,116 @@ func helperStringify(t *testing.T, input string) string {
 
 ////////////////////////////////////////////////////////////////
 
+type TTs []TokenType
+
 func TestTokens(t *testing.T) {
-	assertTokens(t, " ")
-	assertTokens(t, "5.2 .4", NumberToken, NumberToken)
-	assertTokens(t, "color: red;", IdentToken, ColonToken, IdentToken, SemicolonToken)
-	assertTokens(t, "background: url(\"http://x\");", IdentToken, ColonToken, URLToken, SemicolonToken)
-	assertTokens(t, "background: URL(x.png);", IdentToken, ColonToken, URLToken, SemicolonToken)
-	assertTokens(t, "color: rgb(4, 0%, 5em);", IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, RightParenthesisToken, SemicolonToken)
-	assertTokens(t, "body { \"string\" }", IdentToken, LeftBraceToken, StringToken, RightBraceToken)
-	assertTokens(t, "body { \"str\\\"ing\" }", IdentToken, LeftBraceToken, StringToken, RightBraceToken)
-	assertTokens(t, ".class { }", DelimToken, IdentToken, LeftBraceToken, RightBraceToken)
-	assertTokens(t, "#class { }", HashToken, LeftBraceToken, RightBraceToken)
-	assertTokens(t, "#class\\#withhash { }", HashToken, LeftBraceToken, RightBraceToken)
-	assertTokens(t, "@media print { }", AtKeywordToken, IdentToken, LeftBraceToken, RightBraceToken)
-	assertTokens(t, "/*comment*/", CommentToken)
-	assertTokens(t, "/*com* /ment*/", CommentToken)
-	assertTokens(t, "~= |= ^= $= *=", IncludeMatchToken, DashMatchToken, PrefixMatchToken, SuffixMatchToken, SubstringMatchToken)
-	assertTokens(t, "||", ColumnToken)
-	assertTokens(t, "<!-- -->", CDOToken, CDCToken)
-	assertTokens(t, "U+1234", UnicodeRangeToken)
-	assertTokens(t, "5.2 .4 4e-22", NumberToken, NumberToken, NumberToken)
+	var tokenTests = []struct {
+		css      string
+		expected TTs
+	}{
+		{" ", TTs{}},
+		{"5.2 .4", TTs{NumberToken, NumberToken}},
+		{"color: red;", TTs{IdentToken, ColonToken, IdentToken, SemicolonToken}},
+		{"background: url(\"http://x\");", TTs{IdentToken, ColonToken, URLToken, SemicolonToken}},
+		{"background: URL(x.png);", TTs{IdentToken, ColonToken, URLToken, SemicolonToken}},
+		{"color: rgb(4, 0%, 5em);", TTs{IdentToken, ColonToken, FunctionToken, NumberToken, CommaToken, PercentageToken, CommaToken, DimensionToken, RightParenthesisToken, SemicolonToken}},
+		{"body { \"string\" }", TTs{IdentToken, LeftBraceToken, StringToken, RightBraceToken}},
+		{"body { \"str\\\"ing\" }", TTs{IdentToken, LeftBraceToken, StringToken, RightBraceToken}},
+		{".class { }", TTs{DelimToken, IdentToken, LeftBraceToken, RightBraceToken}},
+		{"#class { }", TTs{HashToken, LeftBraceToken, RightBraceToken}},
+		{"#class\\#withhash { }", TTs{HashToken, LeftBraceToken, RightBraceToken}},
+		{"@media print { }", TTs{AtKeywordToken, IdentToken, LeftBraceToken, RightBraceToken}},
+		{"/*comment*/", TTs{CommentToken}},
+		{"/*com* /ment*/", TTs{CommentToken}},
+		{"~= |= ^= $= *=", TTs{IncludeMatchToken, DashMatchToken, PrefixMatchToken, SuffixMatchToken, SubstringMatchToken}},
+		{"||", TTs{ColumnToken}},
+		{"<!-- -->", TTs{CDOToken, CDCToken}},
+		{"U+1234", TTs{UnicodeRangeToken}},
+		{"5.2 .4 4e-22", TTs{NumberToken, NumberToken, NumberToken}},
 
-	// unexpected ending
-	assertTokens(t, "ident", IdentToken)
-	assertTokens(t, "123.", NumberToken, DelimToken)
-	assertTokens(t, "\"string", StringToken)
-	assertTokens(t, "123/*comment", NumberToken, CommentToken)
-	assertTokens(t, "U+1-", IdentToken, NumberToken, DelimToken)
+		// unexpected ending
+		{"ident", TTs{IdentToken}},
+		{"123.", TTs{NumberToken, DelimToken}},
+		{"\"string", TTs{StringToken}},
+		{"123/*comment", TTs{NumberToken, CommentToken}},
+		{"U+1-", TTs{IdentToken, NumberToken, DelimToken}},
 
-	// unicode
-	assertTokens(t, "fooδbar􀀀", IdentToken)
-	assertTokens(t, "foo\\æ\\†", IdentToken)
-	//assertTokens(t, "foo\x00bar", IdentToken)
-	assertTokens(t, "'foo\u554abar'", StringToken)
-	assertTokens(t, "\\000026B", IdentToken)
-	assertTokens(t, "\\26 B", IdentToken)
+		// unicode
+		{"fooδbar􀀀", TTs{IdentToken}},
+		{"foo\\æ\\†", TTs{IdentToken}},
+		// {"foo\x00bar", TTs{IdentToken}},
+		{"'foo\u554abar'", TTs{StringToken}},
+		{"\\000026B", TTs{IdentToken}},
+		{"\\26 B", TTs{IdentToken}},
 
-	// hacks
-	assertTokens(t, `\-\mo\z\-b\i\nd\in\g:\url(//business\i\nfo.co.uk\/labs\/xbl\/xbl\.xml\#xss);`, IdentToken, ColonToken, URLToken, SemicolonToken)
-	assertTokens(t, "width/**/:/**/ 40em;", IdentToken, CommentToken, ColonToken, CommentToken, DimensionToken, SemicolonToken)
-	assertTokens(t, ":root *> #quince", ColonToken, IdentToken, DelimToken, DelimToken, HashToken)
-	assertTokens(t, "html[xmlns*=\"\"]:root", IdentToken, LeftBracketToken, IdentToken, SubstringMatchToken, StringToken, RightBracketToken, ColonToken, IdentToken)
-	assertTokens(t, "body:nth-of-type(1)", IdentToken, ColonToken, FunctionToken, NumberToken, RightParenthesisToken)
-	assertTokens(t, "color/*\\**/: blue\\9;", IdentToken, CommentToken, ColonToken, IdentToken, SemicolonToken)
-	assertTokens(t, "color: blue !ie;", IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken)
+		// hacks
+		{`\-\mo\z\-b\i\nd\in\g:\url(//business\i\nfo.co.uk\/labs\/xbl\/xbl\.xml\#xss);`, TTs{IdentToken, ColonToken, URLToken, SemicolonToken}},
+		{"width/**/:/**/ 40em;", TTs{IdentToken, CommentToken, ColonToken, CommentToken, DimensionToken, SemicolonToken}},
+		{":root *> #quince", TTs{ColonToken, IdentToken, DelimToken, DelimToken, HashToken}},
+		{"html[xmlns*=\"\"]:root", TTs{IdentToken, LeftBracketToken, IdentToken, SubstringMatchToken, StringToken, RightBracketToken, ColonToken, IdentToken}},
+		{"body:nth-of-type(1)", TTs{IdentToken, ColonToken, FunctionToken, NumberToken, RightParenthesisToken}},
+		{"color/*\\**/: blue\\9;", TTs{IdentToken, CommentToken, ColonToken, IdentToken, SemicolonToken}},
+		{"color: blue !ie;", TTs{IdentToken, ColonToken, IdentToken, DelimToken, IdentToken, SemicolonToken}},
 
-	// escapes, null and replacement character
-	assertTokens(t, "c\\\x00olor: white;", IdentToken, ColonToken, IdentToken, SemicolonToken)
-	assertTokens(t, "null\\0", IdentToken)
-	assertTokens(t, "eof\\", IdentToken)
-	assertTokens(t, "\"a\x00b\"", StringToken)
-	assertTokens(t, "a\\\x00b", IdentToken)
-	assertTokens(t, "url(a\x00b)", BadURLToken) // null character cannot be unquoted
-	assertTokens(t, "/*a\x00b*/", CommentToken)
+		// escapes, null and replacement character
+		{"c\\\x00olor: white;", TTs{IdentToken, ColonToken, IdentToken, SemicolonToken}},
+		{"null\\0", TTs{IdentToken}},
+		{"eof\\", TTs{IdentToken}},
+		{"\"a\x00b\"", TTs{StringToken}},
+		{"a\\\x00b", TTs{IdentToken}},
+		{"url(a\x00b)", TTs{BadURLToken}}, // null character cannot be unquoted
+		{"/*a\x00b*/", TTs{CommentToken}},
 
-	// coverage
-	assertTokens(t, "  \n\r\n\r\"\\\r\n\\\r\"", StringToken)
-	assertTokens(t, "U+?????? U+ABCD?? U+ABC-DEF", UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken)
-	assertTokens(t, "U+? U+A?", IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken)
-	assertTokens(t, "-5.23 -moz", NumberToken, IdentToken)
-	assertTokens(t, "()", LeftParenthesisToken, RightParenthesisToken)
-	assertTokens(t, "url( //url  )", URLToken)
-	assertTokens(t, "url( ", URLToken)
-	assertTokens(t, "url( //url", URLToken)
-	assertTokens(t, "url(\")a", URLToken)
-	assertTokens(t, "url(a'\\\n)a", BadURLToken, IdentToken)
-	assertTokens(t, "url(\"\n)a", BadURLToken, IdentToken)
-	assertTokens(t, "url(a h)a", BadURLToken, IdentToken)
-	assertTokens(t, "<!- | @4 ## /2", DelimToken, DelimToken, DelimToken, DelimToken, DelimToken, NumberToken, DelimToken, DelimToken, DelimToken, NumberToken)
-	assertTokens(t, "\"s\\\n\"", StringToken)
-	assertTokens(t, "\"a\\\"b\"", StringToken)
-	assertTokens(t, "\"s\n", BadStringToken)
-	//assertTokenError(t, "\\\n", ErrBadEscape)
+		// coverage
+		{"  \n\r\n\r\"\\\r\n\\\r\"", TTs{StringToken}},
+		{"U+?????? U+ABCD?? U+ABC-DEF", TTs{UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken}},
+		{"U+? U+A?", TTs{IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken}},
+		{"-5.23 -moz", TTs{NumberToken, IdentToken}},
+		{"()", TTs{LeftParenthesisToken, RightParenthesisToken}},
+		{"url( //url  )", TTs{URLToken}},
+		{"url( ", TTs{URLToken}},
+		{"url( //url", TTs{URLToken}},
+		{"url(\")a", TTs{URLToken}},
+		{"url(a'\\\n)a", TTs{BadURLToken, IdentToken}},
+		{"url(\"\n)a", TTs{BadURLToken, IdentToken}},
+		{"url(a h)a", TTs{BadURLToken, IdentToken}},
+		{"<!- | @4 ## /2", TTs{DelimToken, DelimToken, DelimToken, DelimToken, DelimToken, NumberToken, DelimToken, DelimToken, DelimToken, NumberToken}},
+		{"\"s\\\n\"", TTs{StringToken}},
+		{"\"a\\\"b\"", TTs{StringToken}},
+		{"\"s\n", TTs{BadStringToken}},
+
+		// small
+		{"\"abcd", TTs{StringToken}},
+		{"/*comment", TTs{CommentToken}},
+		{"U+A-B", TTs{UnicodeRangeToken}},
+		{"url((", TTs{BadURLToken}},
+		{"id\u554a", TTs{IdentToken}},
+	}
+	for _, test := range tokenTests {
+		expected := []TokenType(test.expected)
+		stringify := helperStringify(t, test.css)
+		l := NewLexer(bytes.NewBufferString(test.css))
+		i := 0
+		for {
+			tt, _ := l.Next()
+			if tt == ErrorToken {
+				assert.Equal(t, len(expected), i, "when error occurred we must be at the end in "+stringify)
+				break
+			} else if tt == WhitespaceToken {
+				continue
+			}
+			assert.False(t, i >= len(expected), "index must not exceed expected token types size in "+stringify)
+			if i < len(expected) {
+				assert.Equal(t, expected[i], tt, "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+			}
+			i++
+		}
+	}
 
 	assert.Equal(t, "Whitespace", WhitespaceToken.String())
 	assert.Equal(t, "Empty", EmptyToken.String())
 	assert.Equal(t, "Invalid(100)", TokenType(100).String())
 	assert.Equal(t, ErrorToken, NewLexer(bytes.NewBufferString("x")).consumeBracket())
-}
-
-func TestTokensSmall(t *testing.T) {
-	assertTokens(t, "\"abcd", StringToken)
-	assertTokens(t, "/*comment", CommentToken)
-	assertTokens(t, "U+A-B", UnicodeRangeToken)
-	assertTokens(t, "url((", BadURLToken)
-	assertTokens(t, "id\u554a", IdentToken)
-
-	// TODO
-	// buffer.MinBuf = 5
-	// assertTokens(t, "ab,d,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
-	// assertTokens(t, "ab,cd,e", IdentToken, CommaToken, IdentToken, CommaToken, IdentToken)
 }
 
 ////////////////////////////////////////////////////////////////

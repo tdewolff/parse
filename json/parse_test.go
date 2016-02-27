@@ -10,61 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertGrammars(t *testing.T, s string, grammartypes ...GrammarType) {
-	stringify := helperStringify(t, s)
-	p := NewParser(bytes.NewBufferString(s))
-	i := 0
-	for {
-		tt, _ := p.Next()
-		if tt == ErrorGrammar {
-			assert.Equal(t, len(grammartypes), i, "when error occurred we must be at the end in "+s)
-			break
-		} else if tt == WhitespaceGrammar {
-			continue
-		}
-		assert.False(t, i >= len(grammartypes), "index must not exceed grammartypes size in "+stringify)
-		if i < len(grammartypes) {
-			assert.Equal(t, grammartypes[i], tt, "grammartypes must match at index "+strconv.Itoa(i)+" in "+stringify)
-		}
-		i++
-	}
-	return
-}
-
-func assertGrammarsError(t *testing.T, input string, expected error) {
-	stringify := helperStringify(t, input)
-	p := NewParser(bytes.NewBufferString(input))
-	for {
-		tt, _ := p.Next()
-		if tt == ErrorGrammar {
-			assert.Equal(t, expected, p.Err(), "parser must return error '"+expected.Error()+"' in "+stringify)
-			break
-		}
-	}
-}
-
-func assertStates(t *testing.T, s string, states ...State) {
-	stringify := helperStringify(t, s)
-	p := NewParser(bytes.NewBufferString(s))
-	i := 0
-	for {
-		tt, _ := p.Next()
-		state := p.State()
-		if tt == ErrorGrammar {
-			assert.Equal(t, len(states), i, "when error occurred we must be at the end in "+stringify)
-			break
-		} else if tt == WhitespaceGrammar {
-			continue
-		}
-		assert.False(t, i >= len(states), "index must not exceed states size in "+stringify)
-		if i < len(states) {
-			assert.Equal(t, states[i], state, "states must match at index "+strconv.Itoa(i)+" in "+stringify)
-		}
-		i++
-	}
-	return
-}
-
 func helperStringify(t *testing.T, input string) string {
 	s := ""
 	p := NewParser(bytes.NewBufferString(input))
@@ -88,18 +33,44 @@ func helperStringify(t *testing.T, input string) string {
 
 ////////////////////////////////////////////////////////////////
 
+type GTs []GrammarType
+
 func TestGrammars(t *testing.T) {
-	assertGrammars(t, " \t\n\r") // WhitespaceGrammar
-	assertGrammars(t, "null", LiteralGrammar)
-	assertGrammars(t, "[]", StartArrayGrammar, EndArrayGrammar)
-	assertGrammars(t, "[15.2, 0.4, 5e9, -4E-3]", StartArrayGrammar, NumberGrammar, NumberGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar)
-	assertGrammars(t, "[true, false, null]", StartArrayGrammar, LiteralGrammar, LiteralGrammar, LiteralGrammar, EndArrayGrammar)
-	assertGrammars(t, `["", "abc", "\"", "\\"]`, StartArrayGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndArrayGrammar)
-	assertGrammars(t, "{}", StartObjectGrammar, EndObjectGrammar)
-	assertGrammars(t, `{"a": "b", "c": "d"}`, StartObjectGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndObjectGrammar)
-	assertGrammars(t, `{"a": [1, 2], "b": {"c": 3}}`, StartObjectGrammar, StringGrammar, StartArrayGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar, StringGrammar, StartObjectGrammar, StringGrammar, NumberGrammar, EndObjectGrammar, EndObjectGrammar)
-	assertGrammars(t, "[null,]", StartArrayGrammar, LiteralGrammar, EndArrayGrammar)
-	assertGrammars(t, "[\"x\\\x00y\", 0]", StartArrayGrammar, StringGrammar, NumberGrammar, EndArrayGrammar)
+	var grammarTests = []struct {
+		json     string
+		expected GTs
+	}{
+		{" \t\n\r", GTs{}}, // WhitespaceGrammar
+		{"null", GTs{LiteralGrammar}},
+		{"[]", GTs{StartArrayGrammar, EndArrayGrammar}},
+		{"[15.2, 0.4, 5e9, -4E-3]", GTs{StartArrayGrammar, NumberGrammar, NumberGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar}},
+		{"[true, false, null]", GTs{StartArrayGrammar, LiteralGrammar, LiteralGrammar, LiteralGrammar, EndArrayGrammar}},
+		{`["", "abc", "\"", "\\"]`, GTs{StartArrayGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndArrayGrammar}},
+		{"{}", GTs{StartObjectGrammar, EndObjectGrammar}},
+		{`{"a": "b", "c": "d"}`, GTs{StartObjectGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndObjectGrammar}},
+		{`{"a": [1, 2], "b": {"c": 3}}`, GTs{StartObjectGrammar, StringGrammar, StartArrayGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar, StringGrammar, StartObjectGrammar, StringGrammar, NumberGrammar, EndObjectGrammar, EndObjectGrammar}},
+		{"[null,]", GTs{StartArrayGrammar, LiteralGrammar, EndArrayGrammar}},
+		{"[\"x\\\x00y\", 0]", GTs{StartArrayGrammar, StringGrammar, NumberGrammar, EndArrayGrammar}},
+	}
+	for _, test := range grammarTests {
+		stringify := helperStringify(t, test.json)
+		p := NewParser(bytes.NewBufferString(test.json))
+		i := 0
+		for {
+			tt, _ := p.Next()
+			if tt == ErrorGrammar {
+				assert.Equal(t, len(test.expected), i, "when error occurred we must be at the end in "+test.json)
+				break
+			} else if tt == WhitespaceGrammar {
+				continue
+			}
+			assert.False(t, i >= len(test.expected), "index must not exceed expected grammar types size in "+stringify)
+			if i < len(test.expected) {
+				assert.Equal(t, test.expected[i], tt, "grammartypes must match at index "+strconv.Itoa(i)+" in "+stringify)
+			}
+			i++
+		}
+	}
 
 	assert.Equal(t, "Whitespace", WhitespaceGrammar.String())
 	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
@@ -111,22 +82,63 @@ func TestGrammars(t *testing.T) {
 }
 
 func TestGrammarsError(t *testing.T) {
-	assertGrammarsError(t, "true, false", ErrBadComma)
-	assertGrammarsError(t, "[true false]", ErrNoComma)
-	assertGrammarsError(t, "]", ErrBadArrayEnding)
-	assertGrammarsError(t, "}", ErrBadObjectEnding)
-	assertGrammarsError(t, "{0: 1}", ErrBadObjectKey)
-	assertGrammarsError(t, "{\"a\" 1}", ErrBadObjectDeclaration)
-	assertGrammarsError(t, "1.", ErrNoComma)
-	assertGrammarsError(t, "1e+", ErrNoComma)
-	assertGrammarsError(t, `{"":"`, io.EOF)
-	assertGrammarsError(t, "\"a\\", io.EOF)
+	var grammarErrorTests = []struct {
+		json     string
+		expected error
+	}{
+		{"true, false", ErrBadComma},
+		{"[true false]", ErrNoComma},
+		{"]", ErrBadArrayEnding},
+		{"}", ErrBadObjectEnding},
+		{"{0: 1}", ErrBadObjectKey},
+		{"{\"a\" 1}", ErrBadObjectDeclaration},
+		{"1.", ErrNoComma},
+		{"1e+", ErrNoComma},
+		{`{"":"`, io.EOF},
+		{"\"a\\", io.EOF},
+	}
+	for _, test := range grammarErrorTests {
+		stringify := helperStringify(t, test.json)
+		p := NewParser(bytes.NewBufferString(test.json))
+		for {
+			tt, _ := p.Next()
+			if tt == ErrorGrammar {
+				assert.Equal(t, test.expected, p.Err(), "parser must return error '"+test.expected.Error()+"' in "+stringify)
+				break
+			}
+		}
+	}
 }
 
 func TestStates(t *testing.T) {
-	assertStates(t, "null", ValueState)
-	assertStates(t, "[null]", ArrayState, ArrayState, ValueState)
-	assertStates(t, "{\"\":null}", ObjectKeyState, ObjectValueState, ObjectKeyState, ValueState)
+	var stateTests = []struct {
+		json     string
+		expected []State
+	}{
+		{"null", []State{ValueState}},
+		{"[null]", []State{ArrayState, ArrayState, ValueState}},
+		{"{\"\":null}", []State{ObjectKeyState, ObjectValueState, ObjectKeyState, ValueState}},
+	}
+	for _, test := range stateTests {
+		stringify := helperStringify(t, test.json)
+		p := NewParser(bytes.NewBufferString(test.json))
+		i := 0
+		for {
+			tt, _ := p.Next()
+			state := p.State()
+			if tt == ErrorGrammar {
+				assert.Equal(t, len(test.expected), i, "when error occurred we must be at the end in "+stringify)
+				break
+			} else if tt == WhitespaceGrammar {
+				continue
+			}
+			assert.False(t, i >= len(test.expected), "index must not exceed expected states size in "+stringify)
+			if i < len(test.expected) {
+				assert.Equal(t, test.expected[i], state, "states must match at index "+strconv.Itoa(i)+" in "+stringify)
+			}
+			i++
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////
