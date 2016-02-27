@@ -33,16 +33,6 @@ func assertDimension(t *testing.T, s string, enum int, eunit int) {
 	assert.Equal(t, eunit, unit, "must match unit length in "+s)
 }
 
-func assertInt(t *testing.T, s string, ei int64) {
-	i, _ := Int([]byte(s))
-	assert.Equal(t, ei, i, "must match integer in "+s)
-}
-
-func assertFloat(t *testing.T, s string, ef float64) {
-	f, _ := Float([]byte(s))
-	assert.Equal(t, ef, f, "must match float in "+s)
-}
-
 ////////////////////////////////////////////////////////////////
 
 func TestParseNumber(t *testing.T) {
@@ -67,35 +57,6 @@ func TestParseDimension(t *testing.T) {
 	assertDimension(t, "px", 0, 0)
 	assertDimension(t, "1", 1, 0)
 	assertDimension(t, "1~", 1, 0)
-}
-
-func TestParseInt(t *testing.T) {
-	assertInt(t, "5", 5)
-	assertInt(t, "99", 99)
-	assertInt(t, "999", 999)
-	assertInt(t, "-5", -5)
-	assertInt(t, "+5", 5)
-	assertInt(t, "9223372036854775807", 9223372036854775807)
-	assertInt(t, "9223372036854775808", 0)
-	assertInt(t, "-9223372036854775807", -9223372036854775807)
-	assertInt(t, "-9223372036854775808", -9223372036854775808)
-	assertInt(t, "-9223372036854775809", 0)
-	assertInt(t, "18446744073709551620", 0)
-	assertInt(t, "a", 0)
-}
-
-func TestParseFloat(t *testing.T) {
-	assertFloat(t, "5", 5)
-	assertFloat(t, "5.1", 5.1)
-	assertFloat(t, "-5.1", -5.1)
-	assertFloat(t, "5.1e-2", 5.1e-2)
-	assertFloat(t, "5.1e+2", 5.1e+2)
-	assertFloat(t, "0.0e1", 0.0e1)
-	assertFloat(t, "18446744073709551620", 18446744073709551620.0)
-	assertFloat(t, "1e23", 1e23)
-	// TODO: hard to test due to float imprecision
-	// assertFloat(t, "1.7976931348623e+308", 1.7976931348623e+308)
-	// assertFloat(t, "4.9406564584124e-308", 4.9406564584124e-308)
 }
 
 func TestMediatype(t *testing.T) {

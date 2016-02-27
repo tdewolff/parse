@@ -4,7 +4,6 @@ package parse // import "github.com/tdewolff/parse"
 import (
 	"encoding/base64"
 	"errors"
-	"math"
 	"net/url"
 )
 
@@ -79,110 +78,6 @@ func Dimension(b []byte) (int, int) {
 		return num, i - num
 	}
 	return num, 0
-}
-
-// Int parses a byte-slice and returns the integer it represents.
-// If an invalid character is encountered, it will stop there.
-func Int(b []byte) (int64, bool) {
-	neg := false
-	if len(b) > 0 && (b[0] == '+' || b[0] == '-') {
-		neg = b[0] == '-'
-		b = b[1:]
-	}
-	n := uint64(0)
-	for i := 0; i < len(b); i++ {
-		c := b[i]
-		if n > math.MaxUint64/10 {
-			return 0, false
-		} else if c >= '0' && c <= '9' {
-			n *= 10
-			n += uint64(c - '0')
-		} else {
-			break
-		}
-	}
-	if !neg && n > uint64(math.MaxInt64) || n > uint64(math.MaxInt64)+1 {
-		return 0, false
-	} else if neg {
-		return -int64(n), true
-	}
-	return int64(n), true
-}
-
-var float64pow10 = []float64{
-	1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9,
-	1e10, 1e11, 1e12, 1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19,
-	1e20, 1e21, 1e22,
-}
-
-// Float parses a byte-slice and returns the float it represents.
-// If an invalid character is encountered, it will stop there.
-func Float(b []byte) (float64, bool) {
-	i := 0
-	neg := false
-	if i < len(b) && (b[i] == '+' || b[i] == '-') {
-		neg = b[i] == '-'
-		i++
-	}
-	dot := -1
-	trunk := -1
-	n := uint64(0)
-	for ; i < len(b); i++ {
-		c := b[i]
-		if c >= '0' && c <= '9' {
-			if trunk == -1 {
-				if n > math.MaxUint64/10 {
-					trunk = i
-				} else {
-					n *= 10
-					n += uint64(c - '0')
-				}
-			}
-		} else if dot == -1 && c == '.' {
-			dot = i
-		} else {
-			break
-		}
-	}
-	f := float64(n)
-	if neg {
-		f = -f
-	}
-	mantExp := int64(0)
-	if dot != -1 {
-		if trunk == -1 {
-			trunk = i
-		}
-		mantExp = int64(trunk - dot - 1)
-	} else if trunk != -1 {
-		mantExp = int64(trunk - i)
-	}
-	expExp := int64(0)
-	if i < len(b) && (b[i] == 'e' || b[i] == 'E') {
-		i++
-		if e, ok := Int(b[i:]); ok {
-			expExp = e
-		}
-	}
-	exp := expExp - mantExp
-	// copied from strconv/atof.go
-	if exp == 0 {
-		return f, true
-	} else if exp > 0 && exp <= 15+22 { // int * 10^k
-		// If exponent is big but number of digits is not,
-		// can move a few zeros into the integer part.
-		if exp > 22 {
-			f *= float64pow10[exp-22]
-			exp = 22
-		}
-		if f <= 1e15 && f >= -1e15 {
-			return f * float64pow10[exp], true
-		}
-	} else if exp < 0 && exp >= -22 { // int / 10^k
-		return f / float64pow10[-exp], true
-	}
-	f *= math.Pow10(int(-mantExp))
-	return f * math.Pow10(int(expExp)), true
 }
 
 // Mediatype parses a given mediatype and splits the mimetype from the parameters.
