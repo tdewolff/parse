@@ -8,85 +8,113 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func assertDataURI(t *testing.T, x, e1, e2 string, eerr error) {
-	s1, s2, err := DataURI([]byte(x))
-	assert.Equal(t, eerr, err, "err must match in "+x)
-	assert.Equal(t, e1, string(s1), "mediatype part must match in "+x)
-	assert.Equal(t, e2, string(s2), "data part must match in "+x)
-}
-
-func assertMediatype(t *testing.T, x, e string, eParams map[string]string) {
-	mimetype, params := Mediatype([]byte(x))
-	assert.Equal(t, e, string(mimetype), "Mediatype must give expected result in "+x)
-	assert.Equal(t, eParams, params, "Mediatype must give nil parameters in "+x)
-}
-
-func assertQuoteEntity(t *testing.T, s string, equote byte, en int) {
-	quote, n := QuoteEntity([]byte(s))
-	assert.Equal(t, en, n, "must match length in "+s)
-	assert.Equal(t, equote, quote, "must match quote in "+s)
-}
-
-func assertDimension(t *testing.T, s string, enum int, eunit int) {
-	num, unit := Dimension([]byte(s))
-	assert.Equal(t, enum, num, "must match number length in "+s)
-	assert.Equal(t, eunit, unit, "must match unit length in "+s)
-}
-
-////////////////////////////////////////////////////////////////
-
 func TestParseNumber(t *testing.T) {
-	assert.Equal(t, 1, Number([]byte("5")))
-	assert.Equal(t, 4, Number([]byte("0.51")))
-	assert.Equal(t, 7, Number([]byte("0.5e-99")))
-	assert.Equal(t, 3, Number([]byte("0.5e-")))
-	assert.Equal(t, 5, Number([]byte("+50.0")))
-	assert.Equal(t, 2, Number([]byte(".0")))
-	assert.Equal(t, 1, Number([]byte("0.")))
-	assert.Equal(t, 0, Number([]byte("")))
-	assert.Equal(t, 0, Number([]byte("+")))
-	assert.Equal(t, 0, Number([]byte(".")))
-	assert.Equal(t, 0, Number([]byte("a")))
+	var numberTests = []struct {
+		number   string
+		expected int
+	}{
+		{"5", 1},
+		{"0.51", 4},
+		{"0.5e-99", 7},
+		{"0.5e-", 3},
+		{"+50.0", 5},
+		{".0", 2},
+		{"0.", 1},
+		{"", 0},
+		{"+", 0},
+		{".", 0},
+		{"a", 0},
+	}
+	for _, tt := range numberTests {
+		number := Number([]byte(tt.number))
+		assert.Equal(t, tt.expected, number, "Number must give expected result in "+tt.number)
+	}
 }
 
 func TestParseDimension(t *testing.T) {
-	assertDimension(t, "5px", 1, 2)
-	assertDimension(t, "5px ", 1, 2)
-	assertDimension(t, "5%", 1, 1)
-	assertDimension(t, "5em", 1, 2)
-	assertDimension(t, "px", 0, 0)
-	assertDimension(t, "1", 1, 0)
-	assertDimension(t, "1~", 1, 0)
+	var dimensionTests = []struct {
+		dimension    string
+		expectedNum  int
+		expectedUnit int
+	}{
+		{"5px", 1, 2},
+		{"5px ", 1, 2},
+		{"5%", 1, 1},
+		{"5em", 1, 2},
+		{"px", 0, 0},
+		{"1", 1, 0},
+		{"1~", 1, 0},
+	}
+	for _, tt := range dimensionTests {
+		num, unit := Dimension([]byte(tt.dimension))
+		assert.Equal(t, tt.expectedNum, num, "Dimension must give expected result in "+tt.dimension)
+		assert.Equal(t, tt.expectedUnit, unit, "Dimension must give expected result in "+tt.dimension)
+	}
 }
 
 func TestMediatype(t *testing.T) {
-	assertMediatype(t, "text/plain", "text/plain", nil)
-	assertMediatype(t, "text/plain;charset=US-ASCII", "text/plain", map[string]string{"charset": "US-ASCII"})
-	assertMediatype(t, " text/plain  ; charset = US-ASCII ", "text/plain", map[string]string{"charset": "US-ASCII"})
-	assertMediatype(t, " text/plain  a", "text/plain", nil)
-	assertMediatype(t, "text/plain;base64", "text/plain", map[string]string{"base64": ""})
-	assertMediatype(t, "text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""})
+	var mediatypeTests = []struct {
+		mediatype        string
+		expectedMimetype string
+		expectedParams   map[string]string
+	}{
+		{"text/plain", "text/plain", nil},
+		{"text/plain;charset=US-ASCII", "text/plain", map[string]string{"charset": "US-ASCII"}},
+		{" text/plain  ; charset = US-ASCII ", "text/plain", map[string]string{"charset": "US-ASCII"}},
+		{" text/plain  a", "text/plain", nil},
+		{"text/plain;base64", "text/plain", map[string]string{"base64": ""}},
+		{"text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""}},
+	}
+	for _, tt := range mediatypeTests {
+		mimetype, params := Mediatype([]byte(tt.mediatype))
+		assert.Equal(t, tt.expectedMimetype, string(mimetype), "Mediatype must give expected result in "+tt.mediatype)
+		assert.Equal(t, tt.expectedParams, params, "Mediatype must give expected result in "+tt.mediatype)
+	}
 }
 
 func TestParseDataURI(t *testing.T) {
-	assertDataURI(t, "www.domain.com", "", "", ErrBadDataURI)
-	assertDataURI(t, "data:,", "text/plain", "", nil)
-	assertDataURI(t, "data:text/xml,", "text/xml", "", nil)
-	assertDataURI(t, "data:,text", "text/plain", "text", nil)
-	assertDataURI(t, "data:;base64,dGV4dA==", "text/plain", "text", nil)
-	assertDataURI(t, "data:image/svg+xml,", "image/svg+xml", "", nil)
-	assertDataURI(t, "data:;base64,()", "", "", base64.CorruptInputError(0))
+	var dataURITests = []struct {
+		dataURI          string
+		expectedMimetype string
+		expectedData     string
+		expectedErr      error
+	}{
+		{"www.domain.com", "", "", ErrBadDataURI},
+		{"data:,", "text/plain", "", nil},
+		{"data:text/xml,", "text/xml", "", nil},
+		{"data:,text", "text/plain", "text", nil},
+		{"data:;base64,dGV4dA==", "text/plain", "text", nil},
+		{"data:image/svg+xml,", "image/svg+xml", "", nil},
+		{"data:;base64,()", "", "", base64.CorruptInputError(0)},
+	}
+	for _, tt := range dataURITests {
+		mimetype, data, err := DataURI([]byte(tt.dataURI))
+		assert.Equal(t, tt.expectedMimetype, string(mimetype), "DataURI must give expected result in "+tt.dataURI)
+		assert.Equal(t, tt.expectedData, string(data), "DataURI must give expected result in "+tt.dataURI)
+		assert.Equal(t, tt.expectedErr, err, "DataURI must give expected result in "+tt.dataURI)
+	}
 }
 
 func TestParseQuoteEntity(t *testing.T) {
-	assertQuoteEntity(t, "&#34;", '"', 5)
-	assertQuoteEntity(t, "&#039;", '\'', 6)
-	assertQuoteEntity(t, "&#x0022;", '"', 8)
-	assertQuoteEntity(t, "&#x27;", '\'', 6)
-	assertQuoteEntity(t, "&quot;", '"', 6)
-	assertQuoteEntity(t, "&apos;", '\'', 6)
-	assertQuoteEntity(t, "&gt;", 0x00, 0)
-	assertQuoteEntity(t, "&amp;", 0x00, 0)
+	var quoteEntityTests = []struct {
+		quoteEntity   string
+		expectedQuote byte
+		expectedN     int
+	}{
+		{"&#34;", '"', 5},
+		{"&#039;", '\'', 6},
+		{"&#x0022;", '"', 8},
+		{"&#x27;", '\'', 6},
+		{"&quot;", '"', 6},
+		{"&apos;", '\'', 6},
+		{"&gt;", 0x00, 0},
+		{"&amp;", 0x00, 0},
+	}
+	for _, tt := range quoteEntityTests {
+		quote, n := QuoteEntity([]byte(tt.quoteEntity))
+		assert.Equal(t, tt.expectedQuote, quote, "QuoteEntity must give expected result in "+tt.quoteEntity)
+		assert.Equal(t, tt.expectedN, n, "QuoteEntity must give expected result in "+tt.quoteEntity)
+	}
 }
 
 ////////////////////////////////////////////////////////////////
