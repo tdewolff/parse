@@ -65,6 +65,7 @@ func TestTokens(t *testing.T) {
 
 		// early endings
 		{"<!-- comment", TTs{CommentToken}},
+		{"<? bogus comment", TTs{CommentToken}},
 		{"<foo", TTs{StartTagToken}},
 		{"</foo", TTs{EndTagToken}},
 		{"<foo x", TTs{StartTagToken, AttributeToken}},
@@ -111,6 +112,7 @@ func TestTags(t *testing.T) {
 		{"<foo:bar.qux-norf/>", "foo:bar.qux-norf"},
 		{"<foo?bar/qux>", "foo?bar/qux"},
 		{"<!DOCTYPE note SYSTEM \"Note.dtd\">", " note SYSTEM \"Note.dtd\""},
+		{"</foo >", "foo"},
 
 		// early endings
 		{"<foo ", "foo"},
