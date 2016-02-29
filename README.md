@@ -1,6 +1,6 @@
 # Parse [![Build Status](https://travis-ci.org/tdewolff/parse.svg?branch=master)](https://travis-ci.org/tdewolff/parse) [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse)](http://gocover.io/github.com/tdewolff/parse)
 
-This package contains several lexers and parsers. All subpackages are built to be streaming, high performance and to be in accordance with the official (latest) specifications.
+This package contains several lexers and parsers written in [Go][1]. All subpackages are built to be streaming, high performance and to be in accordance with the official (latest) specifications.
 
 The lexers are implemented using `buffer.Lexer` in https://github.com/tdewolff/buffer and the parsers work on top of the lexers. Some subpackages have hashes defined (using [Hasher](https://github.com/tdewolff/hasher)) that speed up common byte-slice comparisons.
 
