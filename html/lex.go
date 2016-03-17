@@ -406,8 +406,8 @@ func (l *Lexer) shiftEndTag() []byte {
 ////////////////////////////////////////////////////////////////
 
 func (l *Lexer) at(b ...byte) bool {
-	for i := 0; i < len(b); i++ {
-		if l.r.Peek(i) != b[i] {
+	for i, c := range b {
+		if l.r.Peek(i) != c {
 			return false
 		}
 	}
@@ -415,8 +415,7 @@ func (l *Lexer) at(b ...byte) bool {
 }
 
 func (l *Lexer) atCaseInsensitive(b ...byte) bool {
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if l.r.Peek(i) != c && (l.r.Peek(i)+('a'-'A')) != c {
 			return false
 		}

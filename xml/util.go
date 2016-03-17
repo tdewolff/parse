@@ -13,8 +13,7 @@ var (
 func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 	singles := 0
 	doubles := 0
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if c == '&' {
 			if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				if quote == '"' {
@@ -49,8 +48,7 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 	t[0] = quote
 	j := 1
 	start := 0
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if c == '&' {
 			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				j += copy(t[j:], b[start:i])
@@ -80,8 +78,7 @@ func EscapeCDATAVal(buf *[]byte, cdata []byte) ([]byte, bool) {
 	}
 	b := cdata[9 : len(cdata)-3]
 	n := 0
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for _, c := range b {
 		if c == '<' || c == '&' {
 			if c == '<' {
 				n += 3 // &lt;
@@ -99,8 +96,7 @@ func EscapeCDATAVal(buf *[]byte, cdata []byte) ([]byte, bool) {
 	t := (*buf)[:len(b)+n]
 	j := 0
 	start := 0
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if c == '<' {
 			j += copy(t[j:], b[start:i])
 			j += copy(t[j:], ltEntityBytes)

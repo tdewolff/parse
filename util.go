@@ -9,8 +9,7 @@ func Copy(src []byte) (dst []byte) {
 
 // ToLower converts all characters in the byte slice from A-Z to a-z.
 func ToLower(src []byte) []byte {
-	for i := 0; i < len(src); i++ {
-		c := src[i]
+	for i, c := range src {
 		if c >= 'A' && c <= 'Z' {
 			src[i] = c + ('a' - 'A')
 		}
@@ -23,8 +22,8 @@ func Equal(s, target []byte) bool {
 	if len(s) != len(target) {
 		return false
 	}
-	for i := 0; i < len(target); i++ {
-		if s[i] != target[i] {
+	for i, c := range target {
+		if s[i] != c {
 			return false
 		}
 	}
@@ -36,8 +35,7 @@ func EqualFold(s, targetLower []byte) bool {
 	if len(s) != len(targetLower) {
 		return false
 	}
-	for i := 0; i < len(targetLower); i++ {
-		c := targetLower[i]
+	for i, c := range targetLower {
 		if s[i] != c && (c < 'A' && c > 'Z' || s[i]+('a'-'A') != c) {
 			return false
 		}
@@ -96,8 +94,8 @@ func IsWhitespace(c byte) bool {
 
 // IsAllWhitespace returns true when the entire byte slice consists of space, \n, \r, \t, \f.
 func IsAllWhitespace(b []byte) bool {
-	for i := 0; i < len(b); i++ {
-		if !IsWhitespace(b[i]) {
+	for _, c := range b {
+		if !IsWhitespace(c) {
 			return false
 		}
 	}
@@ -129,8 +127,7 @@ func ReplaceMultipleWhitespace(b []byte) []byte {
 	j := 0
 	prevWS := false
 	hasNewline := false
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if IsWhitespace(c) {
 			prevWS = true
 			if c == '\n' || c == '\r' {

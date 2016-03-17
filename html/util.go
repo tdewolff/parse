@@ -57,8 +57,7 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 	doubles := 0
 	unquoted := true
 	entities := false
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if charTable[c] {
 			if c == '&' {
 				entities = true
@@ -106,8 +105,7 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte) []byte {
 	t[0] = quote
 	j := 1
 	start := 0
-	for i := 0; i < len(b); i++ {
-		c := b[i]
+	for i, c := range b {
 		if c == '&' {
 			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
 				j += copy(t[j:], b[start:i])
