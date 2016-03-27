@@ -16,10 +16,14 @@ func assertAttrVal(t *testing.T, input, expected string) {
 }
 
 func assertCDATAVal(t *testing.T, input, expected string) {
-	s := []byte(input)
+	s := []byte(input[len("<![CDATA[") : len(input)-len("]]>")])
 	var buf []byte
-	text, _ := EscapeCDATAVal(&buf, s)
-	assert.Equal(t, expected, string(text))
+	data, useText := EscapeCDATAVal(&buf, s)
+	text := string(data)
+	if !useText {
+		text = "<![CDATA[" + text + "]]>"
+	}
+	assert.Equal(t, expected, text)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -44,5 +48,5 @@ func TestCDATAVal(t *testing.T) {
 	assertCDATAVal(t, "<![CDATA[&]]>", "&amp;")
 	assertCDATAVal(t, "<![CDATA[&&&&]]>", "<![CDATA[&&&&]]>")
 	assertCDATAVal(t, "<![CDATA[ a ]]>", " a ")
-	assertCDATAVal(t, "<![CDATA[", "<![CDATA[")
+	assertCDATAVal(t, "<![CDATA[]]>", "")
 }
