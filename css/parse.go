@@ -27,6 +27,7 @@ type GrammarType uint32
 // GrammarType values.
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
+	CommentGrammar
 	AtRuleGrammar
 	BeginAtRuleGrammar
 	EndAtRuleGrammar
@@ -41,6 +42,8 @@ func (tt GrammarType) String() string {
 	switch tt {
 	case ErrorGrammar:
 		return "Error"
+	case CommentGrammar:
+		return "Comment"
 	case AtRuleGrammar:
 		return "AtRule"
 	case BeginAtRuleGrammar:
@@ -117,7 +120,7 @@ func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 		p.tt, p.data = RightBraceToken, endBytes
 		p.prevEnd = false
 	} else {
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(true)
 	}
 	gt := p.state[len(p.state)-1]()
 	return gt, p.tt, p.data
@@ -128,13 +131,15 @@ func (p *Parser) Values() []Token {
 	return p.buf
 }
 
-func (p *Parser) popToken() (TokenType, []byte) {
+func (p *Parser) popToken(allowComment bool) (TokenType, []byte) {
 	p.prevWS = false
 	tt, data := p.l.Next()
 	p.n += len(data)
 	for tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
+		} else if allowComment && len(p.state) == 1 {
+			break
 		}
 		tt, data = p.l.Next()
 		p.n += len(data)
@@ -157,6 +162,8 @@ func (p *Parser) parseStylesheet() GrammarType {
 		return TokenGrammar
 	} else if p.tt == AtKeywordToken {
 		return p.parseAtRule()
+	} else if p.tt == CommentToken {
+		return CommentGrammar
 	} else if p.tt == ErrorToken {
 		return ErrorGrammar
 	}
@@ -164,8 +171,11 @@ func (p *Parser) parseStylesheet() GrammarType {
 }
 
 func (p *Parser) parseDeclarationList() GrammarType {
+	if p.tt == CommentToken {
+		p.tt, p.data = p.popToken(false)
+	}
 	for p.tt == SemicolonToken {
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(false)
 	}
 	if p.tt == ErrorToken {
 		return ErrorGrammar
@@ -174,7 +184,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	} else if p.tt == IdentToken {
 		return p.parseDeclaration()
 	} else if p.tt == DelimToken && p.data[0] == '*' { // CSS hack
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(false)
 		if p.tt == IdentToken {
 			p.data = append([]byte("*"), p.data...)
 			return p.parseDeclaration()
@@ -182,7 +192,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	}
 	// parse error
 	for p.tt != SemicolonToken && p.tt != ErrorToken {
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(false)
 	}
 	return p.state[len(p.state)-1]()
 }
@@ -203,7 +213,7 @@ func (p *Parser) parseAtRule() GrammarType {
 	first := true
 	skipWS := false
 	for {
-		tt, data := p.popToken()
+		tt, data := p.popToken(false)
 		if tt == LeftBraceToken && p.level == 0 {
 			if atRule == Font_Face || atRule == Page {
 				p.state = append(p.state, p.parseAtRuleDeclarationList)
@@ -254,7 +264,7 @@ func (p *Parser) parseAtRuleRuleList() GrammarType {
 
 func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(false)
 	}
 	if p.tt == RightBraceToken || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
@@ -290,7 +300,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.data = emptyBytes
 			first = false
 		} else {
-			tt, data = p.popToken()
+			tt, data = p.popToken(false)
 		}
 		if tt == LeftBraceToken && p.level == 0 {
 			p.state = append(p.state, p.parseQualifiedRuleDeclarationList)
@@ -321,7 +331,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 
 func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
-		p.tt, p.data = p.popToken()
+		p.tt, p.data = p.popToken(false)
 	}
 	if p.tt == RightBraceToken || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
@@ -333,13 +343,13 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
-	if tt, _ := p.popToken(); tt != ColonToken {
+	if tt, _ := p.popToken(false); tt != ColonToken {
 		p.err = ErrBadDeclaration
 		return ErrorGrammar
 	}
 	skipWS := true
 	for {
-		tt, data := p.popToken()
+		tt, data := p.popToken(false)
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
 			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar
