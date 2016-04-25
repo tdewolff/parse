@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func helperRand(n, m int, chars []byte) [][]byte {
@@ -31,31 +31,31 @@ func TestCopy(t *testing.T) {
 	foo := []byte("abc")
 	bar := Copy(foo)
 	foo[0] = 'b'
-	assert.Equal(t, "bbc", string(foo))
-	assert.Equal(t, "abc", string(bar))
+	test.Bytes(t, foo, []byte("bbc"))
+	test.Bytes(t, bar, []byte("abc"))
 }
 
 func TestToLower(t *testing.T) {
 	foo := []byte("Abc")
 	bar := ToLower(foo)
 	bar[1] = 'B'
-	assert.Equal(t, "aBc", string(foo))
-	assert.Equal(t, "aBc", string(bar))
+	test.Bytes(t, foo, []byte("aBc"))
+	test.Bytes(t, bar, []byte("aBc"))
 }
 
 func TestEqual(t *testing.T) {
-	assert.Equal(t, true, Equal([]byte("abc"), []byte("abc")))
-	assert.Equal(t, false, Equal([]byte("abcd"), []byte("abc")))
-	assert.Equal(t, false, Equal([]byte("bbc"), []byte("abc")))
+	test.That(t, Equal([]byte("abc"), []byte("abc")))
+	test.That(t, !Equal([]byte("abcd"), []byte("abc")))
+	test.That(t, !Equal([]byte("bbc"), []byte("abc")))
 
-	assert.Equal(t, true, EqualFold([]byte("Abc"), []byte("abc")))
-	assert.Equal(t, false, EqualFold([]byte("Abcd"), []byte("abc")))
-	assert.Equal(t, false, EqualFold([]byte("Bbc"), []byte("abc")))
+	test.That(t, EqualFold([]byte("Abc"), []byte("abc")))
+	test.That(t, !EqualFold([]byte("Abcd"), []byte("abc")))
+	test.That(t, !EqualFold([]byte("Bbc"), []byte("abc")))
 }
 
 func TestWhitespace(t *testing.T) {
-	assert.Equal(t, true, IsAllWhitespace([]byte("\t \r\n\f")))
-	assert.Equal(t, false, IsAllWhitespace([]byte("\t \r\n\fx")))
+	test.That(t, IsAllWhitespace([]byte("\t \r\n\f")))
+	test.That(t, !IsAllWhitespace([]byte("\t \r\n\fx")))
 }
 
 func TestReplaceMultipleWhitespace(t *testing.T) {
@@ -64,15 +64,15 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 	for _, e := range wsSlices {
 		reference := wsRegexp.ReplaceAll(e, []byte(" "))
 		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
-		assert.Equal(t, string(reference), string(ReplaceMultipleWhitespace(e)), "must remove all multiple whitespace but keep newlines")
+		test.Bytes(t, ReplaceMultipleWhitespace(e), reference, "must remove all multiple whitespace but keep newlines")
 	}
 }
 
 func TestTrim(t *testing.T) {
-	assert.Equal(t, "a", string(TrimWhitespace([]byte("a"))))
-	assert.Equal(t, "a", string(TrimWhitespace([]byte(" a"))))
-	assert.Equal(t, "a", string(TrimWhitespace([]byte("a "))))
-	assert.Equal(t, "", string(TrimWhitespace([]byte(" "))))
+	test.Bytes(t, TrimWhitespace([]byte("a")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte(" a")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte("a ")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte(" ")), []byte(""))
 }
 
 ////////////////////////////////////////////////////////////////
