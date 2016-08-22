@@ -25,6 +25,8 @@ const (
 	EndTagToken
 	AttributeToken
 	TextToken
+	SvgToken
+	MathToken
 )
 
 // String returns the string representation of a TokenType.
@@ -48,6 +50,10 @@ func (tt TokenType) String() string {
 		return "Attribute"
 	case TextToken:
 		return "Text"
+	case SvgToken:
+		return "Svg"
+	case MathToken:
+		return "Math"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -137,7 +143,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			} else if 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' {
 				l.r.Move(1)
 				l.inTag = true
-				return StartTagToken, l.shiftStartTag()
+				return l.shiftStartTag()
 			} else if c == '!' {
 				l.r.Move(2)
 				return l.readMarkup()
@@ -306,7 +312,7 @@ func (l *Lexer) shiftBogusComment() []byte {
 	}
 }
 
-func (l *Lexer) shiftStartTag() []byte {
+func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 	for {
 		if c := l.r.Peek(0); c == ' ' || c == '>' || c == '/' && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 {
 			break
@@ -315,9 +321,14 @@ func (l *Lexer) shiftStartTag() []byte {
 	}
 	l.text = parse.ToLower(l.r.Lexeme()[1:])
 	if h := ToHash(l.text); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
+		if h == Svg {
+			return SvgToken, l.shiftXml(h)
+		} else if h == Math {
+			return MathToken, l.shiftXml(h)
+		}
 		l.rawTag = h
 	}
-	return l.r.Shift()
+	return StartTagToken, l.r.Shift()
 }
 
 func (l *Lexer) shiftAttribute() []byte {
@@ -401,6 +412,49 @@ func (l *Lexer) shiftEndTag() []byte {
 	}
 	l.text = l.text[:end]
 	return parse.ToLower(l.r.Shift())
+}
+
+func (l *Lexer) shiftXml(rawTag Hash) []byte {
+	inQuote := false
+	for {
+		c := l.r.Peek(0)
+		if c == '"' {
+			inQuote = !inQuote
+			l.r.Move(1)
+		} else if c == '<' && !inQuote {
+			if l.r.Peek(1) == '/' {
+				mark := l.r.Pos()
+				l.r.Move(2)
+				for {
+					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
+						break
+					}
+					l.r.Move(1)
+				}
+				if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
+					break
+				}
+			} else {
+				l.r.Move(1)
+			}
+		} else if c == 0 {
+			return l.r.Shift()
+		} else {
+			l.r.Move(1)
+		}
+	}
+
+	for {
+		c := l.r.Peek(0)
+		if c == '>' {
+			l.r.Move(1)
+			break
+		} else if c == 0 {
+			break
+		}
+		l.r.Move(1)
+	}
+	return l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
