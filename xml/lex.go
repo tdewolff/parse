@@ -2,11 +2,15 @@
 package xml // import "github.com/tdewolff/parse/xml"
 
 import (
+	"errors"
 	"io"
 	"strconv"
 
 	"github.com/tdewolff/buffer"
 )
+
+// ErrBadNull is returned when a null character is encountered.
+var ErrBadNull = errors.New("unexpected null character")
 
 ////////////////////////////////////////////////////////////////
 
@@ -64,7 +68,9 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r     *buffer.Lexer
+	r   *buffer.Lexer
+	err error
+
 	inTag bool
 
 	text    []byte
@@ -80,7 +86,11 @@ func NewLexer(r io.Reader) *Lexer {
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
 func (l *Lexer) Err() error {
-	return l.r.Err()
+	err := l.r.Err()
+	if err != nil {
+		return err
+	}
+	return l.err
 }
 
 // Free frees up bytes of length n from previously shifted tokens.
@@ -102,6 +112,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			break
 		}
 		if c == 0 {
+			l.err = ErrBadNull
 			return ErrorToken, nil
 		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
 			return AttributeToken, l.shiftAttribute()
@@ -158,6 +169,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			if l.r.Pos() > 0 {
 				return TextToken, l.r.Shift()
 			}
+			l.err = ErrBadNull
 			return ErrorToken, nil
 		}
 		l.r.Move(1)

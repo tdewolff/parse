@@ -15,7 +15,11 @@ func helperStringify(t *testing.T, input string) string {
 	for i := 0; i < 10; i++ {
 		tt, text := l.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + l.Err().Error() + "')"
+			if l.Err() != nil {
+				s += tt.String() + "('" + l.Err().Error() + "')"
+			} else {
+				s += tt.String() + "(nil)"
+			}
 			break
 		} else if tt == WhitespaceToken {
 			continue

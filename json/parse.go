@@ -119,10 +119,11 @@ func NewParser(r io.Reader) *Parser {
 
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
 func (p Parser) Err() error {
-	if p.err != nil {
-		return p.err
+	err := p.r.Err()
+	if err != nil {
+		return err
 	}
-	return p.r.Err()
+	return p.err
 }
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.

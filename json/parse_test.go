@@ -19,7 +19,7 @@ func helperStringify(t *testing.T, input string) string {
 			if p.Err() != nil {
 				s += tt.String() + "('" + p.Err().Error() + "')"
 			} else {
-				s += tt.String() + "('')"
+				s += tt.String() + "(nil)"
 			}
 			break
 		} else if tt == WhitespaceGrammar {

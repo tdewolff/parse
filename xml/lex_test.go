@@ -16,7 +16,11 @@ func helperStringify(t *testing.T, input string) string {
 	for i := 0; i < 10; i++ {
 		tt, data := l.Next()
 		if tt == ErrorToken {
-			s += tt.String() + "('" + l.Err().Error() + "')"
+			if l.Err() != nil {
+				s += tt.String() + "('" + l.Err().Error() + "')"
+			} else {
+				s += tt.String() + "(nil)"
+			}
 			break
 		} else if tt == AttributeToken {
 			s += tt.String() + "('" + string(data) + "=" + string(l.AttrVal()) + "') "
@@ -159,6 +163,26 @@ func TestAttributes(t *testing.T) {
 					assert.Equal(t, test.expected[i+1], string(l.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
 					i += 2
 				}
+			}
+		}
+	}
+}
+
+func TestErrors(t *testing.T) {
+	var errorTests = []struct {
+		xml string
+		err error
+	}{
+		{"a\x00b", ErrBadNull},
+	}
+	for _, test := range errorTests {
+		stringify := helperStringify(t, test.xml)
+		l := NewLexer(bytes.NewBufferString(test.xml))
+		for {
+			tt, _ := l.Next()
+			if tt == ErrorToken {
+				assert.Equal(t, test.err, l.Err(), "error must be "+test.err.Error()+" in "+stringify)
+				break
 			}
 		}
 	}
