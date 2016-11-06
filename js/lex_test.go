@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func helperStringify(t *testing.T, input string) string {
@@ -38,7 +38,7 @@ type TTs []TokenType
 func TestTokens(t *testing.T) {
 	var tokenTests = []struct {
 		js       string
-		expected TTs
+		expected []TokenType
 	}{
 		{" \t\v\f\u00A0\uFEFF\u2000", TTs{}}, // WhitespaceToken
 		{"\n\r\r\n\u2028\u2029", TTs{LineTerminatorToken}},
@@ -103,30 +103,29 @@ func TestTokens(t *testing.T) {
 		// go fuzz
 		{"`", TTs{UnknownToken}},
 	}
-	for _, test := range tokenTests {
-		expected := []TokenType(test.expected)
-		stringify := helperStringify(t, test.js)
-		l := NewLexer(bytes.NewBufferString(test.js))
+	for _, tt := range tokenTests {
+		stringify := helperStringify(t, tt.js)
+		l := NewLexer(bytes.NewBufferString(tt.js))
 		i := 0
 		for {
-			tt, _ := l.Next()
-			if tt == ErrorToken {
-				assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
-				assert.Equal(t, len(expected), i, "when error occurred we must be at the end in "+stringify)
+			token, _ := l.Next()
+			if token == ErrorToken {
+				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
+				test.Error(t, l.Err(), io.EOF, "in "+stringify)
 				break
-			} else if tt == WhitespaceToken {
+			} else if token == WhitespaceToken {
 				continue
 			}
-			assert.False(t, i >= len(expected), "index must not exceed expected token types size in "+stringify)
-			if i < len(expected) {
-				assert.Equal(t, expected[i], tt, "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+			test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
+			if i < len(tt.expected) {
+				test.That(t, token == tt.expected[i], "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
 			}
 			i++
 		}
 	}
 
-	assert.Equal(t, "Whitespace", WhitespaceToken.String())
-	assert.Equal(t, "Invalid(100)", TokenType(100).String())
+	test.String(t, WhitespaceToken.String(), "Whitespace")
+	test.String(t, TokenType(100).String(), "Invalid(100)")
 }
 
 ////////////////////////////////////////////////////////////////

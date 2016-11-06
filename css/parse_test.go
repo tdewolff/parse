@@ -6,7 +6,6 @@ import (
 	"io"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/tdewolff/test"
 )
 
@@ -95,44 +94,44 @@ func TestParse(t *testing.T) {
 		// go-fuzz
 		{false, "@-webkit-", "@-webkit-;"},
 	}
-	for _, test := range parseTests {
+	for _, tt := range parseTests {
 		output := ""
-		p := NewParser(bytes.NewBufferString(test.css), test.inline)
+		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
 		for {
-			gt, _, data := p.Next()
-			if gt == ErrorGrammar {
+			grammar, _, data := p.Next()
+			if grammar == ErrorGrammar {
 				err := p.Err()
 				if err != nil {
-					assert.Equal(t, io.EOF, err, "parser must not return error '"+err.Error()+"' in "+test.css)
+					test.Error(t, err, io.EOF, "in "+tt.css)
 				}
 				break
-			} else if gt == AtRuleGrammar || gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar || gt == DeclarationGrammar {
-				if gt == DeclarationGrammar {
+			} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar {
+				if grammar == DeclarationGrammar {
 					data = append(data, ":"...)
 				}
 				for _, val := range p.Values() {
 					data = append(data, val.Data...)
 				}
-				if gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar {
+				if grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar {
 					data = append(data, "{"...)
-				} else if gt == AtRuleGrammar || gt == DeclarationGrammar {
+				} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar {
 					data = append(data, ";"...)
 				}
 			}
 			output += string(data)
 		}
-		assert.Equal(t, test.expected, output, "parsed string must match expected result in "+test.css)
+		test.String(t, output, tt.expected, "in "+tt.css)
 	}
 
-	assert.Equal(t, "Error", ErrorGrammar.String())
-	assert.Equal(t, "AtRule", AtRuleGrammar.String())
-	assert.Equal(t, "BeginAtRule", BeginAtRuleGrammar.String())
-	assert.Equal(t, "EndAtRule", EndAtRuleGrammar.String())
-	assert.Equal(t, "BeginRuleset", BeginRulesetGrammar.String())
-	assert.Equal(t, "EndRuleset", EndRulesetGrammar.String())
-	assert.Equal(t, "Declaration", DeclarationGrammar.String())
-	assert.Equal(t, "Token", TokenGrammar.String())
-	assert.Equal(t, "Invalid(100)", GrammarType(100).String())
+	test.String(t, ErrorGrammar.String(), "Error")
+	test.String(t, AtRuleGrammar.String(), "AtRule")
+	test.String(t, BeginAtRuleGrammar.String(), "BeginAtRule")
+	test.String(t, EndAtRuleGrammar.String(), "EndAtRule")
+	test.String(t, BeginRulesetGrammar.String(), "BeginRuleset")
+	test.String(t, EndRulesetGrammar.String(), "EndRuleset")
+	test.String(t, DeclarationGrammar.String(), "Declaration")
+	test.String(t, TokenGrammar.String(), "Token")
+	test.String(t, GrammarType(100).String(), "Invalid(100)")
 }
 
 func TestParseError(t *testing.T) {
@@ -144,12 +143,12 @@ func TestParseError(t *testing.T) {
 		{false, "selector", ErrBadQualifiedRule},
 		{true, "color 0", ErrBadDeclaration},
 	}
-	for _, test := range parseErrorTests {
-		p := NewParser(bytes.NewBufferString(test.css), test.inline)
+	for _, tt := range parseErrorTests {
+		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
 		for {
-			gt, _, _ := p.Next()
-			if gt == ErrorGrammar {
-				assert.Equal(t, test.expected, p.Err(), "parser must return error '"+test.expected.Error()+"' in "+test.css)
+			grammar, _, _ := p.Next()
+			if grammar == ErrorGrammar {
+				test.Error(t, p.Err(), tt.expected, "in "+tt.css)
 				break
 			}
 		}
@@ -160,8 +159,8 @@ func TestReader(t *testing.T) {
 	input := "x:a;"
 	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), true)
 	for {
-		gt, _, _ := p.Next()
-		if gt == ErrorGrammar {
+		grammar, _, _ := p.Next()
+		if grammar == ErrorGrammar {
 			break
 		}
 	}

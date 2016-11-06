@@ -4,17 +4,17 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func TestHashTable(t *testing.T) {
-	assert.Equal(t, Address, ToHash([]byte("address")), "'address' must resolve to Address")
-	assert.Equal(t, "address", Address.String(), "Address must resolve to 'address'")
-	assert.Equal(t, "accept-charset", Accept_Charset.String(), "Accept_Charset must resolve to 'accept-charset'")
-	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
-	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
-	assert.Equal(t, Hash(0), ToHash([]byte("iter")), "'iter' must resolve to zero")
-	assert.Equal(t, Hash(0), ToHash([]byte("test")), "'test' must resolve to zero")
+	test.That(t, ToHash([]byte("address")) == Address, "'address' must resolve to Address")
+	test.String(t, Address.String(), "address")
+	test.String(t, Accept_Charset.String(), "accept-charset")
+	test.That(t, ToHash([]byte("")) == Hash(0), "empty string must resolve to zero")
+	test.String(t, Hash(0xffffff).String(), "")
+	test.That(t, ToHash([]byte("iter")) == Hash(0), "'iter' must resolve to zero")
+	test.That(t, ToHash([]byte("test")) == Hash(0), "'test' must resolve to zero")
 }
 
 ////////////////////////////////////////////////////////////////

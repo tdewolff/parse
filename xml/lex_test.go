@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func helperStringify(t *testing.T, input string) string {
@@ -38,7 +38,7 @@ type TTs []TokenType
 func TestTokens(t *testing.T) {
 	var tokenTests = []struct {
 		xml      string
-		expected TTs
+		expected []TokenType
 	}{
 		{"", TTs{}},
 		{"<!-- comment -->", TTs{CommentToken}},
@@ -79,26 +79,26 @@ func TestTokens(t *testing.T) {
 		{"</", TTs{EndTagToken}},
 		{"</\n", TTs{EndTagToken}},
 	}
-	for _, test := range tokenTests {
-		expected := []TokenType(test.expected)
-		stringify := helperStringify(t, test.xml)
-		l := NewLexer(bytes.NewBufferString(test.xml))
+	for _, tt := range tokenTests {
+		stringify := helperStringify(t, tt.xml)
+		l := NewLexer(bytes.NewBufferString(tt.xml))
 		i := 0
 		for {
-			tt, _ := l.Next()
-			if tt == ErrorToken {
-				assert.Equal(t, len(expected), i, "when error occurred we must be at the end in "+stringify)
+			token, _ := l.Next()
+			if token == ErrorToken {
+				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
+				test.Error(t, l.Err(), io.EOF, "in "+stringify)
 				break
 			}
-			assert.False(t, i >= len(expected), "index must not exceed expected token types size in "+stringify)
-			if i < len(expected) {
-				assert.Equal(t, expected[i], tt, "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+			test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
+			if i < len(tt.expected) {
+				test.That(t, token == tt.expected[i], "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
 			}
 			i++
 		}
 	}
 
-	assert.Equal(t, "Invalid(100)", TokenType(100).String())
+	test.String(t, TokenType(100).String(), "Invalid(100)")
 }
 
 func TestTags(t *testing.T) {
@@ -114,17 +114,17 @@ func TestTags(t *testing.T) {
 		// early endings
 		{"<foo ", "foo"},
 	}
-	for _, test := range tagTests {
-		stringify := helperStringify(t, test.xml)
-		l := NewLexer(bytes.NewBufferString(test.xml))
+	for _, tt := range tagTests {
+		stringify := helperStringify(t, tt.xml)
+		l := NewLexer(bytes.NewBufferString(tt.xml))
 		for {
-			tt, _ := l.Next()
-			if tt == ErrorToken {
-				assert.Equal(t, io.EOF, l.Err(), "error must be EOF in "+stringify)
-				assert.Fail(t, "when error occurred we must be at the end in "+stringify)
+			token, _ := l.Next()
+			if token == ErrorToken {
+				test.That(t, false, "when error occurred we must be at the end in "+stringify)
+				test.Error(t, l.Err(), io.EOF, "in "+stringify)
 				break
-			} else if tt == StartTagToken || tt == StartTagPIToken || tt == EndTagToken || tt == DOCTYPEToken {
-				assert.Equal(t, test.expected, string(l.Text()), "tags must match in "+stringify)
+			} else if token == StartTagToken || token == StartTagPIToken || token == EndTagToken || token == DOCTYPEToken {
+				test.String(t, string(l.Text()), tt.expected, "tags must match in "+stringify)
 				break
 			}
 		}
@@ -147,20 +147,21 @@ func TestAttributes(t *testing.T) {
 		{"<foo x=", []string{"x", ""}},
 		{"<foo x='", []string{"x", "'"}},
 	}
-	for _, test := range attributeTests {
-		stringify := helperStringify(t, test.attr)
-		l := NewLexer(bytes.NewBufferString(test.attr))
+	for _, tt := range attributeTests {
+		stringify := helperStringify(t, tt.attr)
+		l := NewLexer(bytes.NewBufferString(tt.attr))
 		i := 0
 		for {
-			tt, _ := l.Next()
-			if tt == ErrorToken {
-				assert.Equal(t, len(test.expected), i, "when error occurred we must be at the end in "+stringify)
+			token, _ := l.Next()
+			if token == ErrorToken {
+				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
+				test.Error(t, l.Err(), io.EOF, "in "+stringify)
 				break
-			} else if tt == AttributeToken {
-				assert.False(t, i+1 >= len(test.expected), "index must not exceed expected attributes size in "+stringify)
-				if i+1 < len(test.expected) {
-					assert.Equal(t, test.expected[i], string(l.Text()), "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
-					assert.Equal(t, test.expected[i+1], string(l.AttrVal()), "attribute values must match at index "+strconv.Itoa(i)+" in "+stringify)
+			} else if token == AttributeToken {
+				test.That(t, i+1 < len(tt.expected), "index", i+1, "must not exceed expected attributes size", len(tt.expected), "in "+stringify)
+				if i+1 < len(tt.expected) {
+					test.String(t, string(l.Text()), tt.expected[i], "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
+					test.String(t, string(l.AttrVal()), tt.expected[i+1], "attribute keys must match at index "+strconv.Itoa(i)+" in "+stringify)
 					i += 2
 				}
 			}
@@ -175,13 +176,13 @@ func TestErrors(t *testing.T) {
 	}{
 		{"a\x00b", ErrBadNull},
 	}
-	for _, test := range errorTests {
-		stringify := helperStringify(t, test.xml)
-		l := NewLexer(bytes.NewBufferString(test.xml))
+	for _, tt := range errorTests {
+		stringify := helperStringify(t, tt.xml)
+		l := NewLexer(bytes.NewBufferString(tt.xml))
 		for {
-			tt, _ := l.Next()
-			if tt == ErrorToken {
-				assert.Equal(t, test.err, l.Err(), "error must be "+test.err.Error()+" in "+stringify)
+			token, _ := l.Next()
+			if token == ErrorToken {
+				test.Error(t, l.Err(), tt.err, "in "+stringify)
 				break
 			}
 		}

@@ -3,7 +3,7 @@ package html // import "github.com/tdewolff/parse/html"
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func TestEscapeAttrVal(t *testing.T) {
@@ -28,13 +28,13 @@ func TestEscapeAttrVal(t *testing.T) {
 		{"x<z", "\"x<z\""},
 		{"'x\"&#39;\"z'", "'x\"&#39;\"z'"},
 	}
+	var buf []byte
 	for _, tt := range escapeAttrValTests {
-		s := []byte(tt.attrVal)
-		orig := s
-		if len(s) > 1 && (s[0] == '"' || s[0] == '\'') && s[0] == s[len(s)-1] {
-			s = s[1 : len(s)-1]
+		b := []byte(tt.attrVal)
+		orig := b
+		if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
+			b = b[1 : len(b)-1]
 		}
-		buf := make([]byte, len(s))
-		assert.Equal(t, tt.expected, string(EscapeAttrVal(&buf, orig, s)))
+		test.String(t, string(EscapeAttrVal(&buf, orig, []byte(b))), tt.expected)
 	}
 }

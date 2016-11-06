@@ -3,16 +3,16 @@ package js // import "github.com/tdewolff/parse/js"
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/tdewolff/test"
 )
 
 func TestHashTable(t *testing.T) {
-	assert.Equal(t, Break, ToHash([]byte("break")), "'break' must resolve to hash.Break")
-	assert.Equal(t, Var, ToHash([]byte("var")), "'var' must resolve to hash.Var")
-	assert.Equal(t, "break", Break.String(), "hash.Break must resolve to 'break'")
-	assert.Equal(t, Hash(0), ToHash([]byte("")), "empty string must resolve to zero")
-	assert.Equal(t, "", Hash(0xffffff).String(), "Hash(0xffffff) must resolve to empty string")
-	assert.Equal(t, Hash(0), ToHash([]byte("breaks")), "'breaks' must resolve to zero")
-	assert.Equal(t, Hash(0), ToHash([]byte("sdf")), "'sdf' must resolve to zero")
-	assert.Equal(t, Hash(0), ToHash([]byte("uio")), "'uio' must resolve to zero")
+	test.That(t, ToHash([]byte("break")) == Break, "'break' must resolve to hash.Break")
+	test.That(t, ToHash([]byte("var")) == Var, "'var' must resolve to hash.Var")
+	test.String(t, Break.String(), "break")
+	test.That(t, ToHash([]byte("")) == Hash(0), "empty string must resolve to zero")
+	test.String(t, Hash(0xffffff).String(), "")
+	test.That(t, ToHash([]byte("breaks")) == Hash(0), "'breaks' must resolve to zero")
+	test.That(t, ToHash([]byte("sdf")) == Hash(0), "'sdf' must resolve to zero")
+	test.That(t, ToHash([]byte("uio")) == Hash(0), "'uio' must resolve to zero")
 }
