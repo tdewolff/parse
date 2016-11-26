@@ -1,4 +1,4 @@
-# Parse [![Build Status](https://travis-ci.org/tdewolff/parse.svg?branch=master)](https://travis-ci.org/tdewolff/parse) [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse)
+# Parse [![Build Status](https://travis-ci.org/tdewolff/parse.svg?branch=master)](https://travis-ci.org/tdewolff/parse) [![GoDoc](http://godoc.org/github.com/tdewolff/parse?status.svg)](http://godoc.org/github.com/tdewolff/parse) [![Coverage Status](https://coveralls.io/repos/github/tdewolff/parse/badge.svg?branch=master)](https://coveralls.io/github/tdewolff/parse?branch=master)
 
 This package contains several lexers and parsers written in [Go][1]. All subpackages are built to be streaming, high performance and to be in accordance with the official (latest) specifications.
 
