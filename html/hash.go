@@ -17,7 +17,7 @@ const (
 	Accesskey        Hash = 0x4409  // accesskey
 	Acronym          Hash = 0xbb07  // acronym
 	Action           Hash = 0x2b906 // action
-	Address          Hash = 0x67d07 // address
+	Address          Hash = 0x67807 // address
 	Align            Hash = 0x1605  // align
 	Alink            Hash = 0xd205  // alink
 	Allowfullscreen  Hash = 0x23c0f // allowfullscreen
@@ -51,7 +51,7 @@ const (
 	Button           Hash = 0x1be06 // button
 	Canvas           Hash = 0x7f06  // canvas
 	Caption          Hash = 0x27e07 // caption
-	Center           Hash = 0x62a06 // center
+	Center           Hash = 0x62506 // center
 	Challenge        Hash = 0x1eb09 // challenge
 	Charset          Hash = 0x3907  // charset
 	Checked          Hash = 0x3b407 // checked
@@ -98,12 +98,12 @@ const (
 	Download         Hash = 0x48608 // download
 	Draggable        Hash = 0x1cf09 // draggable
 	Dropzone         Hash = 0x41908 // dropzone
-	Dt               Hash = 0x60602 // dt
+	Dt               Hash = 0x60102 // dt
 	Em               Hash = 0x6e02  // em
 	Embed            Hash = 0x6e05  // embed
 	Enabled          Hash = 0x4e07  // enabled
 	Enctype          Hash = 0x2ce07 // enctype
-	Face             Hash = 0x62804 // face
+	Face             Hash = 0x62304 // face
 	Fieldset         Hash = 0x26b08 // fieldset
 	Figcaption       Hash = 0x27b0a // figcaption
 	Figure           Hash = 0x28f06 // figure
@@ -125,7 +125,7 @@ const (
 	H2               Hash = 0x32402 // h2
 	H3               Hash = 0x34902 // h3
 	H4               Hash = 0x38602 // h4
-	H5               Hash = 0x60802 // h5
+	H5               Hash = 0x60302 // h5
 	H6               Hash = 0x2fe02 // h6
 	Head             Hash = 0x37204 // head
 	Header           Hash = 0x37206 // header
@@ -152,12 +152,12 @@ const (
 	Ismap            Hash = 0x34b05 // ismap
 	Itemid           Hash = 0xfc06  // itemid
 	Itemprop         Hash = 0x57508 // itemprop
-	Itemref          Hash = 0x62207 // itemref
+	Itemref          Hash = 0x61d07 // itemref
 	Itemscope        Hash = 0x35609 // itemscope
 	Itemtype         Hash = 0x36008 // itemtype
 	Kbd              Hash = 0xca03  // kbd
 	Keygen           Hash = 0x4a06  // keygen
-	Keytype          Hash = 0x5b707 // keytype
+	Keytype          Hash = 0x68207 // keytype
 	Kind             Hash = 0xd604  // kind
 	Label            Hash = 0x7405  // label
 	Lang             Hash = 0xb304  // lang
@@ -172,7 +172,7 @@ const (
 	Low              Hash = 0x23e03 // low
 	Main             Hash = 0x1004  // main
 	Malignmark       Hash = 0xc10a  // malignmark
-	Manifest         Hash = 0x65e08 // manifest
+	Manifest         Hash = 0x65908 // manifest
 	Map              Hash = 0x16003 // map
 	Mark             Hash = 0xc704  // mark
 	Marquee          Hash = 0x36807 // marquee
@@ -210,13 +210,13 @@ const (
 	Onabort          Hash = 0x1c207 // onabort
 	Onafterprint     Hash = 0x2830c // onafterprint
 	Onbeforeprint    Hash = 0x2bd0d // onbeforeprint
-	Onbeforeunload   Hash = 0x6710e // onbeforeunload
+	Onbeforeunload   Hash = 0x66c0e // onbeforeunload
 	Onblur           Hash = 0x14406 // onblur
 	Oncancel         Hash = 0x11708 // oncancel
 	Oncanplay        Hash = 0x18c09 // oncanplay
 	Oncanplaythrough Hash = 0x18c10 // oncanplaythrough
 	Onchange         Hash = 0x42f08 // onchange
-	Onclick          Hash = 0x6aa07 // onclick
+	Onclick          Hash = 0x6b007 // onclick
 	Onclose          Hash = 0x3a307 // onclose
 	Oncontextmenu    Hash = 0x3bb0d // oncontextmenu
 	Oncuechange      Hash = 0x3c80b // oncuechange
@@ -259,26 +259,26 @@ const (
 	Onplaying        Hash = 0x59709 // onplaying
 	Onpopstate       Hash = 0x5a00a // onpopstate
 	Onprogress       Hash = 0x5aa0a // onprogress
-	Onratechange     Hash = 0x5be0c // onratechange
-	Onreset          Hash = 0x5ca07 // onreset
-	Onresize         Hash = 0x5d108 // onresize
-	Onscroll         Hash = 0x5d908 // onscroll
-	Onseeked         Hash = 0x5e408 // onseeked
-	Onseeking        Hash = 0x5ec09 // onseeking
-	Onselect         Hash = 0x5f508 // onselect
-	Onshow           Hash = 0x5ff06 // onshow
-	Onstalled        Hash = 0x60a09 // onstalled
-	Onstorage        Hash = 0x61309 // onstorage
-	Onsubmit         Hash = 0x61c08 // onsubmit
-	Onsuspend        Hash = 0x63009 // onsuspend
+	Onratechange     Hash = 0x5b90c // onratechange
+	Onreset          Hash = 0x5c507 // onreset
+	Onresize         Hash = 0x5cc08 // onresize
+	Onscroll         Hash = 0x5d408 // onscroll
+	Onseeked         Hash = 0x5df08 // onseeked
+	Onseeking        Hash = 0x5e709 // onseeking
+	Onselect         Hash = 0x5f008 // onselect
+	Onshow           Hash = 0x5fa06 // onshow
+	Onstalled        Hash = 0x60509 // onstalled
+	Onstorage        Hash = 0x60e09 // onstorage
+	Onsubmit         Hash = 0x61708 // onsubmit
+	Onsuspend        Hash = 0x62b09 // onsuspend
 	Ontimeupdate     Hash = 0x4590c // ontimeupdate
-	Onunload         Hash = 0x63908 // onunload
-	Onvolumechange   Hash = 0x6410e // onvolumechange
-	Onwaiting        Hash = 0x64f09 // onwaiting
+	Onunload         Hash = 0x63408 // onunload
+	Onvolumechange   Hash = 0x63c0e // onvolumechange
+	Onwaiting        Hash = 0x64a09 // onwaiting
 	Open             Hash = 0x57b04 // open
 	Optgroup         Hash = 0x12008 // optgroup
-	Optimum          Hash = 0x65807 // optimum
-	Option           Hash = 0x66d06 // option
+	Optimum          Hash = 0x65307 // optimum
+	Option           Hash = 0x66806 // option
 	Output           Hash = 0x51106 // output
 	P                Hash = 0xc01   // p
 	Param            Hash = 0xc05   // param
@@ -292,7 +292,7 @@ const (
 	Preload          Hash = 0x30d07 // preload
 	Profile          Hash = 0x34f07 // profile
 	Progress         Hash = 0x5ac08 // progress
-	Prompt           Hash = 0x66706 // prompt
+	Prompt           Hash = 0x66206 // prompt
 	Public           Hash = 0x58306 // public
 	Q                Hash = 0x8d01  // q
 	Radiogroup       Hash = 0x30a   // radiogroup
@@ -315,11 +315,11 @@ const (
 	Scope            Hash = 0x35a05 // scope
 	Scoped           Hash = 0x35a06 // scoped
 	Script           Hash = 0x31b06 // script
-	Scrolling        Hash = 0x5db09 // scrolling
+	Scrolling        Hash = 0x5d609 // scrolling
 	Seamless         Hash = 0x3a808 // seamless
 	Section          Hash = 0x13f07 // section
-	Select           Hash = 0x5f706 // select
-	Selected         Hash = 0x5f708 // selected
+	Select           Hash = 0x5f206 // select
+	Selected         Hash = 0x5f208 // selected
 	Shape            Hash = 0x23005 // shape
 	Size             Hash = 0x24e04 // size
 	Sizes            Hash = 0x24e05 // sizes
@@ -332,22 +332,23 @@ const (
 	Src              Hash = 0x44b03 // src
 	Srcdoc           Hash = 0x44b06 // srcdoc
 	Srclang          Hash = 0x49707 // srclang
+	Srcset           Hash = 0x5b306 // srcset
 	Start            Hash = 0x40c05 // start
-	Step             Hash = 0x66404 // step
-	Strike           Hash = 0x5b306 // strike
-	Strong           Hash = 0x68306 // strong
-	Style            Hash = 0x68905 // style
-	Sub              Hash = 0x61e03 // sub
-	Summary          Hash = 0x68e07 // summary
-	Sup              Hash = 0x69503 // sup
-	Svg              Hash = 0x69803 // svg
-	System           Hash = 0x69b06 // system
+	Step             Hash = 0x65f04 // step
+	Strike           Hash = 0x67e06 // strike
+	Strong           Hash = 0x68906 // strong
+	Style            Hash = 0x68f05 // style
+	Sub              Hash = 0x61903 // sub
+	Summary          Hash = 0x69407 // summary
+	Sup              Hash = 0x69b03 // sup
+	Svg              Hash = 0x69e03 // svg
+	System           Hash = 0x6a106 // system
 	Tabindex         Hash = 0x4c608 // tabindex
 	Table            Hash = 0x25505 // table
 	Target           Hash = 0x2f806 // target
 	Tbody            Hash = 0x3f05  // tbody
 	Td               Hash = 0xaa02  // td
-	Template         Hash = 0x69e08 // template
+	Template         Hash = 0x6a408 // template
 	Text             Hash = 0x18204 // text
 	Textarea         Hash = 0x38908 // textarea
 	Tfoot            Hash = 0xed05  // tfoot
@@ -370,11 +371,11 @@ const (
 	Value            Hash = 0x10a05 // value
 	Valuetype        Hash = 0x10a09 // valuetype
 	Var              Hash = 0x32f03 // var
-	Video            Hash = 0x6a605 // video
-	Visible          Hash = 0x6b107 // visible
-	Vlink            Hash = 0x6b805 // vlink
+	Video            Hash = 0x6ac05 // video
+	Visible          Hash = 0x6b707 // visible
+	Vlink            Hash = 0x6be05 // vlink
 	Wbr              Hash = 0x56703 // wbr
-	Width            Hash = 0x60405 // width
+	Width            Hash = 0x5ff05 // width
 	Wrap             Hash = 0x58004 // wrap
 	Xmlns            Hash = 0x13b05 // xmlns
 	Xmp              Hash = 0x17b03 // xmp
@@ -449,19 +450,19 @@ const _Hash_text = "abbradiogrouparamainavalignobrbackgroundeterminateaccept-cha
 	"noshadefaultCheckedonmousemoveonmouseoutputonmouseoveronmous" +
 	"euponmousewheelonofflinertononlineonpagehidefaultMutedonpage" +
 	"showbronpauseonexitempropenowrapublicontenteditableonplaying" +
-	"onpopstateonprogresstrikeytypeonratechangeonresetonresizeons" +
-	"crollingonseekedonseekingonselectedonshowidth5onstalledonsto" +
-	"rageonsubmitemrefacenteronsuspendonunloadonvolumechangeonwai" +
-	"tingoptimumanifestepromptoptionbeforeunloaddresstrongstylesu" +
-	"mmarysupsvgsystemplatevideonclickvisiblevlink"
+	"onpopstateonprogressrcsetonratechangeonresetonresizeonscroll" +
+	"ingonseekedonseekingonselectedonshowidth5onstalledonstorageo" +
+	"nsubmitemrefacenteronsuspendonunloadonvolumechangeonwaitingo" +
+	"ptimumanifestepromptoptionbeforeunloaddresstrikeytypestrongs" +
+	"tylesummarysupsvgsystemplatevideonclickvisiblevlink"
 
 var _Hash_table = [1 << 9]Hash{
 	0x0:   0x2ca0b, // formenctype
 	0x1:   0x2d50a, // formmethod
 	0x2:   0x3c80b, // oncuechange
 	0x3:   0x3dd06, // ondrag
-	0x6:   0x5b306, // strike
-	0x7:   0x6a605, // video
+	0x6:   0x67e06, // strike
+	0x7:   0x6ac05, // video
 	0x9:   0x58807, // content
 	0xa:   0x4e07,  // enabled
 	0xb:   0x57e06, // nowrap
@@ -473,25 +474,25 @@ var _Hash_table = [1 << 9]Hash{
 	0x12:  0x4f10e, // defaultChecked
 	0x13:  0x3330b, // frameborder
 	0x14:  0xee06,  // footer
-	0x15:  0x5f708, // selected
+	0x15:  0x5f208, // selected
 	0x16:  0x49707, // srclang
 	0x18:  0x5170b, // onmouseover
 	0x19:  0x1dc04, // code
 	0x1b:  0x47809, // oninvalid
-	0x1c:  0x62804, // face
+	0x1c:  0x62304, // face
 	0x1e:  0x3bd0b, // contextmenu
 	0x1f:  0xa308,  // frameset
 	0x21:  0x5520c, // defaultMuted
 	0x22:  0x19f05, // color
 	0x23:  0x59706, // onplay
 	0x25:  0x2ef05, // meter
-	0x26:  0x61309, // onstorage
+	0x26:  0x60e09, // onstorage
 	0x27:  0x38e08, // readonly
 	0x29:  0x34f07, // profile
 	0x2a:  0x8607,  // declare
 	0x2b:  0xb01,   // u
 	0x2c:  0x31908, // noscript
-	0x2d:  0x65e08, // manifest
+	0x2d:  0x65908, // manifest
 	0x2e:  0x1be06, // button
 	0x2f:  0x2e908, // datetime
 	0x30:  0x47305, // input
@@ -524,21 +525,21 @@ var _Hash_table = [1 << 9]Hash{
 	0x58:  0x38602, // h4
 	0x5a:  0x1c702, // rt
 	0x5b:  0xd205,  // alink
-	0x5e:  0x66706, // prompt
+	0x5e:  0x66206, // prompt
 	0x5f:  0x12d02, // ol
-	0x61:  0x5d108, // onresize
-	0x64:  0x68e07, // summary
+	0x61:  0x5cc08, // onresize
+	0x64:  0x69407, // summary
 	0x65:  0x5a00a, // onpopstate
 	0x66:  0x38d04, // area
-	0x68:  0x64f09, // onwaiting
+	0x68:  0x64a09, // onwaiting
 	0x6b:  0xdc04,  // name
 	0x6c:  0x23506, // coords
 	0x6d:  0x34303, // img
-	0x6e:  0x66404, // step
-	0x6f:  0x5ec09, // onseeking
+	0x6e:  0x65f04, // step
+	0x6f:  0x5e709, // onseeking
 	0x70:  0x32104, // high
 	0x71:  0x49e07, // onkeyup
-	0x72:  0x5f706, // select
+	0x72:  0x5f206, // select
 	0x73:  0x18505, // track
 	0x74:  0x34b05, // ismap
 	0x76:  0x47107, // oninput
@@ -546,7 +547,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x78:  0x48109, // onkeydown
 	0x79:  0x33e05, // image
 	0x7a:  0x2b504, // form
-	0x7b:  0x60a09, // onstalled
+	0x7b:  0x60509, // onstalled
 	0x7d:  0x42f08, // onchange
 	0x7e:  0x1af05, // blink
 	0x7f:  0xeb03,  // alt
@@ -563,8 +564,9 @@ var _Hash_table = [1 << 9]Hash{
 	0x93:  0x3c404, // menu
 	0x94:  0x45804, // font
 	0x95:  0x16b08, // autoplay
-	0x96:  0x6b805, // vlink
+	0x96:  0x6be05, // vlink
 	0x98:  0x6e02,  // em
+	0x9a:  0x5b306, // srcset
 	0x9b:  0x1f408, // colgroup
 	0x9c:  0x57b04, // open
 	0x9d:  0x1d606, // legend
@@ -572,11 +574,11 @@ var _Hash_table = [1 << 9]Hash{
 	0xa2:  0x22009, // translate
 	0xa3:  0x6e05,  // embed
 	0xa4:  0x1c905, // class
-	0xa6:  0x69e08, // template
+	0xa6:  0x6a408, // template
 	0xa7:  0x37206, // header
 	0xa9:  0x4a506, // onload
 	0xaa:  0x37105, // thead
-	0xab:  0x5db09, // scrolling
+	0xab:  0x5d609, // scrolling
 	0xac:  0xc05,   // param
 	0xae:  0x9b07,  // pattern
 	0xaf:  0x9207,  // details
@@ -586,7 +588,7 @@ var _Hash_table = [1 << 9]Hash{
 	0xb6:  0x25a0b, // crossorigin
 	0xb7:  0x1506,  // valign
 	0xb9:  0x1c207, // onabort
-	0xba:  0x66d06, // option
+	0xba:  0x66806, // option
 	0xbb:  0x26506, // source
 	0xbc:  0x6205,  // defer
 	0xbd:  0x1eb09, // challenge
@@ -594,7 +596,7 @@ var _Hash_table = [1 << 9]Hash{
 	0xc0:  0x23c0f, // allowfullscreen
 	0xc1:  0xca03,  // kbd
 	0xc2:  0x2060d, // annotationXml
-	0xc3:  0x5be0c, // onratechange
+	0xc3:  0x5b90c, // onratechange
 	0xc4:  0x4e402, // mo
 	0xc6:  0x3af0a, // spellcheck
 	0xc7:  0x2c03,  // min
@@ -615,14 +617,14 @@ var _Hash_table = [1 << 9]Hash{
 	0xdf:  0x30006, // height
 	0xe0:  0x21307, // command
 	0xe2:  0x56c0b, // pauseonexit
-	0xe3:  0x68306, // strong
+	0xe3:  0x68906, // strong
 	0xe4:  0x43e07, // onerror
-	0xe5:  0x61c08, // onsubmit
+	0xe5:  0x61708, // onsubmit
 	0xe6:  0xb308,  // language
 	0xe7:  0x48608, // download
 	0xe9:  0x52209, // onmouseup
 	0xec:  0x2ce07, // enctype
-	0xed:  0x5f508, // onselect
+	0xed:  0x5f008, // onselect
 	0xee:  0x2af06, // object
 	0xef:  0x17d09, // plaintext
 	0xf0:  0x3d30a, // ondblclick
@@ -633,7 +635,7 @@ var _Hash_table = [1 << 9]Hash{
 	0xf5:  0x2d906, // method
 	0xf6:  0x22908, // controls
 	0xf7:  0x37806, // spacer
-	0xf8:  0x69803, // svg
+	0xf8:  0x69e03, // svg
 	0xf9:  0x30404, // html
 	0xfa:  0x3d01,  // s
 	0xfc:  0xcc06,  // dialog
@@ -660,28 +662,28 @@ var _Hash_table = [1 << 9]Hash{
 	0x117: 0xfb04,  // cite
 	0x118: 0x3907,  // charset
 	0x119: 0x16605, // title
-	0x11a: 0x5b707, // keytype
+	0x11a: 0x68207, // keytype
 	0x11b: 0x18204, // text
-	0x11c: 0x65807, // optimum
+	0x11c: 0x65307, // optimum
 	0x11e: 0x37204, // head
 	0x121: 0x21a07, // compact
-	0x123: 0x63009, // onsuspend
+	0x123: 0x62b09, // onsuspend
 	0x124: 0x4b104, // list
 	0x125: 0x4590c, // ontimeupdate
-	0x126: 0x62a06, // center
+	0x126: 0x62506, // center
 	0x127: 0x31406, // hidden
 	0x129: 0x35609, // itemscope
 	0x12c: 0x1aa02, // dl
 	0x12d: 0x13f07, // section
 	0x12e: 0x11708, // oncancel
-	0x12f: 0x6aa07, // onclick
+	0x12f: 0x6b007, // onclick
 	0x130: 0xde05,  // media
 	0x131: 0x51106, // output
 	0x132: 0x4ad08, // datalist
 	0x133: 0x52b0c, // onmousewheel
 	0x134: 0x45408, // basefont
 	0x135: 0x37e09, // maxlength
-	0x136: 0x6b107, // visible
+	0x136: 0x6b707, // visible
 	0x137: 0x2df0e, // formnovalidate
 	0x139: 0x17b03, // xmp
 	0x13a: 0x101,   // b
@@ -690,7 +692,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x13d: 0x1270b, // placeholder
 	0x13e: 0x4b107, // listing
 	0x140: 0x26303, // ins
-	0x141: 0x62207, // itemref
+	0x141: 0x61d07, // itemref
 	0x144: 0x540f,  // defaultSelected
 	0x146: 0x3f10b, // ondragleave
 	0x147: 0x1b40a, // blockquote
@@ -698,7 +700,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x14a: 0x1ac03, // big
 	0x14b: 0x30e03, // rel
 	0x14c: 0x41706, // ondrop
-	0x14e: 0x69b06, // system
+	0x14e: 0x6a106, // system
 	0x14f: 0x30a,   // radiogroup
 	0x150: 0x25505, // table
 	0x152: 0x56703, // wbr
@@ -709,15 +711,15 @@ var _Hash_table = [1 << 9]Hash{
 	0x159: 0x1303,  // nav
 	0x15a: 0x37e03, // max
 	0x15b: 0x7808,  // longdesc
-	0x15c: 0x60405, // width
+	0x15c: 0x5ff05, // width
 	0x15d: 0x34902, // h3
 	0x15e: 0x1a407, // bgsound
 	0x161: 0x10a09, // valuetype
-	0x162: 0x68905, // style
+	0x162: 0x68f05, // style
 	0x164: 0x3f05,  // tbody
 	0x165: 0x40e07, // article
 	0x169: 0xcb03,  // bdi
-	0x16a: 0x67d07, // address
+	0x16a: 0x67807, // address
 	0x16b: 0x23005, // shape
 	0x16c: 0x2b906, // action
 	0x16e: 0x18502, // tr
@@ -733,7 +735,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x17d: 0x1d02,  // rb
 	0x17e: 0x2fe02, // h6
 	0x17f: 0x41e09, // onemptied
-	0x180: 0x5ca07, // onreset
+	0x180: 0x5c507, // onreset
 	0x181: 0x1004,  // main
 	0x182: 0x11e04, // loop
 	0x183: 0x48e0a, // onkeypress
@@ -748,12 +750,12 @@ var _Hash_table = [1 << 9]Hash{
 	0x18f: 0x8502,  // id
 	0x190: 0x6604,  // rows
 	0x191: 0x29303, // rev
-	0x192: 0x63908, // onunload
+	0x192: 0x63408, // onunload
 	0x193: 0x39e05, // muted
 	0x194: 0x35a06, // scoped
 	0x195: 0x31602, // dd
-	0x196: 0x60602, // dt
-	0x197: 0x6710e, // onbeforeunload
+	0x196: 0x60102, // dt
+	0x197: 0x66c0e, // onbeforeunload
 	0x199: 0x2060a, // annotation
 	0x19a: 0x29308, // reversed
 	0x19c: 0x10f04, // type
@@ -767,8 +769,8 @@ var _Hash_table = [1 << 9]Hash{
 	0x1a7: 0x1,     // a
 	0x1a8: 0x50a0a, // onmouseout
 	0x1aa: 0x53709, // onoffline
-	0x1ab: 0x6410e, // onvolumechange
-	0x1ae: 0x61e03, // sub
+	0x1ab: 0x63c0e, // onvolumechange
+	0x1ae: 0x61903, // sub
 	0x1b3: 0x29b03, // for
 	0x1b5: 0x8b08,  // required
 	0x1b6: 0x5ac08, // progress
@@ -786,7 +788,7 @@ var _Hash_table = [1 << 9]Hash{
 	0x1c4: 0x6904,  // span
 	0x1c5: 0x30d03, // pre
 	0x1c6: 0x6c07,  // noembed
-	0x1c8: 0x5e408, // onseeked
+	0x1c8: 0x5df08, // onseeked
 	0x1c9: 0x4c004, // meta
 	0x1ca: 0x32402, // h2
 	0x1cb: 0x3a808, // seamless
@@ -810,18 +812,18 @@ var _Hash_table = [1 << 9]Hash{
 	0x1e8: 0x1c907, // classid
 	0x1e9: 0x30d07, // preload
 	0x1ea: 0x4c608, // tabindex
-	0x1eb: 0x60802, // h5
-	0x1ec: 0x5d908, // onscroll
+	0x1eb: 0x60302, // h5
+	0x1ec: 0x5d408, // onscroll
 	0x1ed: 0x5880f, // contenteditable
 	0x1ee: 0x4d909, // onmessage
 	0x1ef: 0x4,     // abbr
 	0x1f0: 0x17507, // isindex
-	0x1f1: 0x69503, // sup
+	0x1f1: 0x69b03, // sup
 	0x1f3: 0x24a08, // noresize
 	0x1f5: 0x59709, // onplaying
 	0x1f6: 0x4409,  // accesskey
 	0x1fa: 0xc01,   // p
 	0x1fb: 0x43707, // onended
-	0x1fc: 0x5ff06, // onshow
+	0x1fc: 0x5fa06, // onshow
 	0x1fe: 0xad06,  // nohref
 }
