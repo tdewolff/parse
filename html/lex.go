@@ -459,6 +459,7 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 		c := l.r.Peek(0)
 		if c == '>' {
 			l.r.Move(1)
+			l.inTag = false
 			break
 		} else if c == 0 {
 			break
