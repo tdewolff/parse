@@ -333,8 +333,10 @@ func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 	l.text = parse.ToLower(l.r.Lexeme()[1:])
 	if h := ToHash(l.text); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
 		if h == Svg {
+			l.inTag = false
 			return SvgToken, l.shiftXml(h)
 		} else if h == Math {
+			l.inTag = false
 			return MathToken, l.shiftXml(h)
 		}
 		l.rawTag = h
@@ -459,7 +461,6 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 		c := l.r.Peek(0)
 		if c == '>' {
 			l.r.Move(1)
-			l.inTag = false
 			break
 		} else if c == 0 {
 			break

@@ -69,6 +69,7 @@ func TestTokens(t *testing.T) {
 		{"<svg>text</svg>", TTs{SvgToken}},
 		{"<math>text</math>", TTs{MathToken}},
 		{`<svg>text<x a="</svg>"></x></svg>`, TTs{SvgToken}},
+		{"<a><svg>text</svg></a>", TTs{StartTagToken, StartTagCloseToken, SvgToken, EndTagToken}},
 
 		// early endings
 		{"<!-- comment", TTs{CommentToken}},
