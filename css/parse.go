@@ -16,8 +16,8 @@ var emptyBytes = []byte("")
 // ErrBadQualifiedRule is returned when a qualitied rule is expected, but an error or EOF happened earlier.
 var ErrBadQualifiedRule = errors.New("unexpected ending in qualified rule, expected left brace token")
 
-// ErrBadDeclaration is returned when a declaration is expected but the colon token is lacking.
-var ErrBadDeclaration = errors.New("unexpected token in declaration, expected colon token")
+// ErrBadDeclaration is returned when a declaration is expected but the syntax is invalid.
+var ErrBadDeclaration = errors.New("unexpected token in declaration")
 
 ////////////////////////////////////////////////////////////////
 
@@ -115,6 +115,7 @@ func (p *Parser) Err() error {
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	p.l.Free(p.n)
 	p.n = 0
+	p.err = nil
 
 	if p.prevEnd {
 		p.tt, p.data = RightBraceToken, endBytes
@@ -183,18 +184,18 @@ func (p *Parser) parseDeclarationList() GrammarType {
 		return p.parseAtRule()
 	} else if p.tt == IdentToken {
 		return p.parseDeclaration()
-	} else if p.tt == DelimToken && p.data[0] == '*' { // CSS hack
-		p.tt, p.data = p.popToken(false)
-		if p.tt == IdentToken {
-			p.data = append([]byte("*"), p.data...)
-			return p.parseDeclaration()
-		}
 	}
+
 	// parse error
-	for p.tt != SemicolonToken && p.tt != ErrorToken {
-		p.tt, p.data = p.popToken(false)
+	p.initBuf()
+	p.err = ErrBadDeclaration
+	for {
+		tt, data := p.popToken(false)
+		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
+			return ErrorGrammar
+		}
+		p.pushBuf(tt, data)
 	}
-	return p.state[len(p.state)-1]()
 }
 
 ////////////////////////////////////////////////////////////////

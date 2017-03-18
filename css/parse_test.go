@@ -40,7 +40,6 @@ func TestParse(t *testing.T) {
 		{false, "@keyframes 'diagonal-slide' {  from { left: 0; top: 0; } to { left: 100px; top: 100px; } }", "@keyframes 'diagonal-slide'{from{left:0;top:0;}to{left:100px;top:100px;}}"},
 		{false, "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}", "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}"},
 		{false, ".foo { color: #fff;}", ".foo{color:#fff;}"},
-		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
 		{false, ".foo { ; _color: #fff;}", ".foo{_color:#fff;}"},
 		{false, "a { color: red; border: 0; }", "a{color:red;border:0;}"},
 		{false, "a { color: red; border: 0; } b { padding: 0; }", "a{color:red;border:0;}b{padding:0;}"},
@@ -81,9 +80,13 @@ func TestParse(t *testing.T) {
 		{false, "table { @unknown }", "table{@unknown;}"},
 
 		// early endings
-		{true, "~color:red;", ""},
+		{true, "~color:red", "~color:red"},
 		{false, "selector{", "selector{"},
 		{false, "@media{selector{", "@media{selector{"},
+
+		// bad grammar
+		{true, "--bad-ident", "--bad-ident"},
+		{false, ".foo { *color: #fff;}", ".foo{*color:#fff}"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
@@ -100,11 +103,14 @@ func TestParse(t *testing.T) {
 		for {
 			grammar, _, data := p.Next()
 			if grammar == ErrorGrammar {
-				err := p.Err()
-				if err != nil {
+				if err := p.Err(); err != io.EOF {
+					for _, val := range p.Values() {
+						data = append(data, val.Data...)
+					}
+				} else {
 					test.Error(t, err, io.EOF, "in "+tt.css)
+					break
 				}
-				break
 			} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar {
 				if grammar == DeclarationGrammar {
 					data = append(data, ":"...)
@@ -142,6 +148,7 @@ func TestParseError(t *testing.T) {
 	}{
 		{false, "selector", ErrBadQualifiedRule},
 		{true, "color 0", ErrBadDeclaration},
+		{true, "--bad-ident", ErrBadDeclaration},
 	}
 	for _, tt := range parseErrorTests {
 		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
