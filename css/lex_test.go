@@ -59,6 +59,7 @@ func TestTokens(t *testing.T) {
 		{"<!-- -->", TTs{CDOToken, CDCToken}},
 		{"U+1234", TTs{UnicodeRangeToken}},
 		{"5.2 .4 4e-22", TTs{NumberToken, NumberToken, NumberToken}},
+		{"--custom-variable", TTs{CustomPropertyNameToken}},
 
 		// unexpected ending
 		{"ident", TTs{IdentToken}},

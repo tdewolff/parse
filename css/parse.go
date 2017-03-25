@@ -35,6 +35,7 @@ const (
 	EndRulesetGrammar
 	DeclarationGrammar
 	TokenGrammar
+	CustomPropertyGrammar
 )
 
 // String returns the string representation of a GrammarType.
@@ -58,6 +59,8 @@ func (tt GrammarType) String() string {
 		return "Declaration"
 	case TokenGrammar:
 		return "Token"
+	case CustomPropertyGrammar:
+		return "CustomProperty"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -184,6 +187,8 @@ func (p *Parser) parseDeclarationList() GrammarType {
 		return p.parseAtRule()
 	} else if p.tt == IdentToken {
 		return p.parseDeclaration()
+	} else if p.tt == CustomPropertyNameToken {
+		return p.parseCustomProperty()
 	}
 
 	// parse error
@@ -367,5 +372,27 @@ func (p *Parser) parseDeclaration() GrammarType {
 			skipWS = false
 		}
 		p.pushBuf(tt, data)
+	}
+}
+
+func (p *Parser) parseCustomProperty() GrammarType {
+	p.initBuf()
+	if tt, _ := p.popToken(false); tt != ColonToken {
+		p.err = ErrBadDeclaration
+		return ErrorGrammar
+	}
+	val := []byte{}
+	for {
+		tt, data := p.l.Next()
+		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
+			p.prevEnd = (tt == RightBraceToken)
+			p.pushBuf(CustomPropertyValueToken, val)
+			return CustomPropertyGrammar
+		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
+			p.level++
+		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			p.level--
+		}
+		val = append(val, data...)
 	}
 }

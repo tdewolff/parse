@@ -53,6 +53,8 @@ const (
 	RightBraceToken       // }
 	CommentToken          // extra token for comments
 	EmptyToken
+	CustomPropertyNameToken
+	CustomPropertyValueToken
 )
 
 // String returns the string representation of a TokenType.
@@ -126,6 +128,10 @@ func (tt TokenType) String() string {
 		return "Comment"
 	case EmptyToken:
 		return "Empty"
+	case CustomPropertyNameToken:
+		return "CustomPropertyName"
+	case CustomPropertyValueToken:
+		return "CustomPropertyValue"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -194,6 +200,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return t, l.r.Shift()
 		} else if l.consumeCDCToken() {
 			return CDCToken, l.r.Shift()
+		} else if l.consumeCustomVariableToken() {
+			return CustomPropertyNameToken, l.r.Shift()
 		}
 	case '@':
 		if l.consumeAtKeywordToken() {
@@ -372,6 +380,20 @@ func (l *Lexer) consumeIdentToken() bool {
 		} else {
 			l.r.Move(1)
 		}
+	}
+	return true
+}
+
+// support custom variables, https://www.w3.org/TR/css-variables-1/
+func (l *Lexer) consumeCustomVariableToken() bool {
+	// expect to be on a '-'
+	l.r.Move(1)
+	if l.r.Peek(0) != '-' {
+		return false
+	}
+	if !l.consumeIdentToken() {
+		l.r.Move(-1)
+		return false
 	}
 	return true
 }

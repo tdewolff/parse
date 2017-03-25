@@ -51,6 +51,7 @@ func TestParse(t *testing.T) {
 		{true, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);"},
 		{true, "/*a*/\n/*c*/\nkey: value;", "key:value;"},
 		{true, "@-moz-charset;", "@-moz-charset;"},
+		{true, "--custom-variable:  0  ;", "--custom-variable:  0  ;"},
 		{false, "@import;@import;", "@import;@import;"},
 		{false, ".a .b#c, .d<.e { x:y; }", ".a .b#c,.d<.e{x:y;}"},
 		{false, ".a[b~=c]d { x:y; }", ".a[b~=c]d{x:y;}"},
@@ -85,7 +86,6 @@ func TestParse(t *testing.T) {
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
-		{true, "--bad-ident", "--bad-ident"},
 		{false, ".foo { *color: #fff;}", ".foo{*color:#fff}"},
 
 		// issues
@@ -111,8 +111,8 @@ func TestParse(t *testing.T) {
 					test.Error(t, err, io.EOF, "in "+tt.css)
 					break
 				}
-			} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar {
-				if grammar == DeclarationGrammar {
+			} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
+				if grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 					data = append(data, ":"...)
 				}
 				for _, val := range p.Values() {
@@ -120,7 +120,7 @@ func TestParse(t *testing.T) {
 				}
 				if grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar {
 					data = append(data, "{"...)
-				} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar {
+				} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 					data = append(data, ";"...)
 				}
 			}
@@ -148,7 +148,7 @@ func TestParseError(t *testing.T) {
 	}{
 		{false, "selector", ErrBadQualifiedRule},
 		{true, "color 0", ErrBadDeclaration},
-		{true, "--bad-ident", ErrBadDeclaration},
+		{true, "--bad-ident:0", io.EOF},
 	}
 	for _, tt := range parseErrorTests {
 		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
