@@ -43,6 +43,7 @@ func TestParse(t *testing.T) {
 		{false, ".foo { ; _color: #fff;}", ".foo{_color:#fff;}"},
 		{false, "a { color: red; border: 0; }", "a{color:red;border:0;}"},
 		{false, "a { color: red; border: 0; } b { padding: 0; }", "a{color:red;border:0;}b{padding:0;}"},
+		{false, "/* comment */", "/* comment */"},
 
 		// extraordinary
 		{true, "color: red;;", "color:red;"},
@@ -51,7 +52,7 @@ func TestParse(t *testing.T) {
 		{true, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);"},
 		{true, "/*a*/\n/*c*/\nkey: value;", "key:value;"},
 		{true, "@-moz-charset;", "@-moz-charset;"},
-		{true, "--custom-variable:  0  ;", "--custom-variable:  0  ;"},
+		{true, "--custom-variable:  (0;)  ;", "--custom-variable:  (0;)  ;"},
 		{false, "@import;@import;", "@import;@import;"},
 		{false, ".a .b#c, .d<.e { x:y; }", ".a .b#c,.d<.e{x:y;}"},
 		{false, ".a[b~=c]d { x:y; }", ".a[b~=c]d{x:y;}"},
@@ -137,6 +138,8 @@ func TestParse(t *testing.T) {
 	test.String(t, EndRulesetGrammar.String(), "EndRuleset")
 	test.String(t, DeclarationGrammar.String(), "Declaration")
 	test.String(t, TokenGrammar.String(), "Token")
+	test.String(t, CommentGrammar.String(), "Comment")
+	test.String(t, CustomPropertyGrammar.String(), "CustomProperty")
 	test.String(t, GrammarType(100).String(), "Invalid(100)")
 }
 
@@ -148,7 +151,8 @@ func TestParseError(t *testing.T) {
 	}{
 		{false, "selector", ErrBadQualifiedRule},
 		{true, "color 0", ErrBadDeclaration},
-		{true, "--bad-ident:0", io.EOF},
+		{true, "--color 0", ErrBadDeclaration},
+		{true, "--custom-variable:0", io.EOF},
 	}
 	for _, tt := range parseErrorTests {
 		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
