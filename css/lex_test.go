@@ -59,6 +59,7 @@ func TestTokens(t *testing.T) {
 		{"<!-- -->", TTs{CDOToken, CDCToken}},
 		{"U+1234", TTs{UnicodeRangeToken}},
 		{"5.2 .4 4e-22", TTs{NumberToken, NumberToken, NumberToken}},
+		{"--custom-variable", TTs{CustomPropertyNameToken}},
 
 		// unexpected ending
 		{"ident", TTs{IdentToken}},
@@ -141,6 +142,7 @@ func TestTokens(t *testing.T) {
 
 	test.String(t, WhitespaceToken.String(), "Whitespace")
 	test.String(t, EmptyToken.String(), "Empty")
+	test.String(t, CustomPropertyValueToken.String(), "CustomPropertyValue")
 	test.String(t, TokenType(100).String(), "Invalid(100)")
 	test.That(t, NewLexer(bytes.NewBufferString("x")).consumeBracket() == ErrorToken, "consumeBracket on 'x' must return error")
 }
