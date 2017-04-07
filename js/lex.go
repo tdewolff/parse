@@ -161,6 +161,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
 	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
 		l.regexpState = true
+	} else if tt == IdentifierToken {
+		hash := ToHash(l.r.Lexeme())
+		l.regexpState = hash != 0 && hash != This
 	} else {
 		l.regexpState = false
 	}

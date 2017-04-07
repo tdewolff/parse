@@ -100,6 +100,9 @@ func TestTokens(t *testing.T) {
 		{"a=/x/\u200C\u3009", TTs{IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken}},
 		{"a=/x\n", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken}},
 
+		{"return /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
+		{"yield /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
+
 		// go fuzz
 		{"`", TTs{UnknownToken}},
 	}
