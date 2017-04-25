@@ -10,10 +10,10 @@ import (
 	"github.com/tdewolff/test"
 )
 
-func helperStringify(t *testing.T, input string) string {
+func helperStringify(t *testing.T, input string, index int) string {
 	s := ""
 	l := NewLexer(bytes.NewBufferString(input))
-	for i := 0; i < 10; i++ {
+	for i := 0; i <= index; i++ {
 		tt, data := l.Next()
 		if tt == ErrorToken {
 			if l.Err() != nil {
@@ -28,7 +28,7 @@ func helperStringify(t *testing.T, input string) string {
 			s += tt.String() + "('" + string(data) + "') "
 		}
 	}
-	return s
+	return s + " with code: " + strconv.Quote(input)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -112,25 +112,43 @@ func TestTokens(t *testing.T) {
 		// go fuzz
 		{"`", TTs{UnknownToken}},
 	}
+
+	passed := 0
+
 	for _, tt := range tokenTests {
-		stringify := helperStringify(t, tt.js)
 		l := NewLexer(bytes.NewBufferString(tt.js))
 		i := 0
+		j := 0
 		for {
 			token, _ := l.Next()
+			j++
 			if token == ErrorToken {
+				stringify := helperStringify(t, tt.js, j)
 				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
 				test.Error(t, l.Err(), io.EOF, "in "+stringify)
+				passed++
 				break
 			} else if token == WhitespaceToken {
 				continue
 			}
-			test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
 			if i < len(tt.expected) {
-				test.That(t, token == tt.expected[i], "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+				expected := tt.expected[i]
+				if token != expected {
+					stringify := helperStringify(t, tt.js, j)
+					test.String(t, token.String(), expected.String(), "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+					break
+				}
+			} else {
+				stringify := helperStringify(t, tt.js, j)
+				test.That(t, false, "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
+				break
 			}
 			i++
 		}
+	}
+
+	if passed != len(tokenTests) {
+		t.Logf("Failed %d / %d token tests", len(tokenTests)-passed, len(tokenTests))
 	}
 
 	test.String(t, WhitespaceToken.String(), "Whitespace")
