@@ -80,6 +80,7 @@ func TestTokens(t *testing.T) {
 		{"`template`", TTs{TemplateToken}},
 		{"`a${x+y}b`", TTs{TemplateToken, IdentifierToken, PunctuatorToken, IdentifierToken, TemplateToken}},
 		{"`temp\nlate`", TTs{TemplateToken}},
+		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, TemplateToken, IdentifierToken, TemplateToken, NumericToken, TemplateToken, TemplateToken}},
 
 		// early endings
 		{"'string", TTs{StringToken}},
