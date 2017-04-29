@@ -56,6 +56,10 @@ func TestTokens(t *testing.T) {
 		{"a = /.*/g;", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
 
 		{"/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", TTs{CommentToken, CommentToken, LineTerminatorToken, CommentToken}},
+		{"<!-", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken}},
+		{"1<!--2\n", TTs{NumericToken, CommentToken, LineTerminatorToken}},
+		{"x=y-->10\n", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken, LineTerminatorToken}},
+		{"  /*comment*/ -->nothing\n", TTs{CommentToken, CommentToken, LineTerminatorToken}},
 		{"$ _\u200C \\u2000 \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken}},
 		{">>>=>>>>=", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken}},
 		{"/", TTs{PunctuatorToken}},
