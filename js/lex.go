@@ -161,11 +161,10 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	l.emptyLine = tt == LineTerminatorToken
-
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
 	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
+		l.emptyLine = tt == LineTerminatorToken
 		l.regexpState = true
 	} else if tt == IdentifierToken {
 		switch hash := ToHash(l.r.Lexeme()); hash {
@@ -289,18 +288,15 @@ func (l *Lexer) consumeUnicodeEscape() bool {
 	return true
 }
 
-////////////////////////////////////////////////////////////////
-
-func (l *Lexer) consumeSingleLineToken(skip int) {
-	l.r.Move(skip)
+func (l *Lexer) consumeSingleLineComment() {
 	for {
 		c := l.r.Peek(0)
 		if c == '\r' || c == '\n' || c == 0 {
 			break
 		} else if c >= 0xC0 {
-			mark := l.r.Pos()
+			//mark := l.r.Pos()
 			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-				l.r.Rewind(mark)
+				//l.r.Rewind(mark)
 				break
 			}
 		}
@@ -308,16 +304,19 @@ func (l *Lexer) consumeSingleLineToken(skip int) {
 	}
 }
 
+////////////////////////////////////////////////////////////////
+
 func (l *Lexer) consumeCommentToken() bool {
 	c := l.r.Peek(0)
 	if c == '/' {
 		c = l.r.Peek(1)
 		if c == '/' {
 			// single line
-			l.consumeSingleLineToken(2)
-		} else if c == '*' {
 			l.r.Move(2)
+			l.consumeSingleLineComment()
+		} else if c == '*' {
 			// multi line
+			l.r.Move(2)
 			for {
 				c := l.r.Peek(0)
 				if c == '*' && l.r.Peek(1) == '/' {
@@ -333,11 +332,13 @@ func (l *Lexer) consumeCommentToken() bool {
 		}
 	} else if c == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
 		// opening HTML-style single line comment
-		l.consumeSingleLineToken(4)
+		l.r.Move(4)
+		l.consumeSingleLineComment()
 	} else if c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
 		// closing HTML-style single line comment
 		// (only if current line didn't contain any meaningful tokens)
-		l.consumeSingleLineToken(3)
+		l.r.Move(3)
+		l.consumeSingleLineComment()
 	} else {
 		return false
 	}

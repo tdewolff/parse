@@ -60,6 +60,7 @@ func TestTokens(t *testing.T) {
 		{"1<!--2\n", TTs{NumericToken, CommentToken, LineTerminatorToken}},
 		{"x=y-->10\n", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken, LineTerminatorToken}},
 		{"  /*comment*/ -->nothing\n", TTs{CommentToken, CommentToken, LineTerminatorToken}},
+		{"1 /*comment\nmultiline*/ -->nothing\n", TTs{NumericToken, CommentToken, CommentToken, LineTerminatorToken}},
 		{"$ _\u200C \\u2000 \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken}},
 		{">>>=>>>>=", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken}},
 		{"/", TTs{PunctuatorToken}},
