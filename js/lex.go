@@ -161,10 +161,11 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
+	l.emptyLine = tt == LineTerminatorToken
+
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
 	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
-		l.emptyLine = tt == LineTerminatorToken
 		l.regexpState = true
 	} else if tt == IdentifierToken {
 		switch hash := ToHash(l.r.Lexeme()); hash {
