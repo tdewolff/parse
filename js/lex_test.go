@@ -112,6 +112,7 @@ func TestTokens(t *testing.T) {
 		{"{}/1/g", TTs{PunctuatorToken, PunctuatorToken, RegexpToken}},
 		{"i(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
 		{"if(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
+		{"a.if(0)/1/g", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
 		{"while(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
 		{"for(;;)/1/g", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
 		{"with(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},

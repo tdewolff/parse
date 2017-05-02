@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"unicode"
 
+	"github.com/golang-collections/collections/stack"
 	"github.com/tdewolff/buffer"
 )
 
@@ -31,6 +32,30 @@ const (
 	StringToken
 	RegexpToken
 	TemplateToken
+)
+
+// TokenState determines a state in which next token should be read
+type TokenState uint32
+
+// TokenState values
+const (
+	ExprState TokenState = iota
+	StmtParensState
+	SubscriptState
+	PropNameState
+)
+
+// ParsingContext determines the context in which following token should be parsed.
+// This affects parsing regular expressions and template literals.
+type ParsingContext uint32
+
+// ParsingContext values
+const (
+	GlobalContext ParsingContext = iota
+	StmtParensContext
+	ExprParensContext
+	BracesContext
+	TemplateContext
 )
 
 // String returns the string representation of a TokenType.
@@ -66,19 +91,36 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.Lexer
-
-	regexpState   bool
-	templateState bool
+	r     *buffer.Lexer
+	stack *stack.Stack
+	state TokenState
 	emptyLine     bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r:         buffer.NewLexer(r),
+		r:     buffer.NewLexer(r),
+		stack: stack.New(),
+		state: ExprState,
 		emptyLine: true,
 	}
+}
+
+func (l *Lexer) enterContext(context ParsingContext) {
+	l.stack.Push(context)
+}
+
+func (l *Lexer) leaveContext() ParsingContext {
+	ctx := l.stack.Pop()
+	if ctx == nil {
+		return GlobalContext
+	}
+	return ctx.(ParsingContext)
+}
+
+func (l *Lexer) curContext() ParsingContext {
+	return l.stack.Peek().(ParsingContext)
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
@@ -96,36 +138,76 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	tt := UnknownToken
 	c := l.r.Peek(0)
 	switch c {
-	case '(', ')', '[', ']', '{', '}', ';', ',', '~', '?', ':':
-		if c == '}' && l.templateState && l.consumeTemplateToken() {
+	case '(':
+		if l.state == StmtParensState {
+			l.enterContext(StmtParensContext)
+		} else {
+			l.enterContext(ExprParensContext)
+		}
+		l.state = ExprState
+		l.r.Move(1)
+		tt = PunctuatorToken
+	case ')':
+		if l.leaveContext() == StmtParensContext {
+			l.state = ExprState
+		} else {
+			l.state = SubscriptState
+		}
+		l.r.Move(1)
+		tt = PunctuatorToken
+	case '{':
+		l.enterContext(BracesContext)
+		l.state = ExprState
+		l.r.Move(1)
+		tt = PunctuatorToken
+	case '}':
+		if l.curContext() == TemplateContext && l.consumeTemplateToken() {
 			tt = TemplateToken
 		} else {
+			l.leaveContext()
+			// will work incorrectly for objects or functions divided by something,
+			// but that's an extremely rare case
+			l.state = ExprState
 			l.r.Move(1)
 			tt = PunctuatorToken
 		}
+	case ']':
+		l.state = SubscriptState
+		l.r.Move(1)
+		tt = PunctuatorToken
+	case '[', ';', ',', '~', '?', ':':
+		l.state = ExprState
+		l.r.Move(1)
+		tt = PunctuatorToken
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
 		if (c == '<' || (l.emptyLine && c == '-')) && l.consumeCommentToken() {
 			return CommentToken, l.r.Shift()
 		} else if l.consumeLongPunctuatorToken() {
+			l.state = ExprState
 			tt = PunctuatorToken
 		}
 	case '/':
 		if l.consumeCommentToken() {
 			return CommentToken, l.r.Shift()
-		} else if l.regexpState && l.consumeRegexpToken() {
+		} else if l.state == ExprState && l.consumeRegexpToken() {
+			l.state = SubscriptState
 			tt = RegexpToken
 		} else if l.consumeLongPunctuatorToken() {
+			l.state = ExprState
 			tt = PunctuatorToken
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if l.consumeNumericToken() {
 			tt = NumericToken
+			l.state = SubscriptState
 		} else if c == '.' {
+			l.state = PropNameState
 			l.r.Move(1)
 			tt = PunctuatorToken
 		}
 	case '\'', '"':
 		if l.consumeStringToken() {
+			l.state = SubscriptState
 			tt = StringToken
 		}
 	case ' ', '\t', '\v', '\f':
@@ -139,13 +221,28 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		tt = LineTerminatorToken
 	case '`':
-		l.templateState = true
+		l.enterContext(TemplateContext)
 		if l.consumeTemplateToken() {
 			tt = TemplateToken
 		}
 	default:
 		if l.consumeIdentifierToken() {
 			tt = IdentifierToken
+			if l.state != PropNameState {
+				switch hash := ToHash(l.r.Lexeme()); hash {
+				case 0, This, False, True, Null:
+					l.state = SubscriptState
+				case If, While, For, With:
+					l.state = StmtParensState
+				default:
+					// This will include keywords that can't be followed by a regexp, but only
+					// by a specified char (like `switch` or `try`), but we don't check for syntax
+					// errors as we don't attempt to parse a full JS grammar when streaming
+					l.state = ExprState
+				}
+			} else {
+				l.state = SubscriptState
+			}
 		} else if c >= 0xC0 {
 			if l.consumeWhitespace() {
 				for l.consumeWhitespace() {
@@ -163,23 +260,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 
 	l.emptyLine = tt == LineTerminatorToken
 
-	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
-	// ErrorToken, WhitespaceToken and CommentToken are already returned
-	if tt == LineTerminatorToken || tt == PunctuatorToken && regexpStateByte[c] {
-		l.regexpState = true
-	} else if tt == IdentifierToken {
-		switch hash := ToHash(l.r.Lexeme()); hash {
-		case 0, This, False, True, Null:
-			l.regexpState = false
-		default:
-			// This will include keywords that can't be followed by a regexp, but only
-			// by a specified char (like `if` or `try`), but we don't check for syntax
-			// errors as we don't attempt to parse a full JS grammar when streaming
-			l.regexpState = true
-		}
-	} else {
-		l.regexpState = false
-	}
 	if tt == UnknownToken {
 		_, n := l.r.PeekRune(0)
 		l.r.Move(n)
@@ -560,10 +640,12 @@ func (l *Lexer) consumeTemplateToken() bool {
 	for {
 		c := l.r.Peek(0)
 		if c == '`' {
-			l.templateState = false
+			l.leaveContext()
+			l.state = SubscriptState
 			l.r.Move(1)
 			return true
 		} else if c == '$' && l.r.Peek(1) == '{' {
+			l.state = ExprState
 			l.r.Move(2)
 			return true
 		} else if c == 0 {
