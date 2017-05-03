@@ -118,13 +118,6 @@ func (l *Lexer) leaveContext() ParsingContext {
 	return ctx
 }
 
-func (l *Lexer) curContext() ParsingContext {
-	if len(l.stack) == 0 {
-		return GlobalContext
-	}
-	return l.stack[len(l.stack)-1]
-}
-
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
 func (l *Lexer) Err() error {
 	return l.r.Err()
@@ -163,10 +156,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.r.Move(1)
 		tt = PunctuatorToken
 	case '}':
-		if l.curContext() == TemplateContext && l.consumeTemplateToken() {
+		if l.leaveContext() == TemplateContext && l.consumeTemplateToken() {
 			tt = TemplateToken
 		} else {
-			l.leaveContext()
 			// will work incorrectly for objects or functions divided by something,
 			// but that's an extremely rare case
 			l.state = ExprState
@@ -223,7 +215,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		tt = LineTerminatorToken
 	case '`':
-		l.enterContext(TemplateContext)
 		if l.consumeTemplateToken() {
 			tt = TemplateToken
 		}
@@ -642,11 +633,11 @@ func (l *Lexer) consumeTemplateToken() bool {
 	for {
 		c := l.r.Peek(0)
 		if c == '`' {
-			l.leaveContext()
 			l.state = SubscriptState
 			l.r.Move(1)
 			return true
 		} else if c == '$' && l.r.Peek(1) == '{' {
+			l.enterContext(TemplateContext)
 			l.state = ExprState
 			l.r.Move(2)
 			return true
