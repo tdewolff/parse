@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"unicode"
 
-	"github.com/golang-collections/collections/stack"
 	"github.com/tdewolff/buffer"
 )
 
@@ -92,7 +91,7 @@ func (tt TokenType) String() string {
 // Lexer is the state for the lexer.
 type Lexer struct {
 	r     *buffer.Lexer
-	stack *stack.Stack
+	stack []ParsingContext
 	state TokenState
 	emptyLine     bool
 }
@@ -101,26 +100,29 @@ type Lexer struct {
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
 		r:     buffer.NewLexer(r),
-		stack: stack.New(),
+		stack: make([]ParsingContext, 0),
 		state: ExprState,
 		emptyLine: true,
 	}
 }
 
 func (l *Lexer) enterContext(context ParsingContext) {
-	l.stack.Push(context)
+	l.stack = append(l.stack, context)
 }
 
 func (l *Lexer) leaveContext() ParsingContext {
-	ctx := l.stack.Pop()
-	if ctx == nil {
-		return GlobalContext
+	ctx := GlobalContext
+	if last := len(l.stack) - 1; last >= 0 {
+		ctx, l.stack = l.stack[last], l.stack[:last]
 	}
-	return ctx.(ParsingContext)
+	return ctx
 }
 
 func (l *Lexer) curContext() ParsingContext {
-	return l.stack.Peek().(ParsingContext)
+	if len(l.stack) == 0 {
+		return GlobalContext
+	}
+	return l.stack[len(l.stack)-1]
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
