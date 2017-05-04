@@ -207,9 +207,15 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		if l.consumeAtKeywordToken() {
 			return AtKeywordToken, l.r.Shift()
 		}
-	case '$', '*', '^', '~':
+	case '$', '*', '^', '~':	
 		if t := l.consumeMatch(); t != ErrorToken {
 			return t, l.r.Shift()
+		} else if (l.r.Peek(0) == '*') {
+			if t := l.consumeNumeric(); t != ErrorToken {
+        	                return t, l.r.Shift()
+	                } else if t := l.consumeIdentlike(); t != ErrorToken {
+                	        return t, l.r.Shift()
+               		}
 		}
 	case '/':
 		if l.consumeComment() {
@@ -363,7 +369,7 @@ func (l *Lexer) consumeIdentToken() bool {
 		l.r.Move(1)
 	}
 	c := l.r.Peek(0)
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
+	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80 || c == '*') {
 		if c != '\\' || !l.consumeEscape() {
 			l.r.Rewind(mark)
 			return false
@@ -373,7 +379,7 @@ func (l *Lexer) consumeIdentToken() bool {
 	}
 	for {
 		c := l.r.Peek(0)
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80) {
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80 || c == '*') {
 			if c != '\\' || !l.consumeEscape() {
 				break
 			}
