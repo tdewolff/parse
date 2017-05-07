@@ -321,16 +321,13 @@ func (l *Lexer) consumeCommentToken() bool {
 				if c == '*' && l.r.Peek(1) == '/' {
 					l.r.Move(2)
 					return true
-				} else if c == '\r' || c == '\n' {
-					l.emptyLine = true
-				} else if c >= 0xC0 {
-					if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-						l.emptyLine = true
-					}
 				} else if c == 0 {
 					break
+				} else if l.consumeLineTerminator() {
+					l.emptyLine = true
+				} else {
+					l.r.Move(1)
 				}
-				l.r.Move(1)
 			}
 		} else {
 			return false
