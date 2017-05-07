@@ -70,12 +70,14 @@ type Lexer struct {
 
 	regexpState   bool
 	templateState bool
+	emptyLine     bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r: buffer.NewLexer(r),
+		r:         buffer.NewLexer(r),
+		emptyLine: true,
 	}
 }
 
@@ -102,7 +104,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			tt = PunctuatorToken
 		}
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
-		if l.consumeLongPunctuatorToken() {
+		if (c == '<' || (l.emptyLine && c == '-')) && l.consumeCommentToken() {
+			return CommentToken, l.r.Shift()
+		} else if l.consumeLongPunctuatorToken() {
 			tt = PunctuatorToken
 		}
 	case '/':
@@ -156,6 +160,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return ErrorToken, nil
 		}
 	}
+
+	l.emptyLine = tt == LineTerminatorToken
 
 	// differentiate between divisor and regexp state, because the '/' character is ambiguous!
 	// ErrorToken, WhitespaceToken and CommentToken are already returned
@@ -279,41 +285,60 @@ func (l *Lexer) consumeUnicodeEscape() bool {
 	return true
 }
 
+func (l *Lexer) consumeSingleLineComment() {
+	for {
+		c := l.r.Peek(0)
+		if c == '\r' || c == '\n' || c == 0 {
+			break
+		} else if c >= 0xC0 {
+			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
+				break
+			}
+		}
+		l.r.Move(1)
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 func (l *Lexer) consumeCommentToken() bool {
-	if l.r.Peek(0) != '/' || l.r.Peek(1) != '/' && l.r.Peek(1) != '*' {
-		return false
-	}
-	if l.r.Peek(1) == '/' {
-		l.r.Move(2)
-		// single line
-		for {
-			c := l.r.Peek(0)
-			if c == '\r' || c == '\n' || c == 0 {
-				break
-			} else if c >= 0xC0 {
-				mark := l.r.Pos()
-				if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-					l.r.Rewind(mark)
+	c := l.r.Peek(0)
+	if c == '/' {
+		c = l.r.Peek(1)
+		if c == '/' {
+			// single line
+			l.r.Move(2)
+			l.consumeSingleLineComment()
+		} else if c == '*' {
+			// multi line
+			l.r.Move(2)
+			for {
+				c := l.r.Peek(0)
+				if c == '*' && l.r.Peek(1) == '/' {
+					l.r.Move(2)
+					return true
+				} else if c == 0 {
 					break
+				} else if l.consumeLineTerminator() {
+					l.emptyLine = true
+				} else {
+					l.r.Move(1)
 				}
 			}
-			l.r.Move(1)
+		} else {
+			return false
 		}
+	} else if c == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
+		// opening HTML-style single line comment
+		l.r.Move(4)
+		l.consumeSingleLineComment()
+	} else if c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
+		// closing HTML-style single line comment
+		// (only if current line didn't contain any meaningful tokens)
+		l.r.Move(3)
+		l.consumeSingleLineComment()
 	} else {
-		l.r.Move(2)
-		// multi line
-		for {
-			c := l.r.Peek(0)
-			if c == '*' && l.r.Peek(1) == '/' {
-				l.r.Move(2)
-				return true
-			} else if c == 0 {
-				break
-			}
-			l.r.Move(1)
-		}
+		return false
 	}
 	return true
 }
