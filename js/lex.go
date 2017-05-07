@@ -163,11 +163,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.regexpState = true
 	} else if tt == IdentifierToken {
 		switch hash := ToHash(l.r.Lexeme()); hash {
-		case 0: // Custom identifier
-		case This:
-		case False:
-		case True:
-		case Null:
+		case 0, This, False, True, Null:
 			l.regexpState = false
 		default:
 			// This will include keywords that can't be followed by a regexp, but only
