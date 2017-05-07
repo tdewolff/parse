@@ -87,7 +87,9 @@ func TestParse(t *testing.T) {
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
-		{false, ".foo { *color: #fff;}", ".foo{*color:#fff}"},
+		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
+		{true, "*color: red; font-size: 12pt;", "*color:red;font-size:12pt;"},
+		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
