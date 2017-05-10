@@ -82,11 +82,11 @@ func TestParse(t *testing.T) {
 		{false, "table { @unknown }", "table{@unknown;}"},
 
 		// early endings
-		{true, "~color:red", "~color:red"},
 		{false, "selector{", "selector{"},
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
+		{true, "~color:red", "~color:red;"},
 		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
 		{true, "*color: red; font-size: 12pt;", "*color:red;font-size:12pt;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
@@ -109,6 +109,9 @@ func TestParse(t *testing.T) {
 				if err := p.Err(); err != io.EOF {
 					for _, val := range p.Values() {
 						data = append(data, val.Data...)
+					}
+					if err == ErrBadDeclaration {
+						data = append(data, ";"...)
 					}
 				} else {
 					test.Error(t, err, io.EOF, "in "+tt.css)
