@@ -101,6 +101,26 @@ func BenchmarkReplace(b *testing.B) {
 	}
 }
 
+func BenchmarkCustomEqual(b *testing.B) {
+	s := "Example string!"
+	for i := 0; i < b.N; i++ {
+		for j := range s {
+			t := []byte(s[:j])
+			Equal(t, t)
+		}
+	}
+}
+
+func BenchmarkBytesEqual(b *testing.B) {
+	s := "Example string!"
+	for i := 0; i < b.N; i++ {
+		for j := range s {
+			t := []byte(s[:j])
+			bytes.Equal(t, t)
+		}
+	}
+}
+
 func BenchmarkWhitespaceTable(b *testing.B) {
 	n := 0
 	for i := 0; i < b.N; i++ {
