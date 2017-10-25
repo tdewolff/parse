@@ -17,19 +17,6 @@ func ToLower(src []byte) []byte {
 	return src
 }
 
-// Equal returns true when s matches the target.
-func Equal(s, target []byte) bool {
-	if len(s) != len(target) {
-		return false
-	}
-	for i, c := range target {
-		if s[i] != c {
-			return false
-		}
-	}
-	return true
-}
-
 // EqualFold returns true when s matches case-insensitively the targetLower (which must be lowercase).
 func EqualFold(s, targetLower []byte) bool {
 	if len(s) != len(targetLower) {

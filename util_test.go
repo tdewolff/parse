@@ -43,11 +43,7 @@ func TestToLower(t *testing.T) {
 	test.Bytes(t, bar, []byte("aBc"))
 }
 
-func TestEqual(t *testing.T) {
-	test.That(t, Equal([]byte("abc"), []byte("abc")))
-	test.That(t, !Equal([]byte("abcd"), []byte("abc")))
-	test.That(t, !Equal([]byte("bbc"), []byte("abc")))
-
+func TestEqualFold(t *testing.T) {
 	test.That(t, EqualFold([]byte("Abc"), []byte("abc")))
 	test.That(t, !EqualFold([]byte("Abcd"), []byte("abc")))
 	test.That(t, !EqualFold([]byte("Bbc"), []byte("abc")))
@@ -97,26 +93,6 @@ func BenchmarkReplace(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
 			e = ReplaceMultipleWhitespace(e)
-		}
-	}
-}
-
-func BenchmarkCustomEqual(b *testing.B) {
-	s := "Example string!"
-	for i := 0; i < b.N; i++ {
-		for j := range s {
-			t := []byte(s[:j])
-			Equal(t, t)
-		}
-	}
-}
-
-func BenchmarkBytesEqual(b *testing.B) {
-	s := "Example string!"
-	for i := 0; i < b.N; i++ {
-		for j := range s {
-			t := []byte(s[:j])
-			bytes.Equal(t, t)
 		}
 	}
 }
