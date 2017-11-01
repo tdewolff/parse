@@ -452,9 +452,8 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 			}
 		} else if c == 0 {
 			return l.r.Shift()
-		} else {
-			l.r.Move(1)
 		}
+		l.r.Move(1)
 	}
 
 	for {
