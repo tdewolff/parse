@@ -76,7 +76,7 @@ func TestTrim(t *testing.T) {
 func BenchmarkBytesTrim(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
-			e = bytes.TrimSpace(e)
+			bytes.TrimSpace(e)
 		}
 	}
 }
@@ -84,7 +84,7 @@ func BenchmarkBytesTrim(b *testing.B) {
 func BenchmarkTrim(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
-			e = TrimWhitespace(e)
+			TrimWhitespace(e)
 		}
 	}
 }
@@ -92,7 +92,7 @@ func BenchmarkTrim(b *testing.B) {
 func BenchmarkReplace(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
-			e = ReplaceMultipleWhitespace(e)
+			ReplaceMultipleWhitespace(e)
 		}
 	}
 }
