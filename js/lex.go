@@ -90,18 +90,18 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r     *buffer.Lexer
-	stack []ParsingContext
-	state TokenState
-	emptyLine     bool
+	r         *buffer.Lexer
+	stack     []ParsingContext
+	state     TokenState
+	emptyLine bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r:     buffer.NewLexer(r),
-		stack: make([]ParsingContext, 0),
-		state: ExprState,
+		r:         buffer.NewLexer(r),
+		stack:     make([]ParsingContext, 0),
+		state:     ExprState,
 		emptyLine: true,
 	}
 }
