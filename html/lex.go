@@ -298,7 +298,9 @@ func (l *Lexer) readMarkup() (TokenType, []byte) {
 			for {
 				if c := l.r.Peek(0); c == '>' || c == 0 {
 					l.text = l.r.Lexeme()[9:]
-					l.r.Move(1)
+					if c == '>' {
+						l.r.Move(1)
+					}
 					return DoctypeToken, l.r.Shift()
 				}
 				l.r.Move(1)
