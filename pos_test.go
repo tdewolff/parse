@@ -35,8 +35,8 @@ func TestPosition(t *testing.T) {
 			line, col, err := Pos(r, nt.pos)
 
 			test.Error(t, err, nt.err)
-			test.Int(t, line, nt.line, "line")
-			test.Int(t, col, nt.col, "col")
+			test.V(t, "line", line, nt.line)
+			test.V(t, "column", col, nt.col)
 		})
 	}
 }
