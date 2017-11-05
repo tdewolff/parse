@@ -1,11 +1,14 @@
 package css // import "github.com/tdewolff/parse/css"
 
-import "bytes"
+import (
+	"bytes"
+)
 
 // IsIdent returns true if the bytes are a valid identifier.
 func IsIdent(b []byte) bool {
 	l := NewLexer(bytes.NewBuffer(b))
 	l.consumeIdentToken()
+	l.r.Restore()
 	return l.r.Pos() == len(b)
 }
 
@@ -13,6 +16,7 @@ func IsIdent(b []byte) bool {
 func IsURLUnquoted(b []byte) bool {
 	l := NewLexer(bytes.NewBuffer(b))
 	l.consumeUnquotedURL()
+	l.r.Restore()
 	return l.r.Pos() == len(b)
 }
 
