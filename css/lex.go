@@ -389,6 +389,7 @@ func (l *Lexer) consumeCustomVariableToken() bool {
 	// expect to be on a '-'
 	l.r.Move(1)
 	if l.r.Peek(0) != '-' {
+		l.r.Move(-1)
 		return false
 	}
 	if !l.consumeIdentToken() {
@@ -497,7 +498,7 @@ func (l *Lexer) consumeUnicodeRangeToken() bool {
 			}
 		}
 
-		// either a minus or a quenstion mark or the end is expected
+		// either a minus or a question mark or the end is expected
 		if l.consumeByte('-') {
 			// consume another up to 6 hexDigits
 			if l.consumeHexDigit() {

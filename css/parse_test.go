@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse"
 	"github.com/tdewolff/test"
 )
 
@@ -105,6 +106,7 @@ func TestParse(t *testing.T) {
 		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
 		for {
 			grammar, _, data := p.Next()
+			data = parse.Copy(data)
 			if grammar == ErrorGrammar {
 				if err := p.Err(); err != io.EOF {
 					for _, val := range p.Values() {
