@@ -128,8 +128,6 @@ func (p Parser) Err() error {
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
-	p.r.Free(p.r.ShiftLen())
-
 	p.moveWhitespace()
 	c := p.r.Peek(0)
 	state := p.state[len(p.state)-1]

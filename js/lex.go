@@ -123,11 +123,6 @@ func (l *Lexer) Err() error {
 	return l.r.Err()
 }
 
-// Free frees up bytes of length n from previously shifted tokens.
-func (l *Lexer) Free(n int) {
-	l.r.Free(n)
-}
-
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	tt := UnknownToken

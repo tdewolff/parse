@@ -179,7 +179,6 @@ func ExampleNewLexer() {
 			break
 		}
 		out += string(data)
-		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: var x = 'lorem ipsum';

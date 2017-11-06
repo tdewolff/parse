@@ -200,7 +200,6 @@ func ExampleNewLexer() {
 			break
 		}
 		out += string(data)
-		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: <span class='user'>John Doe</span>

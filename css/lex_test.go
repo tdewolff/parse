@@ -160,7 +160,6 @@ func ExampleNewLexer() {
 			continue
 		}
 		out += string(data)
-		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: color:red;
