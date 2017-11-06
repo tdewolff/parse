@@ -3,7 +3,6 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"errors"
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse"
@@ -92,8 +91,8 @@ type Parser struct {
 }
 
 // NewParser returns a new CSS parser from an io.Reader. isInline specifies whether this is an inline style attribute.
-func NewParser(r io.Reader, isInline bool) *Parser {
-	l := NewLexer(r)
+func NewParser(b []byte, isInline bool) *Parser {
+	l := NewLexer(b)
 	p := &Parser{
 		l: l,
 	}

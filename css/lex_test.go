@@ -1,7 +1,6 @@
 package css // import "github.com/tdewolff/parse/css"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	l := NewLexer(bytes.NewBufferString(input))
+	l := NewLexer([]byte(input))
 	for i := 0; i < 10; i++ {
 		tt, text := l.Next()
 		if tt == ErrorToken {
@@ -121,7 +120,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		stringify := helperStringify(t, tt.css)
-		l := NewLexer(bytes.NewBufferString(tt.css))
+		l := NewLexer([]byte(tt.css))
 		i := 0
 		for {
 			token, _ := l.Next()
@@ -144,13 +143,13 @@ func TestTokens(t *testing.T) {
 	test.String(t, EmptyToken.String(), "Empty")
 	test.String(t, CustomPropertyValueToken.String(), "CustomPropertyValue")
 	test.String(t, TokenType(100).String(), "Invalid(100)")
-	test.That(t, NewLexer(bytes.NewBufferString("x")).consumeBracket() == ErrorToken, "consumeBracket on 'x' must return error")
+	test.That(t, NewLexer([]byte("x")).consumeBracket() == ErrorToken, "consumeBracket on 'x' must return error")
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("color: red;"))
+	l := NewLexer([]byte("color: red;"))
 	out := ""
 	for {
 		tt, data := l.Next()

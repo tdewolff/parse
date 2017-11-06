@@ -2,7 +2,6 @@
 package js // import "github.com/tdewolff/parse/js"
 
 import (
-	"io"
 	"strconv"
 	"unicode"
 
@@ -97,9 +96,9 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewLexer(b []byte) *Lexer {
 	return &Lexer{
-		r:         buffer.NewMemLexer(r),
+		r:         buffer.NewMemLexer(b),
 		stack:     make([]ParsingContext, 0),
 		state:     ExprState,
 		emptyLine: true,

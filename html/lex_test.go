@@ -1,7 +1,6 @@
 package html // import "github.com/tdewolff/parse/html"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	l := NewLexer(bytes.NewBufferString(input))
+	l := NewLexer([]byte(input))
 	for i := 0; i < 10; i++ {
 		tt, data := l.Next()
 		if tt == ErrorToken {
@@ -91,7 +90,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		stringify := helperStringify(t, tt.html)
-		l := NewLexer(bytes.NewBufferString(tt.html))
+		l := NewLexer([]byte(tt.html))
 		i := 0
 		for {
 			token, _ := l.Next()
@@ -126,7 +125,7 @@ func TestTags(t *testing.T) {
 	}
 	for _, tt := range tagTests {
 		stringify := helperStringify(t, tt.html)
-		l := NewLexer(bytes.NewBufferString(tt.html))
+		l := NewLexer([]byte(tt.html))
 		for {
 			token, _ := l.Next()
 			if token == ErrorToken {
@@ -159,7 +158,7 @@ func TestAttributes(t *testing.T) {
 	}
 	for _, tt := range attributeTests {
 		stringify := helperStringify(t, tt.attr)
-		l := NewLexer(bytes.NewBufferString(tt.attr))
+		l := NewLexer([]byte(tt.attr))
 		i := 0
 		for {
 			token, _ := l.Next()
@@ -188,7 +187,7 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tt := range errorTests {
 		stringify := helperStringify(t, tt.html)
-		l := NewLexer(bytes.NewBufferString(tt.html))
+		l := NewLexer([]byte(tt.html))
 		for {
 			token, _ := l.Next()
 			if token == ErrorToken {
@@ -261,7 +260,7 @@ func BenchmarkWhitespace3(b *testing.B) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
+	l := NewLexer([]byte("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
 		tt, data := l.Next()

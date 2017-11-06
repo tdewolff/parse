@@ -1,7 +1,6 @@
 package css // import "github.com/tdewolff/parse/css"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -103,7 +102,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range parseTests {
 		output := ""
-		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
+		p := NewParser([]byte(tt.css), tt.inline)
 		for {
 			grammar, _, data := p.Next()
 			data = parse.Copy(data)
@@ -162,7 +161,7 @@ func TestParseError(t *testing.T) {
 		{true, "--custom-variable:0", io.EOF},
 	}
 	for _, tt := range parseErrorTests {
-		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
+		p := NewParser([]byte(tt.css), tt.inline)
 		for {
 			grammar, _, _ := p.Next()
 			if grammar == ErrorGrammar {
@@ -173,21 +172,21 @@ func TestParseError(t *testing.T) {
 	}
 }
 
-func TestReader(t *testing.T) {
-	input := "x:a;"
-	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), true)
-	for {
-		grammar, _, _ := p.Next()
-		if grammar == ErrorGrammar {
-			break
-		}
-	}
-}
+// func TestReader(t *testing.T) {
+// 	input := "x:a;"
+// 	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), true)
+// 	for {
+// 		grammar, _, _ := p.Next()
+// 		if grammar == ErrorGrammar {
+// 			break
+// 		}
+// 	}
+// }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewParser() {
-	p := NewParser(bytes.NewBufferString("color: red;"), true) // false because this is the content of an inline style attribute
+	p := NewParser([]byte("color: red;"), true) // false because this is the content of an inline style attribute
 	out := ""
 	for {
 		gt, _, data := p.Next()

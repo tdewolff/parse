@@ -3,7 +3,6 @@ package json // import "github.com/tdewolff/parse/json"
 
 import (
 	"errors"
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/buffer"
@@ -110,9 +109,9 @@ type Parser struct {
 }
 
 // NewParser returns a new Parser for a given io.Reader.
-func NewParser(r io.Reader) *Parser {
+func NewParser(b []byte) *Parser {
 	return &Parser{
-		r:     buffer.NewMemLexer(r),
+		r:     buffer.NewMemLexer(b),
 		state: []State{ValueState},
 	}
 }

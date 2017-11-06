@@ -144,9 +144,9 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewLexer(b []byte) *Lexer {
 	return &Lexer{
-		buffer.NewMemLexer(r),
+		buffer.NewMemLexer(b),
 	}
 }
 

@@ -1,7 +1,6 @@
 package js // import "github.com/tdewolff/parse/js"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 
 func helperStringify(t *testing.T, input string, index int) string {
 	s := ""
-	l := NewLexer(bytes.NewBufferString(input))
+	l := NewLexer([]byte(input))
 	for i := 0; i <= index; i++ {
 		tt, data := l.Next()
 		if tt == ErrorToken {
@@ -129,7 +128,7 @@ func TestTokens(t *testing.T) {
 	passed := 0
 
 	for _, tt := range tokenTests {
-		l := NewLexer(bytes.NewBufferString(tt.js))
+		l := NewLexer([]byte(tt.js))
 		i := 0
 		j := 0
 		for {
@@ -171,7 +170,7 @@ func TestTokens(t *testing.T) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
+	l := NewLexer([]byte("var x = 'lorem ipsum';"))
 	out := ""
 	for {
 		tt, data := l.Next()

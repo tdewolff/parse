@@ -1,7 +1,6 @@
 package json // import "github.com/tdewolff/parse/json"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -12,7 +11,7 @@ import (
 
 func helperStringify(t *testing.T, input string) string {
 	s := ""
-	p := NewParser(bytes.NewBufferString(input))
+	p := NewParser([]byte(input))
 	for i := 0; i < 10; i++ {
 		gt, text := p.Next()
 		if gt == ErrorGrammar {
@@ -54,7 +53,7 @@ func TestGrammars(t *testing.T) {
 	}
 	for _, tt := range grammarTests {
 		stringify := helperStringify(t, tt.json)
-		p := NewParser(bytes.NewBufferString(tt.json))
+		p := NewParser([]byte(tt.json))
 		i := 0
 		for {
 			grammar, _ := p.Next()
@@ -100,7 +99,7 @@ func TestGrammarsError(t *testing.T) {
 	}
 	for _, tt := range grammarErrorTests {
 		stringify := helperStringify(t, tt.json)
-		p := NewParser(bytes.NewBufferString(tt.json))
+		p := NewParser([]byte(tt.json))
 		for {
 			grammar, _ := p.Next()
 			if grammar == ErrorGrammar {
@@ -122,7 +121,7 @@ func TestStates(t *testing.T) {
 	}
 	for _, tt := range stateTests {
 		stringify := helperStringify(t, tt.json)
-		p := NewParser(bytes.NewBufferString(tt.json))
+		p := NewParser([]byte(tt.json))
 		i := 0
 		for {
 			grammar, _ := p.Next()
@@ -146,7 +145,7 @@ func TestStates(t *testing.T) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewParser() {
-	p := NewParser(bytes.NewBufferString(`{"key": 5}`))
+	p := NewParser([]byte(`{"key": 5}`))
 	out := ""
 	for {
 		state := p.State()
