@@ -2,7 +2,6 @@
 package js // import "github.com/tdewolff/parse/js"
 
 import (
-	"io"
 	"strconv"
 	"unicode"
 
@@ -90,16 +89,16 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r         *buffer.Lexer
+	r         *buffer.MemLexer
 	stack     []ParsingContext
 	state     TokenState
 	emptyLine bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewLexer(b []byte) *Lexer {
 	return &Lexer{
-		r:         buffer.NewLexer(r),
+		r:         buffer.NewMemLexer(b),
 		stack:     make([]ParsingContext, 0),
 		state:     ExprState,
 		emptyLine: true,
@@ -121,11 +120,6 @@ func (l *Lexer) leaveContext() ParsingContext {
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
 func (l *Lexer) Err() error {
 	return l.r.Err()
-}
-
-// Free frees up bytes of length n from previously shifted tokens.
-func (l *Lexer) Free(n int) {
-	l.r.Free(n)
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.

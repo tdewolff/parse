@@ -30,11 +30,14 @@ func TestEscapeAttrVal(t *testing.T) {
 	}
 	var buf []byte
 	for _, tt := range escapeAttrValTests {
-		b := []byte(tt.attrVal)
-		orig := b
-		if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
-			b = b[1 : len(b)-1]
-		}
-		test.String(t, string(EscapeAttrVal(&buf, orig, []byte(b))), tt.expected)
+		t.Run(tt.attrVal, func(t *testing.T) {
+			b := []byte(tt.attrVal)
+			orig := b
+			if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
+				b = b[1 : len(b)-1]
+			}
+			val := EscapeAttrVal(&buf, orig, []byte(b))
+			test.String(t, string(val), tt.expected)
+		})
 	}
 }

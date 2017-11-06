@@ -3,7 +3,6 @@ package json // import "github.com/tdewolff/parse/json"
 
 import (
 	"errors"
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/buffer"
@@ -102,7 +101,7 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.Lexer
+	r     *buffer.MemLexer
 	state []State
 	err   error
 
@@ -110,9 +109,9 @@ type Parser struct {
 }
 
 // NewParser returns a new Parser for a given io.Reader.
-func NewParser(r io.Reader) *Parser {
+func NewParser(b []byte) *Parser {
 	return &Parser{
-		r:     buffer.NewLexer(r),
+		r:     buffer.NewMemLexer(b),
 		state: []State{ValueState},
 	}
 }
@@ -128,8 +127,6 @@ func (p Parser) Err() error {
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
-	p.r.Free(p.r.ShiftLen())
-
 	p.moveWhitespace()
 	c := p.r.Peek(0)
 	state := p.state[len(p.state)-1]
@@ -306,7 +303,7 @@ func (p *Parser) consumeStringToken() bool {
 		if c == '"' {
 			p.r.Move(1)
 			break
-		} else if c == '\\' && (p.r.Peek(1) != 0 || p.r.Err() == nil) {
+		} else if c == '\\' && (p.r.Peek(1) != 0 /* || p.r.Err() == nil */) {
 			p.r.Move(1)
 		} else if c == 0 {
 			return false

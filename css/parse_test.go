@@ -1,7 +1,6 @@
 package css // import "github.com/tdewolff/parse/css"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -102,52 +101,54 @@ func TestParse(t *testing.T) {
 		{false, "@-webkit-", "@-webkit-;"},
 	}
 	for _, tt := range parseTests {
-		output := ""
-		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
-		for {
-			grammar, _, data := p.Next()
-			data = parse.Copy(data)
-			if grammar == ErrorGrammar {
-				if err := p.Err(); err != io.EOF {
+		t.Run(tt.css, func(t *testing.T) {
+			output := ""
+			p := NewParser([]byte(tt.css), tt.inline)
+			for {
+				grammar, _, data := p.Next()
+				data = parse.Copy(data)
+				if grammar == ErrorGrammar {
+					if err := p.Err(); err != io.EOF {
+						for _, val := range p.Values() {
+							data = append(data, val.Data...)
+						}
+						if err == ErrBadDeclaration {
+							data = append(data, ";"...)
+						}
+					} else {
+						test.T(t, err, io.EOF)
+						break
+					}
+				} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
+					if grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
+						data = append(data, ":"...)
+					}
 					for _, val := range p.Values() {
 						data = append(data, val.Data...)
 					}
-					if err == ErrBadDeclaration {
+					if grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar {
+						data = append(data, "{"...)
+					} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 						data = append(data, ";"...)
 					}
-				} else {
-					test.Error(t, err, io.EOF, "in "+tt.css)
-					break
 				}
-			} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
-				if grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
-					data = append(data, ":"...)
-				}
-				for _, val := range p.Values() {
-					data = append(data, val.Data...)
-				}
-				if grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar {
-					data = append(data, "{"...)
-				} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
-					data = append(data, ";"...)
-				}
+				output += string(data)
 			}
-			output += string(data)
-		}
-		test.String(t, output, tt.expected, "in "+tt.css)
+			test.String(t, output, tt.expected)
+		})
 	}
 
-	test.String(t, ErrorGrammar.String(), "Error")
-	test.String(t, AtRuleGrammar.String(), "AtRule")
-	test.String(t, BeginAtRuleGrammar.String(), "BeginAtRule")
-	test.String(t, EndAtRuleGrammar.String(), "EndAtRule")
-	test.String(t, BeginRulesetGrammar.String(), "BeginRuleset")
-	test.String(t, EndRulesetGrammar.String(), "EndRuleset")
-	test.String(t, DeclarationGrammar.String(), "Declaration")
-	test.String(t, TokenGrammar.String(), "Token")
-	test.String(t, CommentGrammar.String(), "Comment")
-	test.String(t, CustomPropertyGrammar.String(), "CustomProperty")
-	test.String(t, GrammarType(100).String(), "Invalid(100)")
+	test.T(t, ErrorGrammar.String(), "Error")
+	test.T(t, AtRuleGrammar.String(), "AtRule")
+	test.T(t, BeginAtRuleGrammar.String(), "BeginAtRule")
+	test.T(t, EndAtRuleGrammar.String(), "EndAtRule")
+	test.T(t, BeginRulesetGrammar.String(), "BeginRuleset")
+	test.T(t, EndRulesetGrammar.String(), "EndRuleset")
+	test.T(t, DeclarationGrammar.String(), "Declaration")
+	test.T(t, TokenGrammar.String(), "Token")
+	test.T(t, CommentGrammar.String(), "Comment")
+	test.T(t, CustomPropertyGrammar.String(), "CustomProperty")
+	test.T(t, GrammarType(100).String(), "Invalid(100)")
 }
 
 func TestParseError(t *testing.T) {
@@ -162,32 +163,23 @@ func TestParseError(t *testing.T) {
 		{true, "--custom-variable:0", io.EOF},
 	}
 	for _, tt := range parseErrorTests {
-		p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
-		for {
-			grammar, _, _ := p.Next()
-			if grammar == ErrorGrammar {
-				test.Error(t, p.Err(), tt.expected, "in "+tt.css)
-				break
+		t.Run(tt.css, func(t *testing.T) {
+			p := NewParser([]byte(tt.css), tt.inline)
+			for {
+				grammar, _, _ := p.Next()
+				if grammar == ErrorGrammar {
+					test.T(t, p.Err(), tt.expected)
+					break
+				}
 			}
-		}
-	}
-}
-
-func TestReader(t *testing.T) {
-	input := "x:a;"
-	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), true)
-	for {
-		grammar, _, _ := p.Next()
-		if grammar == ErrorGrammar {
-			break
-		}
+		})
 	}
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewParser() {
-	p := NewParser(bytes.NewBufferString("color: red;"), true) // false because this is the content of an inline style attribute
+	p := NewParser([]byte("color: red;"), true) // false because this is the content of an inline style attribute
 	out := ""
 	for {
 		gt, _, data := p.Next()

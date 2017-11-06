@@ -26,8 +26,10 @@ func TestParseNumber(t *testing.T) {
 		{"a", 0},
 	}
 	for _, tt := range numberTests {
-		n := Number([]byte(tt.number))
-		test.That(t, n == tt.expected)
+		t.Run(tt.number, func(t *testing.T) {
+			n := Number([]byte(tt.number))
+			test.T(t, n, tt.expected)
+		})
 	}
 }
 
@@ -46,9 +48,11 @@ func TestParseDimension(t *testing.T) {
 		{"1~", 1, 0},
 	}
 	for _, tt := range dimensionTests {
-		num, unit := Dimension([]byte(tt.dimension))
-		test.That(t, num == tt.expectedNum, "number")
-		test.That(t, unit == tt.expectedUnit, "unit")
+		t.Run(tt.dimension, func(t *testing.T) {
+			num, unit := Dimension([]byte(tt.dimension))
+			test.T(t, num, tt.expectedNum, "number")
+			test.T(t, unit, tt.expectedUnit, "unit")
+		})
 	}
 }
 
@@ -66,9 +70,11 @@ func TestMediatype(t *testing.T) {
 		{"text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""}},
 	}
 	for _, tt := range mediatypeTests {
-		mimetype, _ := Mediatype([]byte(tt.mediatype))
-		test.Bytes(t, mimetype, []byte(tt.expectedMimetype), "mimetype")
-		//test.That(t, params == tt.expectedParams, "parameters") // TODO
+		t.Run(tt.mediatype, func(t *testing.T) {
+			mimetype, _ := Mediatype([]byte(tt.mediatype))
+			test.String(t, string(mimetype), tt.expectedMimetype, "mimetype")
+			//test.T(t, params, tt.expectedParams, "parameters") // TODO
+		})
 	}
 }
 
@@ -88,10 +94,12 @@ func TestParseDataURI(t *testing.T) {
 		{"data:;base64,()", "", "", base64.CorruptInputError(0)},
 	}
 	for _, tt := range dataURITests {
-		mimetype, data, err := DataURI([]byte(tt.dataURI))
-		test.Bytes(t, mimetype, []byte(tt.expectedMimetype), "mimetype")
-		test.Bytes(t, data, []byte(tt.expectedData), "data")
-		test.Error(t, err, tt.expectedErr)
+		t.Run(tt.dataURI, func(t *testing.T) {
+			mimetype, data, err := DataURI([]byte(tt.dataURI))
+			test.T(t, err, tt.expectedErr)
+			test.String(t, string(mimetype), tt.expectedMimetype, "mimetype")
+			test.String(t, string(data), tt.expectedData, "data")
+		})
 	}
 }
 
@@ -111,9 +119,11 @@ func TestParseQuoteEntity(t *testing.T) {
 		{"&amp;", 0x00, 0},
 	}
 	for _, tt := range quoteEntityTests {
-		quote, n := QuoteEntity([]byte(tt.quoteEntity))
-		test.That(t, quote == tt.expectedQuote, "quote", quote, "must equal", tt.expectedQuote)
-		test.That(t, n == tt.expectedN, "quote length", n, "must equal", tt.expectedN)
+		t.Run(tt.quoteEntity, func(t *testing.T) {
+			quote, n := QuoteEntity([]byte(tt.quoteEntity))
+			test.T(t, quote, tt.expectedQuote, "quote")
+			test.T(t, n, tt.expectedN, "quote length")
+		})
 	}
 }
 

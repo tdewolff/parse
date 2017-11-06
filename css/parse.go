@@ -3,7 +3,6 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"errors"
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse"
@@ -89,12 +88,11 @@ type Parser struct {
 	data    []byte
 	prevWS  bool
 	prevEnd bool
-	n       int
 }
 
 // NewParser returns a new CSS parser from an io.Reader. isInline specifies whether this is an inline style attribute.
-func NewParser(r io.Reader, isInline bool) *Parser {
-	l := NewLexer(r)
+func NewParser(b []byte, isInline bool) *Parser {
+	l := NewLexer(b)
 	p := &Parser{
 		l: l,
 	}
@@ -116,8 +114,6 @@ func (p *Parser) Err() error {
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
-	p.l.Free(p.n)
-	p.n = 0
 	p.err = nil
 
 	if p.prevEnd {
@@ -138,7 +134,6 @@ func (p *Parser) Values() []Token {
 func (p *Parser) popToken(allowComment bool) (TokenType, []byte) {
 	p.prevWS = false
 	tt, data := p.l.Next()
-	p.n += len(data)
 	for tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
@@ -146,7 +141,6 @@ func (p *Parser) popToken(allowComment bool) (TokenType, []byte) {
 			break
 		}
 		tt, data = p.l.Next()
-		p.n += len(data)
 	}
 	return tt, data
 }

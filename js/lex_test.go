@@ -1,37 +1,12 @@
 package js // import "github.com/tdewolff/parse/js"
 
 import (
-	"bytes"
 	"fmt"
 	"io"
-	"strconv"
 	"testing"
 
 	"github.com/tdewolff/test"
 )
-
-func helperStringify(t *testing.T, input string, index int) string {
-	s := ""
-	l := NewLexer(bytes.NewBufferString(input))
-	for i := 0; i <= index; i++ {
-		tt, data := l.Next()
-		if tt == ErrorToken {
-			if l.Err() != nil {
-				s += tt.String() + "('" + l.Err().Error() + "')"
-			} else {
-				s += tt.String() + "(nil)"
-			}
-			break
-		} else if tt == WhitespaceToken {
-			continue
-		} else {
-			s += tt.String() + "('" + string(data) + "') "
-		}
-	}
-	return s + " with code: " + strconv.Quote(input)
-}
-
-////////////////////////////////////////////////////////////////
 
 type TTs []TokenType
 
@@ -126,52 +101,43 @@ func TestTokens(t *testing.T) {
 		{"`", TTs{UnknownToken}},
 	}
 
-	passed := 0
-
 	for _, tt := range tokenTests {
-		l := NewLexer(bytes.NewBufferString(tt.js))
-		i := 0
-		j := 0
-		for {
-			token, _ := l.Next()
-			j++
-			if token == ErrorToken {
-				stringify := helperStringify(t, tt.js, j)
-				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
-				test.Error(t, l.Err(), io.EOF, "in "+stringify)
-				passed++
-				break
-			} else if token == WhitespaceToken {
-				continue
-			}
-			if i < len(tt.expected) {
-				expected := tt.expected[i]
-				if token != expected {
-					stringify := helperStringify(t, tt.js, j)
-					test.String(t, token.String(), expected.String(), "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
+		t.Run(tt.js, func(t *testing.T) {
+			l := NewLexer([]byte(tt.js))
+			i := 0
+			j := 0
+			for {
+				token, _ := l.Next()
+				j++
+				if token == ErrorToken {
+					test.T(t, l.Err(), io.EOF)
+					test.T(t, i, len(tt.expected), "when error occurred we must be at the end")
+					break
+				} else if token == WhitespaceToken {
+					continue
+				}
+				if i < len(tt.expected) {
+					if token != tt.expected[i] {
+						test.String(t, token.String(), tt.expected[i].String(), "token types must match")
+						break
+					}
+				} else {
+					test.Fail(t, "index", i, "must not exceed expected token types size", len(tt.expected))
 					break
 				}
-			} else {
-				stringify := helperStringify(t, tt.js, j)
-				test.That(t, false, "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
-				break
+				i++
 			}
-			i++
-		}
+		})
 	}
 
-	if passed != len(tokenTests) {
-		t.Logf("Failed %d / %d token tests", len(tokenTests)-passed, len(tokenTests))
-	}
-
-	test.String(t, WhitespaceToken.String(), "Whitespace")
-	test.String(t, TokenType(100).String(), "Invalid(100)")
+	test.T(t, WhitespaceToken.String(), "Whitespace")
+	test.T(t, TokenType(100).String(), "Invalid(100)")
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
+	l := NewLexer([]byte("var x = 'lorem ipsum';"))
 	out := ""
 	for {
 		tt, data := l.Next()
@@ -179,7 +145,6 @@ func ExampleNewLexer() {
 			break
 		}
 		out += string(data)
-		l.Free(len(data))
 	}
 	fmt.Println(out)
 	// Output: var x = 'lorem ipsum';
