@@ -8,13 +8,13 @@ import (
 )
 
 func TestHashTable(t *testing.T) {
-	test.That(t, ToHash([]byte("address")) == Address, "'address' must resolve to Address")
-	test.String(t, Address.String(), "address")
-	test.String(t, Accept_Charset.String(), "accept-charset")
-	test.That(t, ToHash([]byte("")) == Hash(0), "empty string must resolve to zero")
-	test.String(t, Hash(0xffffff).String(), "")
-	test.That(t, ToHash([]byte("iter")) == Hash(0), "'iter' must resolve to zero")
-	test.That(t, ToHash([]byte("test")) == Hash(0), "'test' must resolve to zero")
+	test.T(t, ToHash([]byte("address")), Address, "'address' must resolve to Address")
+	test.T(t, Address.String(), "address")
+	test.T(t, Accept_Charset.String(), "accept-charset")
+	test.T(t, ToHash([]byte("")), Hash(0), "empty string must resolve to zero")
+	test.T(t, Hash(0xffffff).String(), "")
+	test.T(t, ToHash([]byte("iter")), Hash(0), "'iter' must resolve to zero")
+	test.T(t, ToHash([]byte("test")), Hash(0), "'test' must resolve to zero")
 }
 
 ////////////////////////////////////////////////////////////////

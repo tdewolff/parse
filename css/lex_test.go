@@ -3,34 +3,10 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"fmt"
 	"io"
-	"strconv"
 	"testing"
 
 	"github.com/tdewolff/test"
 )
-
-func helperStringify(t *testing.T, input string) string {
-	s := ""
-	l := NewLexer([]byte(input))
-	for i := 0; i < 10; i++ {
-		tt, text := l.Next()
-		if tt == ErrorToken {
-			if l.Err() != nil {
-				s += tt.String() + "('" + l.Err().Error() + "')"
-			} else {
-				s += tt.String() + "(nil)"
-			}
-			break
-		} else if tt == WhitespaceToken {
-			continue
-		} else {
-			s += tt.String() + "('" + string(text) + "') "
-		}
-	}
-	return s
-}
-
-////////////////////////////////////////////////////////////////
 
 type TTs []TokenType
 
@@ -119,31 +95,32 @@ func TestTokens(t *testing.T) {
 		{"id\u554a", TTs{IdentToken}},
 	}
 	for _, tt := range tokenTests {
-		stringify := helperStringify(t, tt.css)
-		l := NewLexer([]byte(tt.css))
-		i := 0
-		for {
-			token, _ := l.Next()
-			if token == ErrorToken {
-				test.That(t, i == len(tt.expected), "when error occurred we must be at the end in "+stringify)
-				test.Error(t, l.Err(), io.EOF, "in "+stringify)
-				break
-			} else if token == WhitespaceToken {
-				continue
+		t.Run(tt.css, func(t *testing.T) {
+			l := NewLexer([]byte(tt.css))
+			i := 0
+			for {
+				token, _ := l.Next()
+				if token == ErrorToken {
+					test.T(t, l.Err(), io.EOF)
+					test.T(t, i, len(tt.expected), "when error occurred we must be at the end")
+					break
+				} else if token == WhitespaceToken {
+					continue
+				}
+				test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected))
+				if i < len(tt.expected) {
+					test.T(t, token, tt.expected[i], "token types must match")
+				}
+				i++
 			}
-			test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected), "in "+stringify)
-			if i < len(tt.expected) {
-				test.That(t, token == tt.expected[i], "token types must match at index "+strconv.Itoa(i)+" in "+stringify)
-			}
-			i++
-		}
+		})
 	}
 
-	test.String(t, WhitespaceToken.String(), "Whitespace")
-	test.String(t, EmptyToken.String(), "Empty")
-	test.String(t, CustomPropertyValueToken.String(), "CustomPropertyValue")
-	test.String(t, TokenType(100).String(), "Invalid(100)")
-	test.That(t, NewLexer([]byte("x")).consumeBracket() == ErrorToken, "consumeBracket on 'x' must return error")
+	test.T(t, WhitespaceToken.String(), "Whitespace")
+	test.T(t, EmptyToken.String(), "Empty")
+	test.T(t, CustomPropertyValueToken.String(), "CustomPropertyValue")
+	test.T(t, TokenType(100).String(), "Invalid(100)")
+	test.T(t, NewLexer([]byte("x")).consumeBracket(), ErrorToken, "consumeBracket on 'x' must return error")
 }
 
 ////////////////////////////////////////////////////////////////

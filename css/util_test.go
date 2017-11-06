@@ -18,17 +18,17 @@ func TestIsURLUnquoted(t *testing.T) {
 
 func TestHsl2Rgb(t *testing.T) {
 	r, g, b := HSL2RGB(0.0, 1.0, 0.5)
-	test.Float(t, r, 1.0)
-	test.Float(t, g, 0.0)
-	test.Float(t, b, 0.0)
+	test.T(t, r, 1.0)
+	test.T(t, g, 0.0)
+	test.T(t, b, 0.0)
 
 	r, g, b = HSL2RGB(1.0, 1.0, 0.5)
-	test.Float(t, r, 1.0)
-	test.Float(t, g, 0.0)
-	test.Float(t, b, 0.0)
+	test.T(t, r, 1.0)
+	test.T(t, g, 0.0)
+	test.T(t, b, 0.0)
 
 	r, g, b = HSL2RGB(0.66, 0.0, 1.0)
-	test.Float(t, r, 1.0)
-	test.Float(t, g, 1.0)
-	test.Float(t, b, 1.0)
+	test.T(t, r, 1.0)
+	test.T(t, g, 1.0)
+	test.T(t, b, 1.0)
 }

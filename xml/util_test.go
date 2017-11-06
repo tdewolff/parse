@@ -23,11 +23,14 @@ func TestEscapeAttrVal(t *testing.T) {
 	}
 	var buf []byte
 	for _, tt := range attrValTests {
-		b := []byte(tt.attrVal)
-		if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
-			b = b[1 : len(b)-1]
-		}
-		test.String(t, string(EscapeAttrVal(&buf, []byte(b))), tt.expected)
+		t.Run(tt.attrVal, func(t *testing.T) {
+			b := []byte(tt.attrVal)
+			if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
+				b = b[1 : len(b)-1]
+			}
+			val := EscapeAttrVal(&buf, []byte(b))
+			test.String(t, string(val), tt.expected)
+		})
 	}
 }
 
@@ -47,12 +50,14 @@ func TestEscapeCDATAVal(t *testing.T) {
 	}
 	var buf []byte
 	for _, tt := range CDATAValTests {
-		b := []byte(tt.CDATAVal[len("<![CDATA[") : len(tt.CDATAVal)-len("]]>")])
-		data, useText := EscapeCDATAVal(&buf, b)
-		text := string(data)
-		if !useText {
-			text = "<![CDATA[" + text + "]]>"
-		}
-		test.String(t, text, tt.expected)
+		t.Run(tt.CDATAVal, func(t *testing.T) {
+			b := []byte(tt.CDATAVal[len("<![CDATA[") : len(tt.CDATAVal)-len("]]>")])
+			data, useText := EscapeCDATAVal(&buf, b)
+			text := string(data)
+			if !useText {
+				text = "<![CDATA[" + text + "]]>"
+			}
+			test.String(t, text, tt.expected)
+		})
 	}
 }

@@ -31,16 +31,16 @@ func TestCopy(t *testing.T) {
 	foo := []byte("abc")
 	bar := Copy(foo)
 	foo[0] = 'b'
-	test.Bytes(t, foo, []byte("bbc"))
-	test.Bytes(t, bar, []byte("abc"))
+	test.String(t, string(foo), "bbc")
+	test.String(t, string(bar), "abc")
 }
 
 func TestToLower(t *testing.T) {
 	foo := []byte("Abc")
 	bar := ToLower(foo)
 	bar[1] = 'B'
-	test.Bytes(t, foo, []byte("aBc"))
-	test.Bytes(t, bar, []byte("aBc"))
+	test.String(t, string(foo), "aBc")
+	test.String(t, string(bar), "aBc")
 }
 
 func TestEqualFold(t *testing.T) {
