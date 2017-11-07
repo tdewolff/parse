@@ -100,7 +100,7 @@ type Lexer struct {
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
 		r:         buffer.NewMemLexer(r),
-		stack:     make([]ParsingContext, 0),
+		stack:     make([]ParsingContext, 0, 16),
 		state:     ExprState,
 		emptyLine: true,
 	}
