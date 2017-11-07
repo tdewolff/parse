@@ -71,7 +71,7 @@ func (tt GrammarType) String() string {
 ////////////////////////////////////////////////////////////////
 
 // State is the state function the parser currently is in.
-type State func() GrammarType
+type State func(*Parser) GrammarType
 
 // Token is a single TokenType and its associated data.
 type Token struct {
@@ -98,12 +98,14 @@ type Parser struct {
 func NewParser(r io.Reader, isInline bool) *Parser {
 	l := NewLexer(r)
 	p := &Parser{
-		l: l,
+		l:     l,
+		state: make([]State, 0, 4),
 	}
+
 	if isInline {
-		p.state = []State{p.parseDeclarationList}
+		p.state = append(p.state, (*Parser).parseDeclarationList)
 	} else {
-		p.state = []State{p.parseStylesheet}
+		p.state = append(p.state, (*Parser).parseStylesheet)
 	}
 	return p
 }
@@ -126,7 +128,7 @@ func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	} else {
 		p.tt, p.data = p.popToken(true)
 	}
-	gt := p.state[len(p.state)-1]()
+	gt := p.state[len(p.state)-1](p)
 	return gt, p.tt, p.data
 }
 
@@ -221,11 +223,11 @@ func (p *Parser) parseAtRule() GrammarType {
 		tt, data := p.popToken(false)
 		if tt == LeftBraceToken && p.level == 0 {
 			if atRule == Font_Face || atRule == Page {
-				p.state = append(p.state, p.parseAtRuleDeclarationList)
+				p.state = append(p.state, (*Parser).parseAtRuleDeclarationList)
 			} else if atRule == Document || atRule == Keyframes || atRule == Media || atRule == Supports {
-				p.state = append(p.state, p.parseAtRuleRuleList)
+				p.state = append(p.state, (*Parser).parseAtRuleRuleList)
 			} else {
-				p.state = append(p.state, p.parseAtRuleUnknown)
+				p.state = append(p.state, (*Parser).parseAtRuleUnknown)
 			}
 			return BeginAtRuleGrammar
 		} else if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
@@ -308,7 +310,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			tt, data = p.popToken(false)
 		}
 		if tt == LeftBraceToken && p.level == 0 {
-			p.state = append(p.state, p.parseQualifiedRuleDeclarationList)
+			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
 			p.err = ErrBadQualifiedRule

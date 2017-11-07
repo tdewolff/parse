@@ -192,6 +192,27 @@ func TestReader(t *testing.T) {
 
 ////////////////////////////////////////////////////////////////
 
+type Obj struct{}
+
+func (*Obj) F() {}
+
+var f1 func(*Obj)
+
+func BenchmarkFuncPtr(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		f1 = (*Obj).F
+	}
+}
+
+var f2 func()
+
+func BenchmarkMemFuncPtr(b *testing.B) {
+	obj := &Obj{}
+	for i := 0; i < b.N; i++ {
+		f2 = obj.F
+	}
+}
+
 func ExampleNewParser() {
 	p := NewParser(bytes.NewBufferString("color: red;"), true) // false because this is the content of an inline style attribute
 	out := ""
