@@ -1,6 +1,7 @@
 package html // import "github.com/tdewolff/parse/html"
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -66,7 +67,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer([]byte(tt.html))
+			l := NewLexer(bytes.NewBufferString(tt.html))
 			i := 0
 			for {
 				token, _ := l.Next()
@@ -102,7 +103,7 @@ func TestTags(t *testing.T) {
 	}
 	for _, tt := range tagTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer([]byte(tt.html))
+			l := NewLexer(bytes.NewBufferString(tt.html))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -136,7 +137,7 @@ func TestAttributes(t *testing.T) {
 	}
 	for _, tt := range attributeTests {
 		t.Run(tt.attr, func(t *testing.T) {
-			l := NewLexer([]byte(tt.attr))
+			l := NewLexer(bytes.NewBufferString(tt.attr))
 			i := 0
 			for {
 				token, _ := l.Next()
@@ -166,7 +167,7 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer([]byte(tt.html))
+			l := NewLexer(bytes.NewBufferString(tt.html))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -240,7 +241,7 @@ func BenchmarkWhitespace3(b *testing.B) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer([]byte("<span class='user'>John Doe</span>"))
+	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
 		tt, data := l.Next()

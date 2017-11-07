@@ -174,26 +174,3 @@ func BenchmarkWhitespaceIf5(b *testing.B) {
 		}
 	}
 }
-
-var ByteSliceTest = []byte("test")
-
-func BenchmarkByteSliceConst(b *testing.B) {
-	x := []byte("test")
-	for i := 0; i < b.N; i++ {
-		bytes.Compare(x, ByteSliceTest)
-	}
-}
-
-func BenchmarkByteSliceAlloc(b *testing.B) {
-	x := []byte("test")
-	for i := 0; i < b.N; i++ {
-		bytes.Compare(x, []byte{'t', 'e', 's', 't'})
-	}
-}
-
-func BenchmarkByteSliceAllocString(b *testing.B) {
-	x := []byte("test")
-	for i := 0; i < b.N; i++ {
-		bytes.Compare(x, []byte("test"))
-	}
-}

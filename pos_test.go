@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"bytes"
 	"io"
 	"testing"
 
@@ -30,7 +31,8 @@ func TestPosition(t *testing.T) {
 	}
 	for _, tt := range newlineTests {
 		t.Run(tt.s, func(t *testing.T) {
-			line, col, err := Pos([]byte(tt.s), tt.pos)
+			r := bytes.NewBufferString(tt.s)
+			line, col, err := Pos(r, tt.pos)
 			test.T(t, err, tt.err)
 			test.T(t, line, tt.line, "line")
 			test.T(t, col, tt.col, "column")

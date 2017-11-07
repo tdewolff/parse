@@ -3,6 +3,7 @@ package xml // import "github.com/tdewolff/parse/xml"
 
 import (
 	"errors"
+	"io"
 	"strconv"
 
 	"github.com/tdewolff/buffer"
@@ -77,9 +78,9 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(b []byte) *Lexer {
+func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r: buffer.NewMemLexer(b),
+		r: buffer.NewMemLexer(r),
 	}
 }
 
