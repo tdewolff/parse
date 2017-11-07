@@ -3,9 +3,7 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
-	"os"
 	"strconv"
 
 	"github.com/tdewolff/parse"
@@ -112,7 +110,6 @@ func NewParser(r io.Reader, isInline bool) *Parser {
 
 // Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
-	fmt.Fprintf(os.Stderr, "%d %d\n", len(p.buf), cap(p.buf))
 	if p.err != nil {
 		return p.err
 	}
