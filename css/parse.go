@@ -3,7 +3,9 @@ package css // import "github.com/tdewolff/parse/css"
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"os"
 	"strconv"
 
 	"github.com/tdewolff/parse"
@@ -31,6 +33,7 @@ const (
 	AtRuleGrammar
 	BeginAtRuleGrammar
 	EndAtRuleGrammar
+	QualifiedRuleGrammar
 	BeginRulesetGrammar
 	EndRulesetGrammar
 	DeclarationGrammar
@@ -51,6 +54,8 @@ func (tt GrammarType) String() string {
 		return "BeginAtRule"
 	case EndAtRuleGrammar:
 		return "EndAtRule"
+	case QualifiedRuleGrammar:
+		return "QualifiedRule"
 	case BeginRulesetGrammar:
 		return "BeginRuleset"
 	case EndRulesetGrammar:
@@ -107,6 +112,7 @@ func NewParser(r io.Reader, isInline bool) *Parser {
 
 // Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
+	fmt.Fprintf(os.Stderr, "%d %d\n", len(p.buf), cap(p.buf))
 	if p.err != nil {
 		return p.err
 	}
@@ -316,6 +322,9 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '>' || data[0] == '+' || data[0] == '~') {
+			if data[0] == ',' {
+				return QualifiedRuleGrammar
+			}
 			skipWS = true
 		} else if p.prevWS && !skipWS && !inAttrSel {
 			p.pushBuf(WhitespaceToken, wsBytes)

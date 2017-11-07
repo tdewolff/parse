@@ -120,7 +120,7 @@ func TestParse(t *testing.T) {
 						test.T(t, err, io.EOF)
 						break
 					}
-				} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
+				} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == QualifiedRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 					if grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 						data = append(data, ":"...)
 					}
@@ -131,6 +131,8 @@ func TestParse(t *testing.T) {
 						data = append(data, "{"...)
 					} else if grammar == AtRuleGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
 						data = append(data, ";"...)
+					} else if grammar == QualifiedRuleGrammar {
+						data = append(data, ","...)
 					}
 				}
 				output += string(data)
