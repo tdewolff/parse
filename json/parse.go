@@ -221,7 +221,7 @@ The following functions follow the specifications at http://json.org/
 
 func (p *Parser) moveWhitespace() {
 	for {
-		if c := p.r.Peek(0); c != ' ' && c != '\t' && c != '\r' && c != '\n' {
+		if c := p.r.Peek(0); c != ' ' && c != '\n' && c != '\r' && c != '\t' {
 			break
 		}
 		p.r.Move(1)
