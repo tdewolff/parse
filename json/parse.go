@@ -302,10 +302,18 @@ func (p *Parser) consumeStringToken() bool {
 	for {
 		c := p.r.Peek(0)
 		if c == '"' {
-			p.r.Move(1)
-			break
-		} else if c == '\\' && (p.r.Peek(1) != 0 /* || p.r.Err() == nil */) {
-			p.r.Move(1)
+			escaped := false
+			for i := p.r.Pos() - 1; i >= 0; i-- {
+				if p.r.Lexeme()[i] == '\\' {
+					escaped = !escaped
+				} else {
+					break
+				}
+			}
+			if !escaped {
+				p.r.Move(1)
+				break
+			}
 		} else if c == 0 {
 			return false
 		}
