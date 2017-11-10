@@ -123,6 +123,11 @@ func (l *Lexer) Err() error {
 	return l.r.Err()
 }
 
+// Restore restores the NULL byte at the end of the buffer.
+func (l *Lexer) Restore() {
+	l.r.Restore()
+}
+
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	tt := UnknownToken

@@ -118,6 +118,11 @@ func (p *Parser) Err() error {
 	return p.l.Err()
 }
 
+// Restore restores the NULL byte at the end of the buffer.
+func (p *Parser) Restore() {
+	p.l.Restore()
+}
+
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	p.err = nil

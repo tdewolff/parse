@@ -151,8 +151,13 @@ func NewLexer(r io.Reader) *Lexer {
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
-func (l Lexer) Err() error {
+func (l *Lexer) Err() error {
 	return l.r.Err()
+}
+
+// Restore restores the NULL byte at the end of the buffer.
+func (l *Lexer) Restore() {
+	l.r.Restore()
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
@@ -267,7 +272,7 @@ func (l *Lexer) consumeComment() bool {
 	l.r.Move(2)
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.r.Err() != nil {
+		if c == 0 && l.Err() != nil {
 			break
 		} else if c == '*' && l.r.Peek(1) == '/' {
 			l.r.Move(2)
@@ -625,7 +630,7 @@ func (l *Lexer) consumeString() TokenType {
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.r.Err() != nil {
+		if c == 0 && l.Err() != nil {
 			break
 		} else if c == '\n' || c == '\r' || c == '\f' {
 			l.r.Move(1)
@@ -648,7 +653,7 @@ func (l *Lexer) consumeString() TokenType {
 func (l *Lexer) consumeUnquotedURL() bool {
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.r.Err() != nil || c == ')' {
+		if c == 0 && l.Err() != nil || c == ')' {
 			break
 		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || c == ' ' || c <= 0x1F || c == 0x7F {
 			if c != '\\' || !l.consumeEscape() {
