@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse"
 	"github.com/tdewolff/test"
 )
 
@@ -151,9 +152,9 @@ func TestAttributes(t *testing.T) {
 func TestErrors(t *testing.T) {
 	var errorTests = []struct {
 		xml string
-		err error
+		col int
 	}{
-		{"a\x00b", ErrBadNull},
+		{"a\x00b", 2},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.xml, func(t *testing.T) {
@@ -161,7 +162,13 @@ func TestErrors(t *testing.T) {
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
-					test.T(t, l.Err(), tt.err)
+					if tt.col == 0 {
+						test.T(t, l.Err(), io.EOF)
+					} else if perr, ok := l.Err().(*parse.Error); ok {
+						test.T(t, perr.Col, tt.col)
+					} else {
+						test.Fail(t, "bad error:", l.Err())
+					}
 					break
 				}
 			}

@@ -12,8 +12,6 @@ import (
 	"github.com/tdewolff/parse"
 )
 
-////////////////////////////////////////////////////////////////
-
 // TokenType determines the type of token, eg. a number or a semicolon.
 type TokenType uint32
 

@@ -2,7 +2,6 @@ package css // import "github.com/tdewolff/parse/css"
 
 import (
 	"bytes"
-	"errors"
 	"io"
 	"strconv"
 
@@ -12,14 +11,6 @@ import (
 var wsBytes = []byte(" ")
 var endBytes = []byte("}")
 var emptyBytes = []byte("")
-
-// ErrBadQualifiedRule is returned when a qualitied rule is expected, but an error or EOF happened earlier.
-var ErrBadQualifiedRule = errors.New("unexpected ending in qualified rule, expected left brace token")
-
-// ErrBadDeclaration is returned when a declaration is expected but the syntax is invalid.
-var ErrBadDeclaration = errors.New("unexpected token in declaration")
-
-////////////////////////////////////////////////////////////////
 
 // GrammarType determines the type of grammar.
 type GrammarType uint32
@@ -198,7 +189,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 
 	// parse error
 	p.initBuf()
-	p.err = ErrBadDeclaration
+	p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
 	for {
 		tt, data := p.popToken(false)
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
@@ -318,7 +309,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
-			p.err = ErrBadQualifiedRule
+			p.err = parse.NewErrorLexer("unexpected ending in qualified rule, expected left brace token", p.l.r)
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
@@ -359,7 +350,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
 	if tt, _ := p.popToken(false); tt != ColonToken {
-		p.err = ErrBadDeclaration
+		p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
 		return ErrorGrammar
 	}
 	skipWS := true
@@ -387,7 +378,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 func (p *Parser) parseCustomProperty() GrammarType {
 	p.initBuf()
 	if tt, _ := p.popToken(false); tt != ColonToken {
-		p.err = ErrBadDeclaration
+		p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
 		return ErrorGrammar
 	}
 	val := []byte{}

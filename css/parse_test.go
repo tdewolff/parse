@@ -113,7 +113,7 @@ func TestParse(t *testing.T) {
 						for _, val := range p.Values() {
 							data = append(data, val.Data...)
 						}
-						if err == ErrBadDeclaration {
+						if perr, ok := err.(*parse.Error); ok && perr.Message == "unexpected token in declaration" {
 							data = append(data, ";"...)
 						}
 					} else {
@@ -156,14 +156,14 @@ func TestParse(t *testing.T) {
 
 func TestParseError(t *testing.T) {
 	var parseErrorTests = []struct {
-		inline   bool
-		css      string
-		expected error
+		inline bool
+		css    string
+		col    int
 	}{
-		{false, "selector", ErrBadQualifiedRule},
-		{true, "color 0", ErrBadDeclaration},
-		{true, "--color 0", ErrBadDeclaration},
-		{true, "--custom-variable:0", io.EOF},
+		{false, "selector", 9},
+		{true, "color 0", 8},
+		{true, "--color 0", 10},
+		{true, "--custom-variable:0", 0},
 	}
 	for _, tt := range parseErrorTests {
 		t.Run(tt.css, func(t *testing.T) {
@@ -171,7 +171,13 @@ func TestParseError(t *testing.T) {
 			for {
 				grammar, _, _ := p.Next()
 				if grammar == ErrorGrammar {
-					test.T(t, p.Err(), tt.expected)
+					if tt.col == 0 {
+						test.T(t, p.Err(), io.EOF)
+					} else if perr, ok := p.Err().(*parse.Error); ok {
+						test.T(t, perr.Col, tt.col)
+					} else {
+						test.Fail(t, "bad error:", p.Err())
+					}
 					break
 				}
 			}

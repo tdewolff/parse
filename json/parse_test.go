@@ -6,6 +6,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse"
 	"github.com/tdewolff/test"
 )
 
@@ -69,19 +70,19 @@ func TestGrammars(t *testing.T) {
 
 func TestGrammarsError(t *testing.T) {
 	var grammarErrorTests = []struct {
-		json     string
-		expected error
+		json string
+		col  int
 	}{
-		{"true, false", ErrBadComma},
-		{"[true false]", ErrNoComma},
-		{"]", ErrBadArrayEnding},
-		{"}", ErrBadObjectEnding},
-		{"{0: 1}", ErrBadObjectKey},
-		{"{\"a\" 1}", ErrBadObjectDeclaration},
-		{"1.", ErrNoComma},
-		{"1e+", ErrNoComma},
-		{`{"":"`, io.EOF},
-		{"\"a\\", io.EOF},
+		{"true, false", 5},
+		{"[true false]", 7},
+		{"]", 1},
+		{"}", 1},
+		{"{0: 1}", 2},
+		{"{\"a\" 1}", 6},
+		{"1.", 2},
+		{"1e+", 2},
+		{`{"":"`, 0},
+		{"\"a\\", 0},
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {
@@ -89,7 +90,13 @@ func TestGrammarsError(t *testing.T) {
 			for {
 				grammar, _ := p.Next()
 				if grammar == ErrorGrammar {
-					test.T(t, p.Err(), tt.expected)
+					if tt.col == 0 {
+						test.T(t, p.Err(), io.EOF)
+					} else if perr, ok := p.Err().(*parse.Error); ok {
+						test.T(t, perr.Col, tt.col)
+					} else {
+						test.Fail(t, "bad error:", p.Err())
+					}
 					break
 				}
 			}
