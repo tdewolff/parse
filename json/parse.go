@@ -102,7 +102,7 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.MemLexer
+	r     *buffer.Lexer
 	state []State
 	err   error
 
@@ -112,7 +112,7 @@ type Parser struct {
 // NewParser returns a new Parser for a given io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		r:     buffer.NewMemLexer(r),
+		r:     buffer.NewLexer(r),
 		state: []State{ValueState},
 	}
 }

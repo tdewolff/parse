@@ -90,7 +90,7 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r         *buffer.MemLexer
+	r         *buffer.Lexer
 	stack     []ParsingContext
 	state     TokenState
 	emptyLine bool
@@ -99,7 +99,7 @@ type Lexer struct {
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r:         buffer.NewMemLexer(r),
+		r:         buffer.NewLexer(r),
 		stack:     make([]ParsingContext, 0, 16),
 		state:     ExprState,
 		emptyLine: true,

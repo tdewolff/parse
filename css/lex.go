@@ -140,13 +140,13 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.MemLexer
+	r *buffer.Lexer
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		buffer.NewMemLexer(r),
+		buffer.NewLexer(r),
 	}
 }
 
