@@ -59,15 +59,18 @@ func Position(r io.Reader, offset int) (line, col int, context string, err error
 func positionContext(l *buffer.Lexer, line, col int) (context string) {
 	for {
 		c := l.Peek(0)
-		if c == 0 || c == '\n' || c == '\r' {
+		if c == 0 && l.Err() != nil || c == '\n' || c == '\r' {
 			break
 		}
 		l.Move(1)
 	}
 
+	// replace unprintable characters by a space
 	b := l.Lexeme()
-	if len(b) > 0 && b[len(b)-1] == '\r' {
-		b[len(b)-1] = ' ' // if error occurs at \n in \r\n, replace \r by a space so it won't wrap
+	for i, c := range b {
+		if c < 0x20 || c == 0x7F {
+			b[i] = ' '
+		}
 	}
 
 	context += fmt.Sprintf("%5d: %s\n", line, string(b))

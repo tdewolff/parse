@@ -27,9 +27,6 @@ func NewError(msg string, r io.Reader, offset int) *Error {
 func NewErrorLexer(msg string, l *buffer.Lexer) *Error {
 	r := buffer.NewReader(l.Bytes())
 	offset := l.Offset()
-	if l.Err() != nil {
-		msg += ": " + l.Err().Error()
-	}
 	return NewError(msg, r, offset)
 }
 
