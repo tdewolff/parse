@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tdewolff/buffer"
+	"github.com/tdewolff/parse/buffer"
 )
 
 type Error struct {
