@@ -9,18 +9,18 @@ import (
 
 type Error struct {
 	Message string
-	Line    int
-	Col     int
-	Context string
+	r       io.Reader
+	Offset  int
+	line    int
+	column  int
+	context string
 }
 
 func NewError(msg string, r io.Reader, offset int) *Error {
-	line, col, context, _ := Position(r, offset)
 	return &Error{
-		msg,
-		line,
-		col,
-		context,
+		Message: msg,
+		r:       r,
+		Offset:  offset,
 	}
 }
 
@@ -30,6 +30,14 @@ func NewErrorLexer(msg string, l *buffer.Lexer) *Error {
 	return NewError(msg, r, offset)
 }
 
+func (e *Error) Position() (int, int, string) {
+	if e.line == 0 {
+		e.line, e.column, e.context, _ = Position(e.r, e.Offset)
+	}
+	return e.line, e.column, e.context
+}
+
 func (e *Error) Error() string {
-	return fmt.Sprintf("parse error:%d:%d: %s\n%s", e.Line, e.Col, e.Message, e.Context)
+	line, column, context := e.Position()
+	return fmt.Sprintf("parse error:%d:%d: %s\n%s", line, column, e.Message, context)
 }
