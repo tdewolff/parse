@@ -164,7 +164,7 @@ func TestErrors(t *testing.T) {
 		html string
 		col  int
 	}{
-		{"a\x00b", 2},
+		{"a\x00b", 0},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.html, func(t *testing.T) {
