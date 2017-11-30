@@ -240,8 +240,9 @@ func (l *Lexer) shiftRawText() []byte {
 							}
 						} else if c == 0 && l.r.Err() != nil {
 							return l.r.Shift()
+						} else {
+							l.r.Move(1)
 						}
-						l.r.Move(1)
 					}
 				} else {
 					l.r.Move(1)
@@ -455,8 +456,9 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 				l.err = parse.NewErrorLexer("unexpected null character", l.r)
 			}
 			return l.r.Shift()
+		} else {
+			l.r.Move(1)
 		}
-		l.r.Move(1)
 	}
 
 	for {
