@@ -591,25 +591,24 @@ func (l *Lexer) consumeRegexpToken() bool {
 			l.r.Move(1)
 			break
 		} else if c == '[' {
-			l.r.Move(1)
 			inClass = true
 		} else if c == ']' {
-			l.r.Move(1)
 			inClass = false
 		} else if c == '\\' {
 			l.r.Move(1)
 			if l.consumeLineTerminator() {
 				l.r.Rewind(mark)
 				return false
+			} else if l.r.Peek(0) == 0 {
+				return true
 			}
 		} else if l.consumeLineTerminator() {
 			l.r.Rewind(mark)
 			return false
 		} else if c == 0 {
 			return true
-		} else {
-			l.r.Move(1)
 		}
+		l.r.Move(1)
 	}
 	// flags
 	for {
