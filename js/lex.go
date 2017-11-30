@@ -591,8 +591,10 @@ func (l *Lexer) consumeRegexpToken() bool {
 			l.r.Move(1)
 			break
 		} else if c == '[' {
+			l.r.Move(1)
 			inClass = true
 		} else if c == ']' {
+			l.r.Move(1)
 			inClass = false
 		} else if c == '\\' {
 			l.r.Move(1)
@@ -605,8 +607,9 @@ func (l *Lexer) consumeRegexpToken() bool {
 			return false
 		} else if c == 0 {
 			return true
+		} else {
+			l.r.Move(1)
 		}
-		l.r.Move(1)
 	}
 	// flags
 	for {
