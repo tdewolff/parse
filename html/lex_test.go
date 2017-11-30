@@ -69,7 +69,7 @@ func TestTokens(t *testing.T) {
 		{"<foo\x00>", TTs{StartTagToken, StartTagCloseToken}},
 		{"</\x00bogus>", TTs{CommentToken}},
 		{"</foo\x00>", TTs{EndTagToken}},
-		{"<plaintext>\x00</plaintext>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
+		{"<plaintext>\x00</plaintext>", TTs{StartTagToken, StartTagCloseToken, TextToken}},
 		{"<script>\x00</script>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
 		{"<!--\x00-->", TTs{CommentToken}},
 		{"<![CDATA[\x00]]>", TTs{TextToken}},
