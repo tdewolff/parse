@@ -60,7 +60,8 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r *buffer.Lexer
+	r   *buffer.Lexer
+	err error
 
 	rawTag Hash
 	inTag  bool
@@ -81,7 +82,7 @@ func (l *Lexer) Err() error {
 	if err := l.r.Err(); err != nil {
 		return err
 	}
-	return nil
+	return l.err
 }
 
 // Restore restores the NULL byte at the end of the buffer.
@@ -131,13 +132,16 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		c = l.r.Peek(0)
 		if c == '<' {
 			c = l.r.Peek(1)
+			isEndTag := c == '/' && l.r.Peek(2) != '>' && (l.r.Peek(2) != 0 || l.r.PeekErr(2) == nil)
 			if l.r.Pos() > 0 {
-				if c == '/' && (l.r.Peek(2) != 0 || l.r.PeekErr(2) == nil) || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
+				if isEndTag || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
+					// return currently buffered texttoken so that we can return tag next iteration
 					return TextToken, l.r.Shift()
 				}
-			} else if c == '/' && (l.r.Peek(2) != 0 || l.r.PeekErr(2) == nil) {
+			} else if isEndTag {
 				l.r.Move(2)
-				if c = l.r.Peek(0); c != '>' && !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0 && l.r.Err() != nil) {
+				// only endtags that are not followed by > or EOF arrive here
+				if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 					return CommentToken, l.shiftBogusComment()
 				}
 				return EndTagToken, l.shiftEndTag()
@@ -192,7 +196,7 @@ func (l *Lexer) shiftRawText() []byte {
 					mark := l.r.Pos()
 					l.r.Move(2)
 					for {
-						if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0 && l.r.Err() != nil) {
+						if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
 							break
 						}
 						l.r.Move(1)
@@ -218,7 +222,7 @@ func (l *Lexer) shiftRawText() []byte {
 							}
 							mark := l.r.Pos()
 							for {
-								if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0 && l.r.Err() != nil) {
+								if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
 									break
 								}
 								l.r.Move(1)
@@ -324,12 +328,18 @@ func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 	}
 	l.text = parse.ToLower(l.r.Lexeme()[1:])
 	if h := ToHash(l.text); h == Textarea || h == Title || h == Style || h == Xmp || h == Iframe || h == Script || h == Plaintext || h == Svg || h == Math {
-		if h == Svg {
+		if h == Svg || h == Math {
+			data := l.shiftXml(h)
+			if l.err != nil {
+				return ErrorToken, nil
+			}
+
 			l.inTag = false
-			return SvgToken, l.shiftXml(h)
-		} else if h == Math {
-			l.inTag = false
-			return MathToken, l.shiftXml(h)
+			if h == Svg {
+				return SvgToken, data
+			} else {
+				return MathToken, data
+			}
 		}
 		l.rawTag = h
 	}
@@ -419,6 +429,7 @@ func (l *Lexer) shiftEndTag() []byte {
 	return parse.ToLower(l.r.Shift())
 }
 
+// shiftXml parses the content of a svg or math tag according to the XML 1.1 specifications, including the tag itself.
 func (l *Lexer) shiftXml(rawTag Hash) []byte {
 	inQuote := false
 	for {
@@ -431,7 +442,7 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 				mark := l.r.Pos()
 				l.r.Move(2)
 				for {
-					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0 && l.r.Err() != nil) {
+					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
 						break
 					}
 					l.r.Move(1)
@@ -442,7 +453,8 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 			} else {
 				l.r.Move(1)
 			}
-		} else if c == 0 && l.r.Err() != nil {
+		} else if c == 0 {
+			l.err = parse.NewErrorLexer("unexpected null character", l.r)
 			return l.r.Shift()
 		}
 		l.r.Move(1)
@@ -453,8 +465,9 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 		if c == '>' {
 			l.r.Move(1)
 			break
-		} else if c == 0 && l.r.Err() != nil {
-			break
+		} else if c == 0 {
+			l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			return l.r.Shift()
 		}
 		l.r.Move(1)
 	}

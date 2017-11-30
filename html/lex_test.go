@@ -63,8 +63,22 @@ func TestTokens(t *testing.T) {
 		{"<script><!--", TTs{StartTagToken, StartTagCloseToken, TextToken}},
 		{"<script><!--var x='<script></script>';-->", TTs{StartTagToken, StartTagCloseToken, TextToken}},
 
+		// NULL
+		{"foo\x00bar", TTs{TextToken}},
+		{"<\x00foo>", TTs{TextToken}},
+		{"<foo\x00>", TTs{StartTagToken, StartTagCloseToken}},
+		{"</\x00bogus>", TTs{CommentToken}},
+		{"</foo\x00>", TTs{EndTagToken}},
+		{"<plaintext>\x00</plaintext>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
+		{"<script>\x00</script>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
+		{"<!--\x00-->", TTs{CommentToken}},
+		{"<![CDATA[\x00]]>", TTs{TextToken}},
+		{"<!doctype\x00>", TTs{DoctypeToken}},
+		{"<?bogus\x00>", TTs{CommentToken}},
+		{"<?bogus\x00>", TTs{CommentToken}},
+
 		// go-fuzz
-		{"</>", TTs{EndTagToken}},
+		{"</>", TTs{TextToken}},
 	}
 	for _, tt := range tokenTests {
 		t.Run(tt.html, func(t *testing.T) {
@@ -135,6 +149,11 @@ func TestAttributes(t *testing.T) {
 		{"<foo x", []string{"x", ""}},
 		{"<foo x=", []string{"x", ""}},
 		{"<foo x='", []string{"x", "'"}},
+
+		// NULL
+		{"<foo \x00>", []string{"\x00", ""}},
+		{"<foo \x00=\x00>", []string{"\x00", "\x00"}},
+		{"<foo \x00='\x00'>", []string{"\x00", "'\x00'"}},
 	}
 	for _, tt := range attributeTests {
 		t.Run(tt.attr, func(t *testing.T) {
@@ -164,7 +183,7 @@ func TestErrors(t *testing.T) {
 		html string
 		col  int
 	}{
-		{"a\x00b", 0},
+		{"<svg>\x00</svg>", 6},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.html, func(t *testing.T) {
