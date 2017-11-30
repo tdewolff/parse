@@ -184,6 +184,7 @@ func TestErrors(t *testing.T) {
 		col  int
 	}{
 		{"<svg>\x00</svg>", 6},
+		{"<svg></svg\x00>", 11},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.html, func(t *testing.T) {

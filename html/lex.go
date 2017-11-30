@@ -442,7 +442,7 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 				mark := l.r.Pos()
 				l.r.Move(2)
 				for {
-					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
+					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 						break
 					}
 					l.r.Move(1)
