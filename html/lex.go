@@ -196,7 +196,7 @@ func (l *Lexer) shiftRawText() []byte {
 					mark := l.r.Pos()
 					l.r.Move(2)
 					for {
-						if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
+						if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 							break
 						}
 						l.r.Move(1)
@@ -222,7 +222,7 @@ func (l *Lexer) shiftRawText() []byte {
 							}
 							mark := l.r.Pos()
 							for {
-								if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == 0) {
+								if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 									break
 								}
 								l.r.Move(1)
@@ -430,6 +430,7 @@ func (l *Lexer) shiftEndTag() []byte {
 }
 
 // shiftXml parses the content of a svg or math tag according to the XML 1.1 specifications, including the tag itself.
+// So far we have already parsed `<svg` or `<math`.
 func (l *Lexer) shiftXml(rawTag Hash) []byte {
 	inQuote := false
 	for {
@@ -437,24 +438,22 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 		if c == '"' {
 			inQuote = !inQuote
 			l.r.Move(1)
-		} else if c == '<' && !inQuote {
-			if l.r.Peek(1) == '/' {
-				mark := l.r.Pos()
-				l.r.Move(2)
-				for {
-					if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
-						break
-					}
-					l.r.Move(1)
-				}
-				if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
+		} else if c == '<' && !inQuote && l.r.Peek(1) == '/' {
+			mark := l.r.Pos()
+			l.r.Move(2)
+			for {
+				if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 					break
 				}
-			} else {
 				l.r.Move(1)
 			}
+			if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
+				break
+			}
 		} else if c == 0 {
-			l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			if l.r.Err() == nil {
+				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			}
 			return l.r.Shift()
 		}
 		l.r.Move(1)
@@ -466,7 +465,9 @@ func (l *Lexer) shiftXml(rawTag Hash) []byte {
 			l.r.Move(1)
 			break
 		} else if c == 0 {
-			l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			if l.r.Err() == nil {
+				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			}
 			return l.r.Shift()
 		}
 		l.r.Move(1)
