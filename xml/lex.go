@@ -149,7 +149,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 					l.r.Move(7)
 					return CDATAToken, l.shiftCDATAText()
 				} else if l.at('D', 'O', 'C', 'T', 'Y', 'P', 'E') {
-					l.r.Move(8)
+					l.r.Move(7)
 					return DOCTYPEToken, l.shiftDOCTYPEText()
 				}
 				l.r.Move(-2)
