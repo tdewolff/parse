@@ -155,6 +155,7 @@ func TestErrors(t *testing.T) {
 		col int
 	}{
 		{"a\x00b", 2},
+		{"<a\x00>", 3},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.xml, func(t *testing.T) {

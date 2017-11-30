@@ -79,10 +79,10 @@ func NewLexer(r io.Reader) *Lexer {
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
 func (l *Lexer) Err() error {
-	if err := l.r.Err(); err != nil {
-		return err
+	if l.err != nil {
+		return l.err
 	}
-	return l.err
+	return l.r.Err()
 }
 
 // Restore restores the NULL byte at the end of the buffer.
