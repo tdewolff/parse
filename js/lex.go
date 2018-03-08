@@ -643,6 +643,12 @@ func (l *Lexer) consumeTemplateToken() bool {
 			l.state = ExprState
 			l.r.Move(2)
 			return true
+		} else if c == '\\' {
+			l.r.Move(1)
+			if c := l.r.Peek(0); c != 0 {
+				l.r.Move(1)
+			}
+			continue
 		} else if c == 0 {
 			l.r.Rewind(mark)
 			return false
