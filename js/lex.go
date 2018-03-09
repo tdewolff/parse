@@ -24,6 +24,7 @@ const (
 	WhitespaceToken                      // space \t \v \f
 	LineTerminatorToken                  // \r \n \r\n
 	CommentToken
+	MultiLineCommentToken // token for comments with line terminators (not just any /*block*/)
 	IdentifierToken
 	PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
 	   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= >= */
@@ -70,6 +71,8 @@ func (tt TokenType) String() string {
 		return "LineTerminator"
 	case CommentToken:
 		return "Comment"
+	case MultiLineCommentToken:
+		return "MultiLineComment"
 	case IdentifierToken:
 		return "Identifier"
 	case PunctuatorToken:
@@ -174,15 +177,15 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.r.Move(1)
 		tt = PunctuatorToken
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
-		if (c == '<' || (l.emptyLine && c == '-')) && l.consumeCommentToken() {
+		if l.consumeHTMLLikeCommentToken() {
 			return CommentToken, l.r.Shift()
 		} else if l.consumeLongPunctuatorToken() {
 			l.state = ExprState
 			tt = PunctuatorToken
 		}
 	case '/':
-		if l.consumeCommentToken() {
-			return CommentToken, l.r.Shift()
+		if tt = l.consumeRegularCommentToken(); tt != UnknownToken {
+			return tt, l.r.Shift()
 		} else if l.state == ExprState && l.consumeRegexpToken() {
 			l.state = SubscriptState
 			tt = RegexpToken
@@ -374,38 +377,13 @@ func (l *Lexer) consumeSingleLineComment() {
 
 ////////////////////////////////////////////////////////////////
 
-func (l *Lexer) consumeCommentToken() bool {
+func (l *Lexer) consumeHTMLLikeCommentToken() bool {
 	c := l.r.Peek(0)
-	if c == '/' {
-		c = l.r.Peek(1)
-		if c == '/' {
-			// single line
-			l.r.Move(2)
-			l.consumeSingleLineComment()
-		} else if c == '*' {
-			// multi line
-			l.r.Move(2)
-			for {
-				c := l.r.Peek(0)
-				if c == '*' && l.r.Peek(1) == '/' {
-					l.r.Move(2)
-					return true
-				} else if c == 0 {
-					break
-				} else if l.consumeLineTerminator() {
-					l.emptyLine = true
-				} else {
-					l.r.Move(1)
-				}
-			}
-		} else {
-			return false
-		}
-	} else if c == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
+	if c == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
 		// opening HTML-style single line comment
 		l.r.Move(4)
 		l.consumeSingleLineComment()
-	} else if c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
+	} else if l.emptyLine && c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
 		// closing HTML-style single line comment
 		// (only if current line didn't contain any meaningful tokens)
 		l.r.Move(3)
@@ -414,6 +392,42 @@ func (l *Lexer) consumeCommentToken() bool {
 		return false
 	}
 	return true
+}
+
+func (l *Lexer) consumeRegularCommentToken() TokenType {
+	c := l.r.Peek(0)
+	if c == '/' {
+		c = l.r.Peek(1)
+		if c == '/' {
+			// single line comment
+			l.r.Move(2)
+			l.consumeSingleLineComment()
+			return CommentToken
+		} else if c == '*' {
+			// block comment (potentially multiline)
+			tt := CommentToken
+			l.r.Move(2)
+			for {
+				c := l.r.Peek(0)
+				if c == '*' && l.r.Peek(1) == '/' {
+					l.r.Move(2)
+					break
+				} else if c == 0 {
+					break
+				} else if l.consumeLineTerminator() {
+					tt = MultiLineCommentToken
+					l.emptyLine = true
+				} else {
+					l.r.Move(1)
+				}
+			}
+			return tt
+		} else {
+			return UnknownToken
+		}
+	} else {
+		return UnknownToken
+	}
 }
 
 func (l *Lexer) consumeLongPunctuatorToken() bool {
