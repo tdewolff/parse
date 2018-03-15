@@ -97,6 +97,9 @@ func TestTokens(t *testing.T) {
 		{"function f(){}/1/g", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
 		{"this.return/1/g", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
 		{"(a+b)/1/g", TTs{PunctuatorToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
+		{"`\\``", TTs{TemplateToken}},
+		{"`\\${ 1 }`", TTs{TemplateToken}},
+		{"`\\\r\n`", TTs{TemplateToken}},
 
 		// go fuzz
 		{"`", TTs{UnknownToken}},
