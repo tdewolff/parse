@@ -23,7 +23,7 @@ const (
 	UnknownToken                         // extra token when no token can be matched
 	WhitespaceToken                      // space \t \v \f
 	LineTerminatorToken                  // \r \n \r\n
-	CommentToken
+	SingleLineCommentToken
 	MultiLineCommentToken // token for comments with line terminators (not just any /*block*/)
 	IdentifierToken
 	PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
@@ -69,8 +69,8 @@ func (tt TokenType) String() string {
 		return "Whitespace"
 	case LineTerminatorToken:
 		return "LineTerminator"
-	case CommentToken:
-		return "Comment"
+	case SingleLineCommentToken:
+		return "SingleLineComment"
 	case MultiLineCommentToken:
 		return "MultiLineComment"
 	case IdentifierToken:
@@ -178,13 +178,13 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		tt = PunctuatorToken
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
 		if l.consumeHTMLLikeCommentToken() {
-			return CommentToken, l.r.Shift()
+			return SingleLineCommentToken, l.r.Shift()
 		} else if l.consumeLongPunctuatorToken() {
 			l.state = ExprState
 			tt = PunctuatorToken
 		}
 	case '/':
-		if tt = l.consumeRegularCommentToken(); tt != UnknownToken {
+		if tt = l.consumeCommentToken(); tt != UnknownToken {
 			return tt, l.r.Shift()
 		} else if l.state == ExprState && l.consumeRegexpToken() {
 			l.state = SubscriptState
@@ -394,7 +394,7 @@ func (l *Lexer) consumeHTMLLikeCommentToken() bool {
 	return true
 }
 
-func (l *Lexer) consumeRegularCommentToken() TokenType {
+func (l *Lexer) consumeCommentToken() TokenType {
 	c := l.r.Peek(0)
 	if c == '/' {
 		c = l.r.Peek(1)
@@ -402,10 +402,10 @@ func (l *Lexer) consumeRegularCommentToken() TokenType {
 			// single line comment
 			l.r.Move(2)
 			l.consumeSingleLineComment()
-			return CommentToken
+			return SingleLineCommentToken
 		} else if c == '*' {
 			// block comment (potentially multiline)
-			tt := CommentToken
+			tt := SingleLineCommentToken
 			l.r.Move(2)
 			for {
 				c := l.r.Peek(0)
@@ -422,12 +422,9 @@ func (l *Lexer) consumeRegularCommentToken() TokenType {
 				}
 			}
 			return tt
-		} else {
-			return UnknownToken
 		}
-	} else {
-		return UnknownToken
 	}
+	return UnknownToken
 }
 
 func (l *Lexer) consumeLongPunctuatorToken() bool {
