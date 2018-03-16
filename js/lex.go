@@ -383,15 +383,15 @@ func (l *Lexer) consumeHTMLLikeCommentToken() bool {
 		// opening HTML-style single line comment
 		l.r.Move(4)
 		l.consumeSingleLineComment()
+		return true
 	} else if l.emptyLine && c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
 		// closing HTML-style single line comment
 		// (only if current line didn't contain any meaningful tokens)
 		l.r.Move(3)
 		l.consumeSingleLineComment()
-	} else {
-		return false
+		return true
 	}
-	return true
+	return false
 }
 
 func (l *Lexer) consumeCommentToken() TokenType {
