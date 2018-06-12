@@ -353,16 +353,23 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
-	if tt, _ := p.popToken(false); tt != ColonToken {
-		p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
-		return ErrorGrammar
-	}
 	skipWS := true
+	first := true
+	grammar := DeclarationGrammar
 	for {
 		tt, data := p.popToken(false)
+		if first {
+			first = false
+			if tt == ColonToken {
+				continue
+			}
+			skipWS = false
+			p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
+			grammar = ErrorGrammar
+		}
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
 			p.prevEnd = (tt == RightBraceToken)
-			return DeclarationGrammar
+			return grammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
