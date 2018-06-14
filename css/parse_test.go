@@ -91,6 +91,9 @@ func TestParse(t *testing.T) {
 		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
 		{true, "*color: red; font-size: 12pt;", "*color:red;font-size:12pt;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
+		{false, ".foo { baddecl } .bar { color:red; }", ".foo{baddecl;}.bar{color:red;}"},
+		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{baddecl baddecl baddecl;height:100px;}.bar{color:red;}"},
+		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;”;}.bar{color:red;}"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
