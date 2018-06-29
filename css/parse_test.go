@@ -87,13 +87,13 @@ func TestParse(t *testing.T) {
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
-		{true, "~color:red", "~color:red;"},
-		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
-		{true, "*color: red; font-size: 12pt;", "*color:red;font-size:12pt;"},
+		{true, "~color:red", "ERROR(~color:red;)"},
+		{false, ".foo { *color: #fff;}", ".foo{ERROR(*color:#fff;)}"},
+		{true, "*color: red; font-size: 12pt;", "ERROR(*color:red;)font-size:12pt;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
-		{false, ".foo { baddecl } .bar { color:red; }", ".foo{baddecl;}.bar{color:red;}"},
-		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{baddecl baddecl baddecl;height:100px;}.bar{color:red;}"},
-		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;”;}.bar{color:red;}"},
+		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(baddecl;)}.bar{color:red;}"},
+		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{ERROR(baddecl baddecl baddecl;)height:100px;}.bar{color:red;}"},
+		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(”;)}.bar{color:red;}"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
@@ -113,14 +113,15 @@ func TestParse(t *testing.T) {
 				data = parse.Copy(data)
 				if grammar == ErrorGrammar {
 					if err := p.Err(); err != io.EOF {
+                        data = append([]byte("ERROR("), data...)
 						for _, val := range p.Values() {
 							data = append(data, val.Data...)
 						}
 						if perr, ok := err.(*parse.Error); ok && perr.Message == "unexpected token in declaration" {
 							data = append(data, ";"...)
 						}
+                        data = append(data, ")"...)
 					} else {
-						test.T(t, err, io.EOF)
 						break
 					}
 				} else if grammar == AtRuleGrammar || grammar == BeginAtRuleGrammar || grammar == QualifiedRuleGrammar || grammar == BeginRulesetGrammar || grammar == DeclarationGrammar || grammar == CustomPropertyGrammar {
