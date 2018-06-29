@@ -48,6 +48,7 @@ func TestParse(t *testing.T) {
 
 		// extraordinary
 		{true, "color: red;;", "color:red;"},
+		{true, "font-family: times/*comment*/arial;", "font-family:times arial;"},
 		{true, "color:#c0c0c0", "color:#c0c0c0;"},
 		{true, "background:URL(x.png);", "background:URL(x.png);"},
 		{true, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);"},
@@ -87,13 +88,13 @@ func TestParse(t *testing.T) {
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
-		{true, "~color:red", "ERROR(~color:red;)"},
-		{false, ".foo { *color: #fff;}", ".foo{ERROR(*color:#fff;)}"},
-		{true, "*color: red; font-size: 12pt;", "ERROR(*color:red;)font-size:12pt;"},
+		{true, "~color:red", "ERROR(~color:red)"},
+		{false, ".foo { *color: #fff;}", ".foo{ERROR(*color: #fff;)}"},
+		{true, "*color: red; font-size: 12pt;", "ERROR(*color: red;)font-size:12pt;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
-		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(baddecl;)}.bar{color:red;}"},
+		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(baddecl)}.bar{color:red;}"},
 		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{ERROR(baddecl baddecl baddecl;)height:100px;}.bar{color:red;}"},
-		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(”;)}.bar{color:red;}"},
+		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(”)}.bar{color:red;}"},
 		{false, ".foo { baddecl (; color:red; }", ".foo{ERROR(baddecl (; color:red; })"},
 
 		// issues
@@ -117,9 +118,6 @@ func TestParse(t *testing.T) {
                         data = append([]byte("ERROR("), data...)
 						for _, val := range p.Values() {
 							data = append(data, val.Data...)
-						}
-						if perr, ok := err.(*parse.Error); ok && perr.Message == "unexpected token in declaration" {
-							data = append(data, ";"...)
 						}
                         data = append(data, ")"...)
 					} else {

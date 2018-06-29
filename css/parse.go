@@ -353,9 +353,10 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
 	parse.ToLower(p.data)
+
+	gt := DeclarationGrammar
 	skipWS := true
 	first := true
-	grammar := DeclarationGrammar
 	for {
 		tt, data := p.popToken(false)
 		if first {
@@ -364,18 +365,23 @@ func (p *Parser) parseDeclaration() GrammarType {
 				continue
 			}
 			skipWS = false
+			gt = ErrorGrammar
 			p.err = parse.NewErrorLexer("unexpected token in declaration", p.l.r)
-			grammar = ErrorGrammar
 		}
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
 			p.prevEnd = (tt == RightBraceToken)
-			return grammar
+			if gt == ErrorGrammar && tt == SemicolonToken {
+				p.pushBuf(tt, data)
+			}
+			return gt
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
 			p.level--
 		}
-		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+		if gt == ErrorGrammar && p.prevWS {
+			p.pushBuf(WhitespaceToken, wsBytes)
+		} else if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
 			skipWS = true
 		} else if p.prevWS && !skipWS {
 			p.pushBuf(WhitespaceToken, wsBytes)
