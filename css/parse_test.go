@@ -94,6 +94,7 @@ func TestParse(t *testing.T) {
 		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(baddecl;)}.bar{color:red;}"},
 		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{ERROR(baddecl baddecl baddecl;)height:100px;}.bar{color:red;}"},
 		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(”;)}.bar{color:red;}"},
+		{false, ".foo { baddecl (; color:red; }", ".foo{ERROR(baddecl (; color:red; })"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
