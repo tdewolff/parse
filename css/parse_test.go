@@ -89,6 +89,8 @@ func TestParse(t *testing.T) {
 
 		// bad grammar
 		{true, "~color:red", "ERROR(~color:red)"},
+		{true, "(color;red)", "ERROR((color;red))"},
+		{true, "color(;red)", "ERROR(color(;red))"},
 		{false, ".foo { *color: #fff;}", ".foo{ERROR(*color: #fff;)}"},
 		{true, "*color: red; font-size: 12pt;", "ERROR(*color: red;)font-size:12pt;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
