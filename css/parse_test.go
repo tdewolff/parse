@@ -48,7 +48,7 @@ func TestParse(t *testing.T) {
 
 		// extraordinary
 		{true, "color: red;;", "color:red;"},
-		{true, "font-family: times/*comment*/arial;", "font-family:times arial;"},
+		{true, "margin: 10px/*comment*/50px;", "margin:10px 50px;"},
 		{true, "color:#c0c0c0", "color:#c0c0c0;"},
 		{true, "background:URL(x.png);", "background:URL(x.png);"},
 		{true, "filter: progid : DXImageTransform.Microsoft.BasicImage(rotation=1);", "filter:progid:DXImageTransform.Microsoft.BasicImage(rotation=1);"},
@@ -115,11 +115,11 @@ func TestParse(t *testing.T) {
 				data = parse.Copy(data)
 				if grammar == ErrorGrammar {
 					if err := p.Err(); err != io.EOF {
-                        data = append([]byte("ERROR("), data...)
+						data = append([]byte("ERROR("), data...)
 						for _, val := range p.Values() {
 							data = append(data, val.Data...)
 						}
-                        data = append(data, ")"...)
+						data = append(data, ")"...)
 					} else {
 						break
 					}
