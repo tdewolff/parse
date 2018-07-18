@@ -186,11 +186,19 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	for p.tt == SemicolonToken {
 		p.tt, p.data = p.popToken(false)
 	}
+
+	// IE hack: *color:red;
+	if p.tt == DelimToken && p.data[0] == '*' {
+		tt, data := p.popToken(false)
+		p.tt = tt
+		p.data = append(p.data, data...)
+	}
+
 	if p.tt == ErrorToken {
 		return ErrorGrammar
 	} else if p.tt == AtKeywordToken {
 		return p.parseAtRule()
-	} else if p.tt == IdentToken {
+	} else if p.tt == IdentToken || p.tt == DelimToken {
 		return p.parseDeclaration()
 	} else if p.tt == CustomPropertyNameToken {
 		return p.parseCustomProperty()
