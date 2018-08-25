@@ -1,46 +1,21 @@
 package css // import "github.com/tdewolff/parse/css"
 
-func isEscape(b []byte) bool {
-	return len(b) > 1 && b[0] == '\\' && b[1] != '\n' && b[1] != '\f' && b[1] != '\r'
-}
+import "github.com/tdewolff/parse/buffer"
 
 // IsIdent returns true if the bytes are a valid identifier.
-// Must be identical to consumeIdentToken
 func IsIdent(b []byte) bool {
-	i := 0
-	if i < len(b) && b[i] == '-' {
-		i++
-	}
-	if i >= len(b) {
-		return false
-	}
-	c := b[i]
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80 || isEscape(b[i:])) {
-		return false
-	} else {
-		i++
-	}
-	for i < len(b) {
-		c := b[i]
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c >= 0x80 || isEscape(b[i:])) {
-			return false
-		}
-		i++
-	}
-	return true
+	l := NewLexer(buffer.NewReader(b))
+	l.consumeIdentToken()
+	l.r.Restore()
+	return l.r.Pos() == len(b)
 }
 
 // IsURLUnquoted returns true if the bytes are a valid unquoted URL.
 func IsURLUnquoted(b []byte) bool {
-	i := 0
-	for i < len(b) {
-		c := b[i]
-		if c == '"' || c == '\'' || c == '(' || c == ')' || c == ' ' || c <= 0x1F || c == 0x7F || c == '\\' && !isEscape(b[i:]) {
-			return false
-		}
-		i++
-	}
-	return true
+	l := NewLexer(buffer.NewReader(b))
+	l.consumeUnquotedURL()
+	l.r.Restore()
+	return l.r.Pos() == len(b)
 }
 
 // HSL2RGB converts HSL to RGB with all of range [0,1]

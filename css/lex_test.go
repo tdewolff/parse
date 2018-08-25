@@ -87,7 +87,6 @@ func TestTokens(t *testing.T) {
 		{"\"s\\\n\"", TTs{StringToken}},
 		{"\"a\\\"b\"", TTs{StringToken}},
 		{"\"s\n", TTs{BadStringToken}},
-		{"abc\\", TTs{IdentToken}},
 
 		// small
 		{"\"abcd", TTs{StringToken}},
