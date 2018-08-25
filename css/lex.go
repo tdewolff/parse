@@ -348,7 +348,7 @@ func (l *Lexer) consumeEscape() bool {
 			l.r.Move(n)
 			return true
 		} else if c == 0 && l.r.Err() != nil {
-			return true
+			return true // TODO: surely this must be false?
 		}
 	}
 	l.r.Move(1)
