@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tdewolff/parse/buffer"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // Error is a parsing error returned by parser. It contains a message and an offset at which the error occurred.

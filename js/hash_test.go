@@ -1,4 +1,4 @@
-package js // import "github.com/tdewolff/parse/js"
+package js // import "github.com/tdewolff/parse/v2/js"
 
 import (
 	"testing"

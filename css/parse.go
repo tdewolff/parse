@@ -1,11 +1,11 @@
-package css // import "github.com/tdewolff/parse/css"
+package css // import "github.com/tdewolff/parse/v2/css"
 
 import (
 	"bytes"
 	"io"
 	"strconv"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 )
 
 var wsBytes = []byte(" ")

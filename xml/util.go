@@ -1,6 +1,6 @@
-package xml // import "github.com/tdewolff/parse/xml"
+package xml // import "github.com/tdewolff/parse/v2/xml"
 
-import "github.com/tdewolff/parse"
+import "github.com/tdewolff/parse/v2"
 
 var (
 	ltEntityBytes          = []byte("&lt;")

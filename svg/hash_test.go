@@ -1,4 +1,4 @@
-package svg // import "github.com/tdewolff/parse/svg"
+package svg // import "github.com/tdewolff/parse/v2/svg"
 
 import (
 	"testing"

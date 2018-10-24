@@ -1,4 +1,4 @@
-package css // import "github.com/tdewolff/parse/css"
+package css // import "github.com/tdewolff/parse/v2/css"
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 

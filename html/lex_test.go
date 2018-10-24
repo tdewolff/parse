@@ -1,4 +1,4 @@
-package html // import "github.com/tdewolff/parse/html"
+package html // import "github.com/tdewolff/parse/v2/html"
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 

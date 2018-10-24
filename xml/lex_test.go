@@ -1,4 +1,4 @@
-package xml // import "github.com/tdewolff/parse/xml"
+package xml // import "github.com/tdewolff/parse/v2/xml"
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 

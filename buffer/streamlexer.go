@@ -1,4 +1,4 @@
-package buffer // import "github.com/tdewolff/parse/buffer"
+package buffer // import "github.com/tdewolff/parse/v2/buffer"
 
 import (
 	"io"

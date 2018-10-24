@@ -1,4 +1,4 @@
-package buffer // import "github.com/tdewolff/parse/buffer"
+package buffer // import "github.com/tdewolff/parse/v2/buffer"
 
 // Writer implements an io.Writer over a byte slice.
 type Writer struct {

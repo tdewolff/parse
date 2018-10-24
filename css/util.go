@@ -1,6 +1,6 @@
-package css // import "github.com/tdewolff/parse/css"
+package css // import "github.com/tdewolff/parse/v2/css"
 
-import "github.com/tdewolff/parse/buffer"
+import "github.com/tdewolff/parse/v2/buffer"
 
 // IsIdent returns true if the bytes are a valid identifier.
 func IsIdent(b []byte) bool {

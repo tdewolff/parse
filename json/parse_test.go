@@ -1,4 +1,4 @@
-package json // import "github.com/tdewolff/parse/json"
+package json // import "github.com/tdewolff/parse/v2/json"
 
 import (
 	"bytes"
@@ -6,7 +6,7 @@ import (
 	"io"
 	"testing"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 

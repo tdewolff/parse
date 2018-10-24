@@ -1,12 +1,12 @@
 // Package html is an HTML5 lexer following the specifications at http://www.w3.org/TR/html5/syntax.html.
-package html // import "github.com/tdewolff/parse/html"
+package html // import "github.com/tdewolff/parse/v2/html"
 
 import (
 	"io"
 	"strconv"
 
-	"github.com/tdewolff/parse"
-	"github.com/tdewolff/parse/buffer"
+	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // TokenType determines the type of token, eg. a number or a semicolon.

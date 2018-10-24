@@ -1,12 +1,12 @@
 // Package js is an ECMAScript5.1 lexer following the specifications at http://www.ecma-international.org/ecma-262/5.1/.
-package js // import "github.com/tdewolff/parse/js"
+package js // import "github.com/tdewolff/parse/v2/js"
 
 import (
 	"io"
 	"strconv"
 	"unicode"
 
-	"github.com/tdewolff/parse/buffer"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
