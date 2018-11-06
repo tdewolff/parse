@@ -5,7 +5,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/tdewolff/parse"
+	"github.com/tdewolff/parse/v2"
 )
 
 var wsBytes = []byte(" ")

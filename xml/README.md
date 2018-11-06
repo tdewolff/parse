@@ -9,7 +9,7 @@ Run the following command
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/parse/xml"
+	import "github.com/tdewolff/parse/v2/xml"
 
 ## Lexer
 ### Usage
@@ -63,7 +63,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/parse/xml"
+	"github.com/tdewolff/parse/v2/xml"
 )
 
 // Tokenize XML from stdin.

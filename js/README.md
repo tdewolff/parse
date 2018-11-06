@@ -9,7 +9,7 @@ Run the following command
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/parse/js"
+	import "github.com/tdewolff/parse/v2/js"
 
 ## Lexer
 ### Usage
@@ -59,7 +59,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/parse/js"
+	"github.com/tdewolff/parse/v2/js"
 )
 
 // Tokenize JS from stdin.

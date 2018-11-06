@@ -9,7 +9,7 @@ Run the following command
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/parse/css"
+	import "github.com/tdewolff/parse/v2/css"
 
 ## Lexer
 ### Usage
@@ -70,7 +70,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/parse/css"
+	"github.com/tdewolff/parse/v2/css"
 )
 
 // Tokenize CSS3 from stdin.
@@ -132,7 +132,7 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/tdewolff/parse/css"
+	"github.com/tdewolff/parse/v2/css"
 )
 
 func main() {

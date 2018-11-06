@@ -9,7 +9,7 @@ Run the following command
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/parse/json"
+	import "github.com/tdewolff/parse/v2/json"
 
 ## Parser
 ### Usage
@@ -51,7 +51,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/parse/json"
+	"github.com/tdewolff/parse/v2/json"
 )
 
 // Tokenize JSON from stdin.

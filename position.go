@@ -5,7 +5,7 @@ import (
 	"io"
 	"strings"
 
-	"github.com/tdewolff/parse/buffer"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // Position returns the line and column number for a certain position in a file. It is useful for recovering the position in a file that caused an error.

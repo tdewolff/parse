@@ -9,7 +9,7 @@ Run the following command
 
 or add the following import and run project with `go get`
 
-	import "github.com/tdewolff/parse/html"
+	import "github.com/tdewolff/parse/v2/html"
 
 ## Lexer
 ### Usage
@@ -60,7 +60,7 @@ package main
 import (
 	"os"
 
-	"github.com/tdewolff/parse/html"
+	"github.com/tdewolff/parse/v2/html"
 )
 
 // Tokenize HTML from stdin.

@@ -8,8 +8,8 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/tdewolff/parse"
-	"github.com/tdewolff/parse/buffer"
+	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // TokenType determines the type of token, eg. a number or a semicolon.
