@@ -187,6 +187,8 @@ func (p *Parser) Next() (GrammarType, []byte) {
 			return NumberGrammar, p.r.Shift()
 		} else if p.consumeLiteralToken() {
 			return LiteralGrammar, p.r.Shift()
+		} else if c == 0 && p.r.Err() == nil {
+			p.err = parse.NewErrorLexer("unexpected NULL character", p.r)
 		}
 	}
 	return ErrorGrammar, nil
