@@ -1,4 +1,4 @@
-# JSON [![GoDoc](http://godoc.org/github.com/tdewolff/parse/json?status.svg)](http://godoc.org/github.com/tdewolff/parse/json) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/json)](http://gocover.io/github.com/tdewolff/parse/json)
+# JSON [![GoDoc](http://godoc.org/github.com/tdewolff/parse/json?status.svg)](http://godoc.org/github.com/tdewolff/parse/json)
 
 This package is a JSON lexer (ECMA-404) written in [Go][1]. It follows the specification at [JSON](http://json.org/). The lexer takes an io.Reader and converts it into tokens until the EOF.
 

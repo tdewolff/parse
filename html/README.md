@@ -1,4 +1,4 @@
-# HTML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/html?status.svg)](http://godoc.org/github.com/tdewolff/parse/html) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/html)](http://gocover.io/github.com/tdewolff/parse/html)
+# HTML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/html?status.svg)](http://godoc.org/github.com/tdewolff/parse/html)
 
 This package is an HTML5 lexer written in [Go][1]. It follows the specification at [The HTML syntax](http://www.w3.org/TR/html5/syntax.html). The lexer takes an io.Reader and converts it into tokens until the EOF.
 

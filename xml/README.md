@@ -1,4 +1,4 @@
-# XML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/xml?status.svg)](http://godoc.org/github.com/tdewolff/parse/xml) [![GoCover](http://gocover.io/_badge/github.com/tdewolff/parse/xml)](http://gocover.io/github.com/tdewolff/parse/xml)
+# XML [![GoDoc](http://godoc.org/github.com/tdewolff/parse/xml?status.svg)](http://godoc.org/github.com/tdewolff/parse/xml)
 
 This package is an XML lexer written in [Go][1]. It follows the specification at [Extensible Markup Language (XML) 1.0 (Fifth Edition)](http://www.w3.org/TR/REC-xml/). The lexer takes an io.Reader and converts it into tokens until the EOF.
 
