@@ -18,11 +18,11 @@ func Position(r io.Reader, offset int) (line, col int, context string, err error
 		c := l.Peek(0)
 		if c == 0 {
 			col = l.Pos() + 1
-			context = positionContext(l, line, col)
 			err = l.Err()
 			if err == nil {
 				err = io.EOF
 			}
+			context = positionContext(l, line, col)
 			return
 		}
 
