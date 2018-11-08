@@ -5,7 +5,7 @@ This package is a CSS3 lexer and parser written in [Go][1]. Both follow the spec
 ## Installation
 Run the following command
 
-	go get github.com/tdewolff/parse/css
+	go get -u github.com/tdewolff/parse/v2/css
 
 or add the following import and run project with `go get`
 

@@ -5,7 +5,7 @@ This package is a JSON lexer (ECMA-404) written in [Go][1]. It follows the speci
 ## Installation
 Run the following command
 
-	go get github.com/tdewolff/parse/json
+	go get -u github.com/tdewolff/parse/v2/json
 
 or add the following import and run project with `go get`
 

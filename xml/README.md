@@ -5,7 +5,7 @@ This package is an XML lexer written in [Go][1]. It follows the specification at
 ## Installation
 Run the following command
 
-	go get github.com/tdewolff/parse/xml
+	go get -u github.com/tdewolff/parse/v2/xml
 
 or add the following import and run project with `go get`
 

@@ -5,7 +5,7 @@ This package is an HTML5 lexer written in [Go][1]. It follows the specification 
 ## Installation
 Run the following command
 
-	go get github.com/tdewolff/parse/html
+	go get -u github.com/tdewolff/parse/v2/html
 
 or add the following import and run project with `go get`
 
