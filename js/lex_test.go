@@ -67,7 +67,7 @@ func TestTokens(t *testing.T) {
 		{"a=/regexp", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken}},
 		{"\\u002", TTs{UnknownToken, IdentifierToken}},
 
-        // null characters
+		// null characters
 		{"'string\x00'return", TTs{StringToken, IdentifierToken}},
 		{"//comment\x00comment\nreturn", TTs{SingleLineCommentToken, LineTerminatorToken, IdentifierToken}},
 		{"/*comment\x00*/return", TTs{SingleLineCommentToken, IdentifierToken}},
@@ -143,12 +143,12 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
-    // coverage
-    for i := 0;; i++ {
-        if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
-            break
-        }
-    }
+	// coverage
+	for i := 0; ; i++ {
+		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////

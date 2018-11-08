@@ -59,13 +59,38 @@ func TestGrammars(t *testing.T) {
 		})
 	}
 
-	test.T(t, WhitespaceGrammar.String(), "Whitespace")
-	test.T(t, GrammarType(100).String(), "Invalid(100)")
-	test.T(t, ValueState.String(), "Value")
-	test.T(t, ObjectKeyState.String(), "ObjectKey")
-	test.T(t, ObjectValueState.String(), "ObjectValue")
-	test.T(t, ArrayState.String(), "Array")
-	test.T(t, State(100).String(), "Invalid(100)")
+	// coverage
+	for i := 0; ; i++ {
+		if GrammarType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
+	for i := 0; ; i++ {
+		if State(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
+}
+
+func TestGrammarsErrorEOF(t *testing.T) {
+	var grammarErrorTests = []struct {
+		json string
+	}{
+		{`{"":"`},
+		{"\"a\\"},
+	}
+	for _, tt := range grammarErrorTests {
+		t.Run(tt.json, func(t *testing.T) {
+			p := NewParser(bytes.NewBufferString(tt.json))
+			for {
+				grammar, _ := p.Next()
+				if grammar == ErrorGrammar {
+					test.T(t, p.Err(), io.EOF)
+					break
+				}
+			}
+		})
+	}
 }
 
 func TestGrammarsError(t *testing.T) {
@@ -81,8 +106,8 @@ func TestGrammarsError(t *testing.T) {
 		{"{\"a\" 1}", 6},
 		{"1.", 2},
 		{"1e+", 2},
-		{`{"":"`, 0},
-		{"\"a\\", 0},
+		{"[true, \x00]", 8},
+		// {"'string\x00'", 8}, // TODO
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {
@@ -90,13 +115,11 @@ func TestGrammarsError(t *testing.T) {
 			for {
 				grammar, _ := p.Next()
 				if grammar == ErrorGrammar {
-					if tt.col == 0 {
-						test.T(t, p.Err(), io.EOF)
-					} else if perr, ok := p.Err().(*parse.Error); ok {
+					if perr, ok := p.Err().(*parse.Error); ok {
 						_, col, _ := perr.Position()
 						test.T(t, col, tt.col)
 					} else {
-						test.Fail(t, "bad error:", p.Err())
+						test.Fail(t, "not a parse error:", p.Err())
 					}
 					break
 				}

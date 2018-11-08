@@ -607,7 +607,7 @@ func (l *Lexer) consumeRegexpToken() bool {
 			inClass = false
 		} else if c == '\\' {
 			l.r.Move(1)
-		    if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
+			if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
 				l.r.Rewind(mark)
 				return false
 			}

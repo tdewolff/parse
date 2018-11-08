@@ -44,7 +44,7 @@ func TestTokens(t *testing.T) {
 		{"<script><!--var x='<script>';--></script>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
 		{"<![CDATA[ test ]]>", TTs{TextToken}},
 		{"<svg>text</svg>", TTs{SvgToken}},
-		{"<math>text</math>", TTs{MathToken}},
+		{"<math>text</math gibberish>", TTs{MathToken}},
 		{`<svg>text<x a="</svg>"></x></svg>`, TTs{SvgToken}},
 		{"<a><svg>text</svg></a>", TTs{StartTagToken, StartTagCloseToken, SvgToken, EndTagToken}},
 
@@ -100,7 +100,12 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
-	test.T(t, TokenType(100).String(), "Invalid(100)")
+	// coverage
+	for i := 0; ; i++ {
+		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
 }
 
 func TestTags(t *testing.T) {

@@ -117,10 +117,12 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
-	test.T(t, WhitespaceToken.String(), "Whitespace")
-	test.T(t, EmptyToken.String(), "Empty")
-	test.T(t, CustomPropertyValueToken.String(), "CustomPropertyValue")
-	test.T(t, TokenType(100).String(), "Invalid(100)")
+	// coverage
+	for i := 0; ; i++ {
+		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
 	test.T(t, NewLexer(bytes.NewBufferString("x")).consumeBracket(), ErrorToken, "consumeBracket on 'x' must return error")
 }
 

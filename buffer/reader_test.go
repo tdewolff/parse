@@ -12,6 +12,7 @@ import (
 func TestReader(t *testing.T) {
 	s := []byte("abcde")
 	r := NewReader(s)
+	test.T(t, r.Len(), 5, "len")
 	test.Bytes(t, r.Bytes(), s, "reader must return bytes stored")
 
 	buf := make([]byte, 3)

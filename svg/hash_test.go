@@ -13,5 +13,4 @@ func TestHashTable(t *testing.T) {
 	test.T(t, ToHash([]byte("")), Hash(0), "empty string must resolve to zero")
 	test.T(t, Hash(0xffffff).String(), "")
 	test.T(t, ToHash([]byte("svgs")), Hash(0), "'svgs' must resolve to zero")
-	test.T(t, ToHash([]byte("uopi")), Hash(0), "'uopi' must resolve to zero")
 }

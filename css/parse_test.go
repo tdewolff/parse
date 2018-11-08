@@ -147,17 +147,13 @@ func TestParse(t *testing.T) {
 		})
 	}
 
-	test.T(t, ErrorGrammar.String(), "Error")
-	test.T(t, AtRuleGrammar.String(), "AtRule")
-	test.T(t, BeginAtRuleGrammar.String(), "BeginAtRule")
-	test.T(t, EndAtRuleGrammar.String(), "EndAtRule")
-	test.T(t, BeginRulesetGrammar.String(), "BeginRuleset")
-	test.T(t, EndRulesetGrammar.String(), "EndRuleset")
-	test.T(t, DeclarationGrammar.String(), "Declaration")
-	test.T(t, TokenGrammar.String(), "Token")
-	test.T(t, CommentGrammar.String(), "Comment")
-	test.T(t, CustomPropertyGrammar.String(), "CustomProperty")
-	test.T(t, GrammarType(100).String(), "Invalid(100)")
+	// coverage
+	for i := 0; ; i++ {
+		if GrammarType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
+	test.T(t, Token{IdentToken, []byte("data")}.String(), "Ident('data')")
 }
 
 func TestParseError(t *testing.T) {

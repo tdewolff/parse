@@ -76,7 +76,12 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
-	test.T(t, TokenType(100).String(), "Invalid(100)")
+	// coverage
+	for i := 0; ; i++ {
+		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
 }
 
 func TestTags(t *testing.T) {

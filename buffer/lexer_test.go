@@ -12,6 +12,8 @@ func TestLexer(t *testing.T) {
 	s := `Lorem ipsum dolor sit amet, consectetur adipiscing elit.`
 	z := NewLexer(bytes.NewBufferString(s))
 
+	test.Bytes(t, z.Bytes(), []byte(s), "bytes match original buffer")
+
 	test.T(t, z.err, nil, "buffer has no error")
 	test.T(t, z.Err(), nil, "buffer is at EOF but must not return EOF until we reach that")
 	test.That(t, z.Pos() == 0, "buffer must start at position 0")
@@ -24,6 +26,8 @@ func TestLexer(t *testing.T) {
 	z.Rewind(6)
 	test.That(t, z.Peek(0) == 'i', "must be 'i' at position 6")
 	test.That(t, z.Peek(1) == 'p', "must be 'p' at position 7")
+
+	test.T(t, z.Offset(), 6, "offset")
 
 	test.Bytes(t, z.Lexeme(), []byte("Lorem "), "buffered string must now read 'Lorem ' when at position 6")
 	test.Bytes(t, z.Shift(), []byte("Lorem "), "shift must return the buffered string")
@@ -40,6 +44,7 @@ func TestLexer(t *testing.T) {
 	test.T(t, z.Err(), io.EOF, "error must be EOF when past the buffer")
 	z.Move(-1)
 	test.T(t, z.Err(), nil, "error must be nil just before the end of the buffer, even when it has been past the buffer")
+
 }
 
 func TestLexerRunes(t *testing.T) {
@@ -68,6 +73,7 @@ func TestLexerBadRune(t *testing.T) {
 func TestLexerZeroLen(t *testing.T) {
 	z := NewLexer(test.NewPlainReader(bytes.NewBufferString("")))
 	test.That(t, z.Peek(0) == 0, "first character must yield error")
+	test.Bytes(t, z.Bytes(), []byte{}, "bytes match original buffer")
 }
 
 func TestLexerEmptyReader(t *testing.T) {
@@ -88,4 +94,16 @@ func TestLexerBytes(t *testing.T) {
 	b := []byte{'t', 'e', 's', 't'}
 	z := NewLexerBytes(b)
 	test.That(t, z.Peek(4) == 0, "fifth character must yield NULL")
+}
+
+func TestLexerRestore(t *testing.T) {
+	b := []byte{'a', 'b', 'c', 'd'}
+	z := NewLexerBytes(b[:2])
+
+	test.T(t, len(z.buf), 3, "must have terminating NULL")
+	test.T(t, z.buf[2], byte(0), "must have terminating NULL")
+	test.Bytes(t, b, []byte{'a', 'b', 0, 'd'}, "terminating NULL overwrites underlying buffer")
+
+	z.Restore()
+	test.Bytes(t, b, []byte{'a', 'b', 'c', 'd'}, "terminating NULL has been restored")
 }
