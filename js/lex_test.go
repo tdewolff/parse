@@ -64,8 +64,17 @@ func TestTokens(t *testing.T) {
 		{"'str\\\U00100000ing\\0'", TTs{StringToken}},
 		{"'strin\\00g'", TTs{StringToken}},
 		{"/*comment", TTs{SingleLineCommentToken}},
-		{"a=/regexp", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
+		{"a=/regexp", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken}},
 		{"\\u002", TTs{UnknownToken, IdentifierToken}},
+
+		// null characters
+		{"'string\x00'return", TTs{StringToken, IdentifierToken}},
+		{"//comment\x00comment\nreturn", TTs{SingleLineCommentToken, LineTerminatorToken, IdentifierToken}},
+		{"/*comment\x00*/return", TTs{SingleLineCommentToken, IdentifierToken}},
+		{"a=/regexp\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
+		{"a=/regexp\\\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
+		{"`template\x00`return", TTs{TemplateToken, IdentifierToken}},
+		{"`template\\\x00`return", TTs{TemplateToken, IdentifierToken}},
 
 		// coverage
 		{"Ø a〉", TTs{IdentifierToken, IdentifierToken, UnknownToken}},

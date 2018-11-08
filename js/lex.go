@@ -179,7 +179,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
 		if l.consumeHTMLLikeCommentToken() {
 			return SingleLineCommentToken, l.r.Shift()
-		} else if l.consumeLongPunctuatorToken() {
+		} else if l.consumePunctuatorToken() {
 			l.state = ExprState
 			tt = PunctuatorToken
 		}
@@ -189,7 +189,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		} else if l.state == ExprState && l.consumeRegexpToken() {
 			l.state = SubscriptState
 			tt = RegexpToken
-		} else if l.consumeLongPunctuatorToken() {
+		} else if l.consumePunctuatorToken() {
 			l.state = ExprState
 			tt = PunctuatorToken
 		}
@@ -249,7 +249,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 				}
 				tt = LineTerminatorToken
 			}
-		} else if l.Err() != nil {
+		} else if l.r.Err() != nil {
 			return ErrorToken, nil
 		}
 	}
@@ -364,7 +364,7 @@ func (l *Lexer) consumeUnicodeEscape() bool {
 func (l *Lexer) consumeSingleLineComment() {
 	for {
 		c := l.r.Peek(0)
-		if c == '\r' || c == '\n' || c == 0 {
+		if c == '\r' || c == '\n' || c == 0 && l.r.Err() != nil {
 			break
 		} else if c >= 0xC0 {
 			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
@@ -412,7 +412,7 @@ func (l *Lexer) consumeCommentToken() TokenType {
 				if c == '*' && l.r.Peek(1) == '/' {
 					l.r.Move(2)
 					break
-				} else if c == 0 {
+				} else if c == 0 && l.r.Err() != nil {
 					break
 				} else if l.consumeLineTerminator() {
 					tt = MultiLineCommentToken
@@ -427,7 +427,7 @@ func (l *Lexer) consumeCommentToken() TokenType {
 	return UnknownToken
 }
 
-func (l *Lexer) consumeLongPunctuatorToken() bool {
+func (l *Lexer) consumePunctuatorToken() bool {
 	c := l.r.Peek(0)
 	if c == '!' || c == '=' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '^' {
 		l.r.Move(1)
@@ -583,7 +583,7 @@ func (l *Lexer) consumeStringToken() bool {
 				l.r.Rewind(mark)
 				return false
 			}
-		} else if c == 0 {
+		} else if c == 0 && l.r.Err() != nil {
 			break
 		}
 		l.r.Move(1)
@@ -607,17 +607,13 @@ func (l *Lexer) consumeRegexpToken() bool {
 			inClass = false
 		} else if c == '\\' {
 			l.r.Move(1)
-			if l.consumeLineTerminator() {
+			if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
 				l.r.Rewind(mark)
 				return false
-			} else if l.r.Peek(0) == 0 {
-				return true
 			}
-		} else if l.consumeLineTerminator() {
+		} else if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
 			l.r.Rewind(mark)
 			return false
-		} else if c == 0 {
-			return true
 		}
 		l.r.Move(1)
 	}
@@ -660,7 +656,7 @@ func (l *Lexer) consumeTemplateToken() bool {
 				l.r.Move(1)
 			}
 			continue
-		} else if c == 0 {
+		} else if c == 0 && l.r.Err() != nil {
 			l.r.Rewind(mark)
 			return false
 		}
