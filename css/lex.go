@@ -234,7 +234,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return ColumnToken, l.r.Shift()
 		}
 	case 0:
-		if l.Err() != nil {
+		if l.r.Err() != nil {
 			return ErrorToken, nil
 		}
 	default:
@@ -270,7 +270,7 @@ func (l *Lexer) consumeComment() bool {
 	l.r.Move(2)
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.Err() != nil {
+		if c == 0 && l.r.Err() != nil {
 			break
 		} else if c == '*' && l.r.Peek(1) == '/' {
 			l.r.Move(2)
@@ -628,7 +628,7 @@ func (l *Lexer) consumeString() TokenType {
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.Err() != nil {
+		if c == 0 && l.r.Err() != nil {
 			break
 		} else if c == '\n' || c == '\r' || c == '\f' {
 			l.r.Move(1)
@@ -651,7 +651,7 @@ func (l *Lexer) consumeString() TokenType {
 func (l *Lexer) consumeUnquotedURL() bool {
 	for {
 		c := l.r.Peek(0)
-		if c == 0 && l.Err() != nil || c == ')' {
+		if c == 0 && l.r.Err() != nil || c == ')' {
 			break
 		} else if c == '"' || c == '\'' || c == '(' || c == '\\' || c == ' ' || c <= 0x1F || c == 0x7F {
 			if c != '\\' || !l.consumeEscape() {
@@ -667,7 +667,7 @@ func (l *Lexer) consumeUnquotedURL() bool {
 // consumeRemnantsBadUrl consumes bytes of a BadUrlToken so that normal tokenization may continue.
 func (l *Lexer) consumeRemnantsBadURL() {
 	for {
-		if l.consumeByte(')') || l.Err() != nil {
+		if l.consumeByte(')') || l.r.Err() != nil {
 			break
 		} else if !l.consumeEscape() {
 			l.r.Move(1)
@@ -700,7 +700,7 @@ func (l *Lexer) consumeIdentlike() TokenType {
 		}
 		for l.consumeWhitespace() {
 		}
-		if !l.consumeByte(')') && l.Err() != io.EOF {
+		if !l.consumeByte(')') && l.r.Err() != io.EOF {
 			l.consumeRemnantsBadURL()
 			return BadURLToken
 		}

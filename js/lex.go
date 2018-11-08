@@ -575,16 +575,9 @@ func (l *Lexer) consumeStringToken() bool {
 				}
 			}
 			continue
-		} else if c == '\n' || c == '\r' {
+		} else if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
 			l.r.Rewind(mark)
 			return false
-		} else if c >= 0xC0 {
-			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-				l.r.Rewind(mark)
-				return false
-			}
-		} else if c == 0 && l.r.Err() != nil {
-			break
 		}
 		l.r.Move(1)
 	}

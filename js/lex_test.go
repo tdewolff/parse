@@ -59,7 +59,7 @@ func TestTokens(t *testing.T) {
 		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, TemplateToken, IdentifierToken, TemplateToken, NumericToken, TemplateToken, TemplateToken}},
 
 		// early endings
-		{"'string", TTs{StringToken}},
+		{"'string", TTs{UnknownToken, IdentifierToken}},
 		{"'\n '\u2028", TTs{UnknownToken, LineTerminatorToken, UnknownToken, LineTerminatorToken}},
 		{"'str\\\U00100000ing\\0'", TTs{StringToken}},
 		{"'strin\\00g'", TTs{StringToken}},
@@ -86,7 +86,7 @@ func TestTokens(t *testing.T) {
 		{"\\u{0029FEF}ident", TTs{IdentifierToken}},
 		{"\\u{}", TTs{UnknownToken, IdentifierToken, PunctuatorToken, PunctuatorToken}},
 		{"\\ugident", TTs{UnknownToken, IdentifierToken}},
-		{"'str\u2028ing'", TTs{UnknownToken, IdentifierToken, LineTerminatorToken, IdentifierToken, StringToken}},
+		{"'str\u2028ing'", TTs{UnknownToken, IdentifierToken, LineTerminatorToken, IdentifierToken, UnknownToken}},
 		{"a=/\\\n", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, UnknownToken, LineTerminatorToken}},
 		{"a=/x/\u200C\u3009", TTs{IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken}},
 		{"a=/x\n", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken}},
