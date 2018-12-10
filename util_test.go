@@ -47,6 +47,7 @@ func TestEqualFold(t *testing.T) {
 	test.That(t, EqualFold([]byte("Abc"), []byte("abc")))
 	test.That(t, !EqualFold([]byte("Abcd"), []byte("abc")))
 	test.That(t, !EqualFold([]byte("Bbc"), []byte("abc")))
+	test.That(t, !EqualFold([]byte("[]"), []byte("{}"))) // same distance in ASCII as 'a' and 'A'
 }
 
 func TestWhitespace(t *testing.T) {
