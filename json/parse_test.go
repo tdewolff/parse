@@ -35,7 +35,6 @@ func TestGrammars(t *testing.T) {
 		{`{"a": "b", "c": "d"}`, GTs{StartObjectGrammar, StringGrammar, StringGrammar, StringGrammar, StringGrammar, EndObjectGrammar}},
 		{`{"a": [1, 2], "b": {"c": 3}}`, GTs{StartObjectGrammar, StringGrammar, StartArrayGrammar, NumberGrammar, NumberGrammar, EndArrayGrammar, StringGrammar, StartObjectGrammar, StringGrammar, NumberGrammar, EndObjectGrammar, EndObjectGrammar}},
 		{"[null,]", GTs{StartArrayGrammar, LiteralGrammar, EndArrayGrammar}},
-		// {"[\"x\\\x00y\", 0]", GTs{StartArrayGrammar, StringGrammar, NumberGrammar, EndArrayGrammar}},
 	}
 	for _, tt := range grammarTests {
 		t.Run(tt.json, func(t *testing.T) {
@@ -107,7 +106,8 @@ func TestGrammarsError(t *testing.T) {
 		{"1.", 2},
 		{"1e+", 2},
 		{"[true, \x00]", 8},
-		// {"'string\x00'", 8}, // TODO
+		{"\"string\x00\"", 8},
+		{"{\"id\": noquote}", 8},
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {

@@ -117,7 +117,7 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	state := p.state[len(p.state)-1]
 	if c == ',' {
 		if state != ArrayState && state != ObjectKeyState {
-			p.err = parse.NewErrorLexer("unexpected comma character outside an array or object", p.r)
+			p.err = parse.NewErrorLexer("unexpected comma character", p.r)
 			return ErrorGrammar, nil
 		}
 		p.r.Move(1)
@@ -187,10 +187,16 @@ func (p *Parser) Next() (GrammarType, []byte) {
 			return NumberGrammar, p.r.Shift()
 		} else if p.consumeLiteralToken() {
 			return LiteralGrammar, p.r.Shift()
-		} else if c == 0 && p.r.Err() == nil {
+		}
+		c := p.r.Peek(0) // pick up movement from consumeStringToken to detect NULL or EOF
+		if c == 0 && p.r.Err() == nil {
 			p.err = parse.NewErrorLexer("unexpected NULL character", p.r)
+			return ErrorGrammar, nil
+		} else if c == 0 { // EOF
+			return ErrorGrammar, nil
 		}
 	}
+	p.err = parse.NewErrorLexer("unexpected character", p.r)
 	return ErrorGrammar, nil
 }
 

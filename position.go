@@ -64,16 +64,37 @@ func positionContext(l *buffer.Lexer, line, col int) (context string) {
 		}
 		l.Move(1)
 	}
+	b := l.Lexeme()
+
+	// cut off front or rear of context to stay between 60 characters
+	limit := 60
+	offset := 20
+	ellipsisFront := ""
+	ellipsisRear := ""
+	if limit < len(b) {
+		if col <= limit-offset {
+			ellipsisRear = "..."
+			b = b[:limit-3]
+		} else if col >= len(b)-offset-3 {
+			ellipsisFront = "..."
+			col -= len(b) - offset - offset - 7
+			b = b[len(b)-offset-offset-4:]
+		} else {
+			ellipsisFront = "..."
+			ellipsisRear = "..."
+			b = b[col-offset-1 : col+offset]
+			col = offset + 4
+		}
+	}
 
 	// replace unprintable characters by a space
-	b := l.Lexeme()
 	for i, c := range b {
 		if c < 0x20 || c == 0x7F {
 			b[i] = ' '
 		}
 	}
 
-	context += fmt.Sprintf("%5d: %s\n", line, string(b))
+	context += fmt.Sprintf("%5d: %s%s%s\n", line, ellipsisFront, string(b), ellipsisRear)
 	context += fmt.Sprintf("%s^", strings.Repeat(" ", col+6))
 	return
 }
