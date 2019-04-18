@@ -249,7 +249,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 				}
 				tt = LineTerminatorToken
 			}
-		} else if l.r.Err() != nil {
+		} else if c == 0 && l.r.Err() != nil {
 			return ErrorToken, nil
 		}
 	}
