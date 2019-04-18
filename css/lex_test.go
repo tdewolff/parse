@@ -76,7 +76,7 @@ func TestTokens(t *testing.T) {
 		{"U+? U+A?", TTs{IdentToken, DelimToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken}},
 		{"-5.23 -moz", TTs{NumberToken, IdentToken}},
 		{"()", TTs{LeftParenthesisToken, RightParenthesisToken}},
-		{"url( //url  )", TTs{URLToken}},
+		{"url( //url\n  )", TTs{URLToken}},
 		{"url( ", TTs{URLToken}},
 		{"url( //url", TTs{URLToken}},
 		{"url(\")a", TTs{URLToken}},

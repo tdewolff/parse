@@ -694,7 +694,7 @@ func (l *Lexer) consumeIdentlike() TokenType {
 				l.consumeRemnantsBadURL()
 				return BadURLToken
 			}
-		} else if !l.consumeUnquotedURL() && !l.consumeWhitespace() {
+		} else if !l.consumeUnquotedURL() && !l.consumeWhitespace() { // if unquoted URL fails due to encountering whitespace, continue
 			l.consumeRemnantsBadURL()
 			return BadURLToken
 		}
