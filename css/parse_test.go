@@ -163,8 +163,8 @@ func TestParseError(t *testing.T) {
 		col    int
 	}{
 		{false, "selector", 9},
-		{true, "color 0", 8},
-		{true, "--color 0", 10},
+		{true, "color 0", 7},
+		{true, "--color 0", 9},
 		{true, "--custom-variable:0", 0},
 	}
 	for _, tt := range parseErrorTests {
