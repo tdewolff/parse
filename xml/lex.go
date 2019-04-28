@@ -3,6 +3,7 @@ package xml // import "github.com/tdewolff/parse/xml"
 
 import (
 	"io"
+	"parse"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
@@ -62,9 +63,9 @@ func (tt TokenType) String() string {
 ////////////////////////////////////////////////////////////////
 
 // Lexer is the state for the lexer.
-type Lexer struct {
-	r   *buffer.Lexer
-	err error
+type Parser struct {
+	lexer *buffer.Lexer
+	err   error
 
 	inTag bool
 
@@ -73,114 +74,120 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewParser(r io.Reader) *Parser {
+	return &Parser{
+		lexer: buffer.NewLexer(r),
+	}
+}
+// NewLexer returns a new Lexer for a given io.Reader.
+func NewCustomLexerParser(lexer *buffer.NewLexer) *Parser {
 	return &Lexer{
-		r: buffer.NewLexer(r),
+		lexer,
 	}
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
-func (l *Lexer) Err() error {
+func (l *Parser) Err() error {
 	if l.err != nil {
 		return l.err
 	}
-	return l.r.Err()
+	return l.lexer.Err()
 }
 
 // Restore restores the NULL byte at the end of the buffer.
-func (l *Lexer) Restore() {
-	l.r.Restore()
+func (l *Parser) Restore() {
+	l.lexer.Restore()
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
-func (l *Lexer) Next() (TokenType, []byte) {
+func (l *Parser) Next() (TokenType, []byte) {
 	l.text = nil
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
 		for { // before attribute name state
-			if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-				l.r.Move(1)
+			if c = l.lexer.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+				l.lexer.Move(1)
 				continue
 			}
 			break
 		}
 		if c == 0 {
-			if l.r.Err() == nil {
-				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			if l.lexer.Err() == nil {
+				l.err = parse.NewErrorLexer("unexpected null character", l.lexer)
 			}
 			return ErrorToken, nil
-		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
+		} else if c != '>' && (c != '/' && c != '?' || l.lexer.Peek(1) != '>') {
 			return AttributeToken, l.shiftAttribute()
 		}
-		start := l.r.Pos()
+		start := l.lexer.Pos()
 		l.inTag = false
 		if c == '/' {
-			l.r.Move(2)
-			l.text = l.r.Lexeme()[start:]
-			return StartTagCloseVoidToken, l.r.Shift()
+			l.lexer.Move(2)
+			l.text = l.lexer.Lexeme()[start:]
+			return StartTagCloseVoidToken, l.lexer.Shift()
 		} else if c == '?' {
-			l.r.Move(2)
-			l.text = l.r.Lexeme()[start:]
-			return StartTagClosePIToken, l.r.Shift()
+			l.lexer.Move(2)
+			l.text = l.lexer.Lexeme()[start:]
+			return StartTagClosePIToken, l.lexer.Shift()
 		} else {
-			l.r.Move(1)
-			l.text = l.r.Lexeme()[start:]
-			return StartTagCloseToken, l.r.Shift()
+			l.lexer.Move(1)
+			l.text = l.lexer.Lexeme()[start:]
+			return StartTagCloseToken, l.lexer.Shift()
 		}
 	}
 
 	for {
-		c = l.r.Peek(0)
+		c = l.lexer.Peek(0)
 		if c == '<' {
-			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+			if l.lexer.Pos() > 0 {
+				return TextToken, l.lexer.Shift()
 			}
-			c = l.r.Peek(1)
+			c = l.lexer.Peek(1)
 			if c == '/' {
-				l.r.Move(2)
+				l.lexer.Move(2)
 				return EndTagToken, l.shiftEndTag()
 			} else if c == '!' {
-				l.r.Move(2)
+				l.lexer.Move(2)
 				if l.at('-', '-') {
-					l.r.Move(2)
+					l.lexer.Move(2)
 					return CommentToken, l.shiftCommentText()
 				} else if l.at('[', 'C', 'D', 'A', 'T', 'A', '[') {
-					l.r.Move(7)
+					l.lexer.Move(7)
 					return CDATAToken, l.shiftCDATAText()
 				} else if l.at('D', 'O', 'C', 'T', 'Y', 'P', 'E') {
-					l.r.Move(7)
+					l.lexer.Move(7)
 					return DOCTYPEToken, l.shiftDOCTYPEText()
 				}
-				l.r.Move(-2)
+				l.lexer.Move(-2)
 			} else if c == '?' {
-				l.r.Move(2)
+				l.lexer.Move(2)
 				l.inTag = true
 				return StartTagPIToken, l.shiftStartTag()
 			}
-			l.r.Move(1)
+			l.lexer.Move(1)
 			l.inTag = true
 			return StartTagToken, l.shiftStartTag()
 		} else if c == 0 {
-			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+			if l.lexer.Pos() > 0 {
+				return TextToken, l.lexer.Shift()
 			}
-			if l.r.Err() == nil {
-				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+			if l.lexer.Err() == nil {
+				l.err = parse.NewErrorLexer("unexpected null character", l.lexer)
 			}
 			return ErrorToken, nil
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
 }
 
 // Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.
-func (l *Lexer) Text() []byte {
+func (l *Parser) Text() []byte {
 	return l.text
 }
 
 // AttrVal returns the attribute value when an AttributeToken was returned from Next.
-func (l *Lexer) AttrVal() []byte {
+func (l *Parser) AttrVal() []byte {
 	return l.attrVal
 }
 
@@ -188,140 +195,140 @@ func (l *Lexer) AttrVal() []byte {
 
 // The following functions follow the specifications at http://www.w3.org/html/wg/drafts/html/master/syntax.html
 
-func (l *Lexer) shiftDOCTYPEText() []byte {
+func (l *Parser) shiftDOCTYPEText() []byte {
 	inString := false
 	inBrackets := false
 	for {
-		c := l.r.Peek(0)
+		c := l.lexer.Peek(0)
 		if c == '"' {
 			inString = !inString
 		} else if (c == '[' || c == ']') && !inString {
 			inBrackets = (c == '[')
 		} else if c == '>' && !inString && !inBrackets {
-			l.text = l.r.Lexeme()[9:]
-			l.r.Move(1)
-			return l.r.Shift()
+			l.text = l.lexer.Lexeme()[9:]
+			l.lexer.Move(1)
+			return l.lexer.Shift()
 		} else if c == 0 {
-			l.text = l.r.Lexeme()[9:]
-			return l.r.Shift()
+			l.text = l.lexer.Lexeme()[9:]
+			return l.lexer.Shift()
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
 }
 
-func (l *Lexer) shiftCDATAText() []byte {
+func (l *Parser) shiftCDATAText() []byte {
 	for {
-		c := l.r.Peek(0)
-		if c == ']' && l.r.Peek(1) == ']' && l.r.Peek(2) == '>' {
-			l.text = l.r.Lexeme()[9:]
-			l.r.Move(3)
-			return l.r.Shift()
+		c := l.lexer.Peek(0)
+		if c == ']' && l.lexer.Peek(1) == ']' && l.lexer.Peek(2) == '>' {
+			l.text = l.lexer.Lexeme()[9:]
+			l.lexer.Move(3)
+			return l.lexer.Shift()
 		} else if c == 0 {
-			l.text = l.r.Lexeme()[9:]
-			return l.r.Shift()
+			l.text = l.lexer.Lexeme()[9:]
+			return l.lexer.Shift()
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
 }
 
-func (l *Lexer) shiftCommentText() []byte {
+func (l *Parser) shiftCommentText() []byte {
 	for {
-		c := l.r.Peek(0)
-		if c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
-			l.text = l.r.Lexeme()[4:]
-			l.r.Move(3)
-			return l.r.Shift()
+		c := l.lexer.Peek(0)
+		if c == '-' && l.lexer.Peek(1) == '-' && l.lexer.Peek(2) == '>' {
+			l.text = l.lexer.Lexeme()[4:]
+			l.lexer.Move(3)
+			return l.lexer.Shift()
 		} else if c == 0 {
-			return l.r.Shift()
+			return l.lexer.Shift()
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
 }
 
-func (l *Lexer) shiftStartTag() []byte {
-	nameStart := l.r.Pos()
+func (l *Parser) shiftStartTag() []byte {
+	nameStart := l.lexer.Pos()
 	for {
-		if c := l.r.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+		if c := l.lexer.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && l.lexer.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
-	l.text = l.r.Lexeme()[nameStart:]
-	return l.r.Shift()
+	l.text = l.lexer.Lexeme()[nameStart:]
+	return l.lexer.Shift()
 }
 
-func (l *Lexer) shiftAttribute() []byte {
-	nameStart := l.r.Pos()
+func (l *Parser) shiftAttribute() []byte {
+	nameStart := l.lexer.Pos()
 	var c byte
 	for { // attribute name state
-		if c = l.r.Peek(0); c == ' ' || c == '=' || c == '>' || (c == '/' || c == '?') && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+		if c = l.lexer.Peek(0); c == ' ' || c == '=' || c == '>' || (c == '/' || c == '?') && l.lexer.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 			break
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
-	nameEnd := l.r.Pos()
+	nameEnd := l.lexer.Pos()
 	for { // after attribute name state
-		if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-			l.r.Move(1)
+		if c = l.lexer.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+			l.lexer.Move(1)
 			continue
 		}
 		break
 	}
 	if c == '=' {
-		l.r.Move(1)
+		l.lexer.Move(1)
 		for { // before attribute value state
-			if c = l.r.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
-				l.r.Move(1)
+			if c = l.lexer.Peek(0); c == ' ' || c == '\t' || c == '\n' || c == '\r' {
+				l.lexer.Move(1)
 				continue
 			}
 			break
 		}
-		attrPos := l.r.Pos()
+		attrPos := l.lexer.Pos()
 		delim := c
 		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
-			l.r.Move(1)
+			l.lexer.Move(1)
 			for {
-				c = l.r.Peek(0)
+				c = l.lexer.Peek(0)
 				if c == delim {
-					l.r.Move(1)
+					l.lexer.Move(1)
 					break
 				} else if c == 0 {
 					break
 				}
-				l.r.Move(1)
+				l.lexer.Move(1)
 				if c == '\t' || c == '\n' || c == '\r' {
-					l.r.Lexeme()[l.r.Pos()-1] = ' '
+					l.lexer.Lexeme()[l.lexer.Pos()-1] = ' '
 				}
 			}
 		} else { // attribute value unquoted state
 			for {
-				if c = l.r.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
+				if c = l.lexer.Peek(0); c == ' ' || c == '>' || (c == '/' || c == '?') && l.lexer.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == 0 {
 					break
 				}
-				l.r.Move(1)
+				l.lexer.Move(1)
 			}
 		}
-		l.attrVal = l.r.Lexeme()[attrPos:]
+		l.attrVal = l.lexer.Lexeme()[attrPos:]
 	} else {
-		l.r.Rewind(nameEnd)
+		l.lexer.Rewind(nameEnd)
 		l.attrVal = nil
 	}
-	l.text = l.r.Lexeme()[nameStart:nameEnd]
-	return l.r.Shift()
+	l.text = l.lexer.Lexeme()[nameStart:nameEnd]
+	return l.lexer.Shift()
 }
 
-func (l *Lexer) shiftEndTag() []byte {
+func (l *Parser) shiftEndTag() []byte {
 	for {
-		c := l.r.Peek(0)
+		c := l.lexer.Peek(0)
 		if c == '>' {
-			l.text = l.r.Lexeme()[2:]
-			l.r.Move(1)
+			l.text = l.lexer.Lexeme()[2:]
+			l.lexer.Move(1)
 			break
 		} else if c == 0 {
-			l.text = l.r.Lexeme()[2:]
+			l.text = l.lexer.Lexeme()[2:]
 			break
 		}
-		l.r.Move(1)
+		l.lexer.Move(1)
 	}
 
 	end := len(l.text)
@@ -333,14 +340,14 @@ func (l *Lexer) shiftEndTag() []byte {
 		break
 	}
 	l.text = l.text[:end]
-	return l.r.Shift()
+	return l.lexer.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
 
-func (l *Lexer) at(b ...byte) bool {
+func (l *Parser) at(b ...byte) bool {
 	for i, c := range b {
-		if l.r.Peek(i) != c {
+		if l.lexer.Peek(i) != c {
 			return false
 		}
 	}
