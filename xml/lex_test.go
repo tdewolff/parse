@@ -107,7 +107,7 @@ func TestTags(t *testing.T) {
 					test.Fail(t, "when error occurred we must be at the end")
 					break
 				} else if token == StartTagToken || token == StartTagPIToken || token == EndTagToken || token == DOCTYPEToken {
-					test.String(t, string(l.Text()), tt.expected, "tags must match")
+					test.String(t, string(l.Name()), tt.expected, "tags must match")
 					break
 				}
 			}

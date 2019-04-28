@@ -67,7 +67,7 @@ type Parser struct {
 	err   error
 
 	inTag bool
-
+	name []byte
 	text    []byte
 	attrVal []byte
 }
@@ -139,11 +139,11 @@ func (l *Parser) Next() (TokenType, []byte) {
 			return StartTagCloseToken, l.lexer.Shift()
 		}
 	}
-
 	for {
 		c = l.lexer.Peek(0)
 		if c == '<' {
 			if l.lexer.Pos() > 0 {
+				l.text = l.lexer.Lexeme()
 				return TextToken, l.lexer.Shift()
 			}
 			c = l.lexer.Peek(1)
@@ -173,6 +173,7 @@ func (l *Parser) Next() (TokenType, []byte) {
 			return StartTagToken, l.shiftStartTag()
 		} else if c == 0 {
 			if l.lexer.Pos() > 0 {
+				l.text = l.lexer.Lexeme()
 				return TextToken, l.lexer.Shift()
 			}
 			if l.lexer.Err() == nil {
@@ -187,6 +188,11 @@ func (l *Parser) Next() (TokenType, []byte) {
 // Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.
 func (l *Parser) Text() []byte {
 	return l.text
+}
+
+// Name returns the textual representation of a tag name. This excludes delimiters and additional leading/trailing characters.
+func (l *Parser) Name() []byte {
+	return l.name
 }
 
 // AttrVal returns the attribute value when an AttributeToken was returned from Next.
@@ -256,7 +262,7 @@ func (l *Parser) shiftStartTag() []byte {
 		}
 		l.lexer.Move(1)
 	}
-	l.text = l.lexer.Lexeme()[nameStart:]
+	l.name = l.lexer.Lexeme()[nameStart:]
 	return l.lexer.Shift()
 }
 
@@ -342,7 +348,7 @@ func (l *Parser) shiftEndTag() []byte {
 		}
 		break
 	}
-	l.text = l.text[:end]
+	l.name = l.text[:end]
 	return l.lexer.Shift()
 }
 
