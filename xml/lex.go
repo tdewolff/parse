@@ -214,11 +214,11 @@ func (l *Parser) shiftDOCTYPEText() []byte {
 		} else if (c == '[' || c == ']') && !inString {
 			inBrackets = (c == '[')
 		} else if c == '>' && !inString && !inBrackets {
-			l.text = l.lexer.Lexeme()[9:]
+			l.name = l.lexer.Lexeme()[9:]
 			l.lexer.Move(1)
 			return l.lexer.Shift()
 		} else if c == 0 {
-			l.text = l.lexer.Lexeme()[9:]
+			l.name = l.lexer.Lexeme()[9:]
 			return l.lexer.Shift()
 		}
 		l.lexer.Move(1)
