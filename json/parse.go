@@ -103,6 +103,14 @@ func NewParser(r io.Reader) *Parser {
 	}
 }
 
+// NewParser returns a new Parser for a given lexer.
+func NewCustomLexerParser(lexer *buffer.NewLexer) *Parser {
+	return &Parser{
+		lexer: lexer,
+		state: []State{ValueState},
+	}
+}
+
 // Err returns the error encountered during tokenization, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
 	if p.err != nil {
