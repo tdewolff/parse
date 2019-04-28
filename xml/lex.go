@@ -3,7 +3,6 @@ package xml // import "github.com/tdewolff/parse/xml"
 
 import (
 	"io"
-	"parse"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"

@@ -58,7 +58,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		t.Run(tt.xml, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.xml))
+			l := NewParser(bytes.NewBufferString(tt.xml))
 			i := 0
 			for {
 				token, _ := l.Next()
@@ -99,7 +99,7 @@ func TestTags(t *testing.T) {
 	}
 	for _, tt := range tagTests {
 		t.Run(tt.xml, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.xml))
+			l := NewParser(bytes.NewBufferString(tt.xml))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -133,7 +133,7 @@ func TestAttributes(t *testing.T) {
 	}
 	for _, tt := range attributeTests {
 		t.Run(tt.attr, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.attr))
+			l := NewParser(bytes.NewBufferString(tt.attr))
 			i := 0
 			for {
 				token, _ := l.Next()
@@ -164,7 +164,7 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.xml, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.xml))
+			l := NewParser(bytes.NewBufferString(tt.xml))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -186,7 +186,7 @@ func TestErrors(t *testing.T) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
+	l := NewParser(bytes.NewBufferString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
 		tt, data := l.Next()
