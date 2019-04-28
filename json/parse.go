@@ -3,7 +3,6 @@ package json // import "github.com/tdewolff/parse/json"
 
 import (
 	"io"
-	"parse"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
@@ -104,7 +103,7 @@ func NewParser(r io.Reader) *Parser {
 }
 
 // NewParser returns a new Parser for a given lexer.
-func NewCustomLexerParser(lexer *buffer.NewLexer) *Parser {
+func NewCustomLexerParser(lexer *buffer.Lexer) *Parser {
 	return &Parser{
 		lexer: lexer,
 		state: []State{ValueState},

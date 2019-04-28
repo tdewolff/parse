@@ -84,7 +84,7 @@ func NewParser(r io.Reader) *Parser {
 	}
 }
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewCustomLexerParser(lexer *buffer.NewLexer) *Parser {
+func NewCustomLexerParser(lexer *buffer.Lexer) *Parser {
 	return &Lexer{
 		lexer,
 	}
