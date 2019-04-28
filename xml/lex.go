@@ -73,6 +73,10 @@ type Parser struct {
 	attrVal []byte
 }
 
+func (l *Parser) GetLexer() *buffer.Lexer {
+	return l.lexer
+}
+
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
