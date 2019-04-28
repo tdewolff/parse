@@ -228,7 +228,7 @@ func (p *Parser) moveWhitespace() {
 
 func (p *Parser) consumeLiteralToken() bool {
 	c := p.lexer.Peek(0)
-	if c == 't' && p.lexer.Peek(1) == 'lexer' && p.lexer.Peek(2) == 'u' && p.lexer.Peek(3) == 'e' {
+	if c == 't' && p.lexer.Peek(1) == 'r' && p.lexer.Peek(2) == 'u' && p.lexer.Peek(3) == 'e' {
 		p.lexer.Move(4)
 		return true
 	} else if c == 'f' && p.lexer.Peek(1) == 'a' && p.lexer.Peek(2) == 'l' && p.lexer.Peek(3) == 's' && p.lexer.Peek(4) == 'e' {

@@ -10,12 +10,18 @@ var nullBuffer = []byte{0}
 // Lexer is a buffered reader that allows peeking forward and shifting, taking an io.Reader.
 // It keeps data in-memory until Free, taking a byte length, is called to move beyond the data.
 type Lexer struct {
-	buf   []byte
-	pos   int // index in buf
-	start int // index in buf
-	err   error
+	buf               []byte
+	pos               int // index in buf
+	start             int // index in buf
+	lastStartPosition int // index in buf - updated whenever the start position is changed
+	err               error
 
 	restore func()
+}
+
+// LastStartPosition returns start point of the last selection
+func (z *Lexer) LastStartPosition() int {
+	return z.lastStartPosition
 }
 
 // NewLexerBytes returns a new Lexer for a given io.Reader, and uses ioutil.ReadAll to read it into a byte slice.
@@ -137,12 +143,14 @@ func (z *Lexer) Lexeme() []byte {
 
 // Skip collapses the position to the end of the selection.
 func (z *Lexer) Skip() {
+	z.lastStartPosition = z.start
 	z.start = z.pos
 }
 
 // Shift returns the bytes of the current selection and collapses the position to the end of the selection.
 func (z *Lexer) Shift() []byte {
 	b := z.buf[z.start:z.pos]
+	z.lastStartPosition = z.start
 	z.start = z.pos
 	return b
 }
