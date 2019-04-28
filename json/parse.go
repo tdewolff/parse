@@ -3,6 +3,7 @@ package json // import "github.com/tdewolff/parse/json"
 
 import (
 	"io"
+	"parse"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
@@ -82,17 +83,22 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.Lexer
+	lexer *buffer.Lexer
 	state []State
 	err   error
 
 	needComma bool
 }
 
+// GetLexer retunes the currently used buffer lexer
+func (p *Parser) GetLexer() *buffer.Lexer {
+	return p.lexer
+}
+
 // NewParser returns a new Parser for a given io.Reader.
 func NewParser(r io.Reader) *Parser {
 	return &Parser{
-		r:     buffer.NewLexer(r),
+		lexer: buffer.NewLexer(r),
 		state: []State{ValueState},
 	}
 }
@@ -102,41 +108,41 @@ func (p *Parser) Err() error {
 	if p.err != nil {
 		return p.err
 	}
-	return p.r.Err()
+	return p.lexer.Err()
 }
 
 // Restore restores the NULL byte at the end of the buffer.
 func (p *Parser) Restore() {
-	p.r.Restore()
+	p.lexer.Restore()
 }
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
 	p.moveWhitespace()
-	c := p.r.Peek(0)
+	c := p.lexer.Peek(0)
 	state := p.state[len(p.state)-1]
 	if c == ',' {
 		if state != ArrayState && state != ObjectKeyState {
-			p.err = parse.NewErrorLexer("unexpected comma character", p.r)
+			p.err = parse.NewErrorLexer("unexpected comma character", p.lexer)
 			return ErrorGrammar, nil
 		}
-		p.r.Move(1)
+		p.lexer.Move(1)
 		p.moveWhitespace()
 		p.needComma = false
-		c = p.r.Peek(0)
+		c = p.lexer.Peek(0)
 	}
-	p.r.Skip()
+	p.lexer.Skip()
 
 	if p.needComma && c != '}' && c != ']' && c != 0 {
-		p.err = parse.NewErrorLexer("expected comma character or an array or object ending", p.r)
+		p.err = parse.NewErrorLexer("expected comma character or an array or object ending", p.lexer)
 		return ErrorGrammar, nil
 	} else if c == '{' {
 		p.state = append(p.state, ObjectKeyState)
-		p.r.Move(1)
-		return StartObjectGrammar, p.r.Shift()
+		p.lexer.Move(1)
+		return StartObjectGrammar, p.lexer.Shift()
 	} else if c == '}' {
 		if state != ObjectKeyState {
-			p.err = parse.NewErrorLexer("unexpected right brace character", p.r)
+			p.err = parse.NewErrorLexer("unexpected right brace character", p.lexer)
 			return ErrorGrammar, nil
 		}
 		p.needComma = true
@@ -144,59 +150,59 @@ func (p *Parser) Next() (GrammarType, []byte) {
 		if p.state[len(p.state)-1] == ObjectValueState {
 			p.state[len(p.state)-1] = ObjectKeyState
 		}
-		p.r.Move(1)
-		return EndObjectGrammar, p.r.Shift()
+		p.lexer.Move(1)
+		return EndObjectGrammar, p.lexer.Shift()
 	} else if c == '[' {
 		p.state = append(p.state, ArrayState)
-		p.r.Move(1)
-		return StartArrayGrammar, p.r.Shift()
+		p.lexer.Move(1)
+		return StartArrayGrammar, p.lexer.Shift()
 	} else if c == ']' {
 		p.needComma = true
 		if state != ArrayState {
-			p.err = parse.NewErrorLexer("unexpected right bracket character", p.r)
+			p.err = parse.NewErrorLexer("unexpected right bracket character", p.lexer)
 			return ErrorGrammar, nil
 		}
 		p.state = p.state[:len(p.state)-1]
 		if p.state[len(p.state)-1] == ObjectValueState {
 			p.state[len(p.state)-1] = ObjectKeyState
 		}
-		p.r.Move(1)
-		return EndArrayGrammar, p.r.Shift()
+		p.lexer.Move(1)
+		return EndArrayGrammar, p.lexer.Shift()
 	} else if state == ObjectKeyState {
 		if c != '"' || !p.consumeStringToken() {
-			p.err = parse.NewErrorLexer("expected object key to be a quoted string", p.r)
+			p.err = parse.NewErrorLexer("expected object key to be a quoted string", p.lexer)
 			return ErrorGrammar, nil
 		}
-		n := p.r.Pos()
+		n := p.lexer.Pos()
 		p.moveWhitespace()
-		if c := p.r.Peek(0); c != ':' {
-			p.err = parse.NewErrorLexer("expected colon character after object key", p.r)
+		if c := p.lexer.Peek(0); c != ':' {
+			p.err = parse.NewErrorLexer("expected colon character after object key", p.lexer)
 			return ErrorGrammar, nil
 		}
-		p.r.Move(1)
+		p.lexer.Move(1)
 		p.state[len(p.state)-1] = ObjectValueState
-		return StringGrammar, p.r.Shift()[:n]
+		return StringGrammar, p.lexer.Shift()[:n]
 	} else {
 		p.needComma = true
 		if state == ObjectValueState {
 			p.state[len(p.state)-1] = ObjectKeyState
 		}
 		if c == '"' && p.consumeStringToken() {
-			return StringGrammar, p.r.Shift()
+			return StringGrammar, p.lexer.Shift()
 		} else if p.consumeNumberToken() {
-			return NumberGrammar, p.r.Shift()
+			return NumberGrammar, p.lexer.Shift()
 		} else if p.consumeLiteralToken() {
-			return LiteralGrammar, p.r.Shift()
+			return LiteralGrammar, p.lexer.Shift()
 		}
-		c := p.r.Peek(0) // pick up movement from consumeStringToken to detect NULL or EOF
-		if c == 0 && p.r.Err() == nil {
-			p.err = parse.NewErrorLexer("unexpected NULL character", p.r)
+		c := p.lexer.Peek(0) // pick up movement from consumeStringToken to detect NULL or EOF
+		if c == 0 && p.lexer.Err() == nil {
+			p.err = parse.NewErrorLexer("unexpected NULL character", p.lexer)
 			return ErrorGrammar, nil
 		} else if c == 0 { // EOF
 			return ErrorGrammar, nil
 		}
 	}
-	p.err = parse.NewErrorLexer("unexpected character", p.r)
+	p.err = parse.NewErrorLexer("unexpected character", p.lexer)
 	return ErrorGrammar, nil
 }
 
@@ -213,76 +219,76 @@ The following functions follow the specifications at http://json.org/
 
 func (p *Parser) moveWhitespace() {
 	for {
-		if c := p.r.Peek(0); c != ' ' && c != '\n' && c != '\r' && c != '\t' {
+		if c := p.lexer.Peek(0); c != ' ' && c != '\n' && c != '\r' && c != '\t' {
 			break
 		}
-		p.r.Move(1)
+		p.lexer.Move(1)
 	}
 }
 
 func (p *Parser) consumeLiteralToken() bool {
-	c := p.r.Peek(0)
-	if c == 't' && p.r.Peek(1) == 'r' && p.r.Peek(2) == 'u' && p.r.Peek(3) == 'e' {
-		p.r.Move(4)
+	c := p.lexer.Peek(0)
+	if c == 't' && p.lexer.Peek(1) == 'lexer' && p.lexer.Peek(2) == 'u' && p.lexer.Peek(3) == 'e' {
+		p.lexer.Move(4)
 		return true
-	} else if c == 'f' && p.r.Peek(1) == 'a' && p.r.Peek(2) == 'l' && p.r.Peek(3) == 's' && p.r.Peek(4) == 'e' {
-		p.r.Move(5)
+	} else if c == 'f' && p.lexer.Peek(1) == 'a' && p.lexer.Peek(2) == 'l' && p.lexer.Peek(3) == 's' && p.lexer.Peek(4) == 'e' {
+		p.lexer.Move(5)
 		return true
-	} else if c == 'n' && p.r.Peek(1) == 'u' && p.r.Peek(2) == 'l' && p.r.Peek(3) == 'l' {
-		p.r.Move(4)
+	} else if c == 'n' && p.lexer.Peek(1) == 'u' && p.lexer.Peek(2) == 'l' && p.lexer.Peek(3) == 'l' {
+		p.lexer.Move(4)
 		return true
 	}
 	return false
 }
 
 func (p *Parser) consumeNumberToken() bool {
-	mark := p.r.Pos()
-	if p.r.Peek(0) == '-' {
-		p.r.Move(1)
+	mark := p.lexer.Pos()
+	if p.lexer.Peek(0) == '-' {
+		p.lexer.Move(1)
 	}
-	c := p.r.Peek(0)
+	c := p.lexer.Peek(0)
 	if c >= '1' && c <= '9' {
-		p.r.Move(1)
+		p.lexer.Move(1)
 		for {
-			if c := p.r.Peek(0); c < '0' || c > '9' {
+			if c := p.lexer.Peek(0); c < '0' || c > '9' {
 				break
 			}
-			p.r.Move(1)
+			p.lexer.Move(1)
 		}
 	} else if c != '0' {
-		p.r.Rewind(mark)
+		p.lexer.Rewind(mark)
 		return false
 	} else {
-		p.r.Move(1) // 0
+		p.lexer.Move(1) // 0
 	}
-	if c := p.r.Peek(0); c == '.' {
-		p.r.Move(1)
-		if c := p.r.Peek(0); c < '0' || c > '9' {
-			p.r.Move(-1)
+	if c := p.lexer.Peek(0); c == '.' {
+		p.lexer.Move(1)
+		if c := p.lexer.Peek(0); c < '0' || c > '9' {
+			p.lexer.Move(-1)
 			return true
 		}
 		for {
-			if c := p.r.Peek(0); c < '0' || c > '9' {
+			if c := p.lexer.Peek(0); c < '0' || c > '9' {
 				break
 			}
-			p.r.Move(1)
+			p.lexer.Move(1)
 		}
 	}
-	mark = p.r.Pos()
-	if c := p.r.Peek(0); c == 'e' || c == 'E' {
-		p.r.Move(1)
-		if c := p.r.Peek(0); c == '+' || c == '-' {
-			p.r.Move(1)
+	mark = p.lexer.Pos()
+	if c := p.lexer.Peek(0); c == 'e' || c == 'E' {
+		p.lexer.Move(1)
+		if c := p.lexer.Peek(0); c == '+' || c == '-' {
+			p.lexer.Move(1)
 		}
-		if c := p.r.Peek(0); c < '0' || c > '9' {
-			p.r.Rewind(mark)
+		if c := p.lexer.Peek(0); c < '0' || c > '9' {
+			p.lexer.Rewind(mark)
 			return true
 		}
 		for {
-			if c := p.r.Peek(0); c < '0' || c > '9' {
+			if c := p.lexer.Peek(0); c < '0' || c > '9' {
 				break
 			}
-			p.r.Move(1)
+			p.lexer.Move(1)
 		}
 	}
 	return true
@@ -290,26 +296,26 @@ func (p *Parser) consumeNumberToken() bool {
 
 func (p *Parser) consumeStringToken() bool {
 	// assume to be on "
-	p.r.Move(1)
+	p.lexer.Move(1)
 	for {
-		c := p.r.Peek(0)
+		c := p.lexer.Peek(0)
 		if c == '"' {
 			escaped := false
-			for i := p.r.Pos() - 1; i >= 0; i-- {
-				if p.r.Lexeme()[i] == '\\' {
+			for i := p.lexer.Pos() - 1; i >= 0; i-- {
+				if p.lexer.Lexeme()[i] == '\\' {
 					escaped = !escaped
 				} else {
 					break
 				}
 			}
 			if !escaped {
-				p.r.Move(1)
+				p.lexer.Move(1)
 				break
 			}
 		} else if c == 0 {
 			return false
 		}
-		p.r.Move(1)
+		p.lexer.Move(1)
 	}
 	return true
 }
