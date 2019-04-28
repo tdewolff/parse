@@ -31,6 +31,7 @@ func TestLexer(t *testing.T) {
 
 	test.Bytes(t, z.Lexeme(), []byte("Lorem "), "buffered string must now read 'Lorem ' when at position 6")
 	test.Bytes(t, z.Shift(), []byte("Lorem "), "shift must return the buffered string")
+	test.That(t, z.lastStartPosition == 0)
 	test.That(t, z.Pos() == 0, "after shifting position must be 0")
 	test.That(t, z.Peek(0) == 'i', "must be 'i' at position 0 after shifting")
 	test.That(t, z.Peek(1) == 'p', "must be 'p' at position 1 after shifting")
