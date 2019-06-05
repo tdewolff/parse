@@ -88,6 +88,8 @@ func TestParse(t *testing.T) {
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
+		{false, "}", "ERROR(})"},
+		{true, "}", "ERROR(})"},
 		{true, "~color:red", "ERROR(~color:red)"},
 		{true, "(color;red)", "ERROR((color;red))"},
 		{true, "color(;red)", "ERROR(color(;red))"},
@@ -118,7 +120,7 @@ func TestParse(t *testing.T) {
 				data = parse.Copy(data)
 				if grammar == ErrorGrammar {
 					if err := p.Err(); err != io.EOF {
-						data = append([]byte("ERROR("), data...)
+						data = []byte("ERROR(")
 						for _, val := range p.Values() {
 							data = append(data, val.Data...)
 						}
@@ -162,6 +164,8 @@ func TestParseError(t *testing.T) {
 		css    string
 		col    int
 	}{
+		{false, "}", 2},
+		{true, "}", 1},
 		{false, "selector", 9},
 		{true, "color 0", 7},
 		{true, "--color 0", 9},
