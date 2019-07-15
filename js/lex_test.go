@@ -1,4 +1,4 @@
-package js // import "github.com/tdewolff/parse/js"
+package js
 
 import (
 	"bytes"

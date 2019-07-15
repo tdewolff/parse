@@ -1,4 +1,4 @@
-package html // import "github.com/tdewolff/parse/html"
+package html
 
 import "github.com/tdewolff/parse/v2"
 
