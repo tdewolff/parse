@@ -1,4 +1,4 @@
-package xml // import "github.com/tdewolff/parse/xml"
+package xml
 
 import "github.com/tdewolff/parse/v2"
 
