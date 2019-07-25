@@ -161,6 +161,7 @@ func TrimWhitespace(b []byte) []byte {
 
 // ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space or newline (when the serie contained a \n or \r).
 func ReplaceMultipleWhitespace(b []byte) []byte {
+	// TODO: does not work with UTF8 runes that contain \x0A for example
 	j := 0
 	prevWS := false
 	hasNewline := false
