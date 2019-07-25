@@ -1,4 +1,4 @@
-package json // import "github.com/tdewolff/parse/json"
+package json
 
 import (
 	"bytes"

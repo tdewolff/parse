@@ -1,4 +1,4 @@
-package parse // import "github.com/tdewolff/parse"
+package parse
 
 import (
 	"bytes"

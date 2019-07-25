@@ -1,5 +1,5 @@
 // Package json is a JSON parser following the specifications at http://json.org/.
-package json // import "github.com/tdewolff/parse/json"
+package json
 
 import (
 	"io"
