@@ -71,7 +71,7 @@ func TestParse(t *testing.T) {
 		{false, "@media (max-width:400px)", "@media(max-width:400px);"},
 		{false, "@font-face { ; font:x; }", "@font-face{font:x;}"},
 		{false, "@-moz-font-face { ; font:x; }", "@-moz-font-face{font:x;}"},
-		{false, "@unknown abc { {} lala }", "@unknown abc{{}lala}"},
+		{false, "@unknown abc { {} lala }", "@unknown abc{{} lala }"},
 		{false, "a[x={}]{x:y;}", "a[x={}]{x:y;}"},
 		{false, "a[x=,]{x:y;}", "a[x=,]{x:y;}"},
 		{false, "a[x=+]{x:y;}", "a[x=+]{x:y;}"},

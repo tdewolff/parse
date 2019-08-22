@@ -85,6 +85,7 @@ type Parser struct {
 
 	tt          TokenType
 	data        []byte
+	keepWS      bool
 	prevWS      bool
 	prevEnd     bool
 	prevComment bool
@@ -142,7 +143,7 @@ func (p *Parser) popToken(allowComment bool) (TokenType, []byte) {
 	p.prevWS = false
 	p.prevComment = false
 	tt, data := p.l.Next()
-	for tt == WhitespaceToken || tt == CommentToken {
+	for !p.keepWS && tt == WhitespaceToken || tt == CommentToken {
 		if tt == WhitespaceToken {
 			p.prevWS = true
 		} else {
@@ -296,8 +297,10 @@ func (p *Parser) parseAtRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseAtRuleUnknown() GrammarType {
+	p.keepWS = true
 	if p.tt == RightBraceToken && p.level == 0 || p.tt == ErrorToken {
 		p.state = p.state[:len(p.state)-1]
+		p.keepWS = false
 		return EndAtRuleGrammar
 	}
 	if p.tt == LeftParenthesisToken || p.tt == LeftBraceToken || p.tt == LeftBracketToken || p.tt == FunctionToken {
