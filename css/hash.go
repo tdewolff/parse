@@ -314,6 +314,7 @@ const (
 	Turquoise                   Hash = 0x3de09 // turquoise
 	Unicode_Bidi                Hash = 0xab70c // unicode-bidi
 	Unset                       Hash = 0xaca05 // unset
+	Url                         Hash = 0x25803 // url
 	Vertical_Align              Hash = 0x3ac0e // vertical-align
 	Visibility                  Hash = 0xacf0a // visibility
 	Voice_Family                Hash = 0xad90c // voice-family
@@ -595,6 +596,7 @@ var _Hash_table = [1 << 9]Hash{
 	0xfc:  0x2e90b, // margin-left
 	0xfd:  0x9d00b, // pitch-range
 	0xfe:  0x6a709, // lightpink
+	0xff:  0x25803, // url
 	0x102: 0xa5218, // layout-grid-char-spacing
 	0x103: 0x2850b, // caret-color
 	0x108: 0x56107, // fantasy
