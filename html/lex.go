@@ -178,7 +178,7 @@ func (l *Lexer) AttrVal() []byte {
 
 ////////////////////////////////////////////////////////////////
 
-// The following functions follow the specifications at http://www.w3.org/html/wg/drafts/html/master/syntax.html
+// The following functions follow the specifications at https://html.spec.whatwg.org/multipage/parsing.html
 
 func (l *Lexer) shiftRawText() []byte {
 	if l.rawTag == Plaintext {
