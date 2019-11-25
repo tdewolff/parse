@@ -113,6 +113,7 @@ func TestReplaceEntities(t *testing.T) {
 		"apos": '\'',
 		"amp":  '&',
 	}
+	forbidden := "'"
 	var entityTests = []struct {
 		entity   string
 		expected string
@@ -122,13 +123,14 @@ func TestReplaceEntities(t *testing.T) {
 		{"&#x0022;", `"`},
 		{"&#x27;", `'`},
 		{"&quot;", `"`},
-		{"&apos;", `'`},
+		{"&apos;", `&apos;`},
 		{"&#9191;", `&#9191;`},
 		{"&#x23e7;", `&#x23e7;`},
 		{"&apos;&quot;", `'"`},
 		{"&#34", `&#34`},
 		{"&#x22", `&#x22`},
 		{"&apos", `&apos`},
+		{"&amp;", `&`},
 		{"&amp;amp;", `&amp;amp;`},
 		{"&amp;#34;", `&amp;#34;`},
 		{"&amp;DiacriticalAcute;", `&amp;DiacriticalAcute;`},

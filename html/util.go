@@ -1,5 +1,7 @@
 package html
 
+import "github.com/tdewolff/parse/v2"
+
 var (
 	singleQuoteEntityBytes = []byte("&#39;")
 	doubleQuoteEntityBytes = []byte("&#34;")
@@ -11,13 +13,26 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte, isXML bool) []byte {
 	doubles := 0
 	unquoted := true
 	entities := false
-	for _, c := range b {
+	for i, c := range b {
 		if charTable[c] {
-			unquoted = false
-			if c == '"' {
-				doubles++
-			} else if c == '\'' {
-				singles++
+			if c == '&' {
+				entities = true
+				if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
+					if quote == '"' {
+						unquoted = false
+						doubles++
+					} else {
+						unquoted = false
+						singles++
+					}
+				}
+			} else {
+				unquoted = false
+				if c == '"' {
+					doubles++
+				} else if c == '\'' {
+					singles++
+				}
 			}
 		}
 	}
@@ -47,7 +62,18 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte, isXML bool) []byte {
 	j := 1
 	start := 0
 	for i, c := range b {
-		if c == quote {
+		if c == '&' {
+			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
+				j += copy(t[j:], b[start:i])
+				if entityQuote != quote {
+					t[j] = entityQuote
+					j++
+				} else {
+					j += copy(t[j:], escapedQuote)
+				}
+				start = i + n
+			}
+		} else if c == quote {
 			j += copy(t[j:], b[start:i])
 			j += copy(t[j:], escapedQuote)
 			start = i + 1
@@ -100,6 +126,62 @@ var charTable = [256]bool{
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
+}
+
+var Entities = map[string]rune{
+	"AM":               '&',
+	"AMP":              '&',
+	"DiacriticalGrave": '`',
+	"G":                '>',
+	"GT":               '>',
+	"Hat":              '^',
+	"L":                '<',
+	"LT":               '<',
+	"NewLine":          '\n',
+	"QUO":              '"',
+	"QUOT":             '"',
+	"Tab":              '\t',
+	"UnderBar":         '_',
+	"VerticalLine":     '|',
+	"am":               '&',
+	"amp":              '&',
+	"apos":             '\'',
+	"ast":              '*',
+	"bsol":             '\\',
+	"colon":            ':',
+	"comma":            ',',
+	"commat":           '@',
+	"dollar":           '$',
+	"equals":           '=',
+	"excl":             '!',
+	"grave":            '`',
+	"g":                '>',
+	"gt":               '>',
+	"lbrace":           '{',
+	"lbrack":           '[',
+	"lcub":             '{',
+	"lowbar":           '_',
+	"lpar":             '(',
+	"lsqb":             '[',
+	"l":                '<',
+	"lt":               '<',
+	"midast":           '*',
+	"num":              '#',
+	"percnt":           '%',
+	"period":           '.',
+	"plus":             '+',
+	"quest":            '?',
+	"quo":              '"',
+	"quot":             '"',
+	"rbrace":           '}',
+	"rbrack":           ']',
+	"rcub":             '}',
+	"rpar":             ')',
+	"rsqb":             ']',
+	"semi":             ';',
+	"sol":              '/',
+	"verbar":           '|',
+	"vert":             '|',
 }
 
 // Entities are all named character entities.
@@ -267,60 +349,4 @@ var EntitiesMap = map[string][]byte{
 	"xvee":                  []byte("Vee"),
 	"xwedge":                []byte("Wedge"),
 	"zeetrf":                []byte("Zfr"),
-}
-
-var Entities = map[string]byte{
-	"AM":               '&',
-	"AMP":              '&',
-	"DiacriticalGrave": '`',
-	"G":                '>',
-	"GT":               '>',
-	"Hat":              '^',
-	"L":                '<',
-	"LT":               '<',
-	"NewLine":          '\n',
-	"QUO":              '"',
-	"QUOT":             '"',
-	"Tab":              '\t',
-	"UnderBar":         '_',
-	"VerticalLine":     '|',
-	"am":               '&',
-	"amp":              '&',
-	"apos":             '\'',
-	"ast":              '*',
-	"bsol":             '\\',
-	"colon":            ':',
-	"comma":            ',',
-	"commat":           '@',
-	"dollar":           '$',
-	"equals":           '=',
-	"excl":             '!',
-	"grave":            '`',
-	"g":                '>',
-	"gt":               '>',
-	"lbrace":           '{',
-	"lbrack":           '[',
-	"lcub":             '{',
-	"lowbar":           '_',
-	"lpar":             '(',
-	"lsqb":             '[',
-	"l":                '<',
-	"lt":               '<',
-	"midast":           '*',
-	"num":              '#',
-	"percnt":           '%',
-	"period":           '.',
-	"plus":             '+',
-	"quest":            '?',
-	"quo":              '"',
-	"quot":             '"',
-	"rbrace":           '}',
-	"rbrack":           ']',
-	"rcub":             '}',
-	"rpar":             ')',
-	"rsqb":             ']',
-	"semi":             ';',
-	"sol":              '/',
-	"verbar":           '|',
-	"vert":             '|',
 }

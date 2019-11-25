@@ -189,12 +189,54 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	return nil, nil, ErrBadDataURI
 }
 
+// QuoteEntity parses the given byte slice and returns the quote that got matched (' or ") and its entity length.
+func QuoteEntity(b []byte) (quote byte, n int) {
+	if len(b) < 5 || b[0] != '&' {
+		return 0, 0
+	}
+	if b[1] == '#' {
+		if b[2] == 'x' {
+			i := 3
+			for i < len(b) && b[i] == '0' {
+				i++
+			}
+			if i+2 < len(b) && b[i] == '2' && b[i+2] == ';' {
+				if b[i+1] == '2' {
+					return '"', i + 3 // &#x22;
+				} else if b[i+1] == '7' {
+					return '\'', i + 3 // &#x27;
+				}
+			}
+		} else {
+			i := 2
+			for i < len(b) && b[i] == '0' {
+				i++
+			}
+			if i+2 < len(b) && b[i] == '3' && b[i+2] == ';' {
+				if b[i+1] == '4' {
+					return '"', i + 3 // &#34;
+				} else if b[i+1] == '9' {
+					return '\'', i + 3 // &#39;
+				}
+			}
+		}
+	} else if len(b) >= 6 && b[5] == ';' {
+		if bytes.Equal(b[1:5], []byte{'q', 'u', 'o', 't'}) {
+			return '"', 6 // &quot;
+		} else if bytes.Equal(b[1:5], []byte{'a', 'p', 'o', 's'}) {
+			return '\'', 6 // &apos;
+		}
+	}
+	return 0, 0
+}
+
 // ReplaceEntities replaces all occurrences of entites (such as &quot;) to their respective unencoded bytes.
-func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]byte) []byte {
+func ReplaceEntities(b []byte, entities map[string]rune, entitiesMap map[string][]byte, forbidden string) []byte {
 	const MaxEntityLength = 31 // longest HTML entity: CounterClockwiseContourIntegral
+LOOP:
 	for i := 0; i < len(b); i++ {
 		if b[i] == '&' && i+3 < len(b) {
-			var r byte
+			var r rune
 			j := i + 1
 			if b[j] == '#' {
 				j++
@@ -213,7 +255,7 @@ func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]
 					if j <= i+3 || 256 <= c {
 						continue
 					}
-					r = byte(c)
+					r = rune(c)
 				} else {
 					c := 0
 					for ; j < len(b) && c < 256 && b[j] >= '0' && b[j] <= '9'; j++ {
@@ -222,7 +264,7 @@ func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]
 					if j <= i+2 || 256 <= c {
 						continue
 					}
-					r = byte(c)
+					r = rune(c)
 				}
 			} else {
 				for ; j < len(b) && j-i-1 <= MaxEntityLength && b[j] != ';'; j++ {
@@ -234,7 +276,7 @@ func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]
 				var ok bool
 				r, ok = entities[string(b[i+1:j])]
 				if !ok {
-					if q, ok := entityMap[string(b[i+1:j])]; ok {
+					if q, ok := entitiesMap[string(b[i+1:j])]; ok {
 						n := j + 1 - i
 						copy(b[i+1:], q)
 						copy(b[i+1+len(q):], b[j+1:])
@@ -248,19 +290,28 @@ func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]
 			// j is at semicolon
 			n := j + 1 - i
 			if j < len(b) && b[j] == ';' && 2 < n {
+				for _, f := range forbidden {
+					if r == f {
+						continue LOOP
+					}
+				}
+
 				if r == '&' {
 					// check if for example &amp; is followed by something that could potentially be an entity
 					k := j + 1
 					for ; k < len(b) && k-j <= MaxEntityLength && b[k] != ';'; k++ {
 					}
-					if len(b) <= k || b[k] == ';' {
+					if k < len(b) && b[k] == ';' {
 						continue
 					}
 				}
 
-				b[i] = byte(r)
-				copy(b[i+1:], b[j+1:])
-				b = b[:len(b)-n+1]
+				if r < '\x80' {
+					b[i] = byte(r)
+					copy(b[i+1:], b[j+1:])
+					b = b[:len(b)-n+1]
+				} else {
+				}
 			}
 		}
 	}

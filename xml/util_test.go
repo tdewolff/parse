@@ -46,6 +46,7 @@ func TestEscapeCDATAVal(t *testing.T) {
 		{"<![CDATA[&&&&]]>", "<![CDATA[&&&&]]>"},
 		{"<![CDATA[ a ]]>", " a "},
 		{"<![CDATA[]]>", ""},
+		{"<![CDATA[ a ]]&gt; b ]]>", " a ]]&amp;gt; b "},
 	}
 	var buf []byte
 	for _, tt := range CDATAValTests {
