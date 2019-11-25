@@ -190,15 +190,17 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 }
 
 // ReplaceEntities replaces all occurrences of entites (such as &quot;) to their respective unencoded bytes.
-func ReplaceEntities(b []byte, entities map[string]byte) []byte {
+func ReplaceEntities(b []byte, entities map[string]byte, entityMap map[string][]byte) []byte {
+	const MaxEntityLength = 31 // longest HTML entity: CounterClockwiseContourIntegral
 	for i := 0; i < len(b); i++ {
 		if b[i] == '&' && i+3 < len(b) {
 			var r byte
-			var n int
-			if b[i+1] == '#' {
-				if b[i+2] == 'x' {
+			j := i + 1
+			if b[j] == '#' {
+				j++
+				if b[j] == 'x' {
+					j++
 					c := 0
-					j := i + 3
 					for ; j < len(b) && c < 256 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
 						if b[j] <= '9' {
 							c = c<<4 + int(b[j]-'0')
@@ -208,37 +210,56 @@ func ReplaceEntities(b []byte, entities map[string]byte) []byte {
 							c = c<<4 + int(b[j]-'a') + 10
 						}
 					}
-					if i+3 < j && j < len(b) && c < 256 && b[j] == ';' {
-						r = byte(c)
-						n = j + 1 - i
+					if j <= i+3 || 256 <= c {
+						continue
 					}
+					r = byte(c)
 				} else {
 					c := 0
-					j := i + 2
 					for ; j < len(b) && c < 256 && b[j] >= '0' && b[j] <= '9'; j++ {
 						c = c*10 + int(b[j]-'0')
 					}
-					if i+2 < j && j < len(b) && c < 256 && b[j] == ';' {
-						r = byte(c)
-						n = j + 1 - i
+					if j <= i+2 || 256 <= c {
+						continue
 					}
+					r = byte(c)
 				}
 			} else {
-				j := i + 1
-				for ; j < len(b) && b[j] != ';'; j++ {
+				for ; j < len(b) && j-i-1 <= MaxEntityLength && b[j] != ';'; j++ {
 				}
-				if i+1 < j && j < len(b) {
-					var ok bool
-					r, ok = entities[string(b[i+1:j])]
-					if ok {
-						n = j + 1 - i
+				if j <= i+1 || len(b) <= j {
+					continue
+				}
+
+				var ok bool
+				r, ok = entities[string(b[i+1:j])]
+				if !ok {
+					if q, ok := entityMap[string(b[i+1:j])]; ok {
+						n := j + 1 - i
+						copy(b[i+1:], q)
+						copy(b[i+1+len(q):], b[j+1:])
+						b[i+1+len(q)] = ';'
+						b = b[:len(b)-n+2+len(q)]
 					}
+					continue
 				}
 			}
 
-			if 0 < n {
+			// j is at semicolon
+			n := j + 1 - i
+			if j < len(b) && b[j] == ';' && 2 < n {
+				if r == '&' {
+					// check if for example &amp; is followed by something that could potentially be an entity
+					k := j + 1
+					for ; k < len(b) && k-j <= MaxEntityLength && b[k] != ';'; k++ {
+					}
+					if len(b) <= k || b[k] == ';' {
+						continue
+					}
+				}
+
 				b[i] = byte(r)
-				copy(b[i+1:], b[i+n:])
+				copy(b[i+1:], b[j+1:])
 				b = b[:len(b)-n+1]
 			}
 		}

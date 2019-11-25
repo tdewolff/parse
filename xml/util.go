@@ -9,10 +9,10 @@ var (
 
 // Entities are all named character entities.
 var Entities = map[string]byte{
-	"lt":   '<',
-	"gt":   '>',
 	"amp":  '&',
 	"apos": '\'',
+	"gt":   '>',
+	"lt":   '<',
 	"quot": '"',
 }
 
