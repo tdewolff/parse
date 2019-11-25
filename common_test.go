@@ -103,32 +103,26 @@ func TestParseDataURI(t *testing.T) {
 	}
 }
 
-func TestReplaceEntities(t *testing.T) {
-	entityMap := map[string]byte{
-		"quot": '"',
-		"apos": '\'',
-	}
-	var entityTests = []struct {
-		entity   string
-		expected string
+func TestParseQuoteEntity(t *testing.T) {
+	var quoteEntityTests = []struct {
+		quoteEntity   string
+		expectedQuote byte
+		expectedN     int
 	}{
-		{"&#34;", `"`},
-		{"&#039;", `'`},
-		{"&#x0022;", `"`},
-		{"&#x27;", `'`},
-		{"&quot;", `"`},
-		{"&apos;", `'`},
-		{"&#9191;", `&#9191;`},
-		{"&#x23e7;", `&#x23e7;`},
-		{"&apos;&quot;", `'"`},
-		{"&#34", `&#34`},
-		{"&#x22", `&#x22`},
-		{"&apos", `&apos`},
+		{"&#34;", '"', 5},
+		{"&#039;", '\'', 6},
+		{"&#x0022;", '"', 8},
+		{"&#x27;", '\'', 6},
+		{"&quot;", '"', 6},
+		{"&apos;", '\'', 6},
+		{"&gt;", 0x00, 0},
+		{"&amp;", 0x00, 0},
 	}
-	for _, tt := range entityTests {
-		t.Run(tt.entity, func(t *testing.T) {
-			b := ReplaceEntities([]byte(tt.entity), entityMap)
-			test.T(t, string(b), tt.expected)
+	for _, tt := range quoteEntityTests {
+		t.Run(tt.quoteEntity, func(t *testing.T) {
+			quote, n := QuoteEntity([]byte(tt.quoteEntity))
+			test.T(t, quote, tt.expectedQuote, "quote")
+			test.T(t, n, tt.expectedN, "quote length")
 		})
 	}
 }

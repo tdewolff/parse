@@ -1,5 +1,7 @@
 package xml
 
+import "github.com/tdewolff/parse/v2"
+
 var (
 	ltEntityBytes          = []byte("&lt;")
 	ampEntityBytes         = []byte("&amp;")
@@ -7,21 +9,20 @@ var (
 	doubleQuoteEntityBytes = []byte("&#34;")
 )
 
-// Entities are all named character entities.
-var Entities = map[string]byte{
-	"lt":   '<',
-	"gt":   '>',
-	"amp":  '&',
-	"apos": '\'',
-	"quot": '"',
-}
-
 // EscapeAttrVal returns the escape attribute value bytes without quotes.
 func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 	singles := 0
 	doubles := 0
-	for _, c := range b {
-		if c == '"' {
+	for i, c := range b {
+		if c == '&' {
+			if quote, n := parse.QuoteEntity(b[i:]); n > 0 {
+				if quote == '"' {
+					doubles++
+				} else {
+					singles++
+				}
+			}
+		} else if c == '"' {
 			doubles++
 		} else if c == '\'' {
 			singles++
@@ -48,7 +49,18 @@ func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 	j := 1
 	start := 0
 	for i, c := range b {
-		if c == quote {
+		if c == '&' {
+			if entityQuote, n := parse.QuoteEntity(b[i:]); n > 0 {
+				j += copy(t[j:], b[start:i])
+				if entityQuote != quote {
+					t[j] = entityQuote
+					j++
+				} else {
+					j += copy(t[j:], escapedQuote)
+				}
+				start = i + n
+			}
+		} else if c == quote {
 			j += copy(t[j:], b[start:i])
 			j += copy(t[j:], escapedQuote)
 			start = i + 1
