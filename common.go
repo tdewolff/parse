@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"net/url"
+	"strconv"
 )
 
 // ErrBadDataURI is returned by DataURI when the byte slice does not start with 'data:' or is too short.
@@ -189,61 +190,19 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	return nil, nil, ErrBadDataURI
 }
 
-// QuoteEntity parses the given byte slice and returns the quote that got matched (' or ") and its entity length.
-func QuoteEntity(b []byte) (quote byte, n int) {
-	if len(b) < 5 || b[0] != '&' {
-		return 0, 0
-	}
-	if b[1] == '#' {
-		if b[2] == 'x' {
-			i := 3
-			for i < len(b) && b[i] == '0' {
-				i++
-			}
-			if i+2 < len(b) && b[i] == '2' && b[i+2] == ';' {
-				if b[i+1] == '2' {
-					return '"', i + 3 // &#x22;
-				} else if b[i+1] == '7' {
-					return '\'', i + 3 // &#x27;
-				}
-			}
-		} else {
-			i := 2
-			for i < len(b) && b[i] == '0' {
-				i++
-			}
-			if i+2 < len(b) && b[i] == '3' && b[i+2] == ';' {
-				if b[i+1] == '4' {
-					return '"', i + 3 // &#34;
-				} else if b[i+1] == '9' {
-					return '\'', i + 3 // &#39;
-				}
-			}
-		}
-	} else if len(b) >= 6 && b[5] == ';' {
-		if bytes.Equal(b[1:5], []byte{'q', 'u', 'o', 't'}) {
-			return '"', 6 // &quot;
-		} else if bytes.Equal(b[1:5], []byte{'a', 'p', 'o', 's'}) {
-			return '\'', 6 // &apos;
-		}
-	}
-	return 0, 0
-}
-
 // ReplaceEntities replaces all occurrences of entites (such as &quot;) to their respective unencoded bytes.
-func ReplaceEntities(b []byte, entities map[string]rune, entitiesMap map[string][]byte, forbidden string) []byte {
+func ReplaceEntities(b []byte, entitiesMap map[string][]byte, revEntitiesMap map[byte][]byte) []byte {
 	const MaxEntityLength = 31 // longest HTML entity: CounterClockwiseContourIntegral
-LOOP:
 	for i := 0; i < len(b); i++ {
 		if b[i] == '&' && i+3 < len(b) {
-			var r rune
+			var r []byte
 			j := i + 1
 			if b[j] == '#' {
 				j++
 				if b[j] == 'x' {
 					j++
 					c := 0
-					for ; j < len(b) && c < 256 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
+					for ; j < len(b) && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
 						if b[j] <= '9' {
 							c = c<<4 + int(b[j]-'0')
 						} else if b[j] <= 'F' {
@@ -252,10 +211,16 @@ LOOP:
 							c = c<<4 + int(b[j]-'a') + 10
 						}
 					}
-					if j <= i+3 || 256 <= c {
+					if j <= i+3 || 10000 <= c {
 						continue
 					}
-					r = rune(c)
+					if c < 256 {
+						r = []byte{byte(c)}
+					} else {
+						r = append(r, '&', '#')
+						r = strconv.AppendInt(r, int64(c), 10)
+						r = append(r, ';')
+					}
 				} else {
 					c := 0
 					for ; j < len(b) && c < 256 && b[j] >= '0' && b[j] <= '9'; j++ {
@@ -264,7 +229,7 @@ LOOP:
 					if j <= i+2 || 256 <= c {
 						continue
 					}
-					r = rune(c)
+					r = []byte{byte(c)}
 				}
 			} else {
 				for ; j < len(b) && j-i-1 <= MaxEntityLength && b[j] != ';'; j++ {
@@ -274,15 +239,8 @@ LOOP:
 				}
 
 				var ok bool
-				r, ok = entities[string(b[i+1:j])]
+				r, ok = entitiesMap[string(b[i+1:j])]
 				if !ok {
-					if q, ok := entitiesMap[string(b[i+1:j])]; ok {
-						n := j + 1 - i
-						copy(b[i+1:], q)
-						copy(b[i+1+len(q):], b[j+1:])
-						b[i+1+len(q)] = ';'
-						b = b[:len(b)-n+2+len(q)]
-					}
 					continue
 				}
 			}
@@ -290,28 +248,29 @@ LOOP:
 			// j is at semicolon
 			n := j + 1 - i
 			if j < len(b) && b[j] == ';' && 2 < n {
-				for _, f := range forbidden {
-					if r == f {
-						continue LOOP
+				if len(r) == 1 {
+					if q, ok := revEntitiesMap[r[0]]; ok {
+						if len(q) == len(b[i:j+1]) && bytes.Equal(q, b[i:j+1]) {
+							continue
+						}
+						r = q
+					} else if r[0] == '&' {
+						// check if for example &amp; is followed by something that could potentially be an entity
+						k := j + 1
+						if k < len(b) && b[k] == '#' {
+							k++
+						}
+						for ; k < len(b) && k-j <= MaxEntityLength && (b[k] >= '0' && b[k] <= '9' || b[k] >= 'a' && b[k] <= 'z' || b[k] >= 'A' && b[k] <= 'Z'); k++ {
+						}
+						if k < len(b) && b[k] == ';' {
+							continue
+						}
 					}
 				}
 
-				if r == '&' {
-					// check if for example &amp; is followed by something that could potentially be an entity
-					k := j + 1
-					for ; k < len(b) && k-j <= MaxEntityLength && b[k] != ';'; k++ {
-					}
-					if k < len(b) && b[k] == ';' {
-						continue
-					}
-				}
-
-				if r < '\x80' {
-					b[i] = byte(r)
-					copy(b[i+1:], b[j+1:])
-					b = b[:len(b)-n+1]
-				} else {
-				}
+				copy(b[i:], r)
+				copy(b[i+len(r):], b[j+1:])
+				b = b[:len(b)-n+len(r)]
 			}
 		}
 	}

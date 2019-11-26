@@ -104,44 +104,51 @@ func TestParseDataURI(t *testing.T) {
 }
 
 func TestReplaceEntities(t *testing.T) {
-	entityMap := map[string][]byte{
-		"varphi": []byte("phiv"),
-		"varpi":  []byte("piv"),
+	entitiesMap := map[string][]byte{
+		"varphi": []byte("&phiv;"),
+		"varpi":  []byte("&piv;"),
+		"quot":   []byte("\""),
+		"apos":   []byte("'"),
+		"amp":    []byte("&"),
 	}
-	entities := map[string]byte{
-		"quot": '"',
-		"apos": '\'',
-		"amp":  '&',
+	revEntitiesMap := map[byte][]byte{
+		'\'': []byte("&#39;"),
 	}
-	forbidden := "'"
 	var entityTests = []struct {
 		entity   string
 		expected string
 	}{
 		{"&#34;", `"`},
-		{"&#039;", `'`},
+		{"&#039;", `&#39;`},
 		{"&#x0022;", `"`},
-		{"&#x27;", `'`},
+		{"&#x27;", `&#39;`},
 		{"&quot;", `"`},
-		{"&apos;", `&apos;`},
+		{"&apos;", `&#39;`},
 		{"&#9191;", `&#9191;`},
-		{"&#x23e7;", `&#x23e7;`},
-		{"&apos;&quot;", `'"`},
+		{"&#x23e7;", `&#9191;`},
+		{"&#x23E7;", `&#9191;`},
+		{"&#x23E7;", `&#9191;`},
+		{"&#x270F;", `&#9999;`},
+		{"&#x2710;", `&#x2710;`},
+		{"&apos;&quot;", `&#39;"`},
 		{"&#34", `&#34`},
 		{"&#x22", `&#x22`},
 		{"&apos", `&apos`},
 		{"&amp;", `&`},
+		{"&#39;", `&#39;`},
 		{"&amp;amp;", `&amp;amp;`},
 		{"&amp;#34;", `&amp;#34;`},
+		{"&amp;a mp;", `&a mp;`},
 		{"&amp;DiacriticalAcute;", `&amp;DiacriticalAcute;`},
 		{"&amp;CounterClockwiseContourIntegral;", `&amp;CounterClockwiseContourIntegral;`},
 		{"&amp;CounterClockwiseContourIntegralL;", `&CounterClockwiseContourIntegralL;`},
 		{"&varphi;", "&phiv;"},
 		{"&varpi;", "&piv;"},
+		{"&varnone;", "&varnone;"},
 	}
 	for _, tt := range entityTests {
 		t.Run(tt.entity, func(t *testing.T) {
-			b := ReplaceEntities([]byte(tt.entity), entities, entityMap)
+			b := ReplaceEntities([]byte(tt.entity), entitiesMap, revEntitiesMap)
 			test.T(t, string(b), tt.expected)
 		})
 	}
