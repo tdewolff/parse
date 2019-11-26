@@ -24,7 +24,7 @@ func helperRand(n, m int, chars []byte) [][]byte {
 var wsSlices [][]byte
 
 func init() {
-	wsSlices = helperRand(100, 20, []byte("abcdefg \n\r\f\t"))
+	wsSlices = helperRand(10000, 50, []byte("abcdefg \n\r\f\t"))
 }
 
 func TestCopy(t *testing.T) {
@@ -55,14 +55,24 @@ func TestWhitespace(t *testing.T) {
 	test.That(t, !IsAllWhitespace([]byte("\t \r\n\fx")))
 }
 
-func TestReplaceMultipleWhitespace(t *testing.T) {
+func TestReplaceMultipleWhitespaceRandom(t *testing.T) {
 	wsRegexp := regexp.MustCompile("[ \t\f]+")
 	wsNewlinesRegexp := regexp.MustCompile("[ ]*[\r\n][ \r\n]*")
 	for _, e := range wsSlices {
 		reference := wsRegexp.ReplaceAll(e, []byte(" "))
 		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
-		test.Bytes(t, ReplaceMultipleWhitespace(e), reference, "must remove all multiple whitespace but keep newlines")
+		test.Bytes(t, ReplaceMultipleWhitespace(e), reference, "in: "+string(e))
 	}
+}
+
+func TestReplaceMultipleWhitespace(t *testing.T) {
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("  a")), []byte(" a"))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("a  ")), []byte("a "))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("a  b  ")), []byte("a b "))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("  a  b  ")), []byte(" a b "))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte(" a b  ")), []byte(" a b "))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("  a b ")), []byte(" a b "))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("   a")), []byte(" a"))
 }
 
 func TestTrim(t *testing.T) {
@@ -90,7 +100,7 @@ func BenchmarkTrim(b *testing.B) {
 	}
 }
 
-func BenchmarkReplace(b *testing.B) {
+func BenchmarkReplaceMultipleWhitespace(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		for _, e := range wsSlices {
 			ReplaceMultipleWhitespace(e)

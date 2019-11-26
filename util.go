@@ -161,37 +161,39 @@ func TrimWhitespace(b []byte) []byte {
 
 // ReplaceMultipleWhitespace replaces character series of space, \n, \t, \f, \r into a single space or newline (when the serie contained a \n or \r).
 func ReplaceMultipleWhitespace(b []byte) []byte {
-	j := 0
-	prevWS := false
-	hasNewline := false
-	for i, c := range b {
-		if IsWhitespace(c) {
-			prevWS = true
-			if IsNewline(c) {
-				hasNewline = true
-			}
-		} else {
-			if prevWS {
-				prevWS = false
-				if hasNewline {
-					hasNewline = false
-					b[j] = '\n'
-				} else {
-					b[j] = ' '
+	j, k := 0, 0 // j is write position, k is start of next text section
+	for i := 0; i < len(b); i++ {
+		if IsWhitespace(b[i]) {
+			start := i
+			newline := IsNewline(b[i])
+			i++
+			for ; i < len(b) && IsWhitespace(b[i]); i++ {
+				if IsNewline(b[i]) {
+					newline = true
 				}
-				j++
 			}
-			b[j] = b[i]
-			j++
+			if newline {
+				b[start] = '\n'
+			} else {
+				b[start] = ' '
+			}
+			if 1 < i-start { // more than one whitespace
+				if j == 0 {
+					j = start + 1
+				} else {
+					j += copy(b[j:], b[k:start+1])
+				}
+				k = i
+			}
 		}
 	}
-	if prevWS {
-		if hasNewline {
-			b[j] = '\n'
-		} else {
-			b[j] = ' '
-		}
-		j++
+	if j == 0 {
+		return b
+	} else if j == 1 { // only if starts with whitespace
+		b[k-1] = b[0]
+		return b[k-1:]
+	} else if k < len(b) {
+		j += copy(b[j:], b[k:])
 	}
 	return b[:j]
 }
