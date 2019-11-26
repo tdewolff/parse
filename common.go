@@ -214,7 +214,7 @@ func ReplaceEntities(b []byte, entitiesMap map[string][]byte, revEntitiesMap map
 					if j <= i+3 || 10000 <= c {
 						continue
 					}
-					if c < 256 {
+					if c < 128 {
 						r = []byte{byte(c)}
 					} else {
 						r = append(r, '&', '#')
@@ -223,10 +223,10 @@ func ReplaceEntities(b []byte, entitiesMap map[string][]byte, revEntitiesMap map
 					}
 				} else {
 					c := 0
-					for ; j < len(b) && c < 256 && b[j] >= '0' && b[j] <= '9'; j++ {
+					for ; j < len(b) && c < 128 && b[j] >= '0' && b[j] <= '9'; j++ {
 						c = c*10 + int(b[j]-'0')
 					}
-					if j <= i+2 || 256 <= c {
+					if j <= i+2 || 128 <= c {
 						continue
 					}
 					r = []byte{byte(c)}
