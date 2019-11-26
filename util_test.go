@@ -173,7 +173,7 @@ func TestReplaceMultipleWhitespaceAndEntities(t *testing.T) {
 		entity   string
 		expected string
 	}{
-		{"  &varphi;  &#34;  ", " &phiv; \" "},
+		{"  &varphi;  &#34; \n ", " &phiv; \"\n"},
 	}
 	for _, tt := range entityTests {
 		t.Run(tt.entity, func(t *testing.T) {

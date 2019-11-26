@@ -188,3 +188,45 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 	}
 	return nil, nil, ErrBadDataURI
 }
+
+// QuoteEntity parses the given byte slice and returns the quote that got matched (' or ") and its entity length.
+// TODO: deprecated
+func QuoteEntity(b []byte) (quote byte, n int) {
+	if len(b) < 5 || b[0] != '&' {
+		return 0, 0
+	}
+	if b[1] == '#' {
+		if b[2] == 'x' {
+			i := 3
+			for i < len(b) && b[i] == '0' {
+				i++
+			}
+			if i+2 < len(b) && b[i] == '2' && b[i+2] == ';' {
+				if b[i+1] == '2' {
+					return '"', i + 3 // &#x22;
+				} else if b[i+1] == '7' {
+					return '\'', i + 3 // &#x27;
+				}
+			}
+		} else {
+			i := 2
+			for i < len(b) && b[i] == '0' {
+				i++
+			}
+			if i+2 < len(b) && b[i] == '3' && b[i+2] == ';' {
+				if b[i+1] == '4' {
+					return '"', i + 3 // &#34;
+				} else if b[i+1] == '9' {
+					return '\'', i + 3 // &#39;
+				}
+			}
+		}
+	} else if len(b) >= 6 && b[5] == ';' {
+		if bytes.Equal(b[1:5], []byte{'q', 'u', 'o', 't'}) {
+			return '"', 6 // &quot;
+		} else if bytes.Equal(b[1:5], []byte{'a', 'p', 'o', 's'}) {
+			return '\'', 6 // &apos;
+		}
+	}
+	return 0, 0
+}

@@ -103,6 +103,30 @@ func TestParseDataURI(t *testing.T) {
 	}
 }
 
+func TestParseQuoteEntity(t *testing.T) {
+	var quoteEntityTests = []struct {
+		quoteEntity   string
+		expectedQuote byte
+		expectedN     int
+	}{
+		{"&#34;", '"', 5},
+		{"&#039;", '\'', 6},
+		{"&#x0022;", '"', 8},
+		{"&#x27;", '\'', 6},
+		{"&quot;", '"', 6},
+		{"&apos;", '\'', 6},
+		{"&gt;", 0x00, 0},
+		{"&amp;", 0x00, 0},
+	}
+	for _, tt := range quoteEntityTests {
+		t.Run(tt.quoteEntity, func(t *testing.T) {
+			quote, n := QuoteEntity([]byte(tt.quoteEntity))
+			test.T(t, quote, tt.expectedQuote, "quote")
+			test.T(t, n, tt.expectedN, "quote length")
+		})
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 func BenchmarkParseMediatypeStd(b *testing.B) {
