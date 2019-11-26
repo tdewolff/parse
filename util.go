@@ -203,96 +203,138 @@ func ReplaceMultipleWhitespace(b []byte) []byte {
 	return b[:j]
 }
 
+// replaceEntities will replace in b at index i, assuming that b[i] == '&' and that i+3<len(b). The returned int will be the last character of the entity, so that the next iteration can safely do i++ to continue and not miss any entitites.
+func replaceEntities(b []byte, i int, entitiesMap map[string][]byte, revEntitiesMap map[byte][]byte) ([]byte, int) {
+	const MaxEntityLength = 31 // longest HTML entity: CounterClockwiseContourIntegral
+	var r []byte
+	j := i + 1
+	if b[j] == '#' {
+		j++
+		if b[j] == 'x' {
+			j++
+			c := 0
+			for ; j < len(b) && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
+				if b[j] <= '9' {
+					c = c<<4 + int(b[j]-'0')
+				} else if b[j] <= 'F' {
+					c = c<<4 + int(b[j]-'A') + 10
+				} else if b[j] <= 'f' {
+					c = c<<4 + int(b[j]-'a') + 10
+				}
+			}
+			if j <= i+3 || 10000 <= c {
+				return b, j - 1
+			}
+			if c < 128 {
+				r = []byte{byte(c)}
+			} else {
+				r = append(r, '&', '#')
+				r = strconv.AppendInt(r, int64(c), 10)
+				r = append(r, ';')
+			}
+		} else {
+			c := 0
+			for ; j < len(b) && c < 128 && b[j] >= '0' && b[j] <= '9'; j++ {
+				c = c*10 + int(b[j]-'0')
+			}
+			if j <= i+2 || 128 <= c {
+				return b, j - 1
+			}
+			r = []byte{byte(c)}
+		}
+	} else {
+		for ; j < len(b) && j-i-1 <= MaxEntityLength && b[j] != ';'; j++ {
+		}
+		if j <= i+1 || len(b) <= j {
+			return b, j - 1
+		}
+
+		var ok bool
+		r, ok = entitiesMap[string(b[i+1:j])]
+		if !ok {
+			return b, j
+		}
+	}
+
+	// j is at semicolon
+	n := j + 1 - i
+	if j < len(b) && b[j] == ';' && 2 < n {
+		if len(r) == 1 {
+			if q, ok := revEntitiesMap[r[0]]; ok {
+				if len(q) == len(b[i:j+1]) && bytes.Equal(q, b[i:j+1]) {
+					return b, j
+				}
+				r = q
+			} else if r[0] == '&' {
+				// check if for example &amp; is followed by something that could potentially be an entity
+				k := j + 1
+				if k < len(b) && b[k] == '#' {
+					k++
+				}
+				for ; k < len(b) && k-j <= MaxEntityLength && (b[k] >= '0' && b[k] <= '9' || b[k] >= 'a' && b[k] <= 'z' || b[k] >= 'A' && b[k] <= 'Z'); k++ {
+				}
+				if k < len(b) && b[k] == ';' {
+					return b, k
+				}
+			}
+		}
+
+		copy(b[i:], r)
+		copy(b[i+len(r):], b[j+1:])
+		b = b[:len(b)-n+len(r)]
+		return b, i + len(r) - 1
+	}
+	return b, i
+}
+
 // ReplaceEntities replaces all occurrences of entites (such as &quot;) to their respective unencoded bytes.
 func ReplaceEntities(b []byte, entitiesMap map[string][]byte, revEntitiesMap map[byte][]byte) []byte {
-	const MaxEntityLength = 31 // longest HTML entity: CounterClockwiseContourIntegral
 	for i := 0; i < len(b); i++ {
 		if b[i] == '&' && i+3 < len(b) {
-			var r []byte
-			j := i + 1
-			if b[j] == '#' {
-				j++
-				if b[j] == 'x' {
-					j++
-					c := 0
-					for ; j < len(b) && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
-						if b[j] <= '9' {
-							c = c<<4 + int(b[j]-'0')
-						} else if b[j] <= 'F' {
-							c = c<<4 + int(b[j]-'A') + 10
-						} else if b[j] <= 'f' {
-							c = c<<4 + int(b[j]-'a') + 10
-						}
-					}
-					if j <= i+3 || 10000 <= c {
-						i = j - 1
-						continue
-					}
-					if c < 128 {
-						r = []byte{byte(c)}
-					} else {
-						r = append(r, '&', '#')
-						r = strconv.AppendInt(r, int64(c), 10)
-						r = append(r, ';')
-					}
-				} else {
-					c := 0
-					for ; j < len(b) && c < 128 && b[j] >= '0' && b[j] <= '9'; j++ {
-						c = c*10 + int(b[j]-'0')
-					}
-					if j <= i+2 || 128 <= c {
-						i = j - 1
-						continue
-					}
-					r = []byte{byte(c)}
-				}
-			} else {
-				for ; j < len(b) && j-i-1 <= MaxEntityLength && b[j] != ';'; j++ {
-				}
-				if j <= i+1 || len(b) <= j {
-					i = j - 1
-					continue
-				}
-
-				var ok bool
-				r, ok = entitiesMap[string(b[i+1:j])]
-				if !ok {
-					i = j
-					continue
-				}
-			}
-
-			// j is at semicolon
-			n := j + 1 - i
-			if j < len(b) && b[j] == ';' && 2 < n {
-				if len(r) == 1 {
-					if q, ok := revEntitiesMap[r[0]]; ok {
-						if len(q) == len(b[i:j+1]) && bytes.Equal(q, b[i:j+1]) {
-							i = j
-							continue
-						}
-						r = q
-					} else if r[0] == '&' {
-						// check if for example &amp; is followed by something that could potentially be an entity
-						k := j + 1
-						if k < len(b) && b[k] == '#' {
-							k++
-						}
-						for ; k < len(b) && k-j <= MaxEntityLength && (b[k] >= '0' && b[k] <= '9' || b[k] >= 'a' && b[k] <= 'z' || b[k] >= 'A' && b[k] <= 'Z'); k++ {
-						}
-						if k < len(b) && b[k] == ';' {
-							i = k
-							continue
-						}
-					}
-				}
-
-				copy(b[i:], r)
-				copy(b[i+len(r):], b[j+1:])
-				b = b[:len(b)-n+len(r)]
-				i += len(r) - 1
-			}
+			b, i = replaceEntities(b, i, entitiesMap, revEntitiesMap)
 		}
 	}
 	return b
+}
+
+// ReplaceMultipleWhitespaceAndEntities is a combination of ReplaceMultipleWhitespace and ReplaceEntities. It is faster than executing both sequentially.
+func ReplaceMultipleWhitespaceAndEntities(b []byte, entitiesMap map[string][]byte, revEntitiesMap map[byte][]byte) []byte {
+	j, k := 0, 0 // j is write position, k is start of next text section
+	for i := 0; i < len(b); i++ {
+		if IsWhitespace(b[i]) {
+			start := i
+			newline := IsNewline(b[i])
+			i++
+			for ; i < len(b) && IsWhitespace(b[i]); i++ {
+				if IsNewline(b[i]) {
+					newline = true
+				}
+			}
+			if newline {
+				b[start] = '\n'
+			} else {
+				b[start] = ' '
+			}
+			if 1 < i-start { // more than one whitespace
+				if j == 0 {
+					j = start + 1
+				} else {
+					j += copy(b[j:], b[k:start+1])
+				}
+				k = i
+			}
+		}
+		if i+3 < len(b) && b[i] == '&' {
+			b, i = replaceEntities(b, i, entitiesMap, revEntitiesMap)
+		}
+	}
+	if j == 0 {
+		return b
+	} else if j == 1 { // only if starts with whitespace
+		b[k-1] = b[0]
+		return b[k-1:]
+	} else if k < len(b) {
+		j += copy(b[j:], b[k:])
+	}
+	return b[:j]
 }

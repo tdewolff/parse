@@ -9,7 +9,7 @@ import (
 	"github.com/tdewolff/test"
 )
 
-func helperRand(n, m int, chars []byte) [][]byte {
+func helperRandChars(n, m int, chars string) [][]byte {
 	r := make([][]byte, n)
 	for i := range r {
 		for j := 0; j < m; j++ {
@@ -19,12 +19,24 @@ func helperRand(n, m int, chars []byte) [][]byte {
 	return r
 }
 
+func helperRandStrings(n, m int, ss []string) [][]byte {
+	r := make([][]byte, n)
+	for i := range r {
+		for j := 0; j < m; j++ {
+			r[i] = append(r[i], []byte(ss[rand.Intn(len(ss))])...)
+		}
+	}
+	return r
+}
+
 ////////////////////////////////////////////////////////////////
 
 var wsSlices [][]byte
+var entitySlices [][]byte
 
 func init() {
-	wsSlices = helperRand(10000, 50, []byte("abcdefg \n\r\f\t"))
+	wsSlices = helperRandChars(10000, 50, "abcdefg \n\r\f\t")
+	entitySlices = helperRandStrings(100, 5, []string{"&quot;", "&#39;", "&#x027;", "    ", " ", "test"})
 }
 
 func TestCopy(t *testing.T) {
@@ -55,14 +67,11 @@ func TestWhitespace(t *testing.T) {
 	test.That(t, !IsAllWhitespace([]byte("\t \r\n\fx")))
 }
 
-func TestReplaceMultipleWhitespaceRandom(t *testing.T) {
-	wsRegexp := regexp.MustCompile("[ \t\f]+")
-	wsNewlinesRegexp := regexp.MustCompile("[ ]*[\r\n][ \r\n]*")
-	for _, e := range wsSlices {
-		reference := wsRegexp.ReplaceAll(e, []byte(" "))
-		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
-		test.Bytes(t, ReplaceMultipleWhitespace(e), reference, "in: "+string(e))
-	}
+func TestTrim(t *testing.T) {
+	test.Bytes(t, TrimWhitespace([]byte("a")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte(" a")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte("a ")), []byte("a"))
+	test.Bytes(t, TrimWhitespace([]byte(" ")), []byte(""))
 }
 
 func TestReplaceMultipleWhitespace(t *testing.T) {
@@ -73,13 +82,125 @@ func TestReplaceMultipleWhitespace(t *testing.T) {
 	test.Bytes(t, ReplaceMultipleWhitespace([]byte(" a b  ")), []byte(" a b "))
 	test.Bytes(t, ReplaceMultipleWhitespace([]byte("  a b ")), []byte(" a b "))
 	test.Bytes(t, ReplaceMultipleWhitespace([]byte("   a")), []byte(" a"))
+	test.Bytes(t, ReplaceMultipleWhitespace([]byte("a  b")), []byte("a b"))
 }
 
-func TestTrim(t *testing.T) {
-	test.Bytes(t, TrimWhitespace([]byte("a")), []byte("a"))
-	test.Bytes(t, TrimWhitespace([]byte(" a")), []byte("a"))
-	test.Bytes(t, TrimWhitespace([]byte("a ")), []byte("a"))
-	test.Bytes(t, TrimWhitespace([]byte(" ")), []byte(""))
+func TestReplaceMultipleWhitespaceRandom(t *testing.T) {
+	wsRegexp := regexp.MustCompile("[ \t\f]+")
+	wsNewlinesRegexp := regexp.MustCompile("[ ]*[\r\n][ \r\n]*")
+	for _, e := range wsSlices {
+		reference := wsRegexp.ReplaceAll(e, []byte(" "))
+		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
+		test.Bytes(t, ReplaceMultipleWhitespace(Copy(e)), reference, "in: "+string(e))
+	}
+}
+
+func TestReplaceEntities(t *testing.T) {
+	entitiesMap := map[string][]byte{
+		"varphi": []byte("&phiv;"),
+		"varpi":  []byte("&piv;"),
+		"quot":   []byte("\""),
+		"apos":   []byte("'"),
+		"amp":    []byte("&"),
+	}
+	revEntitiesMap := map[byte][]byte{
+		'\'': []byte("&#39;"),
+	}
+	var entityTests = []struct {
+		entity   string
+		expected string
+	}{
+		{"&#34;", `"`},
+		{"&#039;", `&#39;`},
+		{"&#x0022;", `"`},
+		{"&#x27;", `&#39;`},
+		{"&#160;", `&#160;`},
+		{"&quot;", `"`},
+		{"&apos;", `&#39;`},
+		{"&#9191;", `&#9191;`},
+		{"&#x23e7;", `&#9191;`},
+		{"&#x23E7;", `&#9191;`},
+		{"&#x23E7;", `&#9191;`},
+		{"&#x270F;", `&#9999;`},
+		{"&#x2710;", `&#x2710;`},
+		{"&apos;&quot;", `&#39;"`},
+		{"&#34", `&#34`},
+		{"&#x22", `&#x22`},
+		{"&apos", `&apos`},
+		{"&amp;", `&`},
+		{"&#39;", `&#39;`},
+		{"&amp;amp;", `&amp;amp;`},
+		{"&amp;#34;", `&amp;#34;`},
+		{"&amp;a mp;", `&a mp;`},
+		{"&amp;DiacriticalAcute;", `&amp;DiacriticalAcute;`},
+		{"&amp;CounterClockwiseContourIntegral;", `&amp;CounterClockwiseContourIntegral;`},
+		{"&amp;CounterClockwiseContourIntegralL;", `&CounterClockwiseContourIntegralL;`},
+		{"&varphi;", "&phiv;"},
+		{"&varpi;", "&piv;"},
+		{"&varnone;", "&varnone;"},
+	}
+	for _, tt := range entityTests {
+		t.Run(tt.entity, func(t *testing.T) {
+			b := ReplaceEntities([]byte(tt.entity), entitiesMap, revEntitiesMap)
+			test.T(t, string(b), tt.expected, "in:"+tt.entity)
+		})
+	}
+}
+
+func TestReplaceEntitiesRandom(t *testing.T) {
+	entitiesMap := map[string][]byte{
+		"quot": []byte("\""),
+		"apos": []byte("'"),
+	}
+	revEntitiesMap := map[byte][]byte{
+		'\'': []byte("&#39;"),
+	}
+
+	quotRegexp := regexp.MustCompile("&quot;")
+	aposRegexp := regexp.MustCompile("(&#39;|&#x027;)")
+	for _, e := range entitySlices {
+		reference := quotRegexp.ReplaceAll(e, []byte("\""))
+		reference = aposRegexp.ReplaceAll(reference, []byte("&#39;"))
+		test.Bytes(t, ReplaceEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in: "+string(e))
+	}
+}
+
+func TestReplaceMultipleWhitespaceAndEntities(t *testing.T) {
+	entitiesMap := map[string][]byte{
+		"varphi": []byte("&phiv;"),
+	}
+	var entityTests = []struct {
+		entity   string
+		expected string
+	}{
+		{"  &varphi;  &#34;  ", " &phiv; \" "},
+	}
+	for _, tt := range entityTests {
+		t.Run(tt.entity, func(t *testing.T) {
+			b := ReplaceMultipleWhitespaceAndEntities([]byte(tt.entity), entitiesMap, nil)
+			test.T(t, string(b), tt.expected, "in:"+tt.entity)
+		})
+	}
+}
+
+func TestReplaceMultipleWhitespaceAndEntitiesRandom(t *testing.T) {
+	entitiesMap := map[string][]byte{
+		"quot": []byte("\""),
+		"apos": []byte("'"),
+	}
+	revEntitiesMap := map[byte][]byte{
+		'\'': []byte("&#39;"),
+	}
+
+	wsRegexp := regexp.MustCompile("[ ]+")
+	quotRegexp := regexp.MustCompile("&quot;")
+	aposRegexp := regexp.MustCompile("(&#39;|&#x027;)")
+	for _, e := range entitySlices {
+		reference := wsRegexp.ReplaceAll(e, []byte(" "))
+		reference = quotRegexp.ReplaceAll(reference, []byte("\""))
+		reference = aposRegexp.ReplaceAll(reference, []byte("&#39;"))
+		test.Bytes(t, ReplaceMultipleWhitespaceAndEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in: "+string(e))
+	}
 }
 
 ////////////////////////////////////////////////////////////////
