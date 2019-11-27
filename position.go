@@ -34,6 +34,8 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 		} else if c >= 0xC0 {
 			if r, n := l.PeekRune(0); r == '\u2028' || r == '\u2029' {
 				nNewline = n
+			} else {
+				l.Move(n)
 			}
 		} else {
 			l.Move(1)
