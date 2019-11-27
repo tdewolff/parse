@@ -107,7 +107,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		if c == 0 {
 			if l.r.Err() == nil {
-				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+				l.err = parse.NewErrorLexer("XML parse error: unexpected null character", l.r)
 			}
 			return ErrorToken, nil
 		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
@@ -166,7 +166,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 				return TextToken, l.r.Shift()
 			}
 			if l.r.Err() == nil {
-				l.err = parse.NewErrorLexer("unexpected null character", l.r)
+				l.err = parse.NewErrorLexer("XML parse error: unexpected null character", l.r)
 			}
 			return ErrorToken, nil
 		}

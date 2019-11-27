@@ -41,5 +41,5 @@ func (e *Error) Position() (int, int, string) {
 
 // Error returns the error string, containing the context and line + column number.
 func (e *Error) Error() string {
-	return fmt.Sprintf("parse error: %s on line %d and column %d\n%s", e.Message, e.Line, e.Column, e.Context)
+	return fmt.Sprintf("%s on line %d and column %d\n%s", e.Message, e.Line, e.Column, e.Context)
 }

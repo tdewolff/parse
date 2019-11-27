@@ -16,7 +16,7 @@ func TestError(t *testing.T) {
 	test.T(t, column, 4, "column")
 	test.T(t, "\n"+context, "\n    1: buffer\n          ^", "context")
 
-	test.T(t, err.Error(), "parse error: message on line 1 and column 4\n    1: buffer\n          ^", "error")
+	test.T(t, err.Error(), "message on line 1 and column 4\n    1: buffer\n          ^", "error")
 }
 
 func TestErrorLexer(t *testing.T) {
@@ -29,5 +29,5 @@ func TestErrorLexer(t *testing.T) {
 	test.T(t, column, 4, "column")
 	test.T(t, "\n"+context, "\n    1: buffer\n          ^", "context")
 
-	test.T(t, err.Error(), "parse error: message on line 1 and column 4\n    1: buffer\n          ^", "error")
+	test.T(t, err.Error(), "message on line 1 and column 4\n    1: buffer\n          ^", "error")
 }
