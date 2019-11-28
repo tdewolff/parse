@@ -35,6 +35,7 @@ func TestPosition(t *testing.T) {
 		{1, "x\u2028x", 1, 2},
 		{2, "x\u2028x", 1, 3},
 		{3, "x\u2028x", 1, 4},
+		{2, "x\u2318x", 1, 3},
 	}
 	for _, tt := range newlineTests {
 		t.Run(fmt.Sprint(tt.buf, " ", tt.offset), func(t *testing.T) {
