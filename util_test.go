@@ -3,6 +3,7 @@ package parse
 import (
 	"bytes"
 	"math/rand"
+	"net/url"
 	"regexp"
 	"testing"
 
@@ -33,10 +34,14 @@ func helperRandStrings(n, m int, ss []string) [][]byte {
 
 var wsSlices [][]byte
 var entitySlices [][]byte
+var encodedUrlSlices [][]byte
+var urlSlices [][]byte
 
 func init() {
 	wsSlices = helperRandChars(10000, 50, "abcdefg \n\r\f\t")
 	entitySlices = helperRandStrings(100, 5, []string{"&quot;", "&#39;", "&#x027;", "    ", " ", "test"})
+	encodedUrlSlices = helperRandStrings(100, 5, []string{"%20", "%3D", "test"})
+	urlSlices = helperRandStrings(100, 5, []string{"~", "\"", "<", "test"})
 }
 
 func TestCopy(t *testing.T) {
@@ -91,7 +96,7 @@ func TestReplaceMultipleWhitespaceRandom(t *testing.T) {
 	for _, e := range wsSlices {
 		reference := wsRegexp.ReplaceAll(e, []byte(" "))
 		reference = wsNewlinesRegexp.ReplaceAll(reference, []byte("\n"))
-		test.Bytes(t, ReplaceMultipleWhitespace(Copy(e)), reference, "in: "+string(e))
+		test.Bytes(t, ReplaceMultipleWhitespace(Copy(e)), reference, "in '"+string(e)+"'")
 	}
 }
 
@@ -142,7 +147,7 @@ func TestReplaceEntities(t *testing.T) {
 	for _, tt := range entityTests {
 		t.Run(tt.entity, func(t *testing.T) {
 			b := ReplaceEntities([]byte(tt.entity), entitiesMap, revEntitiesMap)
-			test.T(t, string(b), tt.expected, "in:"+tt.entity)
+			test.T(t, string(b), tt.expected, "in '"+tt.entity+"'")
 		})
 	}
 }
@@ -161,7 +166,7 @@ func TestReplaceEntitiesRandom(t *testing.T) {
 	for _, e := range entitySlices {
 		reference := quotRegexp.ReplaceAll(e, []byte("\""))
 		reference = aposRegexp.ReplaceAll(reference, []byte("&#39;"))
-		test.Bytes(t, ReplaceEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in: "+string(e))
+		test.Bytes(t, ReplaceEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in '"+string(e)+"'")
 	}
 }
 
@@ -178,7 +183,7 @@ func TestReplaceMultipleWhitespaceAndEntities(t *testing.T) {
 	for _, tt := range entityTests {
 		t.Run(tt.entity, func(t *testing.T) {
 			b := ReplaceMultipleWhitespaceAndEntities([]byte(tt.entity), entitiesMap, nil)
-			test.T(t, string(b), tt.expected, "in:"+tt.entity)
+			test.T(t, string(b), tt.expected, "in '"+tt.entity+"'")
 		})
 	}
 }
@@ -199,7 +204,58 @@ func TestReplaceMultipleWhitespaceAndEntitiesRandom(t *testing.T) {
 		reference := wsRegexp.ReplaceAll(e, []byte(" "))
 		reference = quotRegexp.ReplaceAll(reference, []byte("\""))
 		reference = aposRegexp.ReplaceAll(reference, []byte("&#39;"))
-		test.Bytes(t, ReplaceMultipleWhitespaceAndEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in: "+string(e))
+		test.Bytes(t, ReplaceMultipleWhitespaceAndEntities(Copy(e), entitiesMap, revEntitiesMap), reference, "in '"+string(e)+"'")
+	}
+}
+
+func TestDecodeURL(t *testing.T) {
+	var urlTests = []struct {
+		url      string
+		expected string
+	}{
+		{"%20%3F%7E", " ?~"},
+		{"%80", "%80"},
+		{"%2B%2b", "++"},
+		{"%' ", "%' "},
+		{"a+b", "a b"},
+	}
+	for _, tt := range urlTests {
+		t.Run(tt.url, func(t *testing.T) {
+			b := DecodeURL([]byte(tt.url))
+			test.T(t, string(b), tt.expected, "in '"+tt.url+"'")
+		})
+	}
+}
+
+func TestDecodeURLRandom(t *testing.T) {
+	for _, e := range encodedUrlSlices {
+		reference, _ := url.QueryUnescape(string(e))
+		test.Bytes(t, DecodeURL(Copy(e)), []byte(reference), "in '"+string(e)+"'")
+	}
+}
+
+func TestEncodeURL(t *testing.T) {
+	var urlTests = []struct {
+		url      string
+		expected string
+	}{
+		{"AZaz09-_.!~*'()", "AZaz09-_.!~*'()"},
+		{"<>", "%3C%3E"},
+		{"\u2318", "%E2%8C%98"},
+		{"a b", "a+b"},
+	}
+	for _, tt := range urlTests {
+		t.Run(tt.url, func(t *testing.T) {
+			b := EncodeURL([]byte(tt.url), URLEncodingTable)
+			test.T(t, string(b), tt.expected, "in '"+tt.url+"'")
+		})
+	}
+}
+
+func TestEncodeURLRandom(t *testing.T) {
+	for _, e := range urlSlices {
+		reference := url.QueryEscape(string(e))
+		test.Bytes(t, EncodeURL(Copy(e), URLEncodingTable), []byte(reference), "in '"+string(e)+"'")
 	}
 }
 

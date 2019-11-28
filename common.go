@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"encoding/base64"
 	"errors"
-	"net/url"
 )
 
 // ErrBadDataURI is returned by DataURI when the byte slice does not start with 'data:' or is too short.
@@ -178,8 +177,8 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 							return nil, nil, err
 						}
 						data = decoded[:n]
-					} else if unescaped, err := url.QueryUnescape(string(data)); err == nil {
-						data = []byte(unescaped)
+					} else {
+						data = DecodeURL(data)
 					}
 					return mediatype, data, nil
 				}

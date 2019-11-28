@@ -92,6 +92,7 @@ func TestParseDataURI(t *testing.T) {
 		{"data:;base64,dGV4dA==", "text/plain", "text", nil},
 		{"data:image/svg+xml,", "image/svg+xml", "", nil},
 		{"data:;base64,()", "", "", base64.CorruptInputError(0)},
+		{"data:image/svg+xml,%3Cpath%20stroke-width='9.38%'/%3E", "image/svg+xml", "<path stroke-width='9.38%'/>", nil},
 	}
 	for _, tt := range dataURITests {
 		t.Run(tt.dataURI, func(t *testing.T) {
