@@ -212,6 +212,69 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestTextAndAttrVal(t *testing.T) {
+	l := NewLexer(bytes.NewBufferString(`<div attr="val" >text<!--comment--><!DOCTYPE doctype><![CDATA[cdata]]><script>js</script><svg>image</svg>`))
+	_, data := l.Next()
+	test.Bytes(t, data, []byte("<div"))
+	test.Bytes(t, l.Text(), []byte("div"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte(` attr="val"`))
+	test.Bytes(t, l.Text(), []byte("attr"))
+	test.Bytes(t, l.AttrVal(), []byte(`"val"`))
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte(">"))
+	test.Bytes(t, l.Text(), nil)
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("text"))
+	test.Bytes(t, l.Text(), []byte("text"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<!--comment-->"))
+	test.Bytes(t, l.Text(), []byte("comment"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<!DOCTYPE doctype>"))
+	test.Bytes(t, l.Text(), []byte(" doctype"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<![CDATA[cdata]]>"))
+	test.Bytes(t, l.Text(), []byte("cdata"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<script"))
+	test.Bytes(t, l.Text(), []byte("script"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte(">"))
+	test.Bytes(t, l.Text(), nil)
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("js"))
+	test.Bytes(t, l.Text(), nil)
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("</script>"))
+	test.Bytes(t, l.Text(), []byte("script"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<svg>image</svg>"))
+	test.Bytes(t, l.Text(), []byte("svg"))
+	test.Bytes(t, l.AttrVal(), nil)
+}
+
 func TestOffset(t *testing.T) {
 	l := NewLexer(bytes.NewBufferString(`<div attr="val">text</div>`))
 	test.T(t, l.Offset(), 0)
