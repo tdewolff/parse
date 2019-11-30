@@ -348,7 +348,8 @@ func (l *Lexer) consumeEscape() bool {
 			l.r.Move(n)
 			return true
 		} else if c == 0 && l.r.Err() != nil {
-			return true
+			l.r.Rewind(mark)
+			return false
 		}
 	}
 	l.r.Move(1)
@@ -638,6 +639,7 @@ func (l *Lexer) consumeString() TokenType {
 			break
 		} else if c == '\\' {
 			if !l.consumeEscape() {
+				// either newline or EOF after backslash
 				l.r.Move(1)
 				l.consumeNewline()
 			}
