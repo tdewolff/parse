@@ -161,6 +161,29 @@ func TestStates(t *testing.T) {
 	}
 }
 
+func TestOffset(t *testing.T) {
+	p := NewParser(bytes.NewBufferString(`{"key": [5, "string", null, true]}`))
+	test.T(t, p.Offset(), 0)
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 1) // {
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 7) // "key":
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 9) // [
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 10) // 5
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 20) // , "string"
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 26) // , null
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 32) // , true
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 33) // ]
+	_, _ = p.Next()
+	test.T(t, p.Offset(), 34) // }
+}
+
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewParser() {

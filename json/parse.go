@@ -111,6 +111,16 @@ func (p *Parser) Restore() {
 	p.r.Restore()
 }
 
+// Offset returns the current position in the input stream.
+func (p *Parser) Offset() int {
+	return p.r.Offset()
+}
+
+// State returns the state the parser is currently in (ie. which token is expected).
+func (p *Parser) State() State {
+	return p.state[len(p.state)-1]
+}
+
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, []byte) {
 	p.moveWhitespace()
@@ -199,11 +209,6 @@ func (p *Parser) Next() (GrammarType, []byte) {
 	}
 	p.err = parse.NewErrorLexer(fmt.Sprintf("JSON parse error: unexpected character '%c'", c), p.r)
 	return ErrorGrammar, nil
-}
-
-// State returns the state the parser is currently in (ie. which token is expected).
-func (p *Parser) State() State {
-	return p.state[len(p.state)-1]
 }
 
 ////////////////////////////////////////////////////////////////

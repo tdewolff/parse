@@ -221,6 +221,21 @@ func TestTextAndAttrVal(t *testing.T) {
 	test.Bytes(t, l.AttrVal(), nil)
 }
 
+func TestOffset(t *testing.T) {
+	l := NewLexer(bytes.NewBufferString(`<div attr="val">text</div>`))
+	test.T(t, l.Offset(), 0)
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 4) // <div
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 15) // attr="val"
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 16) // >
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 20) // text
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 26) // </div>
+}
+
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {

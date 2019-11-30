@@ -121,6 +121,11 @@ func (p *Parser) Restore() {
 	p.l.Restore()
 }
 
+// Offset returns the current position in the input stream.
+func (p *Parser) Offset() int {
+	return p.l.Offset()
+}
+
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	p.err = nil

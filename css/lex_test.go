@@ -132,6 +132,25 @@ func TestTokens(t *testing.T) {
 	test.T(t, NewLexer(bytes.NewBufferString("x")).consumeBracket(), ErrorToken, "consumeBracket on 'x' must return error")
 }
 
+func TestOffset(t *testing.T) {
+	l := NewLexer(bytes.NewBufferString(`div{background:url(link);}`))
+	test.T(t, l.Offset(), 0)
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 3) // div
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 4) // {
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 14) // background
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 15) // :
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 24) // url(link)
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 25) // ;
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 26) // }
+}
+
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {

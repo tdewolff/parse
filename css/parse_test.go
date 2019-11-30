@@ -203,6 +203,17 @@ func TestReader(t *testing.T) {
 	}
 }
 
+func TestParseOffset(t *testing.T) {
+	p := NewParser(bytes.NewBufferString(`div{background:url(link);}`), false)
+	test.T(t, p.Offset(), 0)
+	_, _, _ = p.Next()
+	test.T(t, p.Offset(), 4) // div{
+	_, _, _ = p.Next()
+	test.T(t, p.Offset(), 25) // background:url(link);
+	_, _, _ = p.Next()
+	test.T(t, p.Offset(), 26) // }
+}
+
 ////////////////////////////////////////////////////////////////
 
 type Obj struct{}

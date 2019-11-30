@@ -151,6 +151,23 @@ func TestTokens(t *testing.T) {
 	}
 }
 
+func TestOffset(t *testing.T) {
+	l := NewLexer(bytes.NewBufferString(`var i=5;`))
+	test.T(t, l.Offset(), 0)
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 3) // var
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 4) // ws
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 5) // i
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 6) // =
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 7) // 5
+	_, _ = l.Next()
+	test.T(t, l.Offset(), 8) // ;
+}
+
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {

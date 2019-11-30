@@ -90,6 +90,21 @@ func (l *Lexer) Restore() {
 	l.r.Restore()
 }
 
+// Offset returns the current position in the input stream.
+func (l *Lexer) Offset() int {
+	return l.r.Offset()
+}
+
+// Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.
+func (l *Lexer) Text() []byte {
+	return l.text
+}
+
+// AttrVal returns the attribute value when an AttributeToken was returned from Next.
+func (l *Lexer) AttrVal() []byte {
+	return l.attrVal
+}
+
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	l.text = nil
@@ -164,16 +179,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		l.r.Move(1)
 	}
-}
-
-// Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.
-func (l *Lexer) Text() []byte {
-	return l.text
-}
-
-// AttrVal returns the attribute value when an AttributeToken was returned from Next.
-func (l *Lexer) AttrVal() []byte {
-	return l.attrVal
 }
 
 ////////////////////////////////////////////////////////////////
