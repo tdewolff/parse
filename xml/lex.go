@@ -113,19 +113,16 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		} else if c != '>' && (c != '/' && c != '?' || l.r.Peek(1) != '>') {
 			return AttributeToken, l.shiftAttribute()
 		}
-		start := l.r.Pos()
+		l.r.Skip()
 		l.inTag = false
 		if c == '/' {
 			l.r.Move(2)
-			l.text = l.r.Lexeme()[start:]
 			return StartTagCloseVoidToken, l.r.Shift()
 		} else if c == '?' {
 			l.r.Move(2)
-			l.text = l.r.Lexeme()[start:]
 			return StartTagClosePIToken, l.r.Shift()
 		} else {
 			l.r.Move(1)
-			l.text = l.r.Lexeme()[start:]
 			return StartTagCloseToken, l.r.Shift()
 		}
 	}
@@ -134,7 +131,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		c = l.r.Peek(0)
 		if c == '<' {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+				l.text = l.r.Shift()
+				return TextToken, l.text
 			}
 			c = l.r.Peek(1)
 			if c == '/' {
@@ -163,7 +161,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return StartTagToken, l.shiftStartTag()
 		} else if c == 0 {
 			if l.r.Pos() > 0 {
-				return TextToken, l.r.Shift()
+				l.text = l.r.Shift()
+				return TextToken, l.text
 			}
 			if l.r.Err() == nil {
 				l.err = parse.NewErrorLexer("XML parse error: unexpected null character", l.r)

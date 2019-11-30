@@ -183,6 +183,44 @@ func TestErrors(t *testing.T) {
 	}
 }
 
+func TestTextAndAttrVal(t *testing.T) {
+	l := NewLexer(bytes.NewBufferString(`<xml attr="val" >text<!--comment--><!DOCTYPE doctype><![CDATA[cdata]]>`))
+	_, data := l.Next()
+	test.Bytes(t, data, []byte("<xml"))
+	test.Bytes(t, l.Text(), []byte("xml"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte(` attr="val"`))
+	test.Bytes(t, l.Text(), []byte("attr"))
+	test.Bytes(t, l.AttrVal(), []byte(`"val"`))
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte(">"))
+	test.Bytes(t, l.Text(), nil)
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("text"))
+	test.Bytes(t, l.Text(), []byte("text"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<!--comment-->"))
+	test.Bytes(t, l.Text(), []byte("comment"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<!DOCTYPE doctype>"))
+	test.Bytes(t, l.Text(), []byte(" doctype"))
+	test.Bytes(t, l.AttrVal(), nil)
+
+	_, data = l.Next()
+	test.Bytes(t, data, []byte("<![CDATA[cdata]]>"))
+	test.Bytes(t, l.Text(), []byte("cdata"))
+	test.Bytes(t, l.AttrVal(), nil)
+}
+
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
