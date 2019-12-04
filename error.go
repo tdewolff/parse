@@ -16,10 +16,13 @@ type Error struct {
 }
 
 // NewError creates a new error
-func NewError(msg string, r io.Reader, offset int) *Error {
+func NewError(r io.Reader, offset int, message string, a ...interface{}) *Error {
 	line, column, context := Position(r, offset)
+	if 0 < len(a) {
+		message = fmt.Sprintf(message, a...)
+	}
 	return &Error{
-		Message: msg,
+		Message: message,
 		Line:    line,
 		Column:  column,
 		Context: context,
@@ -27,10 +30,10 @@ func NewError(msg string, r io.Reader, offset int) *Error {
 }
 
 // NewErrorLexer creates a new error from an active Lexer.
-func NewErrorLexer(msg string, l *buffer.Lexer) *Error {
+func NewErrorLexer(l *buffer.Lexer, message string, a ...interface{}) *Error {
 	r := buffer.NewReader(l.Bytes())
 	offset := l.Offset()
-	return NewError(msg, r, offset)
+	return NewError(r, offset, message, a...)
 }
 
 // Positions returns the line, column, and context of the error.

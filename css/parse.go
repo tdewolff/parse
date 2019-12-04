@@ -2,7 +2,6 @@ package css
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
 
@@ -214,7 +213,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	// parse error
 	p.initBuf()
 	p.l.r.Move(-len(p.data))
-	p.err = parse.NewErrorLexer(fmt.Sprintf("CSS parse error: unexpected token '%s' in declaration", string(p.data)), p.l.r)
+	p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: unexpected token '%s' in declaration", string(p.data))
 	p.l.r.Move(len(p.data))
 
 	if p.tt == RightBraceToken {
@@ -337,7 +336,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
-			p.err = parse.NewErrorLexer("CSS parse error: unexpected ending in qualified rule", p.l.r)
+			p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: unexpected ending in qualified rule")
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
@@ -382,7 +381,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 	tt, data := p.popToken(false)
 	if tt != ColonToken {
 		p.l.r.Move(-len(data))
-		p.err = parse.NewErrorLexer("CSS parse error: expected colon in declaration", p.l.r)
+		p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: expected colon in declaration")
 		p.l.r.Move(len(data))
 		p.pushBuf(ttName, dataName)
 		return p.parseDeclarationError(tt, data)
@@ -439,7 +438,7 @@ func (p *Parser) parseCustomProperty() GrammarType {
 	p.initBuf()
 	if tt, data := p.popToken(false); tt != ColonToken {
 		p.l.r.Move(-len(data))
-		p.err = parse.NewErrorLexer("CSS parse error: expected colon in custom property", p.l.r)
+		p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: expected colon in custom property")
 		p.l.r.Move(len(data))
 		return ErrorGrammar
 	}

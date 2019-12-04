@@ -9,7 +9,7 @@ import (
 )
 
 func TestError(t *testing.T) {
-	err := NewError("message", bytes.NewBufferString("buffer"), 3)
+	err := NewError(bytes.NewBufferString("buffer"), 3, "message")
 
 	line, column, context := err.Position()
 	test.T(t, line, 1, "line")
@@ -22,7 +22,7 @@ func TestError(t *testing.T) {
 func TestErrorLexer(t *testing.T) {
 	l := buffer.NewLexer(bytes.NewBufferString("buffer"))
 	l.Move(3)
-	err := NewErrorLexer("message", l)
+	err := NewErrorLexer(l, "message")
 
 	line, column, context := err.Position()
 	test.T(t, line, 1, "line")
@@ -30,4 +30,9 @@ func TestErrorLexer(t *testing.T) {
 	test.T(t, "\n"+context, "\n    1: buffer\n          ^", "context")
 
 	test.T(t, err.Error(), "message on line 1 and column 4\n    1: buffer\n          ^", "error")
+}
+
+func TestErrorMessages(t *testing.T) {
+	err := NewError(bytes.NewBufferString("buffer"), 3, "message %d", 5)
+	test.T(t, err.Error(), "message 5 on line 1 and column 4\n    1: buffer\n          ^", "error")
 }
