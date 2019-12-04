@@ -160,7 +160,20 @@ func TestErrors(t *testing.T) {
 		col int
 	}{
 		{"a\x00b", 2},
-		{"<a\x00>", 3},
+		{"<\x00 b='5'>", 2},
+		{"<a\x00b='5'>", 3},
+		{"<a \x00='5'>", 4},
+		{"<a b\x00'5'>", 5},
+		{"<a b=\x005'>", 6},
+		{"<a b='\x00'>", 7},
+		{"<a b='5\x00>", 8},
+		{"<a b='5'\x00", 9},
+		{"</\x00a>", 3},
+		{"</ \x00>", 4},
+		{"</ a\x00", 5},
+		{"<!\x00", 3},
+		{"<![CDATA[\x00", 10},
+		{"/*\x00", 3},
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.xml, func(t *testing.T) {
@@ -168,9 +181,7 @@ func TestErrors(t *testing.T) {
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
-					if tt.col == 0 {
-						test.T(t, l.Err(), io.EOF)
-					} else if perr, ok := l.Err().(*parse.Error); ok {
+					if perr, ok := l.Err().(*parse.Error); ok {
 						_, col, _ := perr.Position()
 						test.T(t, col, tt.col)
 					} else {

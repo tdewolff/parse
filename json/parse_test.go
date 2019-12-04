@@ -108,6 +108,9 @@ func TestGrammarsError(t *testing.T) {
 		{"[true, \x00]", 8},
 		{"\"string\x00\"", 8},
 		{"{\"id\": noquote}", 8},
+		{"{\"id\"\x00: 5}", 6},
+		{"{\"id: \x00}", 7},
+		{"{\"id: 5\x00", 8},
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {
