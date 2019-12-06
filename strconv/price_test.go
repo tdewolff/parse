@@ -1,6 +1,7 @@
 package strconv
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -26,10 +27,11 @@ func TestAppendPrice(t *testing.T) {
 	}
 
 	for _, tt := range priceTests {
-		price := AppendPrice(make([]byte, 0, 4), tt.price, tt.dec, ',', '.')
-		test.String(t, string(price), tt.expected, "for", tt.price)
+		t.Run(fmt.Sprint(tt.price), func(t *testing.T) {
+			price := AppendPrice(make([]byte, 0, 4), tt.price, tt.dec, ',', '.')
+			test.String(t, string(price), tt.expected, "for", tt.price)
+		})
 	}
 
 	// coverage
-
 }

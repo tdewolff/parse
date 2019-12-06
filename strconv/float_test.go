@@ -28,9 +28,11 @@ func TestParseFloat(t *testing.T) {
 		// {"4.9406564584124e-308", 4.9406564584124e-308)
 	}
 	for _, tt := range floatTests {
-		f, n := ParseFloat([]byte(tt.f))
-		test.That(t, n == len(tt.f), "parsed", n, "characters instead for", tt.f)
-		test.That(t, f == tt.expected, "return", tt.expected, "for", tt.f)
+		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
+			f, n := ParseFloat([]byte(tt.f))
+			test.T(t, n, len(tt.f))
+			test.T(t, f, tt.expected)
+		})
 	}
 }
 
@@ -73,12 +75,18 @@ func TestAppendFloat(t *testing.T) {
 		{math.NaN(), 0, ""},
 		{math.Inf(1), 0, ""},
 		{math.Inf(-1), 0, ""},
-		{0, 19, ""},
-		{.000923361977200859392, -1, "9.23361977200859392e-4"},
+		{0, 19, "0"},
+		{0.000923361977200859392, -1, "9.23361977200859392e-4"},
+		{1234, 2, "1.23e3"},
+		{12345, 2, "1.23e4"},
+		{12.345, 2, "12.3"},
+		{12.345, 3, "12.34"},
 	}
 	for _, tt := range floatTests {
-		f, _ := AppendFloat([]byte{}, tt.f, tt.prec)
-		test.String(t, string(f), tt.expected, "for", tt.f)
+		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
+			f, _ := AppendFloat([]byte{}, tt.f, tt.prec)
+			test.String(t, string(f), tt.expected)
+		})
 	}
 
 	b := make([]byte, 0, 22)

@@ -1,6 +1,7 @@
 package strconv
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
 	"testing"
@@ -27,14 +28,16 @@ func TestParseInt(t *testing.T) {
 		{"a", 0},
 	}
 	for _, tt := range intTests {
-		i, _ := ParseInt([]byte(tt.i))
-		test.That(t, i == tt.expected, "return", tt.expected, "for", tt.i)
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			i, _ := ParseInt([]byte(tt.i))
+			test.T(t, i, tt.expected)
+		})
 	}
 }
 
 func TestLenInt(t *testing.T) {
 	lenIntTests := []struct {
-		number   int64
+		i        int64
 		expected int
 	}{
 		{0, 1},
@@ -64,7 +67,9 @@ func TestLenInt(t *testing.T) {
 		{1000000000000000000, 19},
 	}
 	for _, tt := range lenIntTests {
-		test.That(t, LenInt(tt.number) == tt.expected, "return", tt.expected, "for", tt.number)
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			test.T(t, LenInt(tt.i), tt.expected)
+		})
 	}
 }
 
