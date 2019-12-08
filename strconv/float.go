@@ -112,8 +112,8 @@ func AppendFloat(b []byte, f float64, prec int) ([]byte, bool) {
 		f = -f
 		neg = true
 	}
-	if prec < 0 || 16 < prec {
-		prec = 16 // maximum number of significant digits in double minus one (first digit always displayed)
+	if prec < 0 || 17 < prec {
+		prec = 17 // maximum number of significant digits in double
 	}
 	prec -= float64exp(f) // number of digits in front of the dot
 	f *= math.Pow10(prec)
