@@ -11,237 +11,238 @@ type Hash uint32
 // Unique hash definitions to be used instead of strings
 const (
 	A               Hash = 0x1     // a
-	Abbr            Hash = 0x36e04 // abbr
+	Abbr            Hash = 0x37a04 // abbr
 	About           Hash = 0x5     // about
 	Accept          Hash = 0x1106  // accept
 	Accept_Charset  Hash = 0x110e  // accept-charset
-	Action          Hash = 0x25206 // action
+	Action          Hash = 0x23f06 // action
 	Address         Hash = 0x5a07  // address
-	Align           Hash = 0x32d05 // align
-	Alink           Hash = 0x8f05  // alink
-	Allowfullscreen Hash = 0x2180f // allowfullscreen
-	Area            Hash = 0x12c04 // area
+	Align           Hash = 0x32705 // align
+	Alink           Hash = 0x7005  // alink
+	Allowfullscreen Hash = 0x2ad0f // allowfullscreen
+	Amp_Boilerplate Hash = 0x610f  // amp-boilerplate
+	Area            Hash = 0x1e304 // area
 	Article         Hash = 0x2707  // article
-	Aside           Hash = 0x7205  // aside
-	Async           Hash = 0xcb05  // async
-	Audio           Hash = 0xdc05  // audio
-	Autofocus       Hash = 0xfc09  // autofocus
-	Autoplay        Hash = 0x11508 // autoplay
-	Axis            Hash = 0x11d04 // axis
+	Aside           Hash = 0xb405  // aside
+	Async           Hash = 0xac05  // async
+	Audio           Hash = 0xd105  // audio
+	Autofocus       Hash = 0xe409  // autofocus
+	Autoplay        Hash = 0x10808 // autoplay
+	Axis            Hash = 0x11004 // axis
 	B               Hash = 0x101   // b
 	Background      Hash = 0x300a  // background
-	Base            Hash = 0x17804 // base
-	Bb              Hash = 0x36f02 // bb
-	Bdi             Hash = 0x9403  // bdi
-	Bdo             Hash = 0x32503 // bdo
-	Bgcolor         Hash = 0x13507 // bgcolor
-	Blockquote      Hash = 0x13f0a // blockquote
+	Base            Hash = 0x19604 // base
+	Bb              Hash = 0x37b02 // bb
+	Bdi             Hash = 0x7503  // bdi
+	Bdo             Hash = 0x31f03 // bdo
+	Bgcolor         Hash = 0x12607 // bgcolor
+	Blockquote      Hash = 0x13e0a // blockquote
 	Body            Hash = 0xd04   // body
-	Br              Hash = 0x37002 // br
-	Button          Hash = 0x14906 // button
-	Canvas          Hash = 0x6e06  // canvas
-	Caption         Hash = 0x23207 // caption
+	Br              Hash = 0x37c02 // br
+	Button          Hash = 0x14806 // button
+	Canvas          Hash = 0xb006  // canvas
+	Caption         Hash = 0x21f07 // caption
 	Charset         Hash = 0x1807  // charset
-	Checked         Hash = 0x1bd07 // checked
-	Cite            Hash = 0xcf04  // cite
-	Class           Hash = 0x15605 // class
-	Classid         Hash = 0x15607 // classid
+	Checked         Hash = 0x1b307 // checked
+	Cite            Hash = 0xfb04  // cite
+	Class           Hash = 0x15905 // class
+	Classid         Hash = 0x15907 // classid
 	Clear           Hash = 0x2b05  // clear
-	Code            Hash = 0x17404 // code
-	Codebase        Hash = 0x17408 // codebase
-	Codetype        Hash = 0x1ae08 // codetype
-	Col             Hash = 0x13703 // col
-	Colgroup        Hash = 0x1c508 // colgroup
-	Color           Hash = 0x13705 // color
-	Cols            Hash = 0x1da04 // cols
-	Colspan         Hash = 0x1da07 // colspan
-	Compact         Hash = 0x20007 // compact
-	Content         Hash = 0x29807 // content
-	Controls        Hash = 0x20f08 // controls
+	Code            Hash = 0x19204 // code
+	Codebase        Hash = 0x19208 // codebase
+	Codetype        Hash = 0x1a408 // codetype
+	Col             Hash = 0x12803 // col
+	Colgroup        Hash = 0x1bb08 // colgroup
+	Color           Hash = 0x12805 // color
+	Cols            Hash = 0x1cf04 // cols
+	Colspan         Hash = 0x1cf07 // colspan
+	Compact         Hash = 0x1ec07 // compact
+	Content         Hash = 0x28407 // content
+	Controls        Hash = 0x20108 // controls
 	Data            Hash = 0x1f04  // data
 	Datalist        Hash = 0x1f08  // datalist
 	Datatype        Hash = 0x4d08  // datatype
 	Dd              Hash = 0x5b02  // dd
-	Declare         Hash = 0x7507  // declare
-	Default         Hash = 0x9e07  // default
-	DefaultChecked  Hash = 0x18f0e // defaultChecked
-	DefaultMuted    Hash = 0x9e0c  // defaultMuted
-	DefaultSelected Hash = 0xa90f  // defaultSelected
-	Defer           Hash = 0xb705  // defer
-	Del             Hash = 0xd903  // del
-	Details         Hash = 0x15c07 // details
-	Dfn             Hash = 0x18803 // dfn
-	Dialog          Hash = 0xc506  // dialog
-	Dir             Hash = 0x9503  // dir
-	Disabled        Hash = 0x19c08 // disabled
-	Div             Hash = 0x1a303 // div
-	Dl              Hash = 0x1c302 // dl
-	Dt              Hash = 0x24402 // dt
+	Declare         Hash = 0xb707  // declare
+	Default         Hash = 0x7f07  // default
+	DefaultChecked  Hash = 0x1730e // defaultChecked
+	DefaultMuted    Hash = 0x7f0c  // defaultMuted
+	DefaultSelected Hash = 0x8a0f  // defaultSelected
+	Defer           Hash = 0x9805  // defer
+	Del             Hash = 0x10503 // del
+	Details         Hash = 0x15f07 // details
+	Dfn             Hash = 0x16c03 // dfn
+	Dialog          Hash = 0xa606  // dialog
+	Dir             Hash = 0x7603  // dir
+	Disabled        Hash = 0x18008 // disabled
+	Div             Hash = 0x18703 // div
+	Dl              Hash = 0x1b902 // dl
+	Dt              Hash = 0x23102 // dt
 	Em              Hash = 0x4302  // em
 	Embed           Hash = 0x4905  // embed
-	Enabled         Hash = 0x28007 // enabled
-	Enctype         Hash = 0x1f907 // enctype
+	Enabled         Hash = 0x26c07 // enabled
+	Enctype         Hash = 0x1fa07 // enctype
 	Face            Hash = 0x5604  // face
-	Fieldset        Hash = 0x22708 // fieldset
-	Figcaption      Hash = 0x22f0a // figcaption
-	Figure          Hash = 0x23906 // figure
-	Footer          Hash = 0xe606  // footer
-	For             Hash = 0x24e03 // for
-	Form            Hash = 0x24e04 // form
-	Formaction      Hash = 0x24e0a // formaction
-	Formnovalidate  Hash = 0x2580e // formnovalidate
-	Frame           Hash = 0x2a005 // frame
-	Frameborder     Hash = 0x2a00b // frameborder
-	H1              Hash = 0x2eb02 // h1
-	H2              Hash = 0x26602 // h2
-	H3              Hash = 0x26802 // h3
-	H4              Hash = 0x26a02 // h4
-	H5              Hash = 0x26c02 // h5
-	H6              Hash = 0x26e02 // h6
-	Head            Hash = 0x2dd04 // head
-	Header          Hash = 0x2dd06 // header
-	Hgroup          Hash = 0x27006 // hgroup
-	Hidden          Hash = 0x27c06 // hidden
-	Hr              Hash = 0x33302 // hr
-	Href            Hash = 0x33304 // href
-	Hreflang        Hash = 0x33308 // hreflang
-	Html            Hash = 0x28704 // html
-	Http_Equiv      Hash = 0x28b0a // http-equiv
+	Fieldset        Hash = 0x21408 // fieldset
+	Figcaption      Hash = 0x21c0a // figcaption
+	Figure          Hash = 0x22606 // figure
+	Footer          Hash = 0xdb06  // footer
+	For             Hash = 0x23b03 // for
+	Form            Hash = 0x23b04 // form
+	Formaction      Hash = 0x23b0a // formaction
+	Formnovalidate  Hash = 0x2450e // formnovalidate
+	Frame           Hash = 0x28c05 // frame
+	Frameborder     Hash = 0x28c0b // frameborder
+	H1              Hash = 0x2e002 // h1
+	H2              Hash = 0x25302 // h2
+	H3              Hash = 0x25502 // h3
+	H4              Hash = 0x25702 // h4
+	H5              Hash = 0x25902 // h5
+	H6              Hash = 0x25b02 // h6
+	Head            Hash = 0x2d204 // head
+	Header          Hash = 0x2d206 // header
+	Hgroup          Hash = 0x25d06 // hgroup
+	Hidden          Hash = 0x26806 // hidden
+	Hr              Hash = 0x32d02 // hr
+	Href            Hash = 0x32d04 // href
+	Hreflang        Hash = 0x32d08 // hreflang
+	Html            Hash = 0x27304 // html
+	Http_Equiv      Hash = 0x2770a // http-equiv
 	I               Hash = 0x2401  // i
-	Icon            Hash = 0x29704 // icon
-	Id              Hash = 0x7402  // id
-	Iframe          Hash = 0x29f06 // iframe
-	Img             Hash = 0x2ab03 // img
-	Inert           Hash = 0x6905  // inert
-	Inlist          Hash = 0x2ae06 // inlist
-	Input           Hash = 0x2b805 // input
-	Ins             Hash = 0x2bd03 // ins
-	Ismap           Hash = 0x11f05 // ismap
-	Itemscope       Hash = 0xd009  // itemscope
-	Kbd             Hash = 0x9303  // kbd
-	Keygen          Hash = 0x1f506 // keygen
-	Label           Hash = 0x7c05  // label
-	Lang            Hash = 0x33704 // lang
-	Language        Hash = 0x33708 // language
-	Legend          Hash = 0x2d006 // legend
+	Icon            Hash = 0x28304 // icon
+	Id              Hash = 0xb602  // id
+	Iframe          Hash = 0x28b06 // iframe
+	Img             Hash = 0x29703 // img
+	Inert           Hash = 0xf605  // inert
+	Inlist          Hash = 0x29a06 // inlist
+	Input           Hash = 0x2a405 // input
+	Ins             Hash = 0x2a903 // ins
+	Ismap           Hash = 0x11205 // ismap
+	Itemscope       Hash = 0xfc09  // itemscope
+	Kbd             Hash = 0x7403  // kbd
+	Keygen          Hash = 0x1f606 // keygen
+	Label           Hash = 0xbe05  // label
+	Lang            Hash = 0x33104 // lang
+	Language        Hash = 0x33108 // language
+	Legend          Hash = 0x2c506 // legend
 	Li              Hash = 0x2302  // li
-	Link            Hash = 0x9004  // link
-	Longdesc        Hash = 0x8008  // longdesc
-	Main            Hash = 0x6704  // main
-	Manifest        Hash = 0x2c708 // manifest
-	Map             Hash = 0x10603 // map
-	Mark            Hash = 0x2d604 // mark
-	Math            Hash = 0x2da04 // math
-	Max             Hash = 0x2e303 // max
-	Maxlength       Hash = 0x2e309 // maxlength
-	Media           Hash = 0xc305  // media
-	Menu            Hash = 0xf804  // menu
-	Meta            Hash = 0x2ed04 // meta
-	Meter           Hash = 0x30505 // meter
-	Method          Hash = 0x30a06 // method
-	Multiple        Hash = 0x31008 // multiple
-	Muted           Hash = 0x31805 // muted
-	Name            Hash = 0xc104  // name
-	Nav             Hash = 0x32a03 // nav
-	Nohref          Hash = 0x33106 // nohref
-	Noresize        Hash = 0x14e08 // noresize
-	Noscript        Hash = 0x16808 // noscript
-	Noshade         Hash = 0x18a07 // noshade
-	Novalidate      Hash = 0x25c0a // novalidate
-	Nowrap          Hash = 0x1e006 // nowrap
-	Object          Hash = 0xe006  // object
-	Ol              Hash = 0x8902  // ol
-	Open            Hash = 0x32704 // open
-	Optgroup        Hash = 0x35008 // optgroup
-	Option          Hash = 0x31d06 // option
+	Link            Hash = 0x7104  // link
+	Longdesc        Hash = 0xc208  // longdesc
+	Main            Hash = 0xf404  // main
+	Manifest        Hash = 0x2bc08 // manifest
+	Map             Hash = 0xee03  // map
+	Mark            Hash = 0x2cb04 // mark
+	Math            Hash = 0x2cf04 // math
+	Max             Hash = 0x2d803 // max
+	Maxlength       Hash = 0x2d809 // maxlength
+	Media           Hash = 0xa405  // media
+	Menu            Hash = 0x12204 // menu
+	Meta            Hash = 0x2e204 // meta
+	Meter           Hash = 0x2f705 // meter
+	Method          Hash = 0x2fc06 // method
+	Multiple        Hash = 0x30208 // multiple
+	Muted           Hash = 0x30a05 // muted
+	Name            Hash = 0xa204  // name
+	Nav             Hash = 0x32403 // nav
+	Nohref          Hash = 0x32b06 // nohref
+	Noresize        Hash = 0x13608 // noresize
+	Noscript        Hash = 0x14d08 // noscript
+	Noshade         Hash = 0x16e07 // noshade
+	Novalidate      Hash = 0x2490a // novalidate
+	Nowrap          Hash = 0x1d506 // nowrap
+	Object          Hash = 0xd506  // object
+	Ol              Hash = 0xcb02  // ol
+	Open            Hash = 0x32104 // open
+	Optgroup        Hash = 0x35608 // optgroup
+	Option          Hash = 0x30f06 // option
 	Output          Hash = 0x206   // output
 	P               Hash = 0x501   // p
-	Param           Hash = 0x6305  // param
-	Pauseonexit     Hash = 0xec0b  // pauseonexit
-	Picture         Hash = 0x10807 // picture
-	Plaintext       Hash = 0x12309 // plaintext
-	Poster          Hash = 0x1cc06 // poster
-	Pre             Hash = 0x1e503 // pre
-	Prefix          Hash = 0x1e506 // prefix
-	Profile         Hash = 0x27507 // profile
-	Progress        Hash = 0x2f808 // progress
-	Property        Hash = 0x35708 // property
-	Q               Hash = 0x14401 // q
+	Param           Hash = 0xf005  // param
+	Pauseonexit     Hash = 0x1160b // pauseonexit
+	Picture         Hash = 0x1c207 // picture
+	Plaintext       Hash = 0x1da09 // plaintext
+	Poster          Hash = 0x26206 // poster
+	Pre             Hash = 0x35d03 // pre
+	Prefix          Hash = 0x35d06 // prefix
+	Profile         Hash = 0x36407 // profile
+	Progress        Hash = 0x34208 // progress
+	Property        Hash = 0x31508 // property
+	Q               Hash = 0x14301 // q
 	Rb              Hash = 0x2f02  // rb
-	Readonly        Hash = 0x12d08 // readonly
-	Rel             Hash = 0x7a03  // rel
-	Required        Hash = 0x23d08 // required
-	Resource        Hash = 0x10d08 // resource
-	Rev             Hash = 0x9703  // rev
-	Reversed        Hash = 0x9708  // reversed
-	Rows            Hash = 0xbb04  // rows
-	Rowspan         Hash = 0xbb07  // rowspan
-	Rp              Hash = 0xeb02  // rp
+	Readonly        Hash = 0x1e408 // readonly
+	Rel             Hash = 0xbc03  // rel
+	Required        Hash = 0x22a08 // required
+	Resource        Hash = 0x1c708 // resource
+	Rev             Hash = 0x7803  // rev
+	Reversed        Hash = 0x7808  // reversed
+	Rows            Hash = 0x9c04  // rows
+	Rowspan         Hash = 0x9c07  // rowspan
+	Rp              Hash = 0x6a02  // rp
 	Rt              Hash = 0x2802  // rt
-	Rtc             Hash = 0x6c03  // rtc
-	Ruby            Hash = 0x13b04 // ruby
-	Rules           Hash = 0x1d105 // rules
+	Rtc             Hash = 0xf903  // rtc
+	Ruby            Hash = 0xe004  // ruby
+	Rules           Hash = 0x12c05 // rules
 	S               Hash = 0x1c01  // s
 	Samp            Hash = 0x6004  // samp
-	Scope           Hash = 0xd405  // scope
-	Scoped          Hash = 0xd406  // scoped
-	Script          Hash = 0x16a06 // script
-	Scrolling       Hash = 0x8609  // scrolling
-	Seamless        Hash = 0x17a08 // seamless
-	Section         Hash = 0x16207 // section
-	Select          Hash = 0x18106 // select
-	Selected        Hash = 0x18108 // selected
-	Shape           Hash = 0x1d505 // shape
-	Size            Hash = 0x15204 // size
-	Slot            Hash = 0x1ee04 // slot
-	Small           Hash = 0x21605 // small
-	Sortable        Hash = 0x2bf08 // sortable
-	Source          Hash = 0x10f06 // source
-	Span            Hash = 0xbe04  // span
-	Src             Hash = 0x2ff03 // src
-	Srcset          Hash = 0x2ff06 // srcset
+	Scope           Hash = 0x10005 // scope
+	Scoped          Hash = 0x10006 // scoped
+	Script          Hash = 0x14f06 // script
+	Scrolling       Hash = 0xc809  // scrolling
+	Seamless        Hash = 0x19808 // seamless
+	Section         Hash = 0x13007 // section
+	Select          Hash = 0x16506 // select
+	Selected        Hash = 0x16508 // selected
+	Shape           Hash = 0x19f05 // shape
+	Size            Hash = 0x13a04 // size
+	Slot            Hash = 0x20804 // slot
+	Small           Hash = 0x2ab05 // small
+	Sortable        Hash = 0x2ef08 // sortable
+	Source          Hash = 0x1c906 // source
+	Span            Hash = 0x9f04  // span
+	Src             Hash = 0x34903 // src
+	Srcset          Hash = 0x34906 // srcset
 	Start           Hash = 0x2505  // start
-	Strong          Hash = 0x2b206 // strong
-	Style           Hash = 0x2cd05 // style
-	Sub             Hash = 0x32303 // sub
-	Summary         Hash = 0x33f07 // summary
-	Sup             Hash = 0x34603 // sup
-	Svg             Hash = 0x34903 // svg
-	Tabindex        Hash = 0x2ef08 // tabindex
-	Table           Hash = 0x2c205 // table
+	Strong          Hash = 0x29e06 // strong
+	Style           Hash = 0x2c205 // style
+	Sub             Hash = 0x31d03 // sub
+	Summary         Hash = 0x33907 // summary
+	Sup             Hash = 0x34003 // sup
+	Svg             Hash = 0x34f03 // svg
+	Tabindex        Hash = 0x2e408 // tabindex
+	Table           Hash = 0x2f205 // table
 	Target          Hash = 0x706   // target
 	Tbody           Hash = 0xc05   // tbody
 	Td              Hash = 0x1e02  // td
 	Template        Hash = 0x4208  // template
-	Text            Hash = 0x12804 // text
-	Textarea        Hash = 0x12808 // textarea
-	Tfoot           Hash = 0xe505  // tfoot
-	Th              Hash = 0x2dc02 // th
-	Thead           Hash = 0x2dc05 // thead
-	Time            Hash = 0xf604  // time
-	Title           Hash = 0x16f05 // title
-	Tr              Hash = 0x1f102 // tr
-	Track           Hash = 0x1f105 // track
-	Translate       Hash = 0x20609 // translate
-	Truespeed       Hash = 0x24509 // truespeed
+	Text            Hash = 0x1df04 // text
+	Textarea        Hash = 0x1df08 // textarea
+	Tfoot           Hash = 0xda05  // tfoot
+	Th              Hash = 0x2d102 // th
+	Thead           Hash = 0x2d105 // thead
+	Time            Hash = 0x12004 // time
+	Title           Hash = 0x15405 // title
+	Tr              Hash = 0x1f202 // tr
+	Track           Hash = 0x1f205 // track
+	Translate       Hash = 0x20b09 // translate
+	Truespeed       Hash = 0x23209 // truespeed
 	Type            Hash = 0x5104  // type
-	Typemustmatch   Hash = 0x1b20d // typemustmatch
+	Typemustmatch   Hash = 0x1a80d // typemustmatch
 	Typeof          Hash = 0x5106  // typeof
 	U               Hash = 0x301   // u
-	Ul              Hash = 0xa202  // ul
+	Ul              Hash = 0x8302  // ul
 	Undeterminate   Hash = 0x370d  // undeterminate
-	Usemap          Hash = 0x10306 // usemap
-	Valign          Hash = 0x32c06 // valign
-	Value           Hash = 0x1a505 // value
-	Valuetype       Hash = 0x1a509 // valuetype
-	Var             Hash = 0x29403 // var
-	Video           Hash = 0x34c05 // video
-	Visible         Hash = 0x35f07 // visible
-	Vlink           Hash = 0x36605 // vlink
-	Vocab           Hash = 0x36b05 // vocab
-	Wbr             Hash = 0x37203 // wbr
-	Xmlns           Hash = 0x1ea05 // xmlns
-	Xmp             Hash = 0x2f603 // xmp
+	Usemap          Hash = 0xeb06  // usemap
+	Valign          Hash = 0x32606 // valign
+	Value           Hash = 0x18905 // value
+	Valuetype       Hash = 0x18909 // valuetype
+	Var             Hash = 0x28003 // var
+	Video           Hash = 0x35205 // video
+	Visible         Hash = 0x36b07 // visible
+	Vlink           Hash = 0x37205 // vlink
+	Vocab           Hash = 0x37705 // vocab
+	Wbr             Hash = 0x37e03 // wbr
+	Xmlns           Hash = 0x2eb05 // xmlns
+	Xmp             Hash = 0x36203 // xmp
 )
 
 // String returns the hash' name.
@@ -290,252 +291,253 @@ NEXT:
 const _Hash_hash0 = 0x9acb0442
 const _Hash_maxLen = 15
 const _Hash_text = "aboutputargetbodyaccept-charsetdatalistarticlearbackgroundet" +
-	"erminatemplatembedatatypeofaceaddressamparamainertcanvasidec" +
-	"larelabelongdescrollingalinkbdireversedefaultMutedefaultSele" +
-	"ctedeferowspanamedialogasyncitemscopedelaudiobjectfooterpaus" +
-	"eonexitimenuautofocusemapicturesourceautoplayaxismaplaintext" +
-	"areadonlybgcolorubyblockquotebuttonoresizeclassidetailsectio" +
-	"noscriptitlecodebaseamlesselectedfnoshadefaultCheckedisabled" +
-	"ivaluetypecodetypemustmatcheckedlcolgrouposteruleshapecolspa" +
-	"nowraprefixmlnslotrackeygenctypecompactranslatecontrolsmallo" +
-	"wfullscreenfieldsetfigcaptionfigurequiredtruespeedformaction" +
-	"formnovalidateh2h3h4h5h6hgrouprofilehiddenabledhtmlhttp-equi" +
-	"varicontentiframeborderimginlistronginputinsortablemanifesty" +
-	"legendmarkmatheadermaxlength1metabindexmprogressrcsetmeterme" +
-	"thodmultiplemutedoptionsubdopenavalignohreflanguagesummarysu" +
-	"psvgvideoptgroupropertyvisiblevlinkvocabbrwbr"
+	"erminatemplatembedatatypeofaceaddressamp-boilerplatealinkbdi" +
+	"reversedefaultMutedefaultSelectedeferowspanamedialogasyncanv" +
+	"asideclarelabelongdescrollingaudiobjectfooterubyautofocusema" +
+	"paramainertcitemscopedelautoplayaxismapauseonexitimenubgcolo" +
+	"rulesectionoresizeblockquotebuttonoscriptitleclassidetailsel" +
+	"ectedfnoshadefaultCheckedisabledivaluetypecodebaseamlesshape" +
+	"codetypemustmatcheckedlcolgroupicturesourcecolspanowraplaint" +
+	"extareadonlycompactrackeygenctypecontrolslotranslatefieldset" +
+	"figcaptionfigurequiredtruespeedformactionformnovalidateh2h3h" +
+	"4h5h6hgrouposterhiddenabledhtmlhttp-equivaricontentiframebor" +
+	"derimginlistronginputinsmallowfullscreenmanifestylegendmarkm" +
+	"atheadermaxlength1metabindexmlnsortablemetermethodmultiplemu" +
+	"tedoptionpropertysubdopenavalignohreflanguagesummarysuprogre" +
+	"ssrcsetsvgvideoptgrouprefixmprofilevisiblevlinkvocabbrwbr"
 
 var _Hash_table = [1 << 9]Hash{
-	0x0:   0x12808, // textarea
-	0x4:   0x33302, // hr
-	0x8:   0x10807, // picture
-	0xb:   0x1a505, // value
-	0xf:   0x2ef08, // tabindex
-	0x12:  0x15605, // class
-	0x15:  0x37203, // wbr
-	0x18:  0x1b20d, // typemustmatch
-	0x1a:  0x1c302, // dl
-	0x1d:  0x6c03,  // rtc
-	0x1e:  0x26a02, // h4
-	0x22:  0x2bf08, // sortable
+	0x0:   0x1df08, // textarea
+	0x4:   0x32d02, // hr
+	0x8:   0x1c207, // picture
+	0xb:   0x18905, // value
+	0xf:   0x2e408, // tabindex
+	0x12:  0x15905, // class
+	0x15:  0x37e03, // wbr
+	0x18:  0x1a80d, // typemustmatch
+	0x1a:  0x1b902, // dl
+	0x1d:  0xf903,  // rtc
+	0x1e:  0x25702, // h4
+	0x22:  0x2ef08, // sortable
 	0x24:  0x4208,  // template
-	0x25:  0x2a00b, // frameborder
-	0x28:  0x36e04, // abbr
-	0x29:  0x29f06, // iframe
-	0x2a:  0x5a07,  // address
-	0x2c:  0x12d08, // readonly
-	0x30:  0x25206, // action
-	0x33:  0x2a005, // frame
-	0x35:  0x1d105, // rules
-	0x36:  0x31008, // multiple
-	0x38:  0x32503, // bdo
-	0x39:  0x1e006, // nowrap
-	0x3e:  0x22708, // fieldset
-	0x3f:  0x9403,  // bdi
-	0x46:  0x9e0c,  // defaultMuted
-	0x49:  0x34c05, // video
-	0x4c:  0x17a08, // seamless
-	0x4d:  0x14e08, // noresize
-	0x4f:  0x7402,  // id
-	0x51:  0x27006, // hgroup
-	0x52:  0x24402, // dt
-	0x55:  0x13705, // color
-	0x56:  0x34603, // sup
+	0x25:  0x28c0b, // frameborder
+	0x28:  0x37a04, // abbr
+	0x29:  0x28b06, // iframe
+	0x2a:  0x610f,  // amp-boilerplate
+	0x2c:  0x1e408, // readonly
+	0x30:  0x23f06, // action
+	0x33:  0x28c05, // frame
+	0x35:  0x12c05, // rules
+	0x36:  0x30208, // multiple
+	0x38:  0x31f03, // bdo
+	0x39:  0x1d506, // nowrap
+	0x3e:  0x21408, // fieldset
+	0x3f:  0x7503,  // bdi
+	0x46:  0x7f0c,  // defaultMuted
+	0x49:  0x35205, // video
+	0x4c:  0x19808, // seamless
+	0x4d:  0x13608, // noresize
+	0x4f:  0xb602,  // id
+	0x51:  0x25d06, // hgroup
+	0x52:  0x23102, // dt
+	0x55:  0x12805, // color
+	0x56:  0x34003, // sup
 	0x59:  0x370d,  // undeterminate
-	0x5a:  0x35008, // optgroup
-	0x5b:  0x2dd06, // header
-	0x5c:  0x7205,  // aside
-	0x5f:  0xd405,  // scope
+	0x5a:  0x35608, // optgroup
+	0x5b:  0x2d206, // header
+	0x5c:  0xb405,  // aside
+	0x5f:  0x10005, // scope
 	0x60:  0x101,   // b
-	0x61:  0x8902,  // ol
-	0x64:  0x33106, // nohref
-	0x65:  0x12309, // plaintext
-	0x66:  0x1ee04, // slot
-	0x67:  0x11d04, // axis
-	0x68:  0x13703, // col
-	0x69:  0x32c06, // valign
-	0x6c:  0x2dc05, // thead
-	0x70:  0x2ff06, // srcset
-	0x71:  0x27c06, // hidden
-	0x76:  0x1c508, // colgroup
-	0x78:  0x34903, // svg
-	0x7b:  0x2d604, // mark
-	0x7e:  0x33704, // lang
-	0x81:  0x1da04, // cols
-	0x8b:  0x6704,  // main
+	0x61:  0xcb02,  // ol
+	0x64:  0x32b06, // nohref
+	0x65:  0x1da09, // plaintext
+	0x66:  0x20804, // slot
+	0x67:  0x11004, // axis
+	0x68:  0x12803, // col
+	0x69:  0x32606, // valign
+	0x6c:  0x2d105, // thead
+	0x70:  0x34906, // srcset
+	0x71:  0x26806, // hidden
+	0x76:  0x1bb08, // colgroup
+	0x78:  0x34f03, // svg
+	0x7b:  0x2cb04, // mark
+	0x7e:  0x33104, // lang
+	0x81:  0x1cf04, // cols
+	0x86:  0x5a07,  // address
+	0x8b:  0xf404,  // main
 	0x8c:  0x4302,  // em
-	0x8f:  0x33308, // hreflang
-	0x93:  0x1bd07, // checked
-	0x94:  0x26c02, // h5
+	0x8f:  0x32d08, // hreflang
+	0x93:  0x1b307, // checked
+	0x94:  0x25902, // h5
 	0x95:  0x301,   // u
-	0x96:  0x32d05, // align
-	0x97:  0x14401, // q
-	0x99:  0xe006,  // object
-	0x9b:  0x29807, // content
-	0x9d:  0x8609,  // scrolling
-	0x9f:  0x27507, // profile
-	0xa0:  0x2ff03, // src
-	0xa1:  0xe505,  // tfoot
-	0xa3:  0x30505, // meter
-	0xa4:  0x36b05, // vocab
+	0x96:  0x32705, // align
+	0x97:  0x14301, // q
+	0x99:  0xd506,  // object
+	0x9b:  0x28407, // content
+	0x9d:  0xc809,  // scrolling
+	0x9f:  0x36407, // profile
+	0xa0:  0x34903, // src
+	0xa1:  0xda05,  // tfoot
+	0xa3:  0x2f705, // meter
+	0xa4:  0x37705, // vocab
 	0xa6:  0xd04,   // body
-	0xa8:  0x17404, // code
-	0xac:  0x20f08, // controls
-	0xb0:  0x21605, // small
-	0xb1:  0x19c08, // disabled
+	0xa8:  0x19204, // code
+	0xac:  0x20108, // controls
+	0xb0:  0x2ab05, // small
+	0xb1:  0x18008, // disabled
 	0xb5:  0x5604,  // face
 	0xb6:  0x501,   // p
 	0xb9:  0x2302,  // li
-	0xbb:  0xfc09,  // autofocus
-	0xbf:  0x28704, // html
+	0xbb:  0xe409,  // autofocus
+	0xbf:  0x27304, // html
 	0xc2:  0x4d08,  // datatype
-	0xc6:  0x1e506, // prefix
-	0xcb:  0x1e503, // pre
+	0xc6:  0x35d06, // prefix
+	0xcb:  0x35d03, // pre
 	0xcc:  0x1106,  // accept
-	0xd1:  0x24e03, // for
-	0xd5:  0x2b206, // strong
-	0xd6:  0xbb07,  // rowspan
-	0xd7:  0x26802, // h3
-	0xd8:  0x2da04, // math
-	0xde:  0x18a07, // noshade
-	0xdf:  0x1d505, // shape
-	0xe1:  0xd406,  // scoped
+	0xd1:  0x23b03, // for
+	0xd5:  0x29e06, // strong
+	0xd6:  0x9c07,  // rowspan
+	0xd7:  0x25502, // h3
+	0xd8:  0x2cf04, // math
+	0xde:  0x16e07, // noshade
+	0xdf:  0x19f05, // shape
+	0xe1:  0x10006, // scoped
 	0xe3:  0x706,   // target
-	0xe6:  0x22f0a, // figcaption
-	0xe9:  0x12804, // text
-	0xea:  0x10d08, // resource
-	0xec:  0x10603, // map
-	0xf0:  0x2ae06, // inlist
-	0xf1:  0x18106, // select
-	0xf2:  0x1f506, // keygen
+	0xe6:  0x21c0a, // figcaption
+	0xe9:  0x1df04, // text
+	0xea:  0x1c708, // resource
+	0xec:  0xee03,  // map
+	0xf0:  0x29a06, // inlist
+	0xf1:  0x16506, // select
+	0xf2:  0x1f606, // keygen
 	0xf3:  0x5106,  // typeof
-	0xf6:  0x6e06,  // canvas
-	0xf7:  0x31d06, // option
-	0xf8:  0x7c05,  // label
-	0xf9:  0x7a03,  // rel
+	0xf6:  0xb006,  // canvas
+	0xf7:  0x30f06, // option
+	0xf8:  0xbe05,  // label
+	0xf9:  0xbc03,  // rel
 	0xfb:  0x1f04,  // data
 	0xfd:  0x6004,  // samp
 	0x100: 0x110e,  // accept-charset
-	0x101: 0x10306, // usemap
-	0x103: 0x2c708, // manifest
-	0x109: 0xc104,  // name
-	0x10a: 0x14906, // button
+	0x101: 0xeb06,  // usemap
+	0x103: 0x2bc08, // manifest
+	0x109: 0xa204,  // name
+	0x10a: 0x14806, // button
 	0x10b: 0x2b05,  // clear
-	0x10e: 0x33f07, // summary
-	0x10f: 0x2ed04, // meta
-	0x110: 0x33708, // language
+	0x10e: 0x33907, // summary
+	0x10f: 0x2e204, // meta
+	0x110: 0x33108, // language
 	0x112: 0x300a,  // background
 	0x113: 0x2707,  // article
-	0x116: 0x24e0a, // formaction
+	0x116: 0x23b0a, // formaction
 	0x119: 0x1,     // a
 	0x11b: 0x5,     // about
-	0x11c: 0xd009,  // itemscope
-	0x11e: 0x16808, // noscript
-	0x11f: 0x15607, // classid
-	0x120: 0x2f603, // xmp
-	0x121: 0x17804, // base
+	0x11c: 0xfc09,  // itemscope
+	0x11e: 0x14d08, // noscript
+	0x11f: 0x15907, // classid
+	0x120: 0x36203, // xmp
+	0x121: 0x19604, // base
 	0x123: 0x1c01,  // s
-	0x124: 0x35f07, // visible
-	0x126: 0x36f02, // bb
-	0x127: 0xbb04,  // rows
-	0x12d: 0x2580e, // formnovalidate
-	0x131: 0x1f105, // track
-	0x135: 0x1a303, // div
-	0x136: 0xcb05,  // async
-	0x137: 0x35708, // property
-	0x13a: 0x18803, // dfn
-	0x13e: 0x6905,  // inert
-	0x142: 0xd903,  // del
-	0x144: 0x26602, // h2
-	0x147: 0x2cd05, // style
-	0x149: 0x2ab03, // img
+	0x124: 0x36b07, // visible
+	0x126: 0x37b02, // bb
+	0x127: 0x9c04,  // rows
+	0x12d: 0x2450e, // formnovalidate
+	0x131: 0x1f205, // track
+	0x135: 0x18703, // div
+	0x136: 0xac05,  // async
+	0x137: 0x31508, // property
+	0x13a: 0x16c03, // dfn
+	0x13e: 0xf605,  // inert
+	0x142: 0x10503, // del
+	0x144: 0x25302, // h2
+	0x147: 0x2c205, // style
+	0x149: 0x29703, // img
 	0x14a: 0xc05,   // tbody
-	0x14b: 0x9503,  // dir
-	0x14c: 0x1ea05, // xmlns
+	0x14b: 0x7603,  // dir
+	0x14c: 0x2eb05, // xmlns
 	0x14e: 0x1f08,  // datalist
-	0x14f: 0x33304, // href
-	0x150: 0x1f102, // tr
-	0x151: 0x13f0a, // blockquote
-	0x152: 0x1a509, // valuetype
-	0x155: 0xe606,  // footer
-	0x157: 0x16a06, // script
-	0x158: 0x1da07, // colspan
-	0x15d: 0x18f0e, // defaultChecked
-	0x15f: 0x25c0a, // novalidate
-	0x164: 0x1ae08, // codetype
-	0x165: 0x2d006, // legend
-	0x16b: 0xec0b,  // pauseonexit
-	0x16c: 0x23207, // caption
-	0x16f: 0x28007, // enabled
-	0x173: 0x1cc06, // poster
-	0x175: 0x31805, // muted
-	0x176: 0x11f05, // ismap
-	0x178: 0x2bd03, // ins
-	0x17a: 0x13b04, // ruby
-	0x17b: 0x37002, // br
-	0x17c: 0xa90f,  // defaultSelected
-	0x17d: 0x9303,  // kbd
-	0x17f: 0x10f06, // source
-	0x182: 0xbe04,  // span
-	0x184: 0x2e303, // max
+	0x14f: 0x32d04, // href
+	0x150: 0x1f202, // tr
+	0x151: 0x13e0a, // blockquote
+	0x152: 0x18909, // valuetype
+	0x155: 0xdb06,  // footer
+	0x157: 0x14f06, // script
+	0x158: 0x1cf07, // colspan
+	0x15d: 0x1730e, // defaultChecked
+	0x15f: 0x2490a, // novalidate
+	0x164: 0x1a408, // codetype
+	0x165: 0x2c506, // legend
+	0x16b: 0x1160b, // pauseonexit
+	0x16c: 0x21f07, // caption
+	0x16f: 0x26c07, // enabled
+	0x173: 0x26206, // poster
+	0x175: 0x30a05, // muted
+	0x176: 0x11205, // ismap
+	0x178: 0x2a903, // ins
+	0x17a: 0xe004,  // ruby
+	0x17b: 0x37c02, // br
+	0x17c: 0x8a0f,  // defaultSelected
+	0x17d: 0x7403,  // kbd
+	0x17f: 0x1c906, // source
+	0x182: 0x9f04,  // span
+	0x184: 0x2d803, // max
 	0x18a: 0x5b02,  // dd
-	0x18b: 0x15204, // size
-	0x18c: 0xc305,  // media
-	0x18d: 0x17408, // codebase
+	0x18b: 0x13a04, // size
+	0x18c: 0xa405,  // media
+	0x18d: 0x19208, // codebase
 	0x18f: 0x4905,  // embed
 	0x192: 0x5104,  // type
-	0x193: 0x6305,  // param
-	0x194: 0x26e02, // h6
-	0x197: 0x29704, // icon
-	0x198: 0x13507, // bgcolor
-	0x199: 0x2180f, // allowfullscreen
-	0x19a: 0xf604,  // time
-	0x19b: 0x9703,  // rev
-	0x19d: 0x2f808, // progress
-	0x19e: 0x23906, // figure
-	0x1a0: 0xeb02,  // rp
-	0x1a2: 0xc506,  // dialog
+	0x193: 0xf005,  // param
+	0x194: 0x25b02, // h6
+	0x197: 0x28304, // icon
+	0x198: 0x12607, // bgcolor
+	0x199: 0x2ad0f, // allowfullscreen
+	0x19a: 0x12004, // time
+	0x19b: 0x7803,  // rev
+	0x19d: 0x34208, // progress
+	0x19e: 0x22606, // figure
+	0x1a0: 0x6a02,  // rp
+	0x1a2: 0xa606,  // dialog
 	0x1a4: 0x2802,  // rt
-	0x1a7: 0x12c04, // area
-	0x1a8: 0x9708,  // reversed
-	0x1aa: 0x32704, // open
-	0x1ac: 0x2dd04, // head
-	0x1ad: 0x8f05,  // alink
-	0x1af: 0x29403, // var
-	0x1b0: 0x15c07, // details
+	0x1a7: 0x1e304, // area
+	0x1a8: 0x7808,  // reversed
+	0x1aa: 0x32104, // open
+	0x1ac: 0x2d204, // head
+	0x1ad: 0x7005,  // alink
+	0x1af: 0x28003, // var
+	0x1b0: 0x15f07, // details
 	0x1b1: 0x2401,  // i
 	0x1b3: 0x1e02,  // td
-	0x1b4: 0x7507,  // declare
-	0x1b5: 0xa202,  // ul
-	0x1ba: 0x30a06, // method
-	0x1bd: 0x16207, // section
-	0x1be: 0x23d08, // required
-	0x1c2: 0xb705,  // defer
-	0x1c3: 0x36605, // vlink
-	0x1c4: 0x16f05, // title
-	0x1c5: 0x28b0a, // http-equiv
-	0x1c6: 0x1f907, // enctype
-	0x1c7: 0x20007, // compact
-	0x1c8: 0x2e309, // maxlength
-	0x1c9: 0x18108, // selected
-	0x1cc: 0xdc05,  // audio
-	0x1cd: 0x8008,  // longdesc
-	0x1d1: 0xcf04,  // cite
+	0x1b4: 0xb707,  // declare
+	0x1b5: 0x8302,  // ul
+	0x1ba: 0x2fc06, // method
+	0x1bd: 0x13007, // section
+	0x1be: 0x22a08, // required
+	0x1c2: 0x9805,  // defer
+	0x1c3: 0x37205, // vlink
+	0x1c4: 0x15405, // title
+	0x1c5: 0x2770a, // http-equiv
+	0x1c6: 0x1fa07, // enctype
+	0x1c7: 0x1ec07, // compact
+	0x1c8: 0x2d809, // maxlength
+	0x1c9: 0x16508, // selected
+	0x1cc: 0xd105,  // audio
+	0x1cd: 0xc208,  // longdesc
+	0x1d1: 0xfb04,  // cite
 	0x1da: 0x2505,  // start
-	0x1de: 0x2dc02, // th
-	0x1df: 0x11508, // autoplay
-	0x1e2: 0x9004,  // link
+	0x1de: 0x2d102, // th
+	0x1df: 0x10808, // autoplay
+	0x1e2: 0x7104,  // link
 	0x1e3: 0x206,   // output
-	0x1e5: 0xf804,  // menu
-	0x1e6: 0x2b805, // input
-	0x1eb: 0x32a03, // nav
-	0x1ec: 0x32303, // sub
+	0x1e5: 0x12204, // menu
+	0x1e6: 0x2a405, // input
+	0x1eb: 0x32403, // nav
+	0x1ec: 0x31d03, // sub
 	0x1ee: 0x1807,  // charset
-	0x1ef: 0x9e07,  // default
-	0x1f3: 0x2c205, // table
-	0x1f4: 0x24e04, // form
-	0x1f5: 0x24509, // truespeed
+	0x1ef: 0x7f07,  // default
+	0x1f3: 0x2f205, // table
+	0x1f4: 0x23b04, // form
+	0x1f5: 0x23209, // truespeed
 	0x1f6: 0x2f02,  // rb
-	0x1fb: 0x20609, // translate
-	0x1fd: 0x2eb02, // h1
+	0x1fb: 0x20b09, // translate
+	0x1fd: 0x2e002, // h1
 }
