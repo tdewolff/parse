@@ -7,13 +7,6 @@ var (
 	doubleQuoteEntityBytes = []byte("&#34;")
 )
 
-// Entities are all named character entities.
-var EntitiesMap = map[string][]byte{
-	"apos": []byte("'"),
-	"gt":   []byte(">"),
-	"quot": []byte("\""),
-}
-
 // EscapeAttrVal returns the escape attribute value bytes without quotes.
 func EscapeAttrVal(buf *[]byte, b []byte) []byte {
 	singles := 0
