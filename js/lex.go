@@ -226,7 +226,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
-		for l.consumeWhitespace() {
+		for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 		}
 		return WhitespaceToken, l.r.Shift()
 	case '\n', '\r':
@@ -260,8 +260,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			l.emptyLine = false
 			return IdentifierToken, l.r.Shift()
 		} else if c >= 0xC0 {
-			if l.consumeWhitespace() {
-				for l.consumeWhitespace() {
+			if l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
+				for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 				}
 				return WhitespaceToken, l.r.Shift()
 			} else if l.consumeLineTerminator() {
@@ -287,12 +287,18 @@ func (l *Lexer) Next() (TokenType, []byte) {
 The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
 
-func (l *Lexer) consumeWhitespace() bool {
+func (l *Lexer) consumeWhitespaceByte() bool {
 	c := l.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\v' || c == '\f' {
 		l.r.Move(1)
 		return true
-	} else if c >= 0xC0 {
+	}
+	return false
+}
+
+func (l *Lexer) consumeWhitespaceRune() bool {
+	c := l.r.Peek(0)
+	if c >= 0xC0 {
 		if r, n := l.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
 			l.r.Move(n)
 			return true
@@ -476,7 +482,7 @@ func (l *Lexer) consumePunctuatorToken() bool {
 
 func (l *Lexer) consumeIdentifierToken() bool {
 	c := l.r.Peek(0)
-	if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '$' || c == '_' {
+	if identifierTable[c] && (c < '0' || c > '9') {
 		l.r.Move(1)
 	} else if c >= 0xC0 {
 		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
@@ -489,7 +495,7 @@ func (l *Lexer) consumeIdentifierToken() bool {
 	}
 	for {
 		c := l.r.Peek(0)
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
+		if identifierTable[c] {
 			l.r.Move(1)
 		} else if c >= 0xC0 {
 			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
@@ -631,7 +637,7 @@ func (l *Lexer) consumeRegexpToken() bool {
 	// flags
 	for {
 		c := l.r.Peek(0)
-		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '$' || c == '_' {
+		if identifierTable[c] {
 			l.r.Move(1)
 		} else if c >= 0xC0 {
 			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
@@ -673,4 +679,48 @@ func (l *Lexer) consumeTemplateToken() bool {
 		}
 		l.r.Move(1)
 	}
+}
+
+var identifierTable = [256]bool{
+	// ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, true, false, false, false, // $
+	false, false, false, false, false, false, false, false,
+	true, true, true, true, true, true, true, true, // 0, 1, 2, 3, 4, 5, 6, 7
+	true, true, false, false, false, false, false, false, // 8, 9
+
+	false, true, true, true, true, true, true, true, // A, B, C, D, E, F, G
+	true, true, true, true, true, true, true, true, // H, I, J, K, L, M, N, O
+	true, true, true, true, true, true, true, true, // P, Q, R, S, T, U, V, W
+	true, true, true, false, false, false, false, true, // X, Y, Z, _
+
+	false, true, true, true, true, true, true, true, // a, b, c, d, e, f, g
+	true, true, true, true, true, true, true, true, // h, i, j, k, l, m, n, o
+	true, true, true, true, true, true, true, true, // p, q, r, s, t, u, v, w
+	true, true, true, false, false, false, false, false, // x, y, z
+
+	// non-ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
 }
