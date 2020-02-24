@@ -138,7 +138,6 @@ func (l *Lexer) Offset() int {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
-	tt := UnknownToken
 	c := l.r.Peek(0)
 	switch c {
 	case '(':
@@ -149,7 +148,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		l.state = ExprState
 		l.r.Move(1)
-		tt = PunctuatorToken
+		l.emptyLine = false
+		return PunctuatorToken, l.r.Shift()
 	case ')':
 		if l.leaveContext() == StmtParensContext {
 			l.state = ExprState
@@ -157,60 +157,72 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			l.state = SubscriptState
 		}
 		l.r.Move(1)
-		tt = PunctuatorToken
+		l.emptyLine = false
+		return PunctuatorToken, l.r.Shift()
 	case '{':
 		l.enterContext(BracesContext)
 		l.state = ExprState
 		l.r.Move(1)
-		tt = PunctuatorToken
+		l.emptyLine = false
+		return PunctuatorToken, l.r.Shift()
 	case '}':
 		if l.leaveContext() == TemplateContext && l.consumeTemplateToken() {
-			tt = TemplateToken
+			l.emptyLine = false
+			return TemplateToken, l.r.Shift()
 		} else {
 			// will work incorrectly for objects or functions divided by something,
 			// but that's an extremely rare case
 			l.state = ExprState
 			l.r.Move(1)
-			tt = PunctuatorToken
+			l.emptyLine = false
+			return PunctuatorToken, l.r.Shift()
 		}
 	case ']':
 		l.state = SubscriptState
 		l.r.Move(1)
-		tt = PunctuatorToken
+		l.emptyLine = false
+		return PunctuatorToken, l.r.Shift()
 	case '[', ';', ',', '~', '?', ':':
 		l.state = ExprState
 		l.r.Move(1)
-		tt = PunctuatorToken
+		l.emptyLine = false
+		return PunctuatorToken, l.r.Shift()
 	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
 		if l.consumeHTMLLikeCommentToken() {
 			return SingleLineCommentToken, l.r.Shift()
 		} else if l.consumePunctuatorToken() {
 			l.state = ExprState
-			tt = PunctuatorToken
+			l.emptyLine = false
+			return PunctuatorToken, l.r.Shift()
 		}
 	case '/':
-		if tt = l.consumeCommentToken(); tt != UnknownToken {
+		if tt := l.consumeCommentToken(); tt != UnknownToken {
 			return tt, l.r.Shift()
 		} else if l.state == ExprState && l.consumeRegexpToken() {
 			l.state = SubscriptState
-			tt = RegexpToken
+			l.emptyLine = false
+			return RegexpToken, l.r.Shift()
 		} else if l.consumePunctuatorToken() {
 			l.state = ExprState
-			tt = PunctuatorToken
+			l.emptyLine = false
+			return PunctuatorToken, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if l.consumeNumericToken() {
-			tt = NumericToken
 			l.state = SubscriptState
+			l.emptyLine = false
+			return NumericToken, l.r.Shift()
 		} else if c == '.' {
 			l.state = PropNameState
 			l.r.Move(1)
-			tt = PunctuatorToken
+			l.emptyLine = false
+			return PunctuatorToken, l.r.Shift()
 		}
 	case '\'', '"':
 		if l.consumeStringToken() {
 			l.state = SubscriptState
-			tt = StringToken
+			l.emptyLine = false
+			return StringToken, l.r.Shift()
 		}
 	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
@@ -221,14 +233,15 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.r.Move(1)
 		for l.consumeLineTerminator() {
 		}
-		tt = LineTerminatorToken
+		l.emptyLine = true
+		return LineTerminatorToken, l.r.Shift()
 	case '`':
 		if l.consumeTemplateToken() {
-			tt = TemplateToken
+			l.emptyLine = false
+			return TemplateToken, l.r.Shift()
 		}
 	default:
 		if l.consumeIdentifierToken() {
-			tt = IdentifierToken
 			if l.state != PropNameState {
 				switch hash := ToHash(l.r.Lexeme()); hash {
 				case 0, This, False, True, Null:
@@ -244,6 +257,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			} else {
 				l.state = SubscriptState
 			}
+			l.emptyLine = false
+			return IdentifierToken, l.r.Shift()
 		} else if c >= 0xC0 {
 			if l.consumeWhitespace() {
 				for l.consumeWhitespace() {
@@ -252,20 +267,18 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			} else if l.consumeLineTerminator() {
 				for l.consumeLineTerminator() {
 				}
-				tt = LineTerminatorToken
+				l.emptyLine = true
+				return LineTerminatorToken, l.r.Shift()
 			}
 		} else if c == 0 && l.r.Err() != nil {
 			return ErrorToken, nil
 		}
 	}
 
-	l.emptyLine = tt == LineTerminatorToken
-
-	if tt == UnknownToken {
-		_, n := l.r.PeekRune(0)
-		l.r.Move(n)
-	}
-	return tt, l.r.Shift()
+	_, n := l.r.PeekRune(0)
+	l.r.Move(n)
+	l.emptyLine = false
+	return UnknownToken, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
