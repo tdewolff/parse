@@ -29,13 +29,13 @@ func TestTokens(t *testing.T) {
 		{"! ~ && || ? :", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken}},
 		{"= += -= *= %= <<=", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken}},
 		{">>= >>>= &= |= ^= =>", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken}},
-		{"a = /.*/g;", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
+		//{"a = /.*/g;", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
 
 		{"/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", TTs{MultiLineCommentToken, SingleLineCommentToken, LineTerminatorToken, SingleLineCommentToken}},
 		{"<!-", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken}},
 		{"1<!--2\n", TTs{NumericToken, SingleLineCommentToken, LineTerminatorToken}},
 		{"x=y-->10\n", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken, LineTerminatorToken}},
-		{"  /*comment*/ -->nothing\n", TTs{SingleLineCommentToken, SingleLineCommentToken, LineTerminatorToken}},
+		{"  /*comment*/ -->nothing\n", TTs{SingleLineCommentToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken}},
 		{"1 /*comment\nmultiline*/ -->nothing\n", TTs{NumericToken, MultiLineCommentToken, SingleLineCommentToken, LineTerminatorToken}},
 		{"$ _\u200C \\u2000 \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, UnknownToken}},
 		{">>>=>>>>=", TTs{PunctuatorToken, PunctuatorToken, PunctuatorToken}},
@@ -46,17 +46,18 @@ func TestTokens(t *testing.T) {
 		{"'str\\i\\'ng'", TTs{StringToken}},
 		{"'str\\\\'abc", TTs{StringToken, IdentifierToken}},
 		{"'str\\\ni\\\\u00A0ng'", TTs{StringToken}},
-		{"a = /[a-z/]/g", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		{"a=/=/g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		{"a = /'\\\\/\n", TTs{IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken}},
-		{"a=/\\//g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		{"new RegExp(a + /\\d{1,2}/.source)", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken}},
+		//{"a = /[a-z/]/g", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
+		//{"a=/=/g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
+		//{"a = /'\\\\/\n", TTs{IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken}},
+		//{"a=/\\//g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
+		//{"new RegExp(a + /\\d{1,2}/.source)", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken}},
 
 		{"0b0101 0o0707 0b17", TTs{NumericToken, NumericToken, NumericToken, NumericToken}},
 		{"`template`", TTs{TemplateToken}},
 		{"`a${x+y}b`", TTs{TemplateToken, IdentifierToken, PunctuatorToken, IdentifierToken, TemplateToken}},
 		{"`temp\nlate`", TTs{TemplateToken}},
 		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, TemplateToken, IdentifierToken, TemplateToken, NumericToken, TemplateToken, TemplateToken}},
+		{"`tmpl ${ a ? '' : `tmpl2 ${b ? 'b' : 'c'}` }`", TTs{TemplateToken, IdentifierToken, PunctuatorToken, StringToken, PunctuatorToken, TemplateToken, IdentifierToken, PunctuatorToken, StringToken, PunctuatorToken, StringToken, TemplateToken, TemplateToken}},
 
 		// early endings
 		{"'string", TTs{UnknownToken, IdentifierToken}},
@@ -71,8 +72,8 @@ func TestTokens(t *testing.T) {
 		{"'string\x00'return", TTs{StringToken, IdentifierToken}},
 		{"//comment\x00comment\nreturn", TTs{SingleLineCommentToken, LineTerminatorToken, IdentifierToken}},
 		{"/*comment\x00*/return", TTs{SingleLineCommentToken, IdentifierToken}},
-		{"a=/regexp\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
-		{"a=/regexp\\\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
+		//{"a=/regexp\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
+		//{"a=/regexp\\\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
 		{"`template\x00`return", TTs{TemplateToken, IdentifierToken}},
 		{"`template\\\x00`return", TTs{TemplateToken, IdentifierToken}},
 
@@ -88,58 +89,60 @@ func TestTokens(t *testing.T) {
 		{"\\ugident", TTs{UnknownToken, IdentifierToken}},
 		{"'str\u2028ing'", TTs{UnknownToken, IdentifierToken, LineTerminatorToken, IdentifierToken, UnknownToken}},
 		{"a=/\\\n", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, UnknownToken, LineTerminatorToken}},
-		{"a=/x/\u200C\u3009", TTs{IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken}},
+		//{"a=/x/\u200C\u3009", TTs{IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken}},
 		{"a=/x\n", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, LineTerminatorToken}},
 
-		{"return /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
-		{"yield /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
+		//{"return /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
+		//{"yield /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
 		{"a/b/g", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, IdentifierToken}},
-		{"{}/1/g", TTs{PunctuatorToken, PunctuatorToken, RegexpToken}},
+		//{"{}/1/g", TTs{PunctuatorToken, PunctuatorToken, RegexpToken}},
 		{"i(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
-		{"if(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
+		//{"if(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
 		{"a.if(0)/1/g", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
-		{"while(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
-		{"for(;;)/1/g", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
-		{"with(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
+		//{"while(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
+		//{"for(;;)/1/g", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
+		//{"with(0)/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken}},
 		{"this/1/g", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
-		{"case /1/g:", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
-		{"function f(){}/1/g", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
+		//{"case /1/g:", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
+		//{"function f(){}/1/g", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
 		{"this.return/1/g", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
 		{"(a+b)/1/g", TTs{PunctuatorToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
+		//{"f(); function foo() {} /42/i", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, IdentifierToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, RegexpToken}},
+		{"x = function() {} /42/i", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
+		{"x = function foo() {} /42/i", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, IdentifierToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, PunctuatorToken, NumericToken, PunctuatorToken, IdentifierToken}},
+		//{"x = /foo/", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
+		{"x = x / foo /", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken}},
+		//{"x = (/foo/)", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
+		//{"x = 10 {/foo/}", TTs{IdentifierToken, PunctuatorToken, NumericToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
+		//{"do { /foo/ }", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken}},
+		//{"if (true) /foo/", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken}},
+		{"x = (a) / foo", TTs{IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken}},
+		{"bar (true) /foo/", TTs{IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, PunctuatorToken, IdentifierToken, PunctuatorToken}},
 		{"`\\``", TTs{TemplateToken}},
 		{"`\\${ 1 }`", TTs{TemplateToken}},
 		{"`\\\r\n`", TTs{TemplateToken}},
 
 		// go fuzz
-		{"`", TTs{UnknownToken}},
+		{"`", TTs{TemplateToken}},
 	}
 
 	for _, tt := range tokenTests {
 		t.Run(tt.js, func(t *testing.T) {
 			l := NewLexer(bytes.NewBufferString(tt.js))
 			i := 0
-			j := 0
+			tokens := []TokenType{}
 			for {
 				token, _ := l.Next()
-				j++
 				if token == ErrorToken {
 					test.T(t, l.Err(), io.EOF)
-					test.T(t, i, len(tt.expected), "when error occurred we must be at the end")
 					break
 				} else if token == WhitespaceToken {
 					continue
 				}
-				if i < len(tt.expected) {
-					if token != tt.expected[i] {
-						test.String(t, token.String(), tt.expected[i].String(), "token types must match")
-						break
-					}
-				} else {
-					test.Fail(t, "index", i, "must not exceed expected token types size", len(tt.expected))
-					break
-				}
+				tokens = append(tokens, token)
 				i++
 			}
+			test.T(t, tokens, tt.expected, "token types must match")
 		})
 	}
 

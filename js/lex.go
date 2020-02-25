@@ -25,38 +25,78 @@ const (
 	LineTerminatorToken                  // \r \n \r\n
 	SingleLineCommentToken
 	MultiLineCommentToken // token for comments with line terminators (not just any /*block*/)
-	IdentifierToken
-	PunctuatorToken /* { } ( ) [ ] . ; , < > <= >= == != === !==  + - * % ++ -- << >>
-	   >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= >= */
 	NumericToken
 	StringToken
 	RegexpToken
 	TemplateToken
+
+	PunctuatorToken = 0x40 // < > <= >= == != === !==  + - * % ++ -- << >> >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= >=
+	OpenBraceToken
+	CloseBraceToken
+	OpenParenToken
+	CloseParenToken
+	OpenBracketToken
+	CloseBracketToken
+	DotToken
+	SemicolonToken
+	CommaToken
+
+	// keywords
+	IdentifierToken = 0x80
+	BreakToken
+	CaseToken
+	CatchToken
+	ClassToken
+	ConstToken
+	ContinueToken
+	DebuggerToken
+	DefaultToken
+	DeleteToken
+	DoToken
+	ElseToken
+	EnumToken
+	ExportToken
+	ExtendsToken
+	FalseToken
+	FinallyToken
+	ForToken
+	FunctionToken
+	IfToken
+	ImplementsToken
+	ImportToken
+	InToken
+	InstanceofToken
+	InterfaceToken
+	LetToken
+	NewToken
+	NullToken
+	PackageToken
+	PrivateToken
+	ProtectedToken
+	PublicToken
+	ReturnToken
+	StaticToken
+	SuperToken
+	SwitchToken
+	ThisToken
+	ThrowToken
+	TrueToken
+	TryToken
+	TypeofToken
+	VarToken
+	VoidToken
+	WhileToken
+	WithToken
+	YieldToken
 )
 
-// TokenState determines a state in which next token should be read
-type TokenState uint32
+func IsPunctuator(tt TokenType) bool {
+	return tt&0x40 != 0
+}
 
-// TokenState values
-const (
-	ExprState TokenState = iota
-	StmtParensState
-	SubscriptState
-	PropNameState
-)
-
-// ParsingContext determines the context in which following token should be parsed.
-// This affects parsing regular expressions and template literals.
-type ParsingContext uint32
-
-// ParsingContext values
-const (
-	GlobalContext ParsingContext = iota
-	StmtParensContext
-	ExprParensContext
-	BracesContext
-	TemplateContext
-)
+func IsIdentifier(tt TokenType) bool {
+	return tt&0x80 != 0
+}
 
 // String returns the string representation of a TokenType.
 func (tt TokenType) String() string {
@@ -93,32 +133,20 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r         *buffer.Lexer
-	stack     []ParsingContext
-	state     TokenState
-	emptyLine bool
+	r                  *buffer.Lexer
+	prevLineTerminator bool
+	level              int
+	templateLevels     []int
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r io.Reader) *Lexer {
 	return &Lexer{
-		r:         buffer.NewLexer(r),
-		stack:     make([]ParsingContext, 0, 16),
-		state:     ExprState,
-		emptyLine: true,
+		r:                  buffer.NewLexer(r),
+		prevLineTerminator: true,
+		level:              0,
+		templateLevels:     []int{},
 	}
-}
-
-func (l *Lexer) enterContext(context ParsingContext) {
-	l.stack = append(l.stack, context)
-}
-
-func (l *Lexer) leaveContext() ParsingContext {
-	ctx := GlobalContext
-	if last := len(l.stack) - 1; last >= 0 {
-		ctx, l.stack = l.stack[last], l.stack[:last]
-	}
-	return ctx
 }
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
@@ -138,136 +166,102 @@ func (l *Lexer) Offset() int {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
+	prevLineTerminator := l.prevLineTerminator
+	l.prevLineTerminator = false
+
 	c := l.r.Peek(0)
 	switch c {
 	case '(':
-		if l.state == StmtParensState {
-			l.enterContext(StmtParensContext)
-		} else {
-			l.enterContext(ExprParensContext)
-		}
-		l.state = ExprState
+		l.level++
 		l.r.Move(1)
-		l.emptyLine = false
-		return PunctuatorToken, l.r.Shift()
+		return OpenParenToken, l.r.Shift()
 	case ')':
-		if l.leaveContext() == StmtParensContext {
-			l.state = ExprState
-		} else {
-			l.state = SubscriptState
-		}
+		l.level--
 		l.r.Move(1)
-		l.emptyLine = false
-		return PunctuatorToken, l.r.Shift()
+		return CloseParenToken, l.r.Shift()
 	case '{':
-		l.enterContext(BracesContext)
-		l.state = ExprState
+		l.level++
 		l.r.Move(1)
-		l.emptyLine = false
-		return PunctuatorToken, l.r.Shift()
+		return OpenBraceToken, l.r.Shift()
 	case '}':
-		if l.leaveContext() == TemplateContext && l.consumeTemplateToken() {
-			l.emptyLine = false
+		l.level--
+		if len(l.templateLevels) != 0 && l.level == l.templateLevels[len(l.templateLevels)-1] {
+			l.consumeTemplateToken()
 			return TemplateToken, l.r.Shift()
-		} else {
-			// will work incorrectly for objects or functions divided by something,
-			// but that's an extremely rare case
-			l.state = ExprState
-			l.r.Move(1)
-			l.emptyLine = false
-			return PunctuatorToken, l.r.Shift()
 		}
+		l.r.Move(1)
+		return CloseBraceToken, l.r.Shift()
 	case ']':
-		l.state = SubscriptState
 		l.r.Move(1)
-		l.emptyLine = false
-		return PunctuatorToken, l.r.Shift()
-	case '[', ';', ',', '~', '?', ':':
-		l.state = ExprState
+		return CloseBracketToken, l.r.Shift()
+	case '[':
 		l.r.Move(1)
-		l.emptyLine = false
+		return OpenBracketToken, l.r.Shift()
+	case ';':
+		l.r.Move(1)
+		return SemicolonToken, l.r.Shift()
+	case ',':
+		l.r.Move(1)
+		return CommaToken, l.r.Shift()
+	case '~', '?', ':':
+		l.r.Move(1)
 		return PunctuatorToken, l.r.Shift()
-	case '<', '>', '=', '!', '+', '-', '*', '%', '&', '|', '^':
-		if l.consumeHTMLLikeCommentToken() {
+	case '<', '-':
+		if l.consumeHTMLLikeCommentToken(prevLineTerminator) {
 			return SingleLineCommentToken, l.r.Shift()
 		} else if l.consumePunctuatorToken() {
-			l.state = ExprState
-			l.emptyLine = false
+			return PunctuatorToken, l.r.Shift()
+		}
+	case '>', '=', '!', '+', '*', '%', '&', '|', '^':
+		if l.consumePunctuatorToken() {
 			return PunctuatorToken, l.r.Shift()
 		}
 	case '/':
 		if tt := l.consumeCommentToken(); tt != UnknownToken {
 			return tt, l.r.Shift()
-		} else if l.state == ExprState && l.consumeRegexpToken() {
-			l.state = SubscriptState
-			l.emptyLine = false
-			return RegexpToken, l.r.Shift()
 		} else if l.consumePunctuatorToken() {
-			l.state = ExprState
-			l.emptyLine = false
 			return PunctuatorToken, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if l.consumeNumericToken() {
-			l.state = SubscriptState
-			l.emptyLine = false
 			return NumericToken, l.r.Shift()
 		} else if c == '.' {
-			l.state = PropNameState
 			l.r.Move(1)
-			l.emptyLine = false
-			return PunctuatorToken, l.r.Shift()
+			return DotToken, l.r.Shift()
 		}
 	case '\'', '"':
 		if l.consumeStringToken() {
-			l.state = SubscriptState
-			l.emptyLine = false
 			return StringToken, l.r.Shift()
 		}
 	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
 		for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 		}
+		l.prevLineTerminator = prevLineTerminator
 		return WhitespaceToken, l.r.Shift()
 	case '\n', '\r':
 		l.r.Move(1)
 		for l.consumeLineTerminator() {
 		}
-		l.emptyLine = true
+		l.prevLineTerminator = true
 		return LineTerminatorToken, l.r.Shift()
 	case '`':
-		if l.consumeTemplateToken() {
-			l.emptyLine = false
-			return TemplateToken, l.r.Shift()
-		}
+		l.templateLevels = append(l.templateLevels, l.level)
+		l.consumeTemplateToken()
+		return TemplateToken, l.r.Shift()
 	default:
-		if l.consumeIdentifierToken() {
-			if l.state != PropNameState {
-				switch hash := ToHash(l.r.Lexeme()); hash {
-				case 0, This, False, True, Null:
-					l.state = SubscriptState
-				case If, While, For, With:
-					l.state = StmtParensState
-				default:
-					// This will include keywords that can't be followed by a regexp, but only
-					// by a specified char (like `switch` or `try`), but we don't check for syntax
-					// errors as we don't attempt to parse a full JS grammar when streaming
-					l.state = ExprState
-				}
-			} else {
-				l.state = SubscriptState
-			}
-			l.emptyLine = false
-			return IdentifierToken, l.r.Shift()
+		if tt := l.consumeIdentifierToken(); tt != UnknownToken {
+			return tt, l.r.Shift()
 		} else if c >= 0xC0 {
 			if l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 				for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 				}
+				l.prevLineTerminator = prevLineTerminator
 				return WhitespaceToken, l.r.Shift()
 			} else if l.consumeLineTerminator() {
 				for l.consumeLineTerminator() {
 				}
-				l.emptyLine = true
+				l.prevLineTerminator = true
 				return LineTerminatorToken, l.r.Shift()
 			}
 		} else if c == 0 && l.r.Err() != nil {
@@ -277,7 +271,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 
 	_, n := l.r.PeekRune(0)
 	l.r.Move(n)
-	l.emptyLine = false
 	return UnknownToken, l.r.Shift()
 }
 
@@ -401,14 +394,14 @@ func (l *Lexer) consumeSingleLineComment() {
 
 ////////////////////////////////////////////////////////////////
 
-func (l *Lexer) consumeHTMLLikeCommentToken() bool {
+func (l *Lexer) consumeHTMLLikeCommentToken(prevLineTerminator bool) bool {
 	c := l.r.Peek(0)
 	if c == '<' && l.r.Peek(1) == '!' && l.r.Peek(2) == '-' && l.r.Peek(3) == '-' {
 		// opening HTML-style single line comment
 		l.r.Move(4)
 		l.consumeSingleLineComment()
 		return true
-	} else if l.emptyLine && c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
+	} else if prevLineTerminator && c == '-' && l.r.Peek(1) == '-' && l.r.Peek(2) == '>' {
 		// closing HTML-style single line comment
 		// (only if current line didn't contain any meaningful tokens)
 		l.r.Move(3)
@@ -440,7 +433,7 @@ func (l *Lexer) consumeCommentToken() TokenType {
 					break
 				} else if l.consumeLineTerminator() {
 					tt = MultiLineCommentToken
-					l.emptyLine = true
+					l.prevLineTerminator = true
 				} else {
 					l.r.Move(1)
 				}
@@ -480,34 +473,38 @@ func (l *Lexer) consumePunctuatorToken() bool {
 	return true
 }
 
-func (l *Lexer) consumeIdentifierToken() bool {
+func (l *Lexer) consumeIdentifierToken() TokenType {
 	c := l.r.Peek(0)
 	if identifierTable[c] && (c < '0' || c > '9') {
-		l.r.Move(1)
-	} else if c >= 0xC0 {
-		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
-			l.r.Move(n)
+		if c >= 0xC0 {
+			if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
+				l.r.Move(n)
+			} else {
+				return UnknownToken
+			}
 		} else {
-			return false
+			l.r.Move(1)
 		}
 	} else if !l.consumeUnicodeEscape() {
-		return false
+		return UnknownToken
 	}
 	for {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
-			l.r.Move(1)
-		} else if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
-				l.r.Move(n)
+			if c >= 0xC0 {
+				if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
+					l.r.Move(n)
+				} else {
+					break
+				}
 			} else {
-				break
+				l.r.Move(1)
 			}
 		} else {
 			break
 		}
 	}
-	return true
+	return IdentifierToken
 }
 
 func (l *Lexer) consumeNumericToken() bool {
@@ -608,65 +605,19 @@ func (l *Lexer) consumeStringToken() bool {
 	return true
 }
 
-func (l *Lexer) consumeRegexpToken() bool {
-	// assume to be on / and not /*
-	mark := l.r.Pos()
-	l.r.Move(1)
-	inClass := false
-	for {
-		c := l.r.Peek(0)
-		if !inClass && c == '/' {
-			l.r.Move(1)
-			break
-		} else if c == '[' {
-			inClass = true
-		} else if c == ']' {
-			inClass = false
-		} else if c == '\\' {
-			l.r.Move(1)
-			if l.consumeLineTerminator() || l.r.Peek(0) == 0 && l.r.Err() != nil {
-				l.r.Rewind(mark)
-				return false
-			}
-		} else if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
-			l.r.Rewind(mark)
-			return false
-		}
-		l.r.Move(1)
-	}
-	// flags
-	for {
-		c := l.r.Peek(0)
-		if identifierTable[c] {
-			l.r.Move(1)
-		} else if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
-				l.r.Move(n)
-			} else {
-				break
-			}
-		} else {
-			break
-		}
-	}
-	return true
-}
-
-func (l *Lexer) consumeTemplateToken() bool {
+func (l *Lexer) consumeTemplateToken() {
 	// assume to be on ` or } when already within template
-	mark := l.r.Pos()
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
 		if c == '`' {
-			l.state = SubscriptState
+			l.templateLevels = l.templateLevels[:len(l.templateLevels)-1]
 			l.r.Move(1)
-			return true
+			return
 		} else if c == '$' && l.r.Peek(1) == '{' {
-			l.enterContext(TemplateContext)
-			l.state = ExprState
+			l.level++
 			l.r.Move(2)
-			return true
+			return
 		} else if c == '\\' {
 			l.r.Move(1)
 			if c := l.r.Peek(0); c != 0 {
@@ -674,8 +625,7 @@ func (l *Lexer) consumeTemplateToken() bool {
 			}
 			continue
 		} else if c == 0 && l.r.Err() != nil {
-			l.r.Rewind(mark)
-			return false
+			return
 		}
 		l.r.Move(1)
 	}
@@ -714,13 +664,13 @@ var identifierTable = [256]bool{
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
 
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
 
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
-	false, false, false, false, false, false, false, false,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
 }
