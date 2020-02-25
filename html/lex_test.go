@@ -84,19 +84,17 @@ func TestTokens(t *testing.T) {
 		t.Run(tt.html, func(t *testing.T) {
 			l := NewLexer(bytes.NewBufferString(tt.html))
 			i := 0
+			tokens := []TokenType{}
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
 					test.T(t, l.Err(), io.EOF)
-					test.T(t, i, len(tt.expected), "when error occurred we must be at the end")
 					break
 				}
-				test.That(t, i < len(tt.expected), "index", i, "must not exceed expected token types size", len(tt.expected))
-				if i < len(tt.expected) {
-					test.T(t, token, tt.expected[i], "token types must match")
-				}
+				tokens = append(tokens, token)
 				i++
 			}
+			test.T(t, tokens, tt.expected, "token types must match")
 		})
 	}
 
