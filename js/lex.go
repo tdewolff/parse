@@ -2,6 +2,7 @@
 package js
 
 import (
+	"fmt"
 	"io"
 	"strconv"
 	"unicode"
@@ -19,30 +20,81 @@ type TokenType uint32
 
 // TokenType values.
 const (
-	ErrorToken          TokenType = iota // extra token when errors occur
-	UnknownToken                         // extra token when no token can be matched
-	WhitespaceToken                      // space \t \v \f
-	LineTerminatorToken                  // \r \n \r\n
+	ErrorToken TokenType = iota // extra token when errors occur
+	WhitespaceToken
+	LineTerminatorToken // \r \n \r\n
 	SingleLineCommentToken
 	MultiLineCommentToken // token for comments with line terminators (not just any /*block*/)
 	NumericToken
 	StringToken
-	RegexpToken
 	TemplateToken
+)
 
-	PunctuatorToken = 0x40 // < > <= >= == != === !==  + - * % ++ -- << >> >>> & | ^ ! ~ && || ? : = += -= *= %= <<= >>= >>>= &= |= ^= / /= >=
-	OpenBraceToken
-	CloseBraceToken
-	OpenParenToken
-	CloseParenToken
-	OpenBracketToken
-	CloseBracketToken
-	DotToken
-	SemicolonToken
-	CommaToken
+const (
+	PunctuatorToken   TokenType = 0x1000 + iota
+	OpenBraceToken              // {
+	CloseBraceToken             // }
+	OpenParenToken              // (
+	CloseParenToken             // )
+	OpenBracketToken            // [
+	CloseBracketToken           // ]
+	DotToken                    // .
+	SemicolonToken              // ;
+	CommaToken                  // ,
+	QuestionToken               // ?
+	ColonToken                  // :
+	ArrowToken                  // =>
+	EllipsisToken               // ...
+)
 
-	// keywords
-	IdentifierToken = 0x80
+const (
+	OperatorToken TokenType = 0x3000 + iota
+	EqToken                 // =
+	EqEqToken               // ==
+	EqEqEqToken             // ===
+	NotToken                // !
+	NotEqToken              // !=
+	NotEqEqToken            // !==
+	LtToken                 // <
+	LtEqToken               // <=
+	LtLtToken               // <<
+	LtLtEqToken             // <<=
+	GtToken                 // >
+	GtEqToken               // >=
+	GtGtToken               // >>
+	GtGtEqToken             // >>=
+	GtGtGtToken             // >>>
+	GtGtGtEqToken           // >>>=
+	AddToken                // +
+	AddEqToken              // +=
+	IncrToken               // ++
+	SubToken                // -
+	SubEqToken              // -=
+	DecrToken               // --
+	MulToken                // *
+	MulEqToken              // *=
+	ExpToken                // **
+	ExpEqToken              // **=
+	DivToken                // /
+	DivEqToken              // /=
+	ModToken                // %
+	ModEqToken              // %=
+	BitAndToken             // &
+	BitOrToken              // |
+	BitXorToken             // ^
+	BitNotToken             // ~
+	BitAndEqToken           // &=
+	BitOrEqToken            // |=
+	BitXorEqToken           // ^=
+	AndToken                // &&
+	OrToken                 // ||
+	NullishToken            // ??
+)
+
+const (
+	IdentifierToken TokenType = 0x4000 + iota
+	AwaitToken
+	AsyncToken
 	BreakToken
 	CaseToken
 	CatchToken
@@ -91,11 +143,15 @@ const (
 )
 
 func IsPunctuator(tt TokenType) bool {
-	return tt&0x40 != 0
+	return tt&0x1000 != 0
+}
+
+func IsOperator(tt TokenType) bool {
+	return tt&0x2000 != 0
 }
 
 func IsIdentifier(tt TokenType) bool {
-	return tt&0x80 != 0
+	return tt&0x4000 != 0
 }
 
 // String returns the string representation of a TokenType.
@@ -103,28 +159,224 @@ func (tt TokenType) String() string {
 	switch tt {
 	case ErrorToken:
 		return "Error"
-	case UnknownToken:
-		return "Unknown"
-	case WhitespaceToken:
-		return "Whitespace"
 	case LineTerminatorToken:
 		return "LineTerminator"
 	case SingleLineCommentToken:
 		return "SingleLineComment"
 	case MultiLineCommentToken:
 		return "MultiLineComment"
-	case IdentifierToken:
-		return "Identifier"
-	case PunctuatorToken:
-		return "Punctuator"
 	case NumericToken:
 		return "Numeric"
 	case StringToken:
 		return "String"
-	case RegexpToken:
-		return "Regexp"
 	case TemplateToken:
 		return "Template"
+	case PunctuatorToken:
+		return "Punctuator"
+	case OpenBraceToken:
+		return "{"
+	case CloseBraceToken:
+		return "}"
+	case OpenParenToken:
+		return "("
+	case CloseParenToken:
+		return ")"
+	case OpenBracketToken:
+		return "["
+	case CloseBracketToken:
+		return "]"
+	case DotToken:
+		return "."
+	case SemicolonToken:
+		return ";"
+	case CommaToken:
+		return ","
+	case QuestionToken:
+		return "?"
+	case ColonToken:
+		return ":"
+	case ArrowToken:
+		return "=>"
+	case EllipsisToken:
+		return "..."
+	case OperatorToken:
+		return "Operator"
+	case EqToken:
+		return "="
+	case EqEqToken:
+		return "=="
+	case EqEqEqToken:
+		return "==="
+	case NotToken:
+		return "!"
+	case NotEqToken:
+		return "!="
+	case NotEqEqToken:
+		return "!=="
+	case LtToken:
+		return "<"
+	case LtEqToken:
+		return "<="
+	case LtLtToken:
+		return "<<"
+	case LtLtEqToken:
+		return "<<="
+	case GtToken:
+		return ">"
+	case GtEqToken:
+		return ">="
+	case GtGtToken:
+		return ">>"
+	case GtGtEqToken:
+		return ">>="
+	case GtGtGtToken:
+		return ">>>"
+	case GtGtGtEqToken:
+		return ">>>="
+	case AddToken:
+		return "+"
+	case AddEqToken:
+		return "+="
+	case IncrToken:
+		return "++"
+	case SubToken:
+		return "-"
+	case SubEqToken:
+		return "-="
+	case DecrToken:
+		return "--"
+	case MulToken:
+		return "*"
+	case MulEqToken:
+		return "*="
+	case ExpToken:
+		return "**"
+	case ExpEqToken:
+		return "**="
+	case DivToken:
+		return "/"
+	case DivEqToken:
+		return "/="
+	case ModToken:
+		return "%"
+	case ModEqToken:
+		return "%="
+	case BitAndToken:
+		return "&"
+	case BitOrToken:
+		return "|"
+	case BitXorToken:
+		return "^"
+	case BitNotToken:
+		return "~"
+	case BitAndEqToken:
+		return "&="
+	case BitOrEqToken:
+		return "|="
+	case BitXorEqToken:
+		return "^="
+	case AndToken:
+		return "&&"
+	case OrToken:
+		return "||"
+	case NullishToken:
+		return "??"
+	case IdentifierToken:
+		return "Identifier"
+	case AwaitToken:
+		return "Await"
+	case AsyncToken:
+		return "Async"
+	case BreakToken:
+		return "Break"
+	case CaseToken:
+		return "Case"
+	case CatchToken:
+		return "Catch"
+	case ClassToken:
+		return "Class"
+	case ConstToken:
+		return "Const"
+	case ContinueToken:
+		return "Continue"
+	case DebuggerToken:
+		return "Debugger"
+	case DefaultToken:
+		return "Default"
+	case DeleteToken:
+		return "Delete"
+	case DoToken:
+		return "Do"
+	case ElseToken:
+		return "Else"
+	case EnumToken:
+		return "Enum"
+	case ExportToken:
+		return "Export"
+	case ExtendsToken:
+		return "Extends"
+	case FalseToken:
+		return "False"
+	case FinallyToken:
+		return "Finally"
+	case ForToken:
+		return "For"
+	case FunctionToken:
+		return "Function"
+	case IfToken:
+		return "If"
+	case ImplementsToken:
+		return "Implements"
+	case ImportToken:
+		return "Import"
+	case InToken:
+		return "In"
+	case InstanceofToken:
+		return "Instanceof"
+	case InterfaceToken:
+		return "Interface"
+	case LetToken:
+		return "Let"
+	case NewToken:
+		return "New"
+	case NullToken:
+		return "Null"
+	case PackageToken:
+		return "Package"
+	case PrivateToken:
+		return "Private"
+	case ProtectedToken:
+		return "Protected"
+	case PublicToken:
+		return "Public"
+	case ReturnToken:
+		return "Return"
+	case StaticToken:
+		return "Static"
+	case SuperToken:
+		return "Super"
+	case SwitchToken:
+		return "Switch"
+	case ThisToken:
+		return "This"
+	case ThrowToken:
+		return "Throw"
+	case TrueToken:
+		return "True"
+	case TryToken:
+		return "Try"
+	case TypeofToken:
+		return "Typeof"
+	case VarToken:
+		return "Var"
+	case VoidToken:
+		return "Void"
+	case WhileToken:
+		return "While"
+	case WithToken:
+		return "With"
+	case YieldToken:
+		return "Yield"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -134,6 +386,7 @@ func (tt TokenType) String() string {
 // Lexer is the state for the lexer.
 type Lexer struct {
 	r                  *buffer.Lexer
+	err                error
 	prevLineTerminator bool
 	level              int
 	templateLevels     []int
@@ -151,6 +404,9 @@ func NewLexer(r io.Reader) *Lexer {
 
 // Err returns the error encountered during lexing, this is often io.EOF but also other errors can be returned.
 func (l *Lexer) Err() error {
+	if l.err != nil {
+		return l.err
+	}
 	return l.r.Err()
 }
 
@@ -203,30 +459,37 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	case ',':
 		l.r.Move(1)
 		return CommaToken, l.r.Shift()
-	case '~', '?', ':':
+	case ':':
 		l.r.Move(1)
-		return PunctuatorToken, l.r.Shift()
+		return ColonToken, l.r.Shift()
+	case '~':
+		l.r.Move(1)
+		return BitNotToken, l.r.Shift()
 	case '<', '-':
 		if l.consumeHTMLLikeCommentToken(prevLineTerminator) {
 			return SingleLineCommentToken, l.r.Shift()
-		} else if l.consumePunctuatorToken() {
-			return PunctuatorToken, l.r.Shift()
+		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
 		}
-	case '>', '=', '!', '+', '*', '%', '&', '|', '^':
-		if l.consumePunctuatorToken() {
-			return PunctuatorToken, l.r.Shift()
+	case '>', '=', '!', '+', '*', '%', '&', '|', '^', '?':
+		if tt := l.consumeOperatorToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
 		}
 	case '/':
-		if tt := l.consumeCommentToken(); tt != UnknownToken {
+		if tt := l.consumeCommentToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
-		} else if l.consumePunctuatorToken() {
-			return PunctuatorToken, l.r.Shift()
+		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if l.consumeNumericToken() {
 			return NumericToken, l.r.Shift()
 		} else if c == '.' {
 			l.r.Move(1)
+			if l.r.Peek(0) == '.' && l.r.Peek(1) == '.' {
+				l.r.Move(2)
+				return EllipsisToken, l.r.Shift()
+			}
 			return DotToken, l.r.Shift()
 		}
 	case '\'', '"':
@@ -250,7 +513,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.consumeTemplateToken()
 		return TemplateToken, l.r.Shift()
 	default:
-		if tt := l.consumeIdentifierToken(); tt != UnknownToken {
+		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
 		} else if c >= 0xC0 {
 			if l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
@@ -269,9 +532,14 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	_, n := l.r.PeekRune(0)
+	r, n := l.r.PeekRune(0)
 	l.r.Move(n)
-	return UnknownToken, l.r.Shift()
+	if n == 1 {
+		l.err = fmt.Errorf("unexpected character '%c' found", c)
+	} else {
+		l.err = fmt.Errorf("unexpected character 0x%x found", r)
+	}
+	return ErrorToken, l.r.Shift()
 }
 
 ////////////////////////////////////////////////////////////////
@@ -412,65 +680,121 @@ func (l *Lexer) consumeHTMLLikeCommentToken(prevLineTerminator bool) bool {
 }
 
 func (l *Lexer) consumeCommentToken() TokenType {
-	c := l.r.Peek(0)
+	c := l.r.Peek(1)
 	if c == '/' {
-		c = l.r.Peek(1)
-		if c == '/' {
-			// single line comment
-			l.r.Move(2)
-			l.consumeSingleLineComment()
-			return SingleLineCommentToken
-		} else if c == '*' {
-			// block comment (potentially multiline)
-			tt := SingleLineCommentToken
-			l.r.Move(2)
-			for {
-				c := l.r.Peek(0)
-				if c == '*' && l.r.Peek(1) == '/' {
-					l.r.Move(2)
-					break
-				} else if c == 0 && l.r.Err() != nil {
-					break
-				} else if l.consumeLineTerminator() {
-					tt = MultiLineCommentToken
-					l.prevLineTerminator = true
-				} else {
-					l.r.Move(1)
-				}
+		// single line comment
+		l.r.Move(2)
+		l.consumeSingleLineComment()
+		return SingleLineCommentToken
+	} else if c == '*' {
+		// block comment (potentially multiline)
+		tt := SingleLineCommentToken
+		l.r.Move(2)
+		for {
+			c := l.r.Peek(0)
+			if c == '*' && l.r.Peek(1) == '/' {
+				l.r.Move(2)
+				break
+			} else if c == 0 && l.r.Err() != nil {
+				break
+			} else if l.consumeLineTerminator() {
+				tt = MultiLineCommentToken
+				l.prevLineTerminator = true
+			} else {
+				l.r.Move(1)
 			}
-			return tt
 		}
+		return tt
 	}
-	return UnknownToken
+	return ErrorToken
 }
 
-func (l *Lexer) consumePunctuatorToken() bool {
+var opTokens = map[byte]TokenType{
+	'=': EqToken,
+	'!': NotToken,
+	'<': LtToken,
+	'>': GtToken,
+	'+': AddToken,
+	'-': SubToken,
+	'*': MulToken,
+	'/': DivToken,
+	'%': ModToken,
+	'&': BitAndToken,
+	'|': BitOrToken,
+	'^': BitXorToken,
+	'?': QuestionToken,
+}
+
+var opEqTokens = map[byte]TokenType{
+	'=': EqEqToken,
+	'!': NotEqToken,
+	'<': LtEqToken,
+	'>': GtEqToken,
+	'+': AddEqToken,
+	'-': SubEqToken,
+	'*': MulEqToken,
+	'/': DivEqToken,
+	'%': ModEqToken,
+	'&': BitAndEqToken,
+	'|': BitOrEqToken,
+	'^': BitXorEqToken,
+}
+
+var opOpTokens = map[byte]TokenType{
+	'+': IncrToken,
+	'-': DecrToken,
+	'*': ExpToken,
+	'&': AndToken,
+	'|': OrToken,
+	'?': NullishToken,
+}
+
+func (l *Lexer) consumeOperatorToken() TokenType {
 	c := l.r.Peek(0)
-	if c == '!' || c == '=' || c == '+' || c == '-' || c == '*' || c == '/' || c == '%' || c == '&' || c == '|' || c == '^' {
+	l.r.Move(1)
+	if l.r.Peek(0) == '=' {
+		l.r.Move(1)
+		if l.r.Peek(0) == '=' && (c == '!' || c == '=') {
+			l.r.Move(1)
+			if c == '!' {
+				return NotEqEqToken
+			}
+			return EqEqEqToken
+		}
+		return opEqTokens[c]
+	} else if l.r.Peek(0) == c && (c == '+' || c == '-' || c == '*' || c == '&' || c == '|' || c == '?') {
+		l.r.Move(1)
+		if c == '*' && l.r.Peek(0) == '=' {
+			l.r.Move(1)
+			return ExpEqToken
+		}
+		return opOpTokens[c]
+	} else if c == '=' && l.r.Peek(0) == '>' {
+		l.r.Move(1)
+		return ArrowToken
+	} else if c == '<' && l.r.Peek(0) == '<' {
 		l.r.Move(1)
 		if l.r.Peek(0) == '=' {
 			l.r.Move(1)
-			if (c == '!' || c == '=') && l.r.Peek(0) == '=' {
-				l.r.Move(1)
-			}
-		} else if (c == '+' || c == '-' || c == '&' || c == '|') && l.r.Peek(0) == c {
-			l.r.Move(1)
-		} else if c == '=' && l.r.Peek(0) == '>' {
-			l.r.Move(1)
+			return LtLtEqToken
 		}
-	} else { // c == '<' || c == '>'
+		return LtLtToken
+	} else if c == '>' && l.r.Peek(0) == '>' {
 		l.r.Move(1)
-		if l.r.Peek(0) == c {
+		if l.r.Peek(0) == '>' {
 			l.r.Move(1)
-			if c == '>' && l.r.Peek(0) == '>' {
+			if l.r.Peek(0) == '=' {
 				l.r.Move(1)
+				return GtGtGtEqToken
 			}
-		}
-		if l.r.Peek(0) == '=' {
+			return GtGtGtToken
+		} else if l.r.Peek(0) == '=' {
 			l.r.Move(1)
+			return GtGtEqToken
 		}
+		return GtGtToken
 	}
-	return true
+	return opTokens[c]
 }
 
 func (l *Lexer) consumeIdentifierToken() TokenType {
@@ -480,13 +804,13 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 			if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
 				l.r.Move(n)
 			} else {
-				return UnknownToken
+				return ErrorToken
 			}
 		} else {
 			l.r.Move(1)
 		}
 	} else if !l.consumeUnicodeEscape() {
-		return UnknownToken
+		return ErrorToken
 	}
 	for {
 		c := l.r.Peek(0)
@@ -503,6 +827,9 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 		} else {
 			break
 		}
+	}
+	if keyword, ok := keywords[string(l.r.Lexeme())]; ok {
+		return keyword
 	}
 	return IdentifierToken
 }

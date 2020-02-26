@@ -1,6 +1,8 @@
 package js
 
 var keywords = map[string]TokenType{
+	"async":      AsyncToken,
+	"await":      AwaitToken,
 	"break":      BreakToken,
 	"case":       CaseToken,
 	"catch":      CatchToken,
@@ -8,7 +10,7 @@ var keywords = map[string]TokenType{
 	"const":      ConstToken,
 	"continue":   ContinueToken,
 	"debugger":   DebuggerToken,
-	"defautl":    DefaultToken,
+	"default":    DefaultToken,
 	"delete":     DeleteToken,
 	"do":         DoToken,
 	"else":       ElseToken,
