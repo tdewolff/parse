@@ -91,14 +91,6 @@ func TestTokens(t *testing.T) {
 		{"a=/x\n", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken, LineTerminatorToken}},
 
 		// regexp
-		//{"a = /[a-z/]/g", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		//{"a=/=/g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		//{"a = /'\\\\/\n", TTs{IdentifierToken, PunctuatorToken, RegexpToken, LineTerminatorToken}},
-		//{"a=/\\//g1", TTs{IdentifierToken, PunctuatorToken, RegexpToken}},
-		//{"new RegExp(a + /\\d{1,2}/.source)", TTs{IdentifierToken, IdentifierToken, PunctuatorToken, IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken, PunctuatorToken}},
-		//{"a=/regexp\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
-		//{"a=/regexp\\\x00/;return", TTs{IdentifierToken, PunctuatorToken, RegexpToken, PunctuatorToken, IdentifierToken}},
-		//{"a=/x/\u200C\u3009", TTs{IdentifierToken, PunctuatorToken, RegexpToken, UnknownToken}},
 		//{"return /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
 		//{"yield /abc/;", TTs{IdentifierToken, RegexpToken, PunctuatorToken}},
 		//{"a/b/g", TTs{IdentifierToken, DivToken, IdentifierToken, DivToken, IdentifierToken}},
@@ -160,6 +152,47 @@ func TestTokens(t *testing.T) {
 		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
 			break
 		}
+	}
+}
+
+func TestRegExp(t *testing.T) {
+	var tokenTests = []struct {
+		js       string
+		expected []TokenType
+	}{
+		{"a = /[a-z/]/g", TTs{IdentifierToken, EqToken, RegExpToken}},
+		{"a=/=/g1", TTs{IdentifierToken, EqToken, RegExpToken}},
+		{"a = /'\\\\/\n", TTs{IdentifierToken, EqToken, RegExpToken, LineTerminatorToken}},
+		{"a=/\\//g1", TTs{IdentifierToken, EqToken, RegExpToken}},
+		{"new RegExp(a + /\\d{1,2}/.source)", TTs{NewToken, IdentifierToken, OpenParenToken, IdentifierToken, AddToken, RegExpToken, DotToken, IdentifierToken, CloseParenToken}},
+		{"a=/regexp\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
+		{"a=/regexp\\\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
+		{"a=/x/\u200C\u3009", TTs{IdentifierToken, EqToken, RegExpToken, ErrorToken}},
+	}
+
+	for _, tt := range tokenTests {
+		t.Run(tt.js, func(t *testing.T) {
+			l := NewLexer(bytes.NewBufferString(tt.js))
+			i := 0
+			tokens := []TokenType{}
+			for {
+				token, _ := l.Next()
+				if token == DivToken || token == DivEqToken {
+					token, _ = l.RegExp()
+				}
+				if token == ErrorToken {
+					if l.Err() != io.EOF {
+						tokens = append(tokens, token)
+					}
+					break
+				} else if token == WhitespaceToken {
+					continue
+				}
+				tokens = append(tokens, token)
+				i++
+			}
+			test.T(t, tokens, tt.expected, "token types must match")
+		})
 	}
 }
 

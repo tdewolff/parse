@@ -28,6 +28,7 @@ const (
 	NumericToken
 	StringToken
 	TemplateToken
+	RegExpToken
 )
 
 const (
@@ -142,6 +143,13 @@ const (
 	YieldToken
 )
 
+// unused in lexer
+const (
+	OfToken TokenType = 0x8000 + iota
+	GetToken
+	SetToken
+)
+
 func IsPunctuator(tt TokenType) bool {
 	return tt&0x1000 != 0
 }
@@ -171,6 +179,8 @@ func (tt TokenType) String() string {
 		return "String"
 	case TemplateToken:
 		return "Template"
+	case RegExpToken:
+		return "RegExp"
 	case PunctuatorToken:
 		return "Punctuator"
 	case OpenBraceToken:
@@ -377,6 +387,12 @@ func (tt TokenType) String() string {
 		return "With"
 	case YieldToken:
 		return "Yield"
+	case OfToken:
+		return "Of"
+	case GetToken:
+		return "Get"
+	case SetToken:
+		return "Set"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -390,6 +406,7 @@ type Lexer struct {
 	prevLineTerminator bool
 	level              int
 	templateLevels     []int
+	regexp             bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
@@ -418,6 +435,25 @@ func (l *Lexer) Restore() {
 // Offset returns the current position in the input stream.
 func (l *Lexer) Offset() int {
 	return l.r.Offset()
+}
+
+// RegExp reparses the input stream for a regular expression. It is assumed that we just received DivToken or DivEqToken with Next(). This function will go back and read that as a regular expression.
+func (l *Lexer) RegExp() (TokenType, []byte) {
+	if 0 < l.r.Offset() && l.r.Peek(-1) == '/' {
+		l.r.Move(-1)
+	} else if 1 < l.r.Offset() && l.r.Peek(-1) == '=' && l.r.Peek(-2) == '/' {
+		l.r.Move(-2)
+	} else {
+		return ErrorToken, nil
+	}
+	l.r.Skip() // trick to set start = pos
+
+	if l.consumeRegExpToken() {
+		return RegExpToken, l.r.Shift()
+	} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
+		return tt, l.r.Shift()
+	}
+	return ErrorToken, nil
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
@@ -928,6 +964,50 @@ func (l *Lexer) consumeStringToken() bool {
 			return false
 		}
 		l.r.Move(1)
+	}
+	return true
+}
+
+func (l *Lexer) consumeRegExpToken() bool {
+	// assume to be on / and not /*
+	mark := l.r.Pos()
+	l.r.Move(1)
+	inClass := false
+	for {
+		c := l.r.Peek(0)
+		if !inClass && c == '/' {
+			l.r.Move(1)
+			break
+		} else if c == '[' {
+			inClass = true
+		} else if c == ']' {
+			inClass = false
+		} else if c == '\\' {
+			l.r.Move(1)
+			if l.consumeLineTerminator() || l.r.Peek(0) == 0 && l.r.Err() != nil {
+				l.r.Rewind(mark)
+				return false
+			}
+		} else if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
+			l.r.Rewind(mark)
+			return false
+		}
+		l.r.Move(1)
+	}
+	// flags
+	for {
+		c := l.r.Peek(0)
+		if identifierTable[c] {
+			l.r.Move(1)
+		} else if c >= 0xC0 {
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
+				l.r.Move(n)
+			} else {
+				break
+			}
+		} else {
+			break
+		}
 	}
 	return true
 }
