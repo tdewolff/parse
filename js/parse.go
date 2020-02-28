@@ -28,7 +28,6 @@ const (
 	BindingGrammar
 	ClauseGrammar
 	MethodGrammar
-	ParamGrammar
 	ExprGrammar
 	StmtGrammar
 )
@@ -50,8 +49,6 @@ func (tt GrammarType) String() string {
 		return "Clause"
 	case MethodGrammar:
 		return "Method"
-	case ParamGrammar:
-		return "Param"
 	case ExprGrammar:
 		return "Expr"
 	case StmtGrammar:
@@ -355,11 +352,7 @@ func (p *Parser) parseVarDecl(nodes []Node) []Node {
 	// assume we're at var, let or const
 	nodes = append(nodes, p.parseToken())
 	for {
-		nodes = append(nodes, p.parseBinding())
-		if p.tt == EqToken {
-			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
-		}
+		nodes = append(nodes, p.parseBindingElement())
 		if p.tt != CommaToken {
 			break
 		}
@@ -388,22 +381,14 @@ func (p *Parser) parseFuncParams(in string, nodes []Node) []Node {
 	}
 
 	for p.tt != CloseParenToken {
-		param := []Node{}
 		// binding rest element
 		if p.tt == EllipsisToken {
-			param = append(param, p.parseToken())
-			param = append(param, p.parseBinding())
-			nodes = append(nodes, Node{ParamGrammar, param, 0, nil})
+			nodes = append(nodes, p.parseToken())
+			nodes = append(nodes, p.parseBinding())
 			break
 		}
 
-		// binding element
-		param = append(param, p.parseBinding())
-		if p.tt == EqToken {
-			param = append(param, p.parseToken())
-			param = append(param, p.parseExpr(AssignmentExpr))
-		}
-		nodes = append(nodes, Node{ParamGrammar, param, 0, nil})
+		nodes = append(nodes, p.parseBindingElement())
 
 		if p.tt == CommaToken {
 			p.next()
@@ -489,7 +474,7 @@ func (p *Parser) parseMethodDefStart(in string, nodes []Node) []Node {
 			nodes = append(nodes, p.parseToken())
 		} else {
 			if len(nodes) == 0 {
-				p.fail(in, MulToken, GetToken, SetToken, AsyncToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
+				p.fail(in, MulToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 				return nil
 			}
 			return nodes
@@ -505,6 +490,16 @@ func (p *Parser) parseMethodDef() Node {
 	return Node{MethodGrammar, nodes, 0, nil}
 }
 
+func (p *Parser) parseBindingElement() Node {
+	// binding element
+	binding := p.parseBinding()
+	if p.tt == EqToken {
+		binding.nodes = append(binding.nodes, p.parseToken())
+		binding.nodes = append(binding.nodes, p.parseExpr(AssignmentExpr))
+	}
+	return binding
+}
+
 func (p *Parser) parseBinding() Node {
 	// binding identifier or binding pattern
 	nodes := []Node{}
@@ -512,10 +507,10 @@ func (p *Parser) parseBinding() Node {
 		nodes = append(nodes, p.parseToken())
 	} else if p.tt == OpenBracketToken {
 		nodes = append(nodes, p.parseToken())
-		for {
+		for p.tt != CloseBracketToken {
 			// elision
 			for p.tt == CommaToken {
-				nodes = append(nodes, p.parseToken())
+				p.next()
 			}
 			// binding rest element
 			if p.tt == EllipsisToken {
@@ -528,32 +523,28 @@ func (p *Parser) parseBinding() Node {
 				break
 			}
 
-			// binding element
-			nodes = append(nodes, p.parseBinding())
-			if p.tt == EqToken {
-				nodes = append(nodes, p.parseToken())
-				nodes = append(nodes, p.parseExpr(AssignmentExpr))
-			}
+			nodes = append(nodes, p.parseBindingElement())
 
-			if p.tt == CloseBracketToken {
-				break
-			} else if p.tt != CommaToken {
-				p.fail("array binding pattern", CommaToken)
+			if p.tt == CommaToken {
+				for p.tt == CommaToken {
+					p.next()
+				}
+			} else if p.tt != CloseBracketToken {
+				p.fail("array binding pattern", CommaToken, CloseBracketToken)
 				return Node{}
 			}
-			nodes = append(nodes, p.parseToken())
 		}
 		nodes = append(nodes, p.parseToken())
 	} else if p.tt == OpenBraceToken {
 		nodes = append(nodes, p.parseToken())
-		for {
+		for p.tt != CloseBraceToken {
 			// binding rest property
 			if p.tt == EllipsisToken {
 				nodes = append(nodes, p.parseToken())
 				if p.tt != IdentifierToken && p.tt != YieldToken && p.tt != AwaitToken {
-					p.fail("object binding pattern", IdentifierToken, YieldToken, AwaitToken)
+					p.fail("object binding pattern", IdentifierToken)
 				}
-				nodes = append(nodes, p.parseToken())
+				nodes = append(nodes, Node{BindingGrammar, []Node{p.parseToken()}, 0, nil})
 				if p.tt != CloseBraceToken {
 					p.fail("object binding pattern", CloseBraceToken)
 					return Node{}
@@ -561,31 +552,52 @@ func (p *Parser) parseBinding() Node {
 				break
 			}
 
-			// binding property, first try to parse a binding, if a colon follow we convert it to a property name
-			if p.tt == OpenBracketToken {
-				panic("not implemented") // TODO: doesn't work to distinguish array binding pattern and computed property name
-			}
-			prev := p.parseBinding()
-			if p.tt == ColonToken {
-				// property name
-				nodes = append(nodes, prev.nodes...)
+			if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+				// single name binding
+				ident := p.parseToken()
+				if p.tt == ColonToken {
+					// property name + : + binding element
+					nodes = append(nodes, ident)
+					nodes = append(nodes, p.parseToken())
+					nodes = append(nodes, p.parseBindingElement())
+				} else {
+					binding := []Node{ident}
+					if p.tt == EqToken {
+						binding = append(binding, p.parseToken())
+						binding = append(binding, p.parseExpr(AssignmentExpr))
+					}
+					nodes = append(nodes, Node{BindingGrammar, binding, 0, nil})
+				}
+			} else if IsIdentifier(p.tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
+				// property name + : + binding element
+				if p.tt == OpenBracketToken {
+					nodes = append(nodes, p.parseToken())
+					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					if p.tt != CloseBracketToken {
+						p.fail("object binding pattern", CloseBracketToken)
+						return Node{}
+					}
+					nodes = append(nodes, p.parseToken())
+				} else {
+					nodes = append(nodes, p.parseToken())
+				}
+				if p.tt != ColonToken {
+					p.fail("object binding pattern", ColonToken)
+					return Node{}
+				}
 				nodes = append(nodes, p.parseToken())
-				nodes = append(nodes, p.parseBinding())
+				nodes = append(nodes, p.parseBindingElement())
 			} else {
-				nodes = append(nodes, prev.nodes...)
-			}
-			if p.tt == EqToken {
-				nodes = append(nodes, p.parseToken())
-				nodes = append(nodes, p.parseExpr(AssignmentExpr))
-			}
-
-			if p.tt == CloseBraceToken {
-				break
-			} else if p.tt != CommaToken {
-				p.fail("object binding pattern", CommaToken)
+				p.fail("object binding pattern", IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 				return Node{}
 			}
-			nodes = append(nodes, p.parseToken())
+
+			if p.tt == CommaToken {
+				p.next()
+			} else if p.tt != CloseBraceToken {
+				p.fail("object binding pattern", CommaToken, CloseBraceToken)
+				return Node{}
+			}
 		}
 		nodes = append(nodes, p.parseToken())
 	} else {
@@ -630,7 +642,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			if et >= AssignmentExpr || p.tt != CommaToken {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}
-		case NewToken, DotToken, SuperToken, ThisToken, NullToken, TrueToken, FalseToken, NumericToken, StringToken, TemplateToken, RegExpToken, AwaitToken, IdentifierToken:
+		case NewToken, DotToken, SuperToken, ThisToken, NullToken, TrueToken, FalseToken, NumericToken, StringToken, TemplateToken, RegExpToken:
 			nodes = append(nodes, p.parseToken())
 		case CommaToken:
 			if et >= AssignmentExpr {
@@ -695,7 +707,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			}
 			nodes = append(nodes, p.parseToken())
 		case OpenParenToken:
-			// arguments, parenthesized expression and arrow parameter list
+			// parenthesized expression and arrow parameter list
 			nodes = append(nodes, p.parseToken())
 			for p.tt != CloseParenToken && p.tt != ErrorToken {
 				if p.tt == EllipsisToken {
@@ -716,7 +728,12 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			if et >= LeftHandSideExpr {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}
-			panic("not implemented") // TODO
+			nodes = append(nodes, p.parseToken())
+			if p.tt == OpenBraceToken {
+				nodes = append(nodes, p.parseBlockStmt("arrow function declaration"))
+			} else {
+				nodes = append(nodes, p.parseExpr(AssignmentExpr))
+			}
 			if et >= AssignmentExpr || p.tt != CommaToken {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}
@@ -730,7 +747,12 @@ func (p *Parser) parseExpr(et ExprType) Node {
 					p.fail("async function statement", FunctionToken)
 					return Node{}
 				} else if p.tt == ArrowToken {
-					panic("not implemented") // TODO
+					nodes = append(nodes, p.parseToken())
+					if p.tt == OpenBraceToken {
+						nodes = append(nodes, p.parseBlockStmt("arrow function declaration"))
+					} else {
+						nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					}
 					if et >= AssignmentExpr || p.tt != CommaToken {
 						return Node{ExprGrammar, nodes, 0, nil}
 					}
@@ -740,22 +762,32 @@ func (p *Parser) parseExpr(et ExprType) Node {
 				}
 			}
 		case YieldToken:
-			nodes = append(nodes, p.parseToken())
-			if !p.prevLineTerminator {
-				if p.tt == MulToken {
-					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
-				} else if expr := p.parseExpr(AssignmentExpr); len(expr.nodes) != 0 {
-					nodes = append(nodes, expr)
+			ident := p.parseToken()
+			if p.tt == ArrowToken {
+				nodes = append(nodes, Node{BindingGrammar, []Node{ident}, 0, nil})
+			} else {
+				nodes = append(nodes, ident)
+				if !p.prevLineTerminator {
+					if p.tt == MulToken {
+						nodes = append(nodes, p.parseToken())
+						nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					} else if expr := p.parseExpr(AssignmentExpr); len(expr.nodes) != 0 {
+						nodes = append(nodes, expr)
+					}
 				}
-			}
-			if et >= AssignmentExpr || p.tt != CommaToken {
-				return Node{ExprGrammar, nodes, 0, nil}
+				if et >= AssignmentExpr || p.tt != CommaToken {
+					return Node{ExprGrammar, nodes, 0, nil}
+				}
 			}
 		default:
 			if IsIdentifier(p.tt) && (p.tt != WhileToken || et != DoWhileRegularExpr) {
 				// allow keywords to be used in expressions
-				nodes = append(nodes, p.parseToken())
+				ident := p.parseToken()
+				fmt.Println("ident", ident, p.tt)
+				if p.tt == ArrowToken {
+					ident = Node{BindingGrammar, []Node{ident}, 0, nil}
+				}
+				nodes = append(nodes, ident)
 			} else {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}

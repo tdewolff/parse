@@ -294,105 +294,105 @@ func (tt TokenType) String() string {
 	case IdentifierToken:
 		return "Identifier"
 	case AwaitToken:
-		return "Await"
+		return "await"
 	case AsyncToken:
-		return "Async"
+		return "async"
 	case BreakToken:
-		return "Break"
+		return "break"
 	case CaseToken:
-		return "Case"
+		return "case"
 	case CatchToken:
-		return "Catch"
+		return "catch"
 	case ClassToken:
-		return "Class"
+		return "class"
 	case ConstToken:
-		return "Const"
+		return "const"
 	case ContinueToken:
-		return "Continue"
+		return "continue"
 	case DebuggerToken:
-		return "Debugger"
+		return "debugger"
 	case DefaultToken:
-		return "Default"
+		return "default"
 	case DeleteToken:
-		return "Delete"
+		return "delete"
 	case DoToken:
-		return "Do"
+		return "do"
 	case ElseToken:
-		return "Else"
+		return "else"
 	case EnumToken:
-		return "Enum"
+		return "enum"
 	case ExportToken:
-		return "Export"
+		return "export"
 	case ExtendsToken:
-		return "Extends"
+		return "extends"
 	case FalseToken:
-		return "False"
+		return "false"
 	case FinallyToken:
-		return "Finally"
+		return "finally"
 	case ForToken:
-		return "For"
+		return "for"
 	case FunctionToken:
-		return "Function"
+		return "function"
 	case IfToken:
-		return "If"
+		return "if"
 	case ImplementsToken:
-		return "Implements"
+		return "implements"
 	case ImportToken:
-		return "Import"
+		return "import"
 	case InToken:
-		return "In"
+		return "in"
 	case InstanceofToken:
-		return "Instanceof"
+		return "instanceof"
 	case InterfaceToken:
-		return "Interface"
+		return "interface"
 	case LetToken:
-		return "Let"
+		return "let"
 	case NewToken:
-		return "New"
+		return "new"
 	case NullToken:
-		return "Null"
+		return "null"
 	case PackageToken:
-		return "Package"
+		return "package"
 	case PrivateToken:
-		return "Private"
+		return "private"
 	case ProtectedToken:
-		return "Protected"
+		return "protected"
 	case PublicToken:
-		return "Public"
+		return "public"
 	case ReturnToken:
-		return "Return"
+		return "return"
 	case StaticToken:
-		return "Static"
+		return "static"
 	case SuperToken:
-		return "Super"
+		return "super"
 	case SwitchToken:
-		return "Switch"
+		return "switch"
 	case ThisToken:
-		return "This"
+		return "this"
 	case ThrowToken:
-		return "Throw"
+		return "throw"
 	case TrueToken:
-		return "True"
+		return "true"
 	case TryToken:
-		return "Try"
+		return "try"
 	case TypeofToken:
-		return "Typeof"
+		return "typeof"
 	case VarToken:
-		return "Var"
+		return "var"
 	case VoidToken:
-		return "Void"
+		return "void"
 	case WhileToken:
-		return "While"
+		return "while"
 	case WithToken:
-		return "With"
+		return "with"
 	case YieldToken:
-		return "Yield"
+		return "yield"
 	case OfToken:
-		return "Of"
+		return "of"
 	case GetToken:
-		return "Get"
+		return "get"
 	case SetToken:
-		return "Set"
+		return "set"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
