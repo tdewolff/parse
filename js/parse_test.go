@@ -57,6 +57,7 @@ func TestParse(t *testing.T) {
 		{"continue", "Stmt(continue)"},
 		{"continue LABEL", "Stmt(continue LABEL)"},
 		{"if (a == 5) return true", "Stmt(if Expr(a == 5) Stmt(return Expr(true)))"},
+		{"if (a == 5) return true else return false", "Stmt(if Expr(a == 5) Stmt(return Expr(true)) else Stmt(return Expr(false)))"},
 		{"with (a = 5) return true", "Stmt(with Expr(a = Expr(5)) Stmt(return Expr(true)))"},
 		{"do a++ while (a < 4)", "Stmt(do Stmt(Expr(a ++)) while Expr(a < 4))"},
 		{"do {a++} while (a < 4)", "Stmt(do Stmt({ Stmt(Expr(a ++)) }) while Expr(a < 4))"},
@@ -70,6 +71,7 @@ func TestParse(t *testing.T) {
 		{"try {} catch {}", "Stmt(try Stmt({ }) catch Stmt({ }))"},
 		{"try {} finally {}", "Stmt(try Stmt({ }) finally Stmt({ }))"},
 		{"try {} catch {} finally {}", "Stmt(try Stmt({ }) catch Stmt({ }) finally Stmt({ }))"},
+		{"try {} catch (e) {}", "Stmt(try Stmt({ }) catch Binding(e) Stmt({ }))"},
 		{"debugger", "Stmt(debugger)"},
 		{"label: var a", "Stmt(label Stmt(var Binding(a)))"},
 		{"switch (5) {}", "Stmt(switch Expr(5))"},
@@ -102,6 +104,7 @@ func TestParse(t *testing.T) {
 		{"yield\na = 5", "Stmt(Expr(yield)) Stmt(Expr(a = Expr(5)))"},
 		{"yield yield a", "Stmt(Expr(yield Expr(yield Expr(a))))"},
 		{"yield * yield * a", "Stmt(Expr(yield * Expr(yield * Expr(a))))"},
+		{"if (a) 1 else if (b) 2 else 3", "Stmt(if Expr(a) Stmt(Expr(1)) else Stmt(if Expr(b) Stmt(Expr(2)) else Stmt(Expr(3))))"},
 
 		// bindings
 		{"let []", "Stmt(let Binding([ ]))"},
@@ -126,12 +129,28 @@ func TestParse(t *testing.T) {
 		{"let {if: name, ...yield}", "Stmt(let Binding({ if : Binding(name) ... Binding(yield) }))"},
 
 		// expressions
+		{"x = {a}", "Stmt(Expr(x = Expr({ a })))"},
+		{"x = {a=5}", "Stmt(Expr(x = Expr({ a = Expr(5) })))"},
+		{"x = {yield=5}", "Stmt(Expr(x = Expr({ yield = Expr(5) })))"},
+		{"x = {a:5}", "Stmt(Expr(x = Expr({ a : Expr(5) })))"},
+		{"x = {yield:5}", "Stmt(Expr(x = Expr({ yield : Expr(5) })))"},
+		{"x = {if:5}", "Stmt(Expr(x = Expr({ if : Expr(5) })))"},
+		{"x = {\"string\":5}", "Stmt(Expr(x = Expr({ \"string\" : Expr(5) })))"},
+		{"x = {3:5}", "Stmt(Expr(x = Expr({ 3 : Expr(5) })))"},
+		{"x = {[3]:5}", "Stmt(Expr(x = Expr({ [ Expr(3) ] : Expr(5) })))"},
 		{"x = {a, if: b, do(){}, ...d}", "Stmt(Expr(x = Expr({ a , if : Expr(b) , Method(do Stmt({ })) , ... Expr(d) })))"},
+		{"x = (a, b, ...c)", "Stmt(Expr(x = Expr(( Expr(a) , Expr(b) , ... Binding(c) ))))"},
+		{"x = function() {}", "Stmt(Expr(x = Expr(function Stmt({ }))))"},
+		{"x = async function() {}", "Stmt(Expr(x = Expr(async function Stmt({ }))))"},
+		{"x = class {}", "Stmt(Expr(x = Expr(class)))"},
+		{"x = class {a(){}}", "Stmt(Expr(x = Expr(class Method(a Stmt({ })))))"},
 		{"x = a => a++", "Stmt(Expr(x = Expr(Binding(a) => Expr(a ++))))"},
 		{"x = yield => a++", "Stmt(Expr(x = Expr(Binding(yield) => Expr(a ++))))"},
 		{"x = await => a++", "Stmt(Expr(x = Expr(Binding(await) => Expr(a ++))))"},
 		{"x = (a) => a++", "Stmt(Expr(x = Expr(( Expr(a) ) => Expr(a ++))))"},
 		{"x = (a) => {a++}", "Stmt(Expr(x = Expr(( Expr(a) ) => Stmt({ Stmt(Expr(a ++)) }))))"},
+		{"x = async a => a++", "Stmt(Expr(x = Expr(async a => Expr(a ++))))"},
+		{"x = async a => {a++}", "Stmt(Expr(x = Expr(async a => Stmt({ Stmt(Expr(a ++)) }))))"},
 
 		// regular expressions
 		{"/abc/", "Stmt(Expr(/abc/))"},
@@ -189,6 +208,7 @@ func TestParseError(t *testing.T) {
 		{"for", "expected '(' instead of EOF in for statement"},
 		{"for b", "expected '(' instead of 'b' in for statement"},
 		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
+		{"switch (a) {bad: return}", "expected 'case' or 'default' instead of 'bad' in switch statement"},
 		{"class A extends a b {}", "expected '{' instead of 'b' in class statement"},
 	}
 	for _, tt := range tests {

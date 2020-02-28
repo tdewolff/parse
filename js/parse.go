@@ -174,7 +174,7 @@ func (p *Parser) parseStmt() Node {
 	case ReturnToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != LineTerminatorToken && p.tt != ErrorToken {
-			nodes = append(nodes, p.parseExpr(RegularExpr))
+			nodes = append(nodes, p.parseExpr(StmtRegularExpr))
 		}
 	case IfToken:
 		nodes = append(nodes, p.parseToken())
@@ -211,7 +211,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("do statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(RegularExpr))
+		nodes = append(nodes, p.parseExpr(StmtRegularExpr))
 		if !p.consume("do statement", CloseParenToken) {
 			return Node{}
 		}
@@ -220,7 +220,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("while statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(RegularExpr))
+		nodes = append(nodes, p.parseExpr(StmtRegularExpr))
 		if !p.consume("while statement", CloseParenToken) {
 			return Node{}
 		}
@@ -240,6 +240,7 @@ func (p *Parser) parseStmt() Node {
 		} else {
 			nodes = append(nodes, p.parseExpr(LeftHandSideExpr))
 		}
+
 		if p.tt == SemicolonToken {
 			p.next()
 			nodes = append(nodes, p.parseExpr(RegularExpr))
@@ -263,7 +264,7 @@ func (p *Parser) parseStmt() Node {
 		nodes = append(nodes, p.parseStmt())
 	case IdentifierToken, YieldToken, AwaitToken:
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
-		expr := p.parseExpr(DoWhileRegularExpr)
+		expr := p.parseExpr(StmtRegularExpr)
 		if p.tt == ColonToken && len(expr.nodes) == 1 {
 			nodes = append(nodes, expr.nodes[0])
 			p.next()
@@ -323,7 +324,7 @@ func (p *Parser) parseStmt() Node {
 	case ThrowToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.prevLineTerminator {
-			nodes = append(nodes, p.parseExpr(RegularExpr))
+			nodes = append(nodes, p.parseExpr(StmtRegularExpr))
 		}
 	case TryToken:
 		nodes = append(nodes, p.parseToken())
@@ -332,7 +333,13 @@ func (p *Parser) parseStmt() Node {
 		if p.tt == CatchToken {
 			nodes = append(nodes, p.parseToken())
 			if p.tt == OpenParenToken {
+				p.next()
 				nodes = append(nodes, p.parseBinding())
+				if p.tt != CloseParenToken {
+					p.fail("catch statement")
+					return Node{}
+				}
+				p.next()
 			}
 			nodes = append(nodes, p.parseBlockStmt("catch statement"))
 		}
@@ -347,7 +354,7 @@ func (p *Parser) parseStmt() Node {
 	case ErrorToken:
 		return Node{}
 	default:
-		expr := p.parseExpr(DoWhileRegularExpr)
+		expr := p.parseExpr(StmtRegularExpr)
 		if 0 < len(expr.nodes) {
 			nodes = append(nodes, expr)
 		} else {
@@ -617,16 +624,6 @@ func (p *Parser) parseBinding() Node {
 	return Node{BindingGrammar, nodes, 0, nil}
 }
 
-type ExprType int
-
-const (
-	RegularExpr           ExprType = iota
-	DoWhileRegularExpr             // same as regular, but forbids while
-	AssignmentExpr                 // same as regular, but without commas
-	LeftHandSideExpr               // subset of assignment, mostly forbids operators
-	ClassLeftHandSideExpr          // LHS without objects
-)
-
 func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 	// assume we're on {
 	nodes = append(nodes, p.parseToken())
@@ -642,7 +639,7 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 				property = append(property, p.parseToken())
 			}
 
-			if (p.tt == EqToken || p.tt == CommaToken) && len(property) == 1 && (property[0].tt == IdentifierToken || property[0].tt == YieldToken || property[0].tt == AwaitToken) {
+			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (property[0].tt == IdentifierToken || property[0].tt == YieldToken || property[0].tt == AwaitToken) {
 				nodes = append(nodes, property[0])
 				if p.tt == EqToken {
 					nodes = append(nodes, p.parseToken())
@@ -674,7 +671,7 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 					return nil
 				}
 			} else {
-				p.fail("object literal", EqToken, CommaToken, EllipsisToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
+				p.fail("object literal", EqToken, CommaToken, CloseBraceToken, EllipsisToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 				return nil
 			}
 		}
@@ -684,6 +681,16 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 	}
 	return nodes
 }
+
+type ExprType int
+
+const (
+	RegularExpr           ExprType = iota
+	StmtRegularExpr                // same as regular, but forbids while and else
+	AssignmentExpr                 // same as regular, but without commas
+	LeftHandSideExpr               // subset of assignment, mostly forbids operators
+	ClassLeftHandSideExpr          // LHS without objects
+)
 
 func (p *Parser) parseExpr(et ExprType) Node {
 	nodes := []Node{}
@@ -788,10 +795,15 @@ func (p *Parser) parseExpr(et ExprType) Node {
 				} else if et >= LeftHandSideExpr {
 					p.fail("async function statement", FunctionToken)
 					return Node{}
-				} else if p.tt == ArrowToken {
+				} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+					nodes = append(nodes, p.parseToken())
+					if p.tt != ArrowToken {
+						p.fail("async arrow function statement", ArrowToken)
+						return Node{}
+					}
 					nodes = append(nodes, p.parseToken())
 					if p.tt == OpenBraceToken {
-						nodes = append(nodes, p.parseBlockStmt("arrow function declaration"))
+						nodes = append(nodes, p.parseBlockStmt("async arrow function declaration"))
 					} else {
 						nodes = append(nodes, p.parseExpr(AssignmentExpr))
 					}
@@ -799,7 +811,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 						return Node{ExprGrammar, nodes, 0, nil}
 					}
 				} else {
-					p.fail("async function statement", FunctionToken, ArrowToken)
+					p.fail("async function statement", FunctionToken, IdentifierToken)
 					return Node{}
 				}
 			}
@@ -823,7 +835,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 				}
 			}
 		default:
-			if IsIdentifier(p.tt) && (p.tt != WhileToken || et != DoWhileRegularExpr) {
+			if IsIdentifier(p.tt) && (et != StmtRegularExpr || p.tt != WhileToken && p.tt != ElseToken) {
 				// allow keywords to be used in expressions
 				ident := p.parseToken()
 				if p.tt == ArrowToken {
