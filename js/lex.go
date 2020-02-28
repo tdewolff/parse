@@ -167,6 +167,8 @@ func (tt TokenType) String() string {
 	switch tt {
 	case ErrorToken:
 		return "Error"
+	case WhitespaceToken:
+		return "Whitespace"
 	case LineTerminatorToken:
 		return "LineTerminator"
 	case SingleLineCommentToken:
@@ -450,10 +452,8 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 
 	if l.consumeRegExpToken() {
 		return RegExpToken, l.r.Shift()
-	} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
-		return tt, l.r.Shift()
 	}
-	return ErrorToken, nil
+	return l.consumeOperatorToken(), l.r.Shift() // never fails
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
@@ -969,7 +969,7 @@ func (l *Lexer) consumeStringToken() bool {
 }
 
 func (l *Lexer) consumeRegExpToken() bool {
-	// assume to be on / and not /*
+	// assume to be on /
 	mark := l.r.Pos()
 	l.r.Move(1)
 	inClass := false
@@ -998,12 +998,14 @@ func (l *Lexer) consumeRegExpToken() bool {
 	for {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
-			l.r.Move(1)
-		} else if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
-				l.r.Move(n)
+			if c >= 0xC0 {
+				if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
+					l.r.Move(n)
+				} else {
+					break
+				}
 			} else {
-				break
+				l.r.Move(1)
 			}
 		} else {
 			break

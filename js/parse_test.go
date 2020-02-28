@@ -47,6 +47,7 @@ func TestParse(t *testing.T) {
 		{"let [a = 2] = [];", "Stmt(let Binding([ Binding(a = Expr(2)) ] = Expr([ ])))"},
 		{"let {a: b = 2} = {};", "Stmt(let Binding({ a : Binding(b = Expr(2)) } = Expr({ })))"},
 		{"var a = 5 * 4 / 3 ** 2 + ( 5 - 3 );", "Stmt(var Binding(a = Expr(5 * 4 / 3 ** 2 + ( Expr(5 - 3) ))))"},
+		{"var a, b = c;", "Stmt(var Binding(a) Binding(b = Expr(c)))"},
 		{";", "Stmt()"},
 		{"{; var a = 3;}", "Stmt({ Stmt() Stmt(var Binding(a = Expr(3))) })"},
 		{"return", "Stmt(return)"},
@@ -75,7 +76,14 @@ func TestParse(t *testing.T) {
 		{"switch (5) { case 3: {} default: {}}", "Stmt(switch Expr(5) Clause(case Expr(3) Stmt({ })) Clause(default Stmt({ })))"},
 		{"function (b) {}", "Stmt(function Binding(b) Stmt({ }))"},
 		{"function a(b) {}", "Stmt(function a Binding(b) Stmt({ }))"},
+		{"async function (b) {}", "Stmt(async function Binding(b) Stmt({ }))"},
+		{"function* (b) {}", "Stmt(function * Binding(b) Stmt({ }))"},
+		{"function (a,) {}", "Stmt(function Binding(a) Stmt({ }))"},
+		{"function (a, b) {}", "Stmt(function Binding(a) Binding(b) Stmt({ }))"},
+		{"function (...a) {}", "Stmt(function ... Binding(a) Stmt({ }))"},
+		{"function (a, ...b) {}", "Stmt(function Binding(a) ... Binding(b) Stmt({ }))"},
 		{"class { }", "Stmt(class)"},
+		{"class { ; }", "Stmt(class)"},
 		{"class A { }", "Stmt(class A)"},
 		{"class A extends B { }", "Stmt(class A extends Expr(B))"},
 		{"class { a(b) {} }", "Stmt(class Method(a Binding(b) Stmt({ })))"},
@@ -85,7 +93,7 @@ func TestParse(t *testing.T) {
 		{"class { async a(b) {} }", "Stmt(class Method(async a Binding(b) Stmt({ })))"},
 		{"class { async * a(b) {} }", "Stmt(class Method(async * a Binding(b) Stmt({ })))"},
 		{"class { static a(b) {} }", "Stmt(class Method(static a Binding(b) Stmt({ })))"},
-		{"class { ; }", "Stmt(class)"},
+		{"class { [5](b) {} }", "Stmt(class Method([ Expr(5) ] Binding(b) Stmt({ })))"},
 
 		// edge-cases
 		{"let\nawait 0", "Stmt(let Binding(await)) Stmt(Expr(0))"},
@@ -153,13 +161,19 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			fmt.Println("\n", tt.js)
 			ast, err := Parse(bytes.NewBufferString(tt.js))
 			if err != io.EOF {
 				test.Error(t, err)
 			}
 			test.String(t, ast.String(), tt.expected)
 		})
+	}
+
+	// coverage
+	for i := 0; ; i++ {
+		if GrammarType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
 	}
 }
 
@@ -172,12 +186,21 @@ func TestParseError(t *testing.T) {
 		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
 		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
 		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
+		{"for", "expected '(' instead of EOF in for statement"},
+		{"for b", "expected '(' instead of 'b' in for statement"},
+		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
+		{"class A extends a b {}", "expected '{' instead of 'b' in class statement"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
 			_, err := Parse(bytes.NewBufferString(tt.js))
 			test.That(t, err != io.EOF && err != nil)
-			test.String(t, err.Error(), tt.err)
+
+			e := err.Error()
+			if len(tt.err) < len(err.Error()) {
+				e = e[:len(tt.err)]
+			}
+			test.String(t, e, tt.err)
 		})
 	}
 }

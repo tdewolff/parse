@@ -119,10 +119,22 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
+	test.That(t, IsPunctuator(CommaToken))
+	test.That(t, IsPunctuator(GtGtEqToken))
+	test.That(t, !IsPunctuator(WhileToken))
+	test.That(t, !IsOperator(CommaToken))
+	test.That(t, IsOperator(GtGtEqToken))
+	test.That(t, !IsOperator(WhileToken))
+	test.That(t, !IsIdentifier(CommaToken))
+	test.That(t, !IsIdentifier(GtGtEqToken))
+	test.That(t, IsIdentifier(WhileToken))
+
 	// coverage
-	for i := 0; ; i++ {
-		if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
-			break
+	for _, start := range []int{0, 0x1000, 0x3000, 0x4000, 0x8000} {
+		for i := start; ; i++ {
+			if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+				break
+			}
 		}
 	}
 }
@@ -140,6 +152,8 @@ func TestRegExp(t *testing.T) {
 		{"a=/regexp\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
 		{"a=/regexp\\\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
 		{"a=/x/\u200C\u3009", TTs{IdentifierToken, EqToken, RegExpToken, ErrorToken}},
+		{"a=/end", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken}},
+		{"a=/\\\nend", TTs{IdentifierToken, EqToken, DivToken, ErrorToken}},
 	}
 
 	for _, tt := range tokenTests {
@@ -166,6 +180,9 @@ func TestRegExp(t *testing.T) {
 			test.T(t, tokens, tt.expected, "token types must match")
 		})
 	}
+
+	token, _ := NewLexer(bytes.NewBufferString("")).RegExp()
+	test.T(t, token, ErrorToken)
 }
 
 func TestOffset(t *testing.T) {

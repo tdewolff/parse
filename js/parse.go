@@ -2,9 +2,11 @@ package js
 
 import (
 	"bytes"
-	"fmt"
 	"io"
 	"strconv"
+
+	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 type Node struct {
@@ -75,14 +77,21 @@ func Parse(r io.Reader) (Node, error) {
 	defer l.Restore()
 
 	p := &Parser{l: l}
+
+	p.tt = WhitespaceToken // trick so that next() works from the start
 	p.next()
-	return p.parseModule(), p.err
+
+	module := p.parseModule()
+	if p.err == nil {
+		p.err = p.l.Err()
+	}
+	return module, p.err
 }
 
 ////////////////////////////////////////////////////////////////
 
 func (p *Parser) next() {
-	if p.err != nil {
+	if p.tt == ErrorToken {
 		return
 	}
 	p.prevLineTerminator = false
@@ -94,13 +103,10 @@ func (p *Parser) next() {
 		}
 		p.tt, p.data = p.l.Next()
 	}
-	if p.tt == ErrorToken {
-		p.err = p.l.Err()
-	}
 }
 
 func (p *Parser) fail(in string, expected ...TokenType) {
-	if p.tt != ErrorToken {
+	if p.err == nil {
 		s := "unexpected"
 		if 0 < len(expected) {
 			s = "expected"
@@ -117,7 +123,14 @@ func (p *Parser) fail(in string, expected ...TokenType) {
 			}
 			s += " '" + expected[len(expected)-1].String() + "' instead of"
 		}
-		p.err = fmt.Errorf("%s '%v' in %s", s, string(p.data), in)
+
+		at := "'" + string(p.data) + "'"
+		if p.tt == ErrorToken {
+			at = p.l.Err().Error()
+		}
+
+		offset := p.l.r.Offset() - len(p.data)
+		p.err = parse.NewError(buffer.NewReader(p.l.r.Bytes()), offset, "%s %s in %s", s, at, in)
 		p.tt = ErrorToken
 		p.data = nil
 	}
@@ -353,10 +366,11 @@ func (p *Parser) parseVarDecl(nodes []Node) []Node {
 	nodes = append(nodes, p.parseToken())
 	for {
 		nodes = append(nodes, p.parseBindingElement())
-		if p.tt != CommaToken {
+		if p.tt == CommaToken {
+			p.next()
+		} else {
 			break
 		}
-		nodes = append(nodes, p.parseToken())
 	}
 	return nodes
 }
@@ -443,16 +457,7 @@ func (p *Parser) parseClassDecl(nodes []Node) []Node {
 		} else if p.tt == CloseBraceToken {
 			break
 		}
-
-		var methodDef Node
-		if p.tt == StaticToken {
-			static := p.parseToken()
-			methodDef = p.parseMethodDef()
-			methodDef.nodes = append([]Node{static}, methodDef.nodes...)
-		} else {
-			methodDef = p.parseMethodDef()
-		}
-		nodes = append(nodes, methodDef)
+		nodes = append(nodes, p.parseMethodDef())
 	}
 	if !p.consume("class statement", CloseBraceToken) {
 		return nil
@@ -460,31 +465,36 @@ func (p *Parser) parseClassDecl(nodes []Node) []Node {
 	return nodes
 }
 
-func (p *Parser) parseMethodDefStart(in string, nodes []Node) []Node {
-	for {
-		if p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == IdentifierToken && (bytes.Equal(p.data, []byte("get")) || bytes.Equal(p.data, []byte("set"))) {
-			nodes = append(nodes, p.parseToken())
-		} else if p.tt == OpenBracketToken {
-			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(LeftHandSideExpr))
-			if p.tt != CloseBracketToken {
-				p.fail(in, CloseBracketToken)
-				return nil
-			}
-			nodes = append(nodes, p.parseToken())
-		} else {
-			if len(nodes) == 0 {
-				p.fail(in, MulToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
-				return nil
-			}
-			return nodes
-		}
-	}
-}
-
 func (p *Parser) parseMethodDef() Node {
 	nodes := []Node{}
-	nodes = p.parseMethodDefStart("method definition", nodes)
+	if p.tt == StaticToken {
+		nodes = append(nodes, p.parseToken())
+	}
+	if p.tt == AsyncToken || p.tt == MulToken {
+		if p.tt == AsyncToken {
+			nodes = append(nodes, p.parseToken())
+		}
+		if p.tt == MulToken {
+			nodes = append(nodes, p.parseToken())
+		}
+	} else if p.tt == IdentifierToken && (bytes.Equal(p.data, []byte("get")) || bytes.Equal(p.data, []byte("set"))) {
+		nodes = append(nodes, p.parseToken())
+	}
+
+	if IsIdentifier(p.tt) || p.tt == StringToken || p.tt == NumericToken {
+		nodes = append(nodes, p.parseToken())
+	} else if p.tt == OpenBracketToken {
+		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseExpr(AssignmentExpr))
+		if p.tt != CloseBracketToken {
+			p.fail("method definition", CloseBracketToken)
+			return Node{}
+		}
+		nodes = append(nodes, p.parseToken())
+	} else {
+		p.fail("method definition", IdentifierToken, StringToken, NumericToken, OpenBracketToken)
+		return Node{}
+	}
 	nodes = p.parseFuncParams("method definition", nodes)
 	nodes = append(nodes, p.parseBlockStmt("method definition"))
 	return Node{MethodGrammar, nodes, 0, nil}
@@ -617,6 +627,64 @@ const (
 	ClassLeftHandSideExpr          // LHS without objects
 )
 
+func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
+	// assume we're on {
+	nodes = append(nodes, p.parseToken())
+	for p.tt != CloseBraceToken && p.tt != ErrorToken {
+		if p.tt == EllipsisToken {
+			nodes = append(nodes, p.parseToken())
+			nodes = append(nodes, p.parseExpr(AssignmentExpr))
+		} else if p.tt == CommaToken {
+			nodes = append(nodes, p.parseToken())
+		} else {
+			property := []Node{}
+			for p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) {
+				property = append(property, p.parseToken())
+			}
+
+			if (p.tt == EqToken || p.tt == CommaToken) && len(property) == 1 && (property[0].tt == IdentifierToken || property[0].tt == YieldToken || property[0].tt == AwaitToken) {
+				nodes = append(nodes, property[0])
+				if p.tt == EqToken {
+					nodes = append(nodes, p.parseToken())
+					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+				}
+			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
+				if p.tt == StringToken || p.tt == NumericToken {
+					property = append(property, p.parseToken())
+				} else if p.tt == OpenBracketToken {
+					property = append(property, p.parseToken())
+					property = append(property, p.parseExpr(AssignmentExpr))
+					if p.tt != CloseBracketToken {
+						p.fail("object literal", CloseBracketToken)
+						return nil
+					}
+					property = append(property, p.parseToken())
+				}
+
+				if p.tt == ColonToken {
+					nodes = append(nodes, property...)
+					nodes = append(nodes, p.parseToken())
+					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+				} else if p.tt == OpenParenToken {
+					property = p.parseFuncParams("method definition", property)
+					property = append(property, p.parseBlockStmt("method definition"))
+					nodes = append(nodes, Node{MethodGrammar, property, 0, nil})
+				} else {
+					p.fail("object literal", ColonToken, OpenParenToken)
+					return nil
+				}
+			} else {
+				p.fail("object literal", EqToken, CommaToken, EllipsisToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
+				return nil
+			}
+		}
+	}
+	if p.tt == CloseBraceToken {
+		nodes = append(nodes, p.parseToken())
+	}
+	return nodes
+}
+
 func (p *Parser) parseExpr(et ExprType) Node {
 	nodes := []Node{}
 
@@ -679,35 +747,9 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			if et == ClassLeftHandSideExpr {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}
-
-			// object literal
-			nodes = append(nodes, p.parseToken())
-			for p.tt != CloseBraceToken && p.tt != ErrorToken {
-				if p.tt == EllipsisToken {
-					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
-				} else if p.tt == CommaToken {
-					nodes = append(nodes, p.parseToken())
-				} else {
-					methodDef := []Node{}
-					methodDef = p.parseMethodDefStart("object literal", methodDef)
-					if p.tt == EqToken || p.tt == ColonToken {
-						nodes = append(nodes, methodDef...)
-						nodes = append(nodes, p.parseToken())
-						nodes = append(nodes, p.parseExpr(AssignmentExpr))
-					} else if p.tt != CommaToken {
-						methodDef = p.parseFuncParams("method definition", methodDef)
-						methodDef = append(methodDef, p.parseBlockStmt("method definition"))
-						nodes = append(nodes, Node{MethodGrammar, methodDef, 0, nil})
-					} else {
-						// identifier reference or initialized name
-						nodes = append(nodes, methodDef...)
-					}
-				}
-			}
-			nodes = append(nodes, p.parseToken())
+			nodes = p.parseObjectLiteral(nodes)
 		case OpenParenToken:
-			// parenthesized expression and arrow parameter list
+			// call arguments, or parenthesized expression and arrow parameter list
 			nodes = append(nodes, p.parseToken())
 			for p.tt != CloseParenToken && p.tt != ErrorToken {
 				if p.tt == EllipsisToken {
@@ -776,6 +818,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 					}
 				}
 				if et >= AssignmentExpr || p.tt != CommaToken {
+					// quit if assignment or left-hand-side expression, or if not followed by a comma
 					return Node{ExprGrammar, nodes, 0, nil}
 				}
 			}
@@ -783,14 +826,22 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			if IsIdentifier(p.tt) && (p.tt != WhileToken || et != DoWhileRegularExpr) {
 				// allow keywords to be used in expressions
 				ident := p.parseToken()
-				fmt.Println("ident", ident, p.tt)
 				if p.tt == ArrowToken {
-					ident = Node{BindingGrammar, []Node{ident}, 0, nil}
+					nodes = append(nodes, Node{BindingGrammar, []Node{ident}, 0, nil})
+				} else {
+					nodes = append(nodes, ident)
+					if ident.tt == NewToken || p.tt == DotToken || p.tt == OpenBracketToken || p.tt == TemplateToken {
+						continue
+					}
 				}
-				nodes = append(nodes, ident)
 			} else {
 				return Node{ExprGrammar, nodes, 0, nil}
 			}
+		}
+		if et >= LeftHandSideExpr {
+			// quit if left-hand-side expression and we parsed one element
+			// except if element was 'new' or is followed by a template, '.' or '['
+			return Node{ExprGrammar, nodes, 0, nil}
 		}
 	}
 }
