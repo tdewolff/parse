@@ -336,16 +336,16 @@ func (p *Parser) parseStmt() Node {
 				p.next()
 				nodes = append(nodes, p.parseBinding())
 				if p.tt != CloseParenToken {
-					p.fail("catch statement")
+					p.fail("try statement", CloseParenToken)
 					return Node{}
 				}
 				p.next()
 			}
-			nodes = append(nodes, p.parseBlockStmt("catch statement"))
+			nodes = append(nodes, p.parseBlockStmt("try statement"))
 		}
 		if p.tt == FinallyToken {
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseBlockStmt("finally statement"))
+			nodes = append(nodes, p.parseBlockStmt("try statement"))
 		}
 	case DebuggerToken:
 		nodes = append(nodes, p.parseToken())
@@ -451,7 +451,7 @@ func (p *Parser) parseClassDecl(nodes []Node) []Node {
 	}
 	if p.tt == ExtendsToken {
 		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseExpr(ClassLeftHandSideExpr))
+		nodes = append(nodes, p.parseExpr(LeftHandSideExpr))
 	}
 
 	if !p.consume("class statement", OpenBraceToken) {
@@ -685,11 +685,10 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 type ExprType int
 
 const (
-	RegularExpr           ExprType = iota
-	StmtRegularExpr                // same as regular, but forbids while and else
-	AssignmentExpr                 // same as regular, but without commas
-	LeftHandSideExpr               // subset of assignment, mostly forbids operators
-	ClassLeftHandSideExpr          // LHS without objects
+	RegularExpr      ExprType = iota
+	StmtRegularExpr           // same as regular, but forbids while and else
+	AssignmentExpr            // same as regular, but without commas
+	LeftHandSideExpr          // subset of assignment, mostly forbids operators
 )
 
 func (p *Parser) parseExpr(et ExprType) Node {
@@ -731,7 +730,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			nodes = append(nodes, p.parseToken())
 			nodes = append(nodes, p.parseExpr(AssignmentExpr))
 			if p.tt != ColonToken {
-				p.fail("async function statement", FunctionToken)
+				p.fail("expression", ColonToken)
 				return Node{}
 			}
 			nodes = append(nodes, p.parseToken())
@@ -751,9 +750,6 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			}
 			nodes = append(nodes, p.parseToken())
 		case OpenBraceToken:
-			if et == ClassLeftHandSideExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
 			nodes = p.parseObjectLiteral(nodes)
 		case OpenParenToken:
 			// call arguments, or parenthesized expression and arrow parameter list
@@ -779,7 +775,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 			}
 			nodes = append(nodes, p.parseToken())
 			if p.tt == OpenBraceToken {
-				nodes = append(nodes, p.parseBlockStmt("arrow function declaration"))
+				nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
 			} else {
 				nodes = append(nodes, p.parseExpr(AssignmentExpr))
 			}
@@ -793,17 +789,17 @@ func (p *Parser) parseExpr(et ExprType) Node {
 				if p.tt == FunctionToken {
 					nodes = p.parseFuncDecl(nodes)
 				} else if et >= LeftHandSideExpr {
-					p.fail("async function statement", FunctionToken)
+					p.fail("async function expression", FunctionToken)
 					return Node{}
 				} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 					nodes = append(nodes, p.parseToken())
 					if p.tt != ArrowToken {
-						p.fail("async arrow function statement", ArrowToken)
+						p.fail("async arrow function expression", ArrowToken)
 						return Node{}
 					}
 					nodes = append(nodes, p.parseToken())
 					if p.tt == OpenBraceToken {
-						nodes = append(nodes, p.parseBlockStmt("async arrow function declaration"))
+						nodes = append(nodes, p.parseBlockStmt("async arrow function expression"))
 					} else {
 						nodes = append(nodes, p.parseExpr(AssignmentExpr))
 					}
@@ -811,7 +807,7 @@ func (p *Parser) parseExpr(et ExprType) Node {
 						return Node{ExprGrammar, nodes, 0, nil}
 					}
 				} else {
-					p.fail("async function statement", FunctionToken, IdentifierToken)
+					p.fail("async function expression", FunctionToken, IdentifierToken)
 					return Node{}
 				}
 			}
