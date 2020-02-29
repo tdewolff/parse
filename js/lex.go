@@ -409,7 +409,7 @@ func (tt TokenType) String() string {
 	case SetToken:
 		return "set"
 	case TargetToken:
-		return "Target"
+		return "target"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }

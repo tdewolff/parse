@@ -896,6 +896,7 @@ func (p *Parser) parseAssignmentExpr() Node {
 			return Node{}
 		}
 		if p.tt == FunctionToken {
+			// primary expression
 			nodes = p.parseFuncDecl(nodes)
 		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 			nodes = append(nodes, Node{BindingGrammar, []Node{p.parseToken()}, 0, nil})
@@ -917,15 +918,15 @@ func (p *Parser) parseAssignmentExpr() Node {
 	}
 
 LHS:
+	if p.tt == IncrToken || p.tt == DecrToken {
+		nodes = append(nodes, p.parseToken())
+	}
 	nodes = p.parseLeftHandSideExpr(nodes)
 	if !p.prevLineTerminator && (p.tt == IncrToken || p.tt == DecrToken) {
 		nodes = append(nodes, p.parseToken())
 	}
 	switch p.tt {
 	case NullishToken, OrToken, AndToken, BitOrToken, BitXorToken, BitAndToken, EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken, LtToken, GtToken, LtEqToken, GtEqToken, LtLtToken, GtGtToken, GtGtGtToken, AddToken, SubToken, MulToken, DivToken, ModToken, ExpToken, NotToken, BitNotToken, InstanceofToken, InToken, TypeofToken, VoidToken, DeleteToken:
-		nodes = append(nodes, p.parseToken())
-		goto LHS
-	case IncrToken, DecrToken:
 		nodes = append(nodes, p.parseToken())
 		goto LHS
 	case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
@@ -943,10 +944,6 @@ LHS:
 		nodes = append(nodes, p.parseAssignmentExpr())
 	case ArrowToken:
 		// we allow the start of an arrow function expressions to be anything in a left-hand-side expression, but that should be fine
-		if len(nodes) == 0 {
-			p.fail("arrow function expression")
-			return Node{}
-		}
 		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
 		if nodes[len(nodes)-1].tt == IdentifierToken || nodes[len(nodes)-1].tt == YieldToken || nodes[len(nodes)-1].tt == AwaitToken {
 			nodes[len(nodes)-1] = Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}

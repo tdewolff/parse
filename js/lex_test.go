@@ -70,6 +70,8 @@ func TestTokens(t *testing.T) {
 		{"/*comment", TTs{SingleLineCommentToken}},
 		{"a=/regexp", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken}},
 		{"\\u002", TTs{ErrorToken}},
+		{"`template", TTs{TemplateToken}},
+		{"`template${x}template", TTs{TemplateStartToken, IdentifierToken, TemplateEndToken}},
 
 		// null characters
 		{"'string\x00'return", TTs{StringToken, ReturnToken}},
