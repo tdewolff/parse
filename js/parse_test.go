@@ -150,8 +150,13 @@ func TestParse(t *testing.T) {
 		{"x = await => a++", "Stmt(Expr(x = Expr(Binding(await) => Expr(a ++))))"},
 		{"x = (a) => a++", "Stmt(Expr(x = Expr(( Expr(a) ) => Expr(a ++))))"},
 		{"x = (a) => {a++}", "Stmt(Expr(x = Expr(( Expr(a) ) => Stmt({ Stmt(Expr(a ++)) }))))"},
-		{"x = async a => a++", "Stmt(Expr(x = Expr(async a => Expr(a ++))))"},
-		{"x = async a => {a++}", "Stmt(Expr(x = Expr(async a => Stmt({ Stmt(Expr(a ++)) }))))"},
+		{"x = async a => a++", "Stmt(Expr(x = Expr(async Binding(a) => Expr(a ++))))"},
+		{"x = async a => {a++}", "Stmt(Expr(x = Expr(async Binding(a) => Stmt({ Stmt(Expr(a ++)) }))))"},
+		{"x = a??b", "Stmt(Expr(x = Expr(a ?? b)))"},
+		{"x = import(a)", "Stmt(Expr(x = Expr(import Expr(a))))"},
+		{"x = ?.[a]?.b", "Stmt(Expr(x = Expr(?. [ Expr(a) ] ?. b)))"},
+		{"x = ?.a?.b", "Stmt(Expr(x = Expr(?. a))) Stmt(Expr(?. b))"},
+		{"x = super(a)(b)(c)", "Stmt(Expr(x = Expr(super ( Expr(a) ) ( Expr(b) ) ( Expr(c) ))))"},
 
 		// regular expressions
 		{"/abc/", "Stmt(Expr(/abc/))"},
@@ -202,7 +207,7 @@ func TestParseError(t *testing.T) {
 		js  string
 		err string
 	}{
-		{"{a, if: b, do(){}, ...d}", "unexpected ':' in statement"},
+		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in assignment expression"}, // block stmt
 		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
 		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
 		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
@@ -253,9 +258,10 @@ func TestParseError(t *testing.T) {
 		{"class a extends ?", "expected '{' instead of '?' in class statement"},
 		{"class a extends =>", "expected '{' instead of '=>' in class statement"},
 		{"class a extends async", "expected 'function' instead of EOF in async function expression"},
-		{"x=a?b", "expected ':' instead of EOF in expression"},
+		{"x=a?b", "expected ':' instead of EOF in conditional expression"},
 		{"x=async a", "expected '=>' instead of EOF in async arrow function expression"},
 		{"x=async", "expected 'function' or 'Identifier' instead of EOF in async function expression"},
+		{"x = ?.?.a", "expected '(', '[', '.', or 'Template' instead of '?.' in left hand side expression"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

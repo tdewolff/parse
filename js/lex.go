@@ -90,6 +90,7 @@ const (
 	AndToken                // &&
 	OrToken                 // ||
 	NullishToken            // ??
+	OptChainToken           // ?.
 )
 
 const (
@@ -148,6 +149,7 @@ const (
 	OfToken TokenType = 0x8000 + iota
 	GetToken
 	SetToken
+	TargetToken
 )
 
 func IsPunctuator(tt TokenType) bool {
@@ -293,6 +295,8 @@ func (tt TokenType) String() string {
 		return "||"
 	case NullishToken:
 		return "??"
+	case OptChainToken:
+		return "?."
 	case IdentifierToken:
 		return "Identifier"
 	case AwaitToken:
@@ -395,6 +399,8 @@ func (tt TokenType) String() string {
 		return "get"
 	case SetToken:
 		return "set"
+	case TargetToken:
+		return "Target"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -805,6 +811,9 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 			return ExpEqToken
 		}
 		return opOpTokens[c]
+	} else if c == '?' && l.r.Peek(0) == '.' && (l.r.Peek(1) < '0' || l.r.Peek(1) > '9') {
+		l.r.Move(1)
+		return OptChainToken
 	} else if c == '=' && l.r.Peek(0) == '>' {
 		l.r.Move(1)
 		return ArrowToken

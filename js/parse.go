@@ -9,6 +9,9 @@ import (
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
+// TODO for-in extension
+// TODO template literal
+
 type Node struct {
 	gt    GrammarType
 	nodes []Node
@@ -174,14 +177,14 @@ func (p *Parser) parseStmt() Node {
 	case ReturnToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != LineTerminatorToken && p.tt != ErrorToken {
-			nodes = append(nodes, p.parseExpr(StmtRegularExpr))
+			nodes = append(nodes, p.parseExpr())
 		}
 	case IfToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.consume("if statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(RegularExpr))
+		nodes = append(nodes, p.parseExpr())
 		if !p.consume("if statement", CloseParenToken) {
 			return Node{}
 		}
@@ -195,7 +198,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("with statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(RegularExpr))
+		nodes = append(nodes, p.parseExpr())
 		if !p.consume("with statement", CloseParenToken) {
 			return Node{}
 		}
@@ -211,7 +214,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("do statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(StmtRegularExpr))
+		nodes = append(nodes, p.parseExpr())
 		if !p.consume("do statement", CloseParenToken) {
 			return Node{}
 		}
@@ -220,7 +223,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("while statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(StmtRegularExpr))
+		nodes = append(nodes, p.parseExpr())
 		if !p.consume("while statement", CloseParenToken) {
 			return Node{}
 		}
@@ -238,22 +241,22 @@ func (p *Parser) parseStmt() Node {
 			declNodes = p.parseVarDecl(declNodes)
 			nodes = append(nodes, Node{StmtGrammar, declNodes, 0, nil})
 		} else {
-			nodes = append(nodes, p.parseExpr(LeftHandSideExpr))
+			nodes = append(nodes, Node{ExprGrammar, p.parseLeftHandSideExpr(nil), 0, nil})
 		}
 
 		if p.tt == SemicolonToken {
 			p.next()
-			nodes = append(nodes, p.parseExpr(RegularExpr))
+			nodes = append(nodes, p.parseExpr())
 			if !p.consume("for statement", SemicolonToken) {
 				return Node{}
 			}
-			nodes = append(nodes, p.parseExpr(RegularExpr))
+			nodes = append(nodes, p.parseExpr())
 		} else if p.tt == InToken {
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(RegularExpr))
+			nodes = append(nodes, p.parseExpr())
 		} else if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("of")) {
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
+			nodes = append(nodes, p.parseAssignmentExpr())
 		} else {
 			p.fail("for statement", InToken, OfToken, SemicolonToken)
 			return Node{}
@@ -264,7 +267,7 @@ func (p *Parser) parseStmt() Node {
 		nodes = append(nodes, p.parseStmt())
 	case IdentifierToken, YieldToken, AwaitToken:
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
-		expr := p.parseExpr(StmtRegularExpr)
+		expr := p.parseExpr()
 		if p.tt == ColonToken && len(expr.nodes) == 1 {
 			nodes = append(nodes, expr.nodes[0])
 			p.next()
@@ -277,7 +280,7 @@ func (p *Parser) parseStmt() Node {
 		if !p.consume("switch statement", OpenParenToken) {
 			return Node{}
 		}
-		nodes = append(nodes, p.parseExpr(RegularExpr))
+		nodes = append(nodes, p.parseExpr())
 		if !p.consume("switch statement", CloseParenToken) {
 			return Node{}
 		}
@@ -295,7 +298,7 @@ func (p *Parser) parseStmt() Node {
 			clauseNodes := []Node{}
 			if p.tt == CaseToken {
 				clauseNodes = append(clauseNodes, p.parseToken())
-				clauseNodes = append(clauseNodes, p.parseExpr(RegularExpr))
+				clauseNodes = append(clauseNodes, p.parseExpr())
 			} else if p.tt == DefaultToken {
 				clauseNodes = append(clauseNodes, p.parseToken())
 			} else {
@@ -324,7 +327,7 @@ func (p *Parser) parseStmt() Node {
 	case ThrowToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.prevLineTerminator {
-			nodes = append(nodes, p.parseExpr(StmtRegularExpr))
+			nodes = append(nodes, p.parseExpr())
 		}
 	case TryToken:
 		nodes = append(nodes, p.parseToken())
@@ -351,10 +354,8 @@ func (p *Parser) parseStmt() Node {
 		nodes = append(nodes, p.parseToken())
 	case SemicolonToken, LineTerminatorToken:
 		// empty
-	case ErrorToken:
-		return Node{}
 	default:
-		expr := p.parseExpr(StmtRegularExpr)
+		expr := p.parseExpr()
 		if 0 < len(expr.nodes) {
 			nodes = append(nodes, expr)
 		} else {
@@ -451,7 +452,7 @@ func (p *Parser) parseClassDecl(nodes []Node) []Node {
 	}
 	if p.tt == ExtendsToken {
 		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseExpr(LeftHandSideExpr))
+		nodes = append(nodes, Node{ExprGrammar, p.parseLeftHandSideExpr(nil), 0, nil})
 	}
 
 	if !p.consume("class statement", OpenBraceToken) {
@@ -492,7 +493,7 @@ func (p *Parser) parseMethodDef() Node {
 		nodes = append(nodes, p.parseToken())
 	} else if p.tt == OpenBracketToken {
 		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseExpr(AssignmentExpr))
+		nodes = append(nodes, p.parseAssignmentExpr())
 		if p.tt != CloseBracketToken {
 			p.fail("method definition", CloseBracketToken)
 			return Node{}
@@ -512,7 +513,7 @@ func (p *Parser) parseBindingElement() Node {
 	binding := p.parseBinding()
 	if p.tt == EqToken {
 		binding.nodes = append(binding.nodes, p.parseToken())
-		binding.nodes = append(binding.nodes, p.parseExpr(AssignmentExpr))
+		binding.nodes = append(binding.nodes, p.parseAssignmentExpr())
 	}
 	return binding
 }
@@ -581,7 +582,7 @@ func (p *Parser) parseBinding() Node {
 					binding := []Node{ident}
 					if p.tt == EqToken {
 						binding = append(binding, p.parseToken())
-						binding = append(binding, p.parseExpr(AssignmentExpr))
+						binding = append(binding, p.parseAssignmentExpr())
 					}
 					nodes = append(nodes, Node{BindingGrammar, binding, 0, nil})
 				}
@@ -589,7 +590,7 @@ func (p *Parser) parseBinding() Node {
 				// property name + : + binding element
 				if p.tt == OpenBracketToken {
 					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					nodes = append(nodes, p.parseAssignmentExpr())
 					if p.tt != CloseBracketToken {
 						p.fail("object binding pattern", CloseBracketToken)
 						return Node{}
@@ -630,7 +631,7 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 	for p.tt != CloseBraceToken && p.tt != ErrorToken {
 		if p.tt == EllipsisToken {
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
+			nodes = append(nodes, p.parseAssignmentExpr())
 		} else if p.tt == CommaToken {
 			nodes = append(nodes, p.parseToken())
 		} else {
@@ -643,14 +644,14 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 				nodes = append(nodes, property[0])
 				if p.tt == EqToken {
 					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					nodes = append(nodes, p.parseAssignmentExpr())
 				}
 			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
 				if p.tt == StringToken || p.tt == NumericToken {
 					property = append(property, p.parseToken())
 				} else if p.tt == OpenBracketToken {
 					property = append(property, p.parseToken())
-					property = append(property, p.parseExpr(AssignmentExpr))
+					property = append(property, p.parseAssignmentExpr())
 					if p.tt != CloseBracketToken {
 						p.fail("object literal", CloseBracketToken)
 						return nil
@@ -661,7 +662,7 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 				if p.tt == ColonToken {
 					nodes = append(nodes, property...)
 					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
+					nodes = append(nodes, p.parseAssignmentExpr())
 				} else if p.tt == OpenParenToken {
 					property = p.parseFuncParams("method definition", property)
 					property = append(property, p.parseBlockStmt("method definition"))
@@ -682,176 +683,269 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 	return nodes
 }
 
-type ExprType int
-
-const (
-	RegularExpr      ExprType = iota
-	StmtRegularExpr           // same as regular, but forbids while and else
-	AssignmentExpr            // same as regular, but without commas
-	LeftHandSideExpr          // subset of assignment, mostly forbids operators
-)
-
-func (p *Parser) parseExpr(et ExprType) Node {
-	nodes := []Node{}
-
-	// reparse input if we have / or /= as the beginning of a new expression, this could be a regular expression!
+func (p *Parser) parsePrimaryExpr(nodes []Node) []Node {
+	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
 		p.tt, p.data = p.l.RegExp()
 	}
 
-	for {
-		switch p.tt {
-		case OrToken, AndToken, BitOrToken, BitXorToken, BitAndToken, EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken, LtToken, GtToken, LtEqToken, GtEqToken, LtLtToken, GtGtToken, GtGtGtToken, AddToken, SubToken, MulToken, DivToken, ModToken, ExpToken, NotToken, BitNotToken, IncrToken, DecrToken, InstanceofToken, InToken, TypeofToken, VoidToken, DeleteToken:
-			if et >= LeftHandSideExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
+	switch p.tt {
+	case ThisToken, IdentifierToken, YieldToken, AwaitToken, NullToken, TrueToken, FalseToken, NumericToken, StringToken, RegExpToken:
+		nodes = append(nodes, p.parseToken())
+	case TemplateToken:
+		panic("not implemented")
+	case OpenBracketToken:
+		// array literal and [expression]
+		nodes = append(nodes, p.parseToken())
+		for p.tt != CloseBracketToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken || p.tt == CommaToken {
+				nodes = append(nodes, p.parseToken())
+			} else {
+				nodes = append(nodes, p.parseAssignmentExpr())
+			}
+		}
+		nodes = append(nodes, p.parseToken())
+	case OpenBraceToken:
+		nodes = p.parseObjectLiteral(nodes)
+	case OpenParenToken:
+		// parenthesized expression and arrow parameter list
+		nodes = append(nodes, p.parseToken())
+		for p.tt != CloseParenToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken {
+				nodes = append(nodes, p.parseToken())
+				nodes = append(nodes, p.parseBinding())
+			} else if p.tt == CommaToken {
+				nodes = append(nodes, p.parseToken())
+			} else {
+				nodes = append(nodes, p.parseAssignmentExpr())
+			}
+		}
+		nodes = append(nodes, p.parseToken())
+	case ClassToken:
+		nodes = p.parseClassDecl(nodes)
+	case FunctionToken:
+		nodes = p.parseFuncDecl(nodes)
+	case AsyncToken:
+		// async function
+		nodes = append(nodes, p.parseToken())
+		if !p.prevLineTerminator {
+			if p.tt == FunctionToken {
+				nodes = p.parseFuncDecl(nodes)
+			} else {
+				p.fail("async function expression", FunctionToken)
+				return nil
+			}
+		}
+	}
+	return nodes
+}
+
+func (p *Parser) parseLeftHandSideExprEnd(nodes []Node) []Node {
+	// parse arguments, [expression], .identifier, template
+	if p.tt == OpenParenToken {
+		nodes = append(nodes, p.parseToken())
+		for {
+			if p.tt == ErrorToken || p.tt == CloseParenToken {
+				break
+			} else if p.tt == CommaToken {
+				p.next()
+			} else if p.tt == EllipsisToken {
+				nodes = append(nodes, p.parseToken())
+				nodes = append(nodes, p.parseAssignmentExpr())
+				break
+			} else {
+				nodes = append(nodes, p.parseAssignmentExpr())
+			}
+		}
+		if p.tt == CommaToken {
+			p.next()
+		}
+		if p.tt != CloseParenToken {
+			p.fail("left hand side expression", CloseParenToken)
+			return nil
+		}
+		nodes = append(nodes, p.parseToken())
+	} else if p.tt == OpenBracketToken {
+		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseExpr())
+		if p.tt != CloseBracketToken {
+			p.fail("left hand side expression", CloseBracketToken)
+			return nil
+		}
+		nodes = append(nodes, p.parseToken())
+	} else if p.tt == DotToken {
+		nodes = append(nodes, p.parseToken())
+		if !IsIdentifier(p.tt) {
+			p.fail("left hand side expression", IdentifierToken)
+			return nil
+		}
+		nodes = append(nodes, p.parseToken())
+	} else if p.tt == TemplateToken {
+		panic("not implemented")
+	} else {
+		p.fail("left hand side expression", OpenParenToken, OpenBracketToken, DotToken, TemplateToken)
+		return nil
+	}
+	return nodes
+}
+
+func (p *Parser) parseLeftHandSideExpr(nodes []Node) []Node {
+	for p.tt == NewToken {
+		nodes = append(nodes, p.parseToken())
+		if p.tt == DotToken {
+			nodes = append(nodes, p.parseToken())
+			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("target")) {
+				p.fail("left hand side expression", TargetToken)
+				return nil
 			}
 			nodes = append(nodes, p.parseToken())
-		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
-			// we allow the left-hand-side to be a full assignment expression instead of a left-hand-side expression, but that's fine
-			if et >= LeftHandSideExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
+			goto LHSEND
+		}
+	}
+
+	if p.tt == SuperToken {
+		nodes = append(nodes, p.parseToken())
+		if p.tt == TemplateToken {
+			p.fail("left hand side expression")
+		}
+		nodes = p.parseLeftHandSideExprEnd(nodes)
+	} else if p.tt == ImportToken {
+		nodes = append(nodes, p.parseToken())
+		if p.tt != OpenParenToken {
+			p.fail("left hand side expression", OpenParenToken)
+			return nil
+		}
+		p.next()
+		nodes = append(nodes, p.parseExpr())
+		if p.tt != CloseParenToken {
+			p.fail("left hand side expression", CloseParenToken)
+			return nil
+		}
+		p.next()
+	} else {
+		nodes = p.parsePrimaryExpr(nodes)
+	}
+
+LHSEND:
+	// parse arguments, [expression], .identifier, template at the end of member expressions and call expressions
+	for p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == DotToken || p.tt == TemplateToken {
+		nodes = p.parseLeftHandSideExprEnd(nodes)
+	}
+
+	// parse optional chaining at the end of left hand expressions
+	if p.tt == OptChainToken {
+		for p.tt == OptChainToken {
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
-			if et >= AssignmentExpr || p.tt != CommaToken {
-				return Node{ExprGrammar, nodes, 0, nil}
+			if IsIdentifier(p.tt) {
+				nodes = append(nodes, p.parseToken())
+				break
+			} else if p.tt == DotToken {
+				break
+			} else {
+				nodes = p.parseLeftHandSideExprEnd(nodes)
 			}
-		case NewToken, DotToken, SuperToken, ThisToken, NullToken, TrueToken, FalseToken, NumericToken, StringToken, TemplateToken, RegExpToken:
-			nodes = append(nodes, p.parseToken())
-		case CommaToken:
-			if et >= AssignmentExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
+		}
+		for p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == DotToken || p.tt == TemplateToken {
+			nodes = p.parseLeftHandSideExprEnd(nodes)
+		}
+	}
+	return nodes
+}
+
+func (p *Parser) parseAssignmentExpr() Node {
+	nodes := []Node{}
+	if p.tt == YieldToken {
+		nodes = append(nodes, p.parseToken())
+		if p.tt != ArrowToken {
+			if !p.prevLineTerminator {
+				if p.tt == MulToken {
+					nodes = append(nodes, p.parseToken())
+				}
+				nodes = append(nodes, p.parseAssignmentExpr())
 			}
-			nodes = append(nodes, p.parseToken())
-		case QuestionToken:
-			if et >= LeftHandSideExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
-			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
-			if p.tt != ColonToken {
-				p.fail("expression", ColonToken)
+			return Node{ExprGrammar, nodes, 0, nil}
+		}
+	} else if p.tt == AsyncToken {
+		nodes = append(nodes, p.parseToken())
+		if p.prevLineTerminator {
+			p.fail("async function expression")
+			return Node{}
+		}
+		if p.tt == FunctionToken {
+			nodes = p.parseFuncDecl(nodes)
+		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+			nodes = append(nodes, Node{BindingGrammar, []Node{p.parseToken()}, 0, nil})
+			if p.tt != ArrowToken {
+				p.fail("async arrow function expression", ArrowToken)
 				return Node{}
 			}
 			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseExpr(AssignmentExpr))
-			if et >= AssignmentExpr || p.tt != CommaToken {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
-		case OpenBracketToken:
-			// array literal and [expression]
-			nodes = append(nodes, p.parseToken())
-			for p.tt != CloseBracketToken && p.tt != ErrorToken {
-				if p.tt == EllipsisToken || p.tt == CommaToken {
-					nodes = append(nodes, p.parseToken())
-				} else {
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
-				}
-			}
-			nodes = append(nodes, p.parseToken())
-		case OpenBraceToken:
-			nodes = p.parseObjectLiteral(nodes)
-		case OpenParenToken:
-			// call arguments, or parenthesized expression and arrow parameter list
-			nodes = append(nodes, p.parseToken())
-			for p.tt != CloseParenToken && p.tt != ErrorToken {
-				if p.tt == EllipsisToken {
-					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseBinding())
-				} else if p.tt == CommaToken {
-					nodes = append(nodes, p.parseToken())
-				} else {
-					nodes = append(nodes, p.parseExpr(AssignmentExpr))
-				}
-			}
-			nodes = append(nodes, p.parseToken())
-		case ClassToken:
-			nodes = p.parseClassDecl(nodes)
-		case FunctionToken:
-			nodes = p.parseFuncDecl(nodes)
-		case ArrowToken:
-			if et >= LeftHandSideExpr {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
-			nodes = append(nodes, p.parseToken())
 			if p.tt == OpenBraceToken {
-				nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
+				nodes = append(nodes, p.parseBlockStmt("async arrow function expression"))
 			} else {
-				nodes = append(nodes, p.parseExpr(AssignmentExpr))
+				nodes = append(nodes, p.parseAssignmentExpr())
 			}
-			if et >= AssignmentExpr || p.tt != CommaToken {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
-		case AsyncToken:
-			// async function
-			nodes = append(nodes, p.parseToken())
-			if !p.prevLineTerminator {
-				if p.tt == FunctionToken {
-					nodes = p.parseFuncDecl(nodes)
-				} else if et >= LeftHandSideExpr {
-					p.fail("async function expression", FunctionToken)
-					return Node{}
-				} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-					nodes = append(nodes, p.parseToken())
-					if p.tt != ArrowToken {
-						p.fail("async arrow function expression", ArrowToken)
-						return Node{}
-					}
-					nodes = append(nodes, p.parseToken())
-					if p.tt == OpenBraceToken {
-						nodes = append(nodes, p.parseBlockStmt("async arrow function expression"))
-					} else {
-						nodes = append(nodes, p.parseExpr(AssignmentExpr))
-					}
-					if et >= AssignmentExpr || p.tt != CommaToken {
-						return Node{ExprGrammar, nodes, 0, nil}
-					}
-				} else {
-					p.fail("async function expression", FunctionToken, IdentifierToken)
-					return Node{}
-				}
-			}
-		case YieldToken:
-			ident := p.parseToken()
-			if p.tt == ArrowToken {
-				nodes = append(nodes, Node{BindingGrammar, []Node{ident}, 0, nil})
-			} else {
-				nodes = append(nodes, ident)
-				if !p.prevLineTerminator {
-					if p.tt == MulToken {
-						nodes = append(nodes, p.parseToken())
-						nodes = append(nodes, p.parseExpr(AssignmentExpr))
-					} else if expr := p.parseExpr(AssignmentExpr); len(expr.nodes) != 0 {
-						nodes = append(nodes, expr)
-					}
-				}
-				if et >= AssignmentExpr || p.tt != CommaToken {
-					// quit if assignment or left-hand-side expression, or if not followed by a comma
-					return Node{ExprGrammar, nodes, 0, nil}
-				}
-			}
-		default:
-			if IsIdentifier(p.tt) && (et != StmtRegularExpr || p.tt != WhileToken && p.tt != ElseToken) {
-				// allow keywords to be used in expressions
-				ident := p.parseToken()
-				if p.tt == ArrowToken {
-					nodes = append(nodes, Node{BindingGrammar, []Node{ident}, 0, nil})
-				} else {
-					nodes = append(nodes, ident)
-					if ident.tt == NewToken || p.tt == DotToken || p.tt == OpenBracketToken || p.tt == TemplateToken {
-						continue
-					}
-				}
-			} else {
-				return Node{ExprGrammar, nodes, 0, nil}
-			}
+		} else {
+			p.fail("async function expression", FunctionToken, IdentifierToken)
+			return Node{}
 		}
-		if et >= LeftHandSideExpr {
-			// quit if left-hand-side expression and we parsed one element
-			// except if element was 'new' or is followed by a template, '.' or '['
-			return Node{ExprGrammar, nodes, 0, nil}
+		return Node{ExprGrammar, nodes, 0, nil}
+	}
+
+LHS:
+	nodes = p.parseLeftHandSideExpr(nodes)
+	switch p.tt {
+	case NullishToken, OrToken, AndToken, BitOrToken, BitXorToken, BitAndToken, EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken, LtToken, GtToken, LtEqToken, GtEqToken, LtLtToken, GtGtToken, GtGtGtToken, AddToken, SubToken, MulToken, DivToken, ModToken, ExpToken, NotToken, BitNotToken, IncrToken, DecrToken, InstanceofToken, InToken, TypeofToken, VoidToken, DeleteToken:
+		nodes = append(nodes, p.parseToken())
+		goto LHS
+	case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
+		// we allow the left-hand-side to be a full assignment expression instead of a left-hand-side expression, but that's fine
+		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseAssignmentExpr())
+	case QuestionToken:
+		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseAssignmentExpr())
+		if p.tt != ColonToken {
+			p.fail("conditional expression", ColonToken)
+			return Node{}
+		}
+		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseAssignmentExpr())
+	case ArrowToken:
+		// we allow the start of an arrow function expressions to be anything in a left-hand-side expression, but that should be fine
+		if len(nodes) == 0 {
+			p.fail("arrow function expression")
+			return Node{}
+		}
+		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
+		if nodes[len(nodes)-1].tt == IdentifierToken || nodes[len(nodes)-1].tt == YieldToken || nodes[len(nodes)-1].tt == AwaitToken {
+			nodes[len(nodes)-1] = Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}
+		} else if nodes[len(nodes)-1].tt != CloseParenToken {
+			p.fail("arrow function expression")
+			return Node{}
+		}
+		nodes = append(nodes, p.parseToken())
+		if p.tt == OpenBraceToken {
+			nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
+		} else {
+			nodes = append(nodes, p.parseAssignmentExpr())
 		}
 	}
+	return Node{ExprGrammar, nodes, 0, nil}
+}
+
+func (p *Parser) parseExpr() Node {
+	node := p.parseAssignmentExpr()
+	for p.tt == CommaToken {
+		p.next()
+		expr := p.parseAssignmentExpr()
+		if len(expr.nodes) == 0 {
+			p.fail("assignment expression")
+			return Node{}
+		}
+		node.nodes = append(node.nodes, expr.nodes...)
+	}
+	return node
 }
 
 func (p *Parser) parseToken() Node {
