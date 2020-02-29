@@ -56,10 +56,10 @@ func TestTokens(t *testing.T) {
 
 		{"0b0101 0o0707 0b17", TTs{NumericToken, NumericToken, NumericToken, NumericToken}},
 		{"`template`", TTs{TemplateToken}},
-		{"`a${x+y}b`", TTs{TemplateToken, IdentifierToken, AddToken, IdentifierToken, TemplateToken}},
+		{"`a${x+y}b`", TTs{TemplateStartToken, IdentifierToken, AddToken, IdentifierToken, TemplateEndToken}},
 		{"`temp\nlate`", TTs{TemplateToken}},
-		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateToken, OpenBraceToken, IdentifierToken, ColonToken, NumericToken, CloseBraceToken, TemplateToken, IdentifierToken, TemplateToken, NumericToken, TemplateToken, TemplateToken}},
-		{"`tmpl ${ a ? '' : `tmpl2 ${b ? 'b' : 'c'}` }`", TTs{TemplateToken, IdentifierToken, QuestionToken, StringToken, ColonToken, TemplateToken, IdentifierToken, QuestionToken, StringToken, ColonToken, StringToken, TemplateToken, TemplateToken}},
+		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateStartToken, OpenBraceToken, IdentifierToken, ColonToken, NumericToken, CloseBraceToken, TemplateMiddleToken, IdentifierToken, TemplateStartToken, NumericToken, TemplateEndToken, TemplateEndToken}},
+		{"`tmpl ${ a ? '' : `tmpl2 ${b ? 'b' : 'c'}` }`", TTs{TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, StringToken, TemplateEndToken, TemplateEndToken}},
 
 		// early endings
 		{"'string", TTs{ErrorToken}},

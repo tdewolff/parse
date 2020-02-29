@@ -28,6 +28,9 @@ const (
 	NumericToken
 	StringToken
 	TemplateToken
+	TemplateStartToken
+	TemplateMiddleToken
+	TemplateEndToken
 	RegExpToken
 )
 
@@ -183,6 +186,12 @@ func (tt TokenType) String() string {
 		return "String"
 	case TemplateToken:
 		return "Template"
+	case TemplateStartToken:
+		return "TemplateStart"
+	case TemplateMiddleToken:
+		return "TemplateMiddle"
+	case TemplateEndToken:
+		return "TemplateEnd"
 	case RegExpToken:
 		return "RegExp"
 	case PunctuatorToken:
@@ -484,8 +493,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	case '}':
 		l.level--
 		if len(l.templateLevels) != 0 && l.level == l.templateLevels[len(l.templateLevels)-1] {
-			l.consumeTemplateToken()
-			return TemplateToken, l.r.Shift()
+			return l.consumeTemplateToken(), l.r.Shift()
 		}
 		l.r.Move(1)
 		return CloseBraceToken, l.r.Shift()
@@ -552,8 +560,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		return LineTerminatorToken, l.r.Shift()
 	case '`':
 		l.templateLevels = append(l.templateLevels, l.level)
-		l.consumeTemplateToken()
-		return TemplateToken, l.r.Shift()
+		return l.consumeTemplateToken(), l.r.Shift()
 	default:
 		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
@@ -1023,19 +1030,26 @@ func (l *Lexer) consumeRegExpToken() bool {
 	return true
 }
 
-func (l *Lexer) consumeTemplateToken() {
+func (l *Lexer) consumeTemplateToken() TokenType {
 	// assume to be on ` or } when already within template
+	continuation := l.r.Peek(0) == '}'
 	l.r.Move(1)
 	for {
 		c := l.r.Peek(0)
 		if c == '`' {
 			l.templateLevels = l.templateLevels[:len(l.templateLevels)-1]
 			l.r.Move(1)
-			return
+			if continuation {
+				return TemplateEndToken
+			}
+			return TemplateToken
 		} else if c == '$' && l.r.Peek(1) == '{' {
 			l.level++
 			l.r.Move(2)
-			return
+			if continuation {
+				return TemplateMiddleToken
+			}
+			return TemplateStartToken
 		} else if c == '\\' {
 			l.r.Move(1)
 			if c := l.r.Peek(0); c != 0 {
@@ -1043,7 +1057,10 @@ func (l *Lexer) consumeTemplateToken() {
 			}
 			continue
 		} else if c == 0 && l.r.Err() != nil {
-			return
+			if continuation {
+				return TemplateEndToken
+			}
+			return TemplateToken
 		}
 		l.r.Move(1)
 	}

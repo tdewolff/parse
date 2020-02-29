@@ -97,6 +97,9 @@ func TestParse(t *testing.T) {
 		{"class { async * a(b) {} }", "Stmt(class Method(async * a Binding(b) Stmt({ })))"},
 		{"class { static a(b) {} }", "Stmt(class Method(static a Binding(b) Stmt({ })))"},
 		{"class { [5](b) {} }", "Stmt(class Method([ Expr(5) ] Binding(b) Stmt({ })))"},
+		{"`tmpl`", "Stmt(Expr(`tmpl`))"},
+		{"`tmpl${x}`", "Stmt(Expr(`tmpl${ Expr(x) }`))"},
+		{"`tmpl` x `tmpl`", "Stmt(Expr(`tmpl`)) Stmt(Expr(x `tmpl`))"},
 
 		// edge-cases
 		{"let\nawait 0", "Stmt(let Binding(await)) Stmt(Expr(0))"},
@@ -154,8 +157,8 @@ func TestParse(t *testing.T) {
 		{"x = async a => {a++}", "Stmt(Expr(x = Expr(async Binding(a) => Stmt({ Stmt(Expr(a ++)) }))))"},
 		{"x = a??b", "Stmt(Expr(x = Expr(a ?? b)))"},
 		{"x = import(a)", "Stmt(Expr(x = Expr(import Expr(a))))"},
-		{"x = ?.[a]?.b", "Stmt(Expr(x = Expr(?. [ Expr(a) ] ?. b)))"},
-		{"x = ?.a?.b", "Stmt(Expr(x = Expr(?. a))) Stmt(Expr(?. b))"},
+		{"x = a?.b?.c.d", "Stmt(Expr(x = Expr(a ?. b ?. c . d)))"},
+		{"x = a?.[b]?.c", "Stmt(Expr(x = Expr(a ?. [ Expr(b) ] ?. c)))"},
 		{"x = super(a)(b)(c)", "Stmt(Expr(x = Expr(super ( Expr(a) ) ( Expr(b) ) ( Expr(c) ))))"},
 
 		// regular expressions
@@ -173,13 +176,11 @@ func TestParse(t *testing.T) {
 		{"x = function() {} /42/i", "Stmt(Expr(x = Expr(function Stmt({ }) / 42 / i)))"},
 		{"x = function foo() {} /42/i", "Stmt(Expr(x = Expr(function foo Stmt({ }) / 42 / i)))"},
 		{"x = /foo/", "Stmt(Expr(x = Expr(/foo/)))"},
-		{"x = x / foo /", "Stmt(Expr(x = Expr(x / foo /)))"},
 		{"x = (/foo/)", "Stmt(Expr(x = Expr(( Expr(/foo/) ))))"},
 		{"x = {a: /foo/}", "Stmt(Expr(x = Expr({ a : Expr(/foo/) })))"},
+		{"x = (a) / foo", "Stmt(Expr(x = Expr(( Expr(a) ) / foo)))"},
 		{"do { /foo/ } while (a)", "Stmt(do Stmt({ Stmt(Expr(/foo/)) }) while Expr(a))"},
 		{"if (true) /foo/", "Stmt(if Expr(true) Stmt(Expr(/foo/)))"},
-		{"x = (a) / foo", "Stmt(Expr(x = Expr(( Expr(a) ) / foo)))"},
-		{"bar (true) /foo/", "Stmt(Expr(bar ( Expr(true) ) / foo /))"},
 		{"/abc/ ? /def/ : /geh/", "Stmt(Expr(/abc/ ? Expr(/def/) : Expr(/geh/)))"},
 		{"yield /abc/", "Stmt(Expr(yield Expr(/abc/)))"},
 		{"yield * /abc/", "Stmt(Expr(yield * Expr(/abc/)))"},
@@ -207,7 +208,7 @@ func TestParseError(t *testing.T) {
 		js  string
 		err string
 	}{
-		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in assignment expression"}, // block stmt
+		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
 		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
 		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
 		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
@@ -231,7 +232,8 @@ func TestParseError(t *testing.T) {
 		{"switch(a", "expected ')' instead of EOF in switch statement"},
 		{"switch(a)", "expected '{' instead of EOF in switch statement"},
 		{"switch(a){bad:5}", "expected 'case' or 'default' instead of 'bad' in switch statement"},
-		{"switch(a){case", "expected ':' instead of EOF in switch statement"},
+		{"switch(a){case", "unexpected EOF in expression"},
+		{"switch(a){case a", "expected ':' instead of EOF in switch statement"},
 		{"async", "expected 'function' instead of EOF in async function statement"},
 		{"try{}catch(a", "expected ')' instead of EOF in try statement"},
 		{"function", "expected '(' instead of EOF in function declaration"},
@@ -253,15 +255,23 @@ func TestParseError(t *testing.T) {
 		{"x={[a", "expected ']' instead of EOF in object literal"},
 		{"x={[a]", "expected ':' or '(' instead of EOF in object literal"},
 		{"x={+", "expected '=', ',', '}', '...', 'Identifier', 'String', 'Numeric', or '[' instead of '+' in object literal"},
-		{"class a extends ||", "expected '{' instead of '||' in class statement"},
-		{"class a extends =", "expected '{' instead of '=' in class statement"},
-		{"class a extends ?", "expected '{' instead of '?' in class statement"},
-		{"class a extends =>", "expected '{' instead of '=>' in class statement"},
+		{"class a extends ||", "unexpected '||' in expression"},
+		{"class a extends =", "unexpected '=' in expression"},
+		{"class a extends ?", "unexpected '?' in expression"},
+		{"class a extends =>", "unexpected '=>' in expression"},
 		{"class a extends async", "expected 'function' instead of EOF in async function expression"},
 		{"x=a?b", "expected ':' instead of EOF in conditional expression"},
 		{"x=async a", "expected '=>' instead of EOF in async arrow function expression"},
 		{"x=async", "expected 'function' or 'Identifier' instead of EOF in async function expression"},
-		{"x = ?.?.a", "expected '(', '[', '.', or 'Template' instead of '?.' in left hand side expression"},
+		{"x=?.?.b", "unexpected '?.' in expression"},
+		{"x=a?.?.b", "expected 'Identifier', '(', '[', or 'Template' instead of '?.' in left hand side expression"},
+		{"x=a?..b", "expected 'Identifier', '(', '[', or 'Template' instead of '.' in left hand side expression"},
+		{"`tmp${", "unexpected EOF in expression"},
+		{"`tmp${x", "expected 'Template' instead of EOF in template literal"},
+
+		// regular expressions
+		{"x = x / foo /", "unexpected EOF in expression"},
+		{"bar (true) /foo/", "unexpected EOF in expression"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
