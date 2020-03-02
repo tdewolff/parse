@@ -119,7 +119,9 @@ func TestParse(t *testing.T) {
 		{"x = {await}", "Stmt(Expr(x = Expr({ await })))"},
 		{"x = {async a(b){}}", "Stmt(Expr(x = Expr({ Method(async a Binding(b) Stmt({ })) })))"},
 		{"async function(){ x = {await: 5} }", "Stmt(async function Stmt({ Stmt(Expr(x = Expr({ await : Expr(5) }))) }))"},
+		{"async function(){ x = await a }", "Stmt(async function Stmt({ Stmt(Expr(x = Expr(await a))) }))"},
 		{"for (var a in b) {}", "Stmt(for Stmt(var Binding(a)) in Expr(b) Stmt({ }))"},
+		{"for (a in b) {}", "Stmt(for Expr(a) in Expr(b) Stmt({ }))"},
 		{"for (a = b;;) {}", "Stmt(for Expr(a = Expr(b)) ; ; Stmt({ }))"},
 		{"!!a", "Stmt(Expr(! ! a))"},
 
@@ -179,6 +181,7 @@ func TestParse(t *testing.T) {
 		{"x = +a", "Stmt(Expr(x = Expr(+ a)))"},
 		{"x = !a", "Stmt(Expr(x = Expr(! a)))"},
 		{"x = delete a", "Stmt(Expr(x = Expr(delete a)))"},
+		{"x = a in b", "Stmt(Expr(x = Expr(a in b)))"},
 		{"class a extends async function(){}{}", "Stmt(class a extends Expr(async function Stmt({ })))"},
 
 		// regular expressions
@@ -330,6 +333,8 @@ func TestParseError(t *testing.T) {
 		{"for b", "expected '(' instead of 'b' in for statement"},
 		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
 		{"for (var a in b;) {}", "expected ')' instead of ';' in for statement"},
+		{"async function (a) { class a extends await", "unexpected 'await' in expression"},
+		{"x = await\n=> a++", "unexpected '=>' in expression"},
 
 		// regular expressions
 		{"x = x / foo /", "unexpected EOF in expression"},

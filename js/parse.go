@@ -839,10 +839,10 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 			async := false
 			property := []Node{}
 			for p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) {
-				property = append(property, p.parseToken())
 				if p.tt == AsyncToken {
 					async = true
 				}
+				property = append(property, p.parseToken())
 			}
 
 			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (property[0].tt == IdentifierToken || property[0].tt == YieldToken || property[0].tt == AwaitToken && p.asyncLevel == 0) {
@@ -973,7 +973,7 @@ func (p *Parser) parsePrimaryExpr(nodes []Node) []Node {
 			}
 		}
 	default:
-		p.fail("expression")
+		p.fail("expression!")
 		return nil
 	}
 	return nodes
@@ -1184,7 +1184,7 @@ ASSIGNSWITCH:
 	case ArrowToken:
 		// we allow the start of an arrow function expressions to be anything in a left-hand-side expression, but that should be fine
 		if p.prevLineTerminator {
-			p.fail("arrow function expression")
+			p.fail("expression")
 			return Node{}
 		}
 		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
