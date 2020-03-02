@@ -153,6 +153,8 @@ const (
 	GetToken
 	SetToken
 	TargetToken
+	AsToken
+	FromToken
 )
 
 func IsPunctuator(tt TokenType) bool {
@@ -410,6 +412,10 @@ func (tt TokenType) String() string {
 		return "set"
 	case TargetToken:
 		return "target"
+	case AsToken:
+		return "as"
+	case FromToken:
+		return "from"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
