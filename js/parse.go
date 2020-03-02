@@ -12,29 +12,29 @@ import (
 // TODO: clarify usage of yield, is it a YieldExpression or an Identifier?
 
 type Node struct {
-	gt    GrammarType
-	nodes []Node
+	GrammarType
+	Nodes []Node
 
-	// filled if gt == TokenGrammar
-	tt   TokenType
-	data []byte
+	// filled if GrammarType == TokenGrammar
+	TokenType
+	Data []byte
 }
 
 func (n Node) String() string {
-	if n.gt == TokenGrammar {
-		return string(n.data)
+	if n.GrammarType == TokenGrammar {
+		return string(n.Data)
 	}
 	s := ""
-	for _, child := range n.nodes {
+	for _, child := range n.Nodes {
 		s += " " + child.String()
 	}
 	if 0 < len(s) {
 		s = s[1:]
 	}
-	if n.gt == ModuleGrammar {
+	if n.GrammarType == ModuleGrammar {
 		return s
 	}
-	return n.gt.String() + "(" + s + ")"
+	return n.GrammarType.String() + "(" + s + ")"
 }
 
 // GrammarType determines the type of grammar.
@@ -43,9 +43,8 @@ type GrammarType uint32
 // GrammarType values.
 const (
 	ErrorGrammar GrammarType = iota // extra token when errors occur
-	ModuleGrammar
 	TokenGrammar
-	CommentGrammar
+	ModuleGrammar
 	BindingGrammar
 	ClauseGrammar
 	MethodGrammar
@@ -58,12 +57,10 @@ func (tt GrammarType) String() string {
 	switch tt {
 	case ErrorGrammar:
 		return "Error"
-	case ModuleGrammar:
-		return "Module"
 	case TokenGrammar:
 		return "Token"
-	case CommentGrammar:
-		return "Comment"
+	case ModuleGrammar:
+		return "Module"
 	case BindingGrammar:
 		return "Binding"
 	case ClauseGrammar:
@@ -105,6 +102,9 @@ func Parse(r io.Reader) (Node, error) {
 	module := p.parseModule()
 	if p.err == nil {
 		p.err = p.l.Err()
+	}
+	if p.err == io.EOF {
+		p.err = nil
 	}
 	return module, p.err
 }
@@ -225,7 +225,7 @@ func (p *Parser) parseImportStmt() Node {
 					nodes = append(nodes, p.parseToken())
 				}
 			}
-			if nodes[len(nodes)-1].tt == CommaToken {
+			if nodes[len(nodes)-1].TokenType == CommaToken {
 				nodes = nodes[:len(nodes)-1]
 			}
 			if p.tt != CloseBraceToken {
@@ -291,7 +291,7 @@ func (p *Parser) parseExportStmt() Node {
 					nodes = append(nodes, p.parseToken())
 				}
 			}
-			if nodes[len(nodes)-1].tt == CommaToken {
+			if nodes[len(nodes)-1].TokenType == CommaToken {
 				nodes = nodes[:len(nodes)-1]
 			}
 			if p.tt != CloseBraceToken {
@@ -465,8 +465,8 @@ func (p *Parser) parseStmt() Node {
 	case IdentifierToken, YieldToken, AwaitToken:
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
 		expr := p.parseExpr()
-		if p.tt == ColonToken && len(expr.nodes) == 1 && (p.tt != AwaitToken || p.asyncLevel == 0) {
-			nodes = append(nodes, expr.nodes[0])
+		if p.tt == ColonToken && len(expr.Nodes) == 1 && (p.tt != AwaitToken || p.asyncLevel == 0) {
+			nodes = append(nodes, expr.Nodes[0])
 			p.next()
 			nodes = append(nodes, p.parseStmt())
 		} else {
@@ -713,8 +713,8 @@ func (p *Parser) parseBindingElement() Node {
 	// binding element
 	binding := p.parseBinding()
 	if p.tt == EqToken {
-		binding.nodes = append(binding.nodes, p.parseToken())
-		binding.nodes = append(binding.nodes, p.parseAssignmentExpr())
+		binding.Nodes = append(binding.Nodes, p.parseToken())
+		binding.Nodes = append(binding.Nodes, p.parseAssignmentExpr())
 	}
 	return binding
 }
@@ -845,13 +845,13 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 				property = append(property, p.parseToken())
 			}
 
-			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (property[0].tt == IdentifierToken || property[0].tt == YieldToken || property[0].tt == AwaitToken && p.asyncLevel == 0) {
+			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (property[0].TokenType == IdentifierToken || property[0].TokenType == YieldToken || property[0].TokenType == AwaitToken && p.asyncLevel == 0) {
 				nodes = append(nodes, property[0])
 				if p.tt == EqToken {
 					nodes = append(nodes, p.parseToken())
 					nodes = append(nodes, p.parseAssignmentExpr())
 				}
-			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
+			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].TokenType) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
 				if p.tt == StringToken || p.tt == NumericToken {
 					property = append(property, p.parseToken())
 				} else if p.tt == OpenBracketToken {
@@ -1141,8 +1141,20 @@ func (p *Parser) parseAssignmentExpr() Node {
 	}
 
 ASSIGNLOOP:
-	if p.tt == IncrToken || p.tt == DecrToken || p.tt == DeleteToken || p.tt == VoidToken || p.tt == TypeofToken || p.tt == AddToken || p.tt == SubToken || p.tt == BitNotToken || p.tt == NotToken {
+	if p.tt == DeleteToken || p.tt == VoidToken || p.tt == TypeofToken || p.tt == BitNotToken || p.tt == NotToken {
 		nodes = append(nodes, p.parseToken())
+		goto ASSIGNLOOP
+	} else if p.tt == IncrToken {
+		nodes = append(nodes, p.parseTokenAs(PreIncrToken))
+		goto ASSIGNLOOP
+	} else if p.tt == DecrToken {
+		nodes = append(nodes, p.parseTokenAs(PreDecrToken))
+		goto ASSIGNLOOP
+	} else if p.tt == AddToken {
+		nodes = append(nodes, p.parseTokenAs(PosToken))
+		goto ASSIGNLOOP
+	} else if p.tt == SubToken {
+		nodes = append(nodes, p.parseTokenAs(NegToken))
 		goto ASSIGNLOOP
 	} else if p.tt == AwaitToken && p.asyncLevel != 0 {
 		// handle AwaitExpression, otherwise await is handled by primary expression
@@ -1153,8 +1165,12 @@ ASSIGNLOOP:
 		goto ASSIGNLOOP
 	}
 	nodes = p.parseLeftHandSideExpr(nodes)
-	if !p.prevLineTerminator && (p.tt == IncrToken || p.tt == DecrToken) {
-		nodes = append(nodes, p.parseToken())
+	if !p.prevLineTerminator {
+		if p.tt == IncrToken {
+			nodes = append(nodes, p.parseTokenAs(PostIncrToken))
+		} else if p.tt == DecrToken {
+			nodes = append(nodes, p.parseTokenAs(PostDecrToken))
+		}
 	}
 
 ASSIGNSWITCH:
@@ -1188,9 +1204,9 @@ ASSIGNSWITCH:
 			return Node{}
 		}
 		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
-		if len(nodes) == 1 && nodes[len(nodes)-1].tt == IdentifierToken || nodes[len(nodes)-1].tt == YieldToken || nodes[len(nodes)-1].tt == AwaitToken {
+		if len(nodes) == 1 && nodes[len(nodes)-1].TokenType == IdentifierToken || nodes[len(nodes)-1].TokenType == YieldToken || nodes[len(nodes)-1].TokenType == AwaitToken {
 			nodes[len(nodes)-1] = Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}
-		} else if nodes[len(nodes)-1].tt != CloseParenToken {
+		} else if nodes[len(nodes)-1].TokenType != CloseParenToken {
 			p.fail("arrow function expression")
 			return Node{}
 		}
@@ -1208,7 +1224,7 @@ func (p *Parser) parseExpr() Node {
 	node := p.parseAssignmentExpr()
 	for p.tt == CommaToken {
 		p.next()
-		node.nodes = append(node.nodes, p.parseAssignmentExpr().nodes...)
+		node.Nodes = append(node.Nodes, p.parseAssignmentExpr().Nodes...)
 	}
 	return node
 }
@@ -1216,5 +1232,11 @@ func (p *Parser) parseExpr() Node {
 func (p *Parser) parseToken() Node {
 	node := Node{TokenGrammar, nil, p.tt, p.data}
 	p.next()
+	return node
+}
+
+func (p *Parser) parseTokenAs(tt TokenType) Node {
+	node := p.parseToken()
+	node.TokenType = tt
 	return node
 }

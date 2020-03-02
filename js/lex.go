@@ -155,6 +155,12 @@ const (
 	TargetToken
 	AsToken
 	FromToken
+	PosToken      // +a
+	NegToken      // -a
+	PreIncrToken  // ++a
+	PreDecrToken  // --a
+	PostIncrToken // a++
+	PostDecrToken // a--
 )
 
 func IsPunctuator(tt TokenType) bool {
@@ -416,6 +422,18 @@ func (tt TokenType) String() string {
 		return "as"
 	case FromToken:
 		return "from"
+	case PosToken:
+		return "+"
+	case NegToken:
+		return "-"
+	case PreIncrToken:
+		return "++"
+	case PreDecrToken:
+		return "--"
+	case PostIncrToken:
+		return "++"
+	case PostDecrToken:
+		return "--"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
