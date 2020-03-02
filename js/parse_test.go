@@ -11,23 +11,6 @@ import (
 
 ////////////////////////////////////////////////////////////////
 
-func (n Node) String() string {
-	if n.gt == TokenGrammar {
-		return string(n.data)
-	}
-	s := ""
-	for _, child := range n.nodes {
-		s += " " + child.String()
-	}
-	if 0 < len(s) {
-		s = s[1:]
-	}
-	if n.gt == ModuleGrammar {
-		return s
-	}
-	return n.gt.String() + "(" + s + ")"
-}
-
 func TestParse(t *testing.T) {
 	var tests = []struct {
 		js       string
@@ -35,6 +18,7 @@ func TestParse(t *testing.T) {
 	}{
 		// grammar
 		{"", ""},
+		{"/* comment */", ""},
 		{"{}", "Stmt({ })"},
 		{"var a = b;", "Stmt(var Binding(a = Expr(b)))"},
 		{"const a = b;", "Stmt(const Binding(a = Expr(b)))"},
@@ -130,6 +114,14 @@ func TestParse(t *testing.T) {
 		{"yield yield a", "Stmt(Expr(yield Expr(yield Expr(a))))"},
 		{"yield * yield * a", "Stmt(Expr(yield * Expr(yield * Expr(a))))"},
 		{"if (a) 1 else if (b) 2 else 3", "Stmt(if Expr(a) Stmt(Expr(1)) else Stmt(if Expr(b) Stmt(Expr(2)) else Stmt(Expr(3))))"},
+		{"x = await => a++", "Stmt(Expr(x = Expr(Binding(await) => Expr(a ++))))"},
+		{"async function(){x = await => a++}", "Stmt(async function Stmt({ Stmt(Expr(x = Expr(Binding(await) => Expr(a ++)))) }))"},
+		{"x = {await}", "Stmt(Expr(x = Expr({ await })))"},
+		{"x = {async a(b){}}", "Stmt(Expr(x = Expr({ Method(async a Binding(b) Stmt({ })) })))"},
+		{"async function(){ x = {await: 5} }", "Stmt(async function Stmt({ Stmt(Expr(x = Expr({ await : Expr(5) }))) }))"},
+		{"for (var a in b) {}", "Stmt(for Stmt(var Binding(a)) in Expr(b) Stmt({ }))"},
+		{"for (a = b;;) {}", "Stmt(for Expr(a = Expr(b)) ; ; Stmt({ }))"},
+		{"!!a", "Stmt(Expr(! ! a))"},
 
 		// bindings
 		{"let []", "Stmt(let Binding([ ]))"},
@@ -172,7 +164,6 @@ func TestParse(t *testing.T) {
 		{"x = a => a++", "Stmt(Expr(x = Expr(Binding(a) => Expr(a ++))))"},
 		{"x = yield => a++", "Stmt(Expr(x = Expr(Binding(yield) => Expr(a ++))))"},
 		{"x = yield => {a++}", "Stmt(Expr(x = Expr(Binding(yield) => Stmt({ Stmt(Expr(a ++)) }))))"},
-		{"x = await => a++", "Stmt(Expr(x = Expr(Binding(await) => Expr(a ++))))"},
 		{"x = (a) => a++", "Stmt(Expr(x = Expr(( Expr(a) ) => Expr(a ++))))"},
 		{"x = (a) => {a++}", "Stmt(Expr(x = Expr(( Expr(a) ) => Stmt({ Stmt(Expr(a ++)) }))))"},
 		{"x = async a => a++", "Stmt(Expr(x = Expr(async Binding(a) => Expr(a ++))))"},
@@ -185,6 +176,9 @@ func TestParse(t *testing.T) {
 		{"x = a(a,b,...c,)", "Stmt(Expr(x = Expr(a ( Expr(a) Expr(b) ... Expr(c) ))))"},
 		{"x = new new.target", "Stmt(Expr(x = Expr(new new . target)))"},
 		{"x = ++a", "Stmt(Expr(x = Expr(++ a)))"},
+		{"x = +a", "Stmt(Expr(x = Expr(+ a)))"},
+		{"x = !a", "Stmt(Expr(x = Expr(! a)))"},
+		{"x = delete a", "Stmt(Expr(x = Expr(delete a)))"},
 		{"class a extends async function(){}{}", "Stmt(class a extends Expr(async function Stmt({ })))"},
 
 		// regular expressions
@@ -210,6 +204,14 @@ func TestParse(t *testing.T) {
 		{"/abc/ ? /def/ : /geh/", "Stmt(Expr(/abc/ ? Expr(/def/) : Expr(/geh/)))"},
 		{"yield /abc/", "Stmt(Expr(yield Expr(/abc/)))"},
 		{"yield * /abc/", "Stmt(Expr(yield * Expr(/abc/)))"},
+
+		// ASI
+		{"return a", "Stmt(return Expr(a))"},
+		{"return; a", "Stmt(return) Stmt(Expr(a))"},
+		{"return\na", "Stmt(return) Stmt(Expr(a))"},
+		{"return /*comment*/ a", "Stmt(return Expr(a))"},
+		{"return /*com\nment*/ a", "Stmt(return) Stmt(Expr(a))"},
+		{"return //comment\n a", "Stmt(return) Stmt(Expr(a))"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -234,14 +236,6 @@ func TestParseError(t *testing.T) {
 		js  string
 		err string
 	}{
-		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
-		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
-		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
-		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
-		{"for", "expected '(' instead of EOF in for statement"},
-		{"for b", "expected '(' instead of 'b' in for statement"},
-		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
-
 		{"if", "expected '(' instead of EOF in if statement"},
 		{"if(a", "expected ')' instead of EOF in if statement"},
 		{"with", "expected '(' instead of EOF in with statement"},
@@ -326,6 +320,16 @@ func TestParseError(t *testing.T) {
 		{"export {} from", "expected 'String' instead of EOF in export statement"},
 		{"export async", "expected 'function' instead of EOF in export statement"},
 		{"export default async", "expected 'function' instead of EOF in export statement"},
+
+		// specific cases
+		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
+		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
+		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
+		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
+		{"for", "expected '(' instead of EOF in for statement"},
+		{"for b", "expected '(' instead of 'b' in for statement"},
+		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
+		{"for (var a in b;) {}", "expected ')' instead of ';' in for statement"},
 
 		// regular expressions
 		{"x = x / foo /", "unexpected EOF in expression"},

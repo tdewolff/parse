@@ -23,8 +23,8 @@ const (
 	ErrorToken TokenType = iota // extra token when errors occur
 	WhitespaceToken
 	LineTerminatorToken // \r \n \r\n
-	SingleLineCommentToken
-	MultiLineCommentToken // token for comments with line terminators (not just any /*block*/)
+	CommentToken
+	CommentLineTerminatorToken
 	NumericToken
 	StringToken
 	TemplateToken
@@ -178,10 +178,10 @@ func (tt TokenType) String() string {
 		return "Whitespace"
 	case LineTerminatorToken:
 		return "LineTerminator"
-	case SingleLineCommentToken:
-		return "SingleLineComment"
-	case MultiLineCommentToken:
-		return "MultiLineComment"
+	case CommentToken:
+		return "Comment"
+	case CommentLineTerminatorToken:
+		return "CommentLineTerminator"
 	case NumericToken:
 		return "Numeric"
 	case StringToken:
@@ -523,7 +523,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		return BitNotToken, l.r.Shift()
 	case '<', '-':
 		if l.consumeHTMLLikeCommentToken(prevLineTerminator) {
-			return SingleLineCommentToken, l.r.Shift()
+			return CommentToken, l.r.Shift()
 		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
 		}
@@ -740,11 +740,10 @@ func (l *Lexer) consumeCommentToken() TokenType {
 		// single line comment
 		l.r.Move(2)
 		l.consumeSingleLineComment()
-		return SingleLineCommentToken
+		return CommentToken
 	} else if c == '*' {
-		// block comment (potentially multiline)
-		tt := SingleLineCommentToken
 		l.r.Move(2)
+		tt := CommentToken
 		for {
 			c := l.r.Peek(0)
 			if c == '*' && l.r.Peek(1) == '/' {
@@ -753,8 +752,8 @@ func (l *Lexer) consumeCommentToken() TokenType {
 			} else if c == 0 && l.r.Err() != nil {
 				break
 			} else if l.consumeLineTerminator() {
-				tt = MultiLineCommentToken
 				l.prevLineTerminator = true
+				tt = CommentLineTerminatorToken
 			} else {
 				l.r.Move(1)
 			}
