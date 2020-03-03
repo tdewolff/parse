@@ -684,7 +684,7 @@ func (p *Parser) parseMethodDef() Node {
 		nodes = append(nodes, p.parseToken())
 	}
 
-	if IsIdentifier(p.tt) || p.tt == StringToken || p.tt == NumericToken {
+	if IsIdentifier(p.tt) || p.tt == StringToken || IsNumeric(p.tt) {
 		nodes = append(nodes, p.parseToken())
 	} else if p.tt == OpenBracketToken {
 		nodes = append(nodes, p.parseToken())
@@ -787,7 +787,7 @@ func (p *Parser) parseBinding() Node {
 					}
 					nodes = append(nodes, Node{BindingGrammar, binding, 0, nil})
 				}
-			} else if IsIdentifier(p.tt) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
+			} else if IsIdentifier(p.tt) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
 				// property name + : + binding element
 				if p.tt == OpenBracketToken {
 					nodes = append(nodes, p.parseToken())
@@ -851,8 +851,8 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 					nodes = append(nodes, p.parseToken())
 					nodes = append(nodes, p.parseAssignmentExpr())
 				}
-			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].TokenType) || p.tt == StringToken || p.tt == NumericToken || p.tt == OpenBracketToken {
-				if p.tt == StringToken || p.tt == NumericToken {
+			} else if 0 < len(property) && IsIdentifier(property[len(property)-1].TokenType) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
+				if p.tt == StringToken || IsNumeric(p.tt) {
 					property = append(property, p.parseToken())
 				} else if p.tt == OpenBracketToken {
 					property = append(property, p.parseToken())
@@ -918,7 +918,7 @@ func (p *Parser) parsePrimaryExpr(nodes []Node) []Node {
 	}
 
 	switch p.tt {
-	case ThisToken, IdentifierToken, YieldToken, NullToken, TrueToken, FalseToken, NumericToken, StringToken, RegExpToken:
+	case ThisToken, IdentifierToken, YieldToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
 		nodes = append(nodes, p.parseToken())
 	case AwaitToken:
 		if p.asyncLevel != 0 {
@@ -973,8 +973,12 @@ func (p *Parser) parsePrimaryExpr(nodes []Node) []Node {
 			}
 		}
 	default:
-		p.fail("expression!")
-		return nil
+		if IsNumeric(p.tt) {
+			nodes = append(nodes, p.parseToken())
+		} else {
+			p.fail("expression")
+			return nil
+		}
 	}
 	return nodes
 }

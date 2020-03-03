@@ -18,7 +18,9 @@ func TestTokens(t *testing.T) {
 	}{
 		{" \t\v\f\u00A0\uFEFF\u2000", TTs{}}, // WhitespaceToken
 		{"\n\r\r\n\u2028\u2029", TTs{LineTerminatorToken}},
-		{"5.2 .04 0x0F 5e99", TTs{NumericToken, NumericToken, NumericToken, NumericToken}},
+		{"5.2 .04 0x0F 5e99", TTs{DecimalToken, DecimalToken, HexadecimalToken, DecimalToken}},
+		{"0o22 0b11", TTs{OctalToken, BinaryToken}},
+		{"0n 2345n 435.333n", TTs{BigIntToken, BigIntToken, DecimalToken, IdentifierToken}},
 		{"a = 'string'", TTs{IdentifierToken, EqToken, StringToken}},
 		{"/*comment*/ //comment", TTs{CommentToken, CommentToken}},
 		{"{ } ( ) [ ]", TTs{OpenBraceToken, CloseBraceToken, OpenParenToken, CloseParenToken, OpenBracketToken, CloseBracketToken}},
@@ -29,7 +31,7 @@ func TestTokens(t *testing.T) {
 		{"! ~ && || ? : ?? ?.", TTs{NotToken, BitNotToken, AndToken, OrToken, QuestionToken, ColonToken, NullishToken, OptChainToken}},
 		{"= += -= *= **= /= %= <<=", TTs{EqToken, AddEqToken, SubEqToken, MulEqToken, ExpEqToken, DivEqToken, ModEqToken, LtLtEqToken}},
 		{">>= >>>= &= |= ^= =>", TTs{GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitOrEqToken, BitXorEqToken, ArrowToken}},
-		{"?.5", TTs{QuestionToken, NumericToken}},
+		{"?.5", TTs{QuestionToken, DecimalToken}},
 		{"?.a", TTs{OptChainToken, IdentifierToken}},
 		{"async await break case catch class const continue", TTs{AsyncToken, AwaitToken, BreakToken, CaseToken, CatchToken, ClassToken, ConstToken, ContinueToken}},
 		{"debugger default delete do else enum export extends", TTs{DebuggerToken, DefaultToken, DeleteToken, DoToken, ElseToken, EnumToken, ExportToken, ExtendsToken}},
@@ -40,25 +42,25 @@ func TestTokens(t *testing.T) {
 
 		{"/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", TTs{CommentLineTerminatorToken, CommentToken, LineTerminatorToken, CommentToken}},
 		{"<!-", TTs{LtToken, NotToken, SubToken}},
-		{"1<!--2\n", TTs{NumericToken, CommentToken, LineTerminatorToken}},
-		{"x=y-->10\n", TTs{IdentifierToken, EqToken, IdentifierToken, DecrToken, GtToken, NumericToken, LineTerminatorToken}},
+		{"1<!--2\n", TTs{DecimalToken, CommentToken, LineTerminatorToken}},
+		{"x=y-->10\n", TTs{IdentifierToken, EqToken, IdentifierToken, DecrToken, GtToken, DecimalToken, LineTerminatorToken}},
 		{"  /*comment*/ -->nothing\n", TTs{CommentToken, DecrToken, GtToken, IdentifierToken, LineTerminatorToken}},
-		{"1 /*comment\nmultiline*/ -->nothing\n", TTs{NumericToken, CommentLineTerminatorToken, CommentToken, LineTerminatorToken}},
+		{"1 /*comment\nmultiline*/ -->nothing\n", TTs{DecimalToken, CommentLineTerminatorToken, CommentToken, LineTerminatorToken}},
 		{"$ _\u200C \\u2000 \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, ErrorToken}},
 		{">>>=>>>>=", TTs{GtGtGtEqToken, GtGtGtToken, GtEqToken}},
-		{"1/", TTs{NumericToken, DivToken}},
-		{"1/=", TTs{NumericToken, DivEqToken}},
-		{"010xF", TTs{NumericToken, NumericToken, IdentifierToken}},
-		{"50e+-0", TTs{NumericToken, IdentifierToken, AddToken, SubToken, NumericToken}},
+		{"1/", TTs{DecimalToken, DivToken}},
+		{"1/=", TTs{DecimalToken, DivEqToken}},
+		{"010xF", TTs{DecimalToken, DecimalToken, IdentifierToken}}, // Decimal(0) Decimal(10) Identifier(xF)
+		{"50e+-0", TTs{DecimalToken, IdentifierToken, AddToken, SubToken, DecimalToken}},
 		{"'str\\i\\'ng'", TTs{StringToken}},
 		{"'str\\\\'abc", TTs{StringToken, IdentifierToken}},
 		{"'str\\\ni\\\\u00A0ng'", TTs{StringToken}},
 
-		{"0b0101 0o0707 0b17", TTs{NumericToken, NumericToken, NumericToken, NumericToken}},
+		{"0b0101 0o0707 0b17", TTs{BinaryToken, OctalToken, BinaryToken, DecimalToken}},
 		{"`template`", TTs{TemplateToken}},
 		{"`a${x+y}b`", TTs{TemplateStartToken, IdentifierToken, AddToken, IdentifierToken, TemplateEndToken}},
 		{"`temp\nlate`", TTs{TemplateToken}},
-		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateStartToken, OpenBraceToken, IdentifierToken, ColonToken, NumericToken, CloseBraceToken, TemplateMiddleToken, IdentifierToken, TemplateStartToken, NumericToken, TemplateEndToken, TemplateEndToken}},
+		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateStartToken, OpenBraceToken, IdentifierToken, ColonToken, DecimalToken, CloseBraceToken, TemplateMiddleToken, IdentifierToken, TemplateStartToken, DecimalToken, TemplateEndToken, TemplateEndToken}},
 		{"`tmpl ${ a ? '' : `tmpl2 ${b ? 'b' : 'c'}` }`", TTs{TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, StringToken, TemplateEndToken, TemplateEndToken}},
 
 		// early endings
@@ -82,8 +84,8 @@ func TestTokens(t *testing.T) {
 
 		// coverage
 		{"Ø a〉", TTs{IdentifierToken, IdentifierToken, ErrorToken}},
-		{"0xg 0.f", TTs{NumericToken, IdentifierToken, NumericToken, DotToken, IdentifierToken}},
-		{"0bg 0og", TTs{NumericToken, IdentifierToken, NumericToken, IdentifierToken}},
+		{"0xg 0.f", TTs{DecimalToken, IdentifierToken, DecimalToken, DotToken, IdentifierToken}},
+		{"0bg 0og", TTs{DecimalToken, IdentifierToken, DecimalToken, IdentifierToken}},
 		{"\u00A0\uFEFF\u2000", TTs{}},
 		{"\u2028\u2029", TTs{LineTerminatorToken}},
 		{"\\u0029ident", TTs{IdentifierToken}},
@@ -134,7 +136,7 @@ func TestTokens(t *testing.T) {
 	test.That(t, IsIdentifier(WhileToken))
 
 	// coverage
-	for _, start := range []int{0, 0x1000, 0x3000, 0x4000, 0x8000} {
+	for _, start := range []int{0, 0x0100, 0x0200, 0x0400, 0x0800} {
 		for i := start; ; i++ {
 			if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
 				break

@@ -16,7 +16,7 @@ var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.L
 ////////////////////////////////////////////////////////////////
 
 // TokenType determines the type of token, eg. a number or a semicolon.
-type TokenType uint32
+type TokenType uint16 // from LSB to MSB: 8 bits for tokens per category, 1 bit for numeric, 1 bit for punctuator, 1 bit for operator, 1 bit for identifier, 4 bits unused
 
 // TokenType values.
 const (
@@ -25,7 +25,6 @@ const (
 	LineTerminatorToken // \r \n \r\n
 	CommentToken
 	CommentLineTerminatorToken
-	NumericToken
 	StringToken
 	TemplateToken
 	TemplateStartToken
@@ -35,7 +34,16 @@ const (
 )
 
 const (
-	PunctuatorToken   TokenType = 0x1000 + iota
+	NumericToken TokenType = 0x0100 + iota
+	DecimalToken
+	BinaryToken
+	OctalToken
+	HexadecimalToken
+	BigIntToken
+)
+
+const (
+	PunctuatorToken   TokenType = 0x0200 + iota
 	OpenBraceToken              // {
 	CloseBraceToken             // }
 	OpenParenToken              // (
@@ -52,7 +60,7 @@ const (
 )
 
 const (
-	OperatorToken TokenType = 0x3000 + iota
+	OperatorToken TokenType = 0x0600 + iota
 	EqToken                 // =
 	EqEqToken               // ==
 	EqEqEqToken             // ===
@@ -94,10 +102,18 @@ const (
 	OrToken                 // ||
 	NullishToken            // ??
 	OptChainToken           // ?.
+
+	// unused in lexer
+	PosToken      // +a
+	NegToken      // -a
+	PreIncrToken  // ++a
+	PreDecrToken  // --a
+	PostIncrToken // a++
+	PostDecrToken // a--
 )
 
 const (
-	IdentifierToken TokenType = 0x4000 + iota
+	IdentifierToken TokenType = 0x0800 + iota
 	AwaitToken
 	AsyncToken
 	BreakToken
@@ -145,34 +161,30 @@ const (
 	WhileToken
 	WithToken
 	YieldToken
-)
 
-// unused in lexer
-const (
-	OfToken TokenType = 0x8000 + iota
+	// unused in lexer
+	OfToken
 	GetToken
 	SetToken
 	TargetToken
 	AsToken
 	FromToken
-	PosToken      // +a
-	NegToken      // -a
-	PreIncrToken  // ++a
-	PreDecrToken  // --a
-	PostIncrToken // a++
-	PostDecrToken // a--
 )
 
+func IsNumeric(tt TokenType) bool {
+	return tt&0x0100 != 0
+}
+
 func IsPunctuator(tt TokenType) bool {
-	return tt&0x1000 != 0
+	return tt&0x0200 != 0
 }
 
 func IsOperator(tt TokenType) bool {
-	return tt&0x2000 != 0
+	return tt&0x0400 != 0
 }
 
 func IsIdentifier(tt TokenType) bool {
-	return tt&0x4000 != 0
+	return tt&0x0800 != 0
 }
 
 // String returns the string representation of a TokenType.
@@ -188,8 +200,6 @@ func (tt TokenType) String() string {
 		return "Comment"
 	case CommentLineTerminatorToken:
 		return "CommentLineTerminator"
-	case NumericToken:
-		return "Numeric"
 	case StringToken:
 		return "String"
 	case TemplateToken:
@@ -202,6 +212,18 @@ func (tt TokenType) String() string {
 		return "TemplateEnd"
 	case RegExpToken:
 		return "RegExp"
+	case NumericToken:
+		return "Numeric"
+	case DecimalToken:
+		return "Decimal"
+	case BinaryToken:
+		return "Binary"
+	case OctalToken:
+		return "Octal"
+	case HexadecimalToken:
+		return "Hexadecimal"
+	case BigIntToken:
+		return "BigInt"
 	case PunctuatorToken:
 		return "Punctuator"
 	case OpenBraceToken:
@@ -556,8 +578,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return tt, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
-		if l.consumeNumericToken() {
-			return NumericToken, l.r.Shift()
+		if tt := l.consumeNumericToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
 		} else if c == '.' {
 			l.r.Move(1)
 			if l.r.Peek(0) == '.' && l.r.Peek(1) == '.' {
@@ -909,7 +931,7 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 	return IdentifierToken
 }
 
-func (l *Lexer) consumeNumericToken() bool {
+func (l *Lexer) consumeNumericToken() TokenType {
 	// assume to be on 0 1 2 3 4 5 6 7 8 9 .
 	mark := l.r.Pos()
 	c := l.r.Peek(0)
@@ -920,28 +942,31 @@ func (l *Lexer) consumeNumericToken() bool {
 			if l.consumeHexDigit() {
 				for l.consumeHexDigit() {
 				}
-			} else {
-				l.r.Move(-1) // return just the zero
+				return HexadecimalToken
 			}
-			return true
+			l.r.Move(-1) // return just the zero
+			return DecimalToken
 		} else if l.r.Peek(0) == 'b' || l.r.Peek(0) == 'B' {
 			l.r.Move(1)
 			if l.consumeBinaryDigit() {
 				for l.consumeBinaryDigit() {
 				}
-			} else {
-				l.r.Move(-1) // return just the zero
+				return BinaryToken
 			}
-			return true
+			l.r.Move(-1) // return just the zero
+			return DecimalToken
 		} else if l.r.Peek(0) == 'o' || l.r.Peek(0) == 'O' {
 			l.r.Move(1)
 			if l.consumeOctalDigit() {
 				for l.consumeOctalDigit() {
 				}
-			} else {
-				l.r.Move(-1) // return just the zero
+				return OctalToken
 			}
-			return true
+			l.r.Move(-1) // return just the zero
+			return DecimalToken
+		} else if l.r.Peek(0) == 'n' {
+			l.r.Move(1)
+			return BigIntToken
 		}
 	} else if c != '.' {
 		for l.consumeDigit() {
@@ -955,11 +980,14 @@ func (l *Lexer) consumeNumericToken() bool {
 		} else if c != '.' {
 			// . could belong to the next token
 			l.r.Move(-1)
-			return true
+			return DecimalToken
 		} else {
 			l.r.Rewind(mark)
-			return false
+			return ErrorToken
 		}
+	} else if l.r.Peek(0) == 'n' {
+		l.r.Move(1)
+		return BigIntToken
 	}
 	mark = l.r.Pos()
 	c = l.r.Peek(0)
@@ -972,12 +1000,12 @@ func (l *Lexer) consumeNumericToken() bool {
 		if !l.consumeDigit() {
 			// e could belong to the next token
 			l.r.Rewind(mark)
-			return true
+			return DecimalToken
 		}
 		for l.consumeDigit() {
 		}
 	}
-	return true
+	return DecimalToken
 }
 
 func (l *Lexer) consumeStringToken() bool {
