@@ -6,12 +6,18 @@ import (
 	"io"
 	"strconv"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
 var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
 var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc, unicode.Other_ID_Continue}
+
+func IsIdentifierContinue(b []byte) bool {
+	r, _ := utf8.DecodeRune(b)
+	return unicode.IsOneOf(identifierContinue, r)
+}
 
 ////////////////////////////////////////////////////////////////
 

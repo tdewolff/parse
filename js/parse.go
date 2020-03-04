@@ -48,6 +48,7 @@ const (
 	BindingGrammar
 	ClauseGrammar
 	MethodGrammar
+	ParamsGrammar
 	ExprGrammar
 	StmtGrammar
 )
@@ -67,6 +68,8 @@ func (tt GrammarType) String() string {
 		return "Clause"
 	case MethodGrammar:
 		return "Method"
+	case ParamsGrammar:
+		return "Params"
 	case ExprGrammar:
 		return "Expr"
 	case StmtGrammar:
@@ -182,177 +185,6 @@ func (p *Parser) parseModule() Node {
 	}
 }
 
-func (p *Parser) parseImportStmt() Node {
-	// assume we're at import
-	nodes := []Node{}
-	nodes = append(nodes, p.parseToken())
-	if p.tt == StringToken {
-		nodes = append(nodes, p.parseToken())
-	} else {
-		if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			nodes = append(nodes, p.parseToken())
-			if p.tt == CommaToken {
-				nodes = append(nodes, p.parseToken())
-			}
-		}
-		if p.tt == MulToken {
-			nodes = append(nodes, p.parseToken())
-			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("as")) {
-				p.fail("import statement", AsToken)
-				return Node{}
-			}
-			nodes = append(nodes, p.parseToken())
-			if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-				nodes = append(nodes, p.parseToken())
-			} else {
-				p.fail("import statement", IdentifierToken)
-				return Node{}
-			}
-		} else if p.tt == OpenBraceToken {
-			nodes = append(nodes, p.parseToken())
-			for IsIdentifier(p.tt) {
-				nodes = append(nodes, p.parseToken())
-				if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
-					nodes = append(nodes, p.parseToken())
-					if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-						nodes = append(nodes, p.parseToken())
-					} else {
-						p.fail("import statement", IdentifierToken)
-						return Node{}
-					}
-				}
-				if p.tt == CommaToken {
-					nodes = append(nodes, p.parseToken())
-				}
-			}
-			if nodes[len(nodes)-1].TokenType == CommaToken {
-				nodes = nodes[:len(nodes)-1]
-			}
-			if p.tt != CloseBraceToken {
-				p.fail("import statement", CloseBraceToken)
-				return Node{}
-			}
-			nodes = append(nodes, p.parseToken())
-		}
-		if len(nodes) == 1 {
-			p.fail("import statement", StringToken, IdentifierToken, MulToken, OpenBraceToken)
-			return Node{}
-		}
-
-		if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("from")) {
-			p.fail("import statement", FromToken)
-			return Node{}
-		}
-		nodes = append(nodes, p.parseToken())
-		if p.tt != StringToken {
-			p.fail("import statement", StringToken)
-			return Node{}
-		}
-		nodes = append(nodes, p.parseToken())
-	}
-	if p.tt == SemicolonToken {
-		p.next()
-	}
-	return Node{StmtGrammar, nodes, 0, nil}
-}
-
-func (p *Parser) parseExportStmt() Node {
-	// assume we're at export
-	nodes := []Node{}
-	nodes = append(nodes, p.parseToken())
-	if p.tt == MulToken || p.tt == OpenBraceToken {
-		if p.tt == MulToken {
-			nodes = append(nodes, p.parseToken())
-			if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
-				nodes = append(nodes, p.parseToken())
-				if !IsIdentifier(p.tt) {
-					p.fail("export statement", IdentifierToken)
-					return Node{}
-				}
-				nodes = append(nodes, p.parseToken())
-			}
-			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("from")) {
-				p.fail("export statement", FromToken)
-				return Node{}
-			}
-		} else {
-			nodes = append(nodes, p.parseToken())
-			for IsIdentifier(p.tt) {
-				nodes = append(nodes, p.parseToken())
-				if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
-					nodes = append(nodes, p.parseToken())
-					if !IsIdentifier(p.tt) {
-						p.fail("export statement", IdentifierToken)
-						return Node{}
-					}
-					nodes = append(nodes, p.parseToken())
-				}
-				if p.tt == CommaToken {
-					nodes = append(nodes, p.parseToken())
-				}
-			}
-			if nodes[len(nodes)-1].TokenType == CommaToken {
-				nodes = nodes[:len(nodes)-1]
-			}
-			if p.tt != CloseBraceToken {
-				p.fail("export statement", CloseBraceToken)
-				return Node{}
-			}
-			nodes = append(nodes, p.parseToken())
-		}
-		if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("from")) {
-			nodes = append(nodes, p.parseToken())
-			if p.tt != StringToken {
-				p.fail("export statement", StringToken)
-				return Node{}
-			}
-			nodes = append(nodes, p.parseToken())
-		}
-	} else if p.tt == VarToken || p.tt == ConstToken || p.tt == LetToken {
-		nodes = append(nodes, Node{StmtGrammar, p.parseVarDecl(nil), 0, nil})
-	} else if p.tt == FunctionToken {
-		nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(nil), 0, nil})
-	} else if p.tt == AsyncToken { // async function
-		stmt := []Node{}
-		stmt = append(stmt, p.parseToken())
-		if p.tt != FunctionToken {
-			p.fail("export statement", FunctionToken)
-			return Node{}
-		}
-		p.asyncLevel++
-		nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(stmt), 0, nil})
-		p.asyncLevel--
-	} else if p.tt == ClassToken {
-		nodes = append(nodes, Node{StmtGrammar, p.parseClassDecl(nil), 0, nil})
-	} else if p.tt == DefaultToken {
-		nodes = append(nodes, p.parseToken())
-		if p.tt == FunctionToken {
-			nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(nil), 0, nil})
-		} else if p.tt == AsyncToken { // async function
-			stmt := []Node{}
-			stmt = append(stmt, p.parseToken())
-			if p.tt != FunctionToken {
-				p.fail("export statement", FunctionToken)
-				return Node{}
-			}
-			p.asyncLevel++
-			nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(stmt), 0, nil})
-			p.asyncLevel--
-		} else if p.tt == ClassToken {
-			nodes = append(nodes, Node{StmtGrammar, p.parseClassDecl(nil), 0, nil})
-		} else {
-			nodes = append(nodes, p.parseAssignmentExpr())
-		}
-	} else {
-		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
-		return Node{}
-	}
-	if p.tt == SemicolonToken {
-		p.next()
-	}
-	return Node{StmtGrammar, nodes, 0, nil}
-}
-
 func (p *Parser) parseStmt() Node {
 	nodes := []Node{}
 	switch p.tt {
@@ -363,7 +195,7 @@ func (p *Parser) parseStmt() Node {
 	case ContinueToken, BreakToken:
 		nodes = append(nodes, p.parseToken())
 		if !p.prevLineTerminator && (p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken && p.asyncLevel == 0) {
-			nodes = append(nodes, p.parseToken())
+			nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 		}
 	case ReturnToken:
 		nodes = append(nodes, p.parseToken())
@@ -466,6 +298,7 @@ func (p *Parser) parseStmt() Node {
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
 		expr := p.parseExpr()
 		if p.tt == ColonToken && len(expr.Nodes) == 1 && (p.tt != AwaitToken || p.asyncLevel == 0) {
+			expr.Nodes[0].TokenType = IdentifierToken
 			nodes = append(nodes, expr.Nodes[0])
 			p.next()
 			nodes = append(nodes, p.parseStmt())
@@ -531,7 +364,6 @@ func (p *Parser) parseStmt() Node {
 	case TryToken:
 		nodes = append(nodes, p.parseToken())
 		nodes = append(nodes, p.parseBlockStmt("try statement"))
-
 		if p.tt == CatchToken {
 			nodes = append(nodes, p.parseToken())
 			if p.tt == OpenParenToken {
@@ -576,50 +408,6 @@ func (p *Parser) parseVarDecl(nodes []Node) []Node {
 	return nodes
 }
 
-func (p *Parser) parseFuncDecl(nodes []Node) []Node {
-	// assume we're at function
-	nodes = append(nodes, p.parseToken())
-	if p.tt == MulToken {
-		nodes = append(nodes, p.parseToken())
-	}
-	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-		nodes = append(nodes, p.parseToken())
-	}
-	nodes = p.parseFuncParams("function declaration", nodes)
-	nodes = append(nodes, p.parseBlockStmt("function declaration"))
-	return nodes
-}
-
-func (p *Parser) parseFuncParams(in string, nodes []Node) []Node {
-	if !p.consume(in, OpenParenToken) {
-		return nil
-	}
-
-	for p.tt != CloseParenToken {
-		// binding rest element
-		if p.tt == EllipsisToken {
-			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseBinding())
-			break
-		}
-
-		nodes = append(nodes, p.parseBindingElement())
-
-		if p.tt == CommaToken {
-			p.next()
-		} else if p.tt == CloseParenToken {
-			break
-		} else {
-			p.fail(in, CommaToken, CloseParenToken)
-			return nil
-		}
-	}
-	if !p.consume(in, CloseParenToken) {
-		return nil
-	}
-	return nodes
-}
-
 func (p *Parser) parseBlockStmt(in string) Node {
 	if p.tt != OpenBraceToken {
 		p.fail(in, OpenBraceToken)
@@ -637,11 +425,227 @@ func (p *Parser) parseBlockStmt(in string) Node {
 	return Node{StmtGrammar, nodes, 0, nil}
 }
 
+func (p *Parser) parseImportStmt() Node {
+	// assume we're at import
+	nodes := []Node{}
+	nodes = append(nodes, p.parseToken())
+	if p.tt == StringToken {
+		nodes = append(nodes, p.parseToken())
+	} else {
+		if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+			nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+			if p.tt == CommaToken {
+				nodes = append(nodes, p.parseToken())
+			}
+		}
+		if p.tt == MulToken {
+			nodes = append(nodes, p.parseToken())
+			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("as")) {
+				p.fail("import statement", AsToken)
+				return Node{}
+			}
+			nodes = append(nodes, p.parseToken())
+			if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+				nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+			} else {
+				p.fail("import statement", IdentifierToken)
+				return Node{}
+			}
+		} else if p.tt == OpenBraceToken {
+			nodes = append(nodes, p.parseToken())
+			for IsIdentifier(p.tt) {
+				nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+				if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
+					nodes = append(nodes, p.parseToken())
+					if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+						nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+					} else {
+						p.fail("import statement", IdentifierToken)
+						return Node{}
+					}
+				}
+				if p.tt == CommaToken {
+					nodes = append(nodes, p.parseToken())
+				}
+			}
+			if nodes[len(nodes)-1].TokenType == CommaToken {
+				nodes = nodes[:len(nodes)-1]
+			}
+			if p.tt != CloseBraceToken {
+				p.fail("import statement", CloseBraceToken)
+				return Node{}
+			}
+			nodes = append(nodes, p.parseToken())
+		}
+		if len(nodes) == 1 {
+			p.fail("import statement", StringToken, IdentifierToken, MulToken, OpenBraceToken)
+			return Node{}
+		}
+
+		if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("from")) {
+			p.fail("import statement", FromToken)
+			return Node{}
+		}
+		nodes = append(nodes, p.parseToken())
+		if p.tt != StringToken {
+			p.fail("import statement", StringToken)
+			return Node{}
+		}
+		nodes = append(nodes, p.parseToken())
+	}
+	if p.tt == SemicolonToken {
+		p.next()
+	}
+	return Node{StmtGrammar, nodes, 0, nil}
+}
+
+func (p *Parser) parseExportStmt() Node {
+	// assume we're at export
+	nodes := []Node{}
+	nodes = append(nodes, p.parseToken())
+	if p.tt == MulToken || p.tt == OpenBraceToken {
+		if p.tt == MulToken {
+			nodes = append(nodes, p.parseToken())
+			if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
+				nodes = append(nodes, p.parseTokenAs(AsToken))
+				if !IsIdentifier(p.tt) {
+					p.fail("export statement", IdentifierToken)
+					return Node{}
+				}
+				nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+			}
+			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("from")) {
+				p.fail("export statement", FromToken)
+				return Node{}
+			}
+		} else {
+			nodes = append(nodes, p.parseToken())
+			for IsIdentifier(p.tt) {
+				nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+				if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("as")) {
+					nodes = append(nodes, p.parseTokenAs(AsToken))
+					if !IsIdentifier(p.tt) {
+						p.fail("export statement", IdentifierToken)
+						return Node{}
+					}
+					nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+				}
+				if p.tt == CommaToken {
+					nodes = append(nodes, p.parseToken())
+				}
+			}
+			if nodes[len(nodes)-1].TokenType == CommaToken {
+				nodes = nodes[:len(nodes)-1]
+			}
+			if p.tt != CloseBraceToken {
+				p.fail("export statement", CloseBraceToken)
+				return Node{}
+			}
+			nodes = append(nodes, p.parseToken())
+		}
+		if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("from")) {
+			nodes = append(nodes, p.parseTokenAs(FromToken))
+			if p.tt != StringToken {
+				p.fail("export statement", StringToken)
+				return Node{}
+			}
+			nodes = append(nodes, p.parseToken())
+		}
+	} else if p.tt == VarToken || p.tt == ConstToken || p.tt == LetToken {
+		nodes = append(nodes, Node{StmtGrammar, p.parseVarDecl(nil), 0, nil})
+	} else if p.tt == FunctionToken {
+		nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(nil), 0, nil})
+	} else if p.tt == AsyncToken { // async function
+		stmt := []Node{}
+		stmt = append(stmt, p.parseToken())
+		if p.tt != FunctionToken {
+			p.fail("export statement", FunctionToken)
+			return Node{}
+		}
+		p.asyncLevel++
+		nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(stmt), 0, nil})
+		p.asyncLevel--
+	} else if p.tt == ClassToken {
+		nodes = append(nodes, Node{StmtGrammar, p.parseClassDecl(nil), 0, nil})
+	} else if p.tt == DefaultToken {
+		nodes = append(nodes, p.parseToken())
+		if p.tt == FunctionToken {
+			nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(nil), 0, nil})
+		} else if p.tt == AsyncToken { // async function
+			stmt := []Node{}
+			stmt = append(stmt, p.parseToken())
+			if p.tt != FunctionToken {
+				p.fail("export statement", FunctionToken)
+				return Node{}
+			}
+			p.asyncLevel++
+			nodes = append(nodes, Node{StmtGrammar, p.parseFuncDecl(stmt), 0, nil})
+			p.asyncLevel--
+		} else if p.tt == ClassToken {
+			nodes = append(nodes, Node{StmtGrammar, p.parseClassDecl(nil), 0, nil})
+		} else {
+			nodes = append(nodes, p.parseAssignmentExpr())
+		}
+	} else {
+		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
+		return Node{}
+	}
+	if p.tt == SemicolonToken {
+		p.next()
+	}
+	return Node{StmtGrammar, nodes, 0, nil}
+}
+
+func (p *Parser) parseFuncDecl(nodes []Node) []Node {
+	// assume we're at function
+	nodes = append(nodes, p.parseToken())
+	if p.tt == MulToken {
+		nodes = append(nodes, p.parseToken())
+	}
+	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+	}
+	nodes = append(nodes, p.parseFuncParams("function declaration"))
+	nodes = append(nodes, p.parseBlockStmt("function declaration"))
+	return nodes
+}
+
+func (p *Parser) parseFuncParams(in string) Node {
+	if !p.consume(in, OpenParenToken) {
+		return Node{}
+	}
+
+	nodes := []Node{}
+	for p.tt != CloseParenToken {
+		// binding rest element
+		if p.tt == EllipsisToken {
+			nodes = append(nodes, p.parseToken())
+			nodes = append(nodes, p.parseBinding())
+			break
+		}
+
+		nodes = append(nodes, p.parseBindingElement())
+
+		if p.tt == CommaToken {
+			p.next()
+		} else if p.tt == CloseParenToken {
+			break
+		} else {
+			p.fail(in, CommaToken, CloseParenToken)
+			return Node{}
+		}
+	}
+	if !p.consume(in, CloseParenToken) {
+		return Node{}
+	}
+	return Node{ParamsGrammar, nodes, 0, nil}
+}
+
 func (p *Parser) parseClassDecl(nodes []Node) []Node {
 	// assume we're at class
 	nodes = append(nodes, p.parseToken())
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 	}
 	if p.tt == ExtendsToken {
 		nodes = append(nodes, p.parseToken())
@@ -684,8 +688,9 @@ func (p *Parser) parseMethodDef() Node {
 		nodes = append(nodes, p.parseToken())
 	}
 
-	if IsIdentifier(p.tt) || p.tt == StringToken || IsNumeric(p.tt) {
-		nodes = append(nodes, p.parseToken())
+	if IsIdentifier(p.tt) {
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
+	} else if p.tt == StringToken || IsNumeric(p.tt) {
 	} else if p.tt == OpenBracketToken {
 		nodes = append(nodes, p.parseToken())
 		nodes = append(nodes, p.parseAssignmentExpr())
@@ -701,7 +706,7 @@ func (p *Parser) parseMethodDef() Node {
 	if async {
 		p.asyncLevel++
 	}
-	nodes = p.parseFuncParams("method definition", nodes)
+	nodes = append(nodes, p.parseFuncParams("method definition"))
 	nodes = append(nodes, p.parseBlockStmt("method definition"))
 	if async {
 		p.asyncLevel--
@@ -723,7 +728,7 @@ func (p *Parser) parseBinding() Node {
 	// binding identifier or binding pattern
 	nodes := []Node{}
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 	} else if p.tt == OpenBracketToken {
 		nodes = append(nodes, p.parseToken())
 		for p.tt != CloseBracketToken {
@@ -763,7 +768,7 @@ func (p *Parser) parseBinding() Node {
 				if p.tt != IdentifierToken && p.tt != YieldToken && p.tt != AwaitToken {
 					p.fail("object binding pattern", IdentifierToken)
 				}
-				nodes = append(nodes, Node{BindingGrammar, []Node{p.parseToken()}, 0, nil})
+				nodes = append(nodes, Node{BindingGrammar, []Node{p.parseTokenAs(IdentifierToken)}, 0, nil})
 				if p.tt != CloseBraceToken {
 					p.fail("object binding pattern", CloseBraceToken)
 					return Node{}
@@ -773,7 +778,7 @@ func (p *Parser) parseBinding() Node {
 
 			if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 				// single name binding
-				ident := p.parseToken()
+				ident := p.parseTokenAs(IdentifierToken)
 				if p.tt == ColonToken {
 					// property name + : + binding element
 					nodes = append(nodes, ident)
@@ -797,6 +802,8 @@ func (p *Parser) parseBinding() Node {
 						return Node{}
 					}
 					nodes = append(nodes, p.parseToken())
+				} else if IsIdentifier(p.tt) {
+					nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 				} else {
 					nodes = append(nodes, p.parseToken())
 				}
@@ -841,11 +848,16 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 			for p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) {
 				if p.tt == AsyncToken {
 					async = true
+					property = append(property, p.parseToken())
+				} else if IsIdentifier(p.tt) {
+					property = append(property, p.parseTokenAs(IdentifierToken))
+				} else {
+					property = append(property, p.parseToken())
 				}
-				property = append(property, p.parseToken())
 			}
 
 			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (property[0].TokenType == IdentifierToken || property[0].TokenType == YieldToken || property[0].TokenType == AwaitToken && p.asyncLevel == 0) {
+				property[0].TokenType = IdentifierToken
 				nodes = append(nodes, property[0])
 				if p.tt == EqToken {
 					nodes = append(nodes, p.parseToken())
@@ -872,7 +884,7 @@ func (p *Parser) parseObjectLiteral(nodes []Node) []Node {
 					if async {
 						p.asyncLevel++
 					}
-					property = p.parseFuncParams("method definition", property)
+					property = append(property, p.parseFuncParams("method definition"))
 					property = append(property, p.parseBlockStmt("method definition"))
 					if async {
 						p.asyncLevel--
@@ -918,14 +930,16 @@ func (p *Parser) parsePrimaryExpr(nodes []Node) []Node {
 	}
 
 	switch p.tt {
-	case ThisToken, IdentifierToken, YieldToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
+	case ThisToken, IdentifierToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
 		nodes = append(nodes, p.parseToken())
+	case YieldToken:
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 	case AwaitToken:
 		if p.asyncLevel != 0 {
 			p.fail("expression")
 			return nil
 		}
-		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 	case TemplateToken, TemplateStartToken:
 		nodes = p.parseTemplateLiteral(nodes)
 	case OpenBracketToken:
@@ -991,7 +1005,7 @@ func (p *Parser) parseLeftHandSideExprEnd(nodes []Node) []Node {
 			if p.tt == ErrorToken || p.tt == CloseParenToken {
 				break
 			} else if p.tt == CommaToken {
-				p.next()
+				nodes = append(nodes, p.parseToken())
 			} else if p.tt == EllipsisToken {
 				nodes = append(nodes, p.parseToken())
 				nodes = append(nodes, p.parseAssignmentExpr())
@@ -1022,7 +1036,7 @@ func (p *Parser) parseLeftHandSideExprEnd(nodes []Node) []Node {
 			p.fail("left hand side expression", IdentifierToken)
 			return nil
 		}
-		nodes = append(nodes, p.parseToken())
+		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 	} else if p.tt == TemplateToken || p.tt == TemplateStartToken {
 		nodes = p.parseTemplateLiteral(nodes)
 	} else {
@@ -1079,7 +1093,7 @@ LHSEND:
 	for p.tt == OptChainToken {
 		nodes = append(nodes, p.parseToken())
 		if IsIdentifier(p.tt) {
-			nodes = append(nodes, p.parseToken())
+			nodes = append(nodes, p.parseTokenAs(IdentifierToken))
 		} else if p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == TemplateToken || p.tt == TemplateStartToken {
 			nodes = p.parseLeftHandSideExprEnd(nodes)
 		} else {
@@ -1096,20 +1110,24 @@ LHSEND:
 func (p *Parser) parseAssignmentExpr() Node {
 	nodes := []Node{}
 	if p.tt == YieldToken {
-		nodes = append(nodes, p.parseToken())
+		yield := p.parseToken()
 		if p.tt == ArrowToken {
-			nodes[len(nodes)-1] = Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}
+			nodes = append(nodes, Node{ParamsGrammar, []Node{Node{BindingGrammar, []Node{yield}, 0, nil}}, 0, nil})
 			nodes = append(nodes, p.parseToken())
 			if p.tt == OpenBraceToken {
 				nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
 			} else {
 				nodes = append(nodes, p.parseAssignmentExpr())
 			}
-		} else if !p.prevLineTerminator {
-			if p.tt == MulToken {
-				nodes = append(nodes, p.parseToken())
+		} else {
+			// YieldExpression
+			nodes = append(nodes, yield)
+			if !p.prevLineTerminator {
+				if p.tt == MulToken {
+					nodes = append(nodes, p.parseToken())
+				}
+				nodes = append(nodes, p.parseAssignmentExpr())
 			}
-			nodes = append(nodes, p.parseAssignmentExpr())
 		}
 		return Node{ExprGrammar, nodes, 0, nil}
 	} else if p.tt == AsyncToken {
@@ -1124,7 +1142,7 @@ func (p *Parser) parseAssignmentExpr() Node {
 			nodes = p.parseFuncDecl(nodes)
 			p.asyncLevel--
 		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			nodes = append(nodes, Node{BindingGrammar, []Node{p.parseToken()}, 0, nil})
+			nodes = append(nodes, Node{ParamsGrammar, []Node{Node{BindingGrammar, []Node{p.parseTokenAs(IdentifierToken)}, 0, nil}}, 0, nil})
 			if p.tt != ArrowToken {
 				p.fail("async arrow function expression", ArrowToken)
 				return Node{}
@@ -1164,6 +1182,7 @@ ASSIGNLOOP:
 		// handle AwaitExpression, otherwise await is handled by primary expression
 		nodes = append(nodes, p.parseToken())
 		if p.tt == ArrowToken {
+			nodes[len(nodes)-1].TokenType = IdentifierToken
 			goto ASSIGNSWITCH
 		}
 		goto ASSIGNLOOP
@@ -1209,8 +1228,20 @@ ASSIGNSWITCH:
 		}
 		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
 		if len(nodes) == 1 && nodes[len(nodes)-1].TokenType == IdentifierToken || nodes[len(nodes)-1].TokenType == YieldToken || nodes[len(nodes)-1].TokenType == AwaitToken {
-			nodes[len(nodes)-1] = Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}
-		} else if nodes[len(nodes)-1].TokenType != CloseParenToken {
+			nodes[len(nodes)-1].TokenType = IdentifierToken
+			nodes[len(nodes)-1] = Node{ParamsGrammar, []Node{Node{BindingGrammar, []Node{nodes[len(nodes)-1]}, 0, nil}}, 0, nil}
+		} else if nodes[len(nodes)-1].TokenType == CloseParenToken {
+			i := len(nodes) - 2
+			for nodes[i].TokenType != OpenParenToken {
+				if nodes[i].GrammarType == ExprGrammar {
+					nodes[i].GrammarType = BindingGrammar
+				} else if nodes[i].TokenType == CommaToken {
+					nodes = append(nodes[:i], nodes[i+1:]...)
+				}
+				i--
+			}
+			nodes = append(nodes[:i:i], Node{ParamsGrammar, nodes[i+1 : len(nodes)-1], 0, nil})
+		} else {
 			p.fail("arrow function expression")
 			return Node{}
 		}
