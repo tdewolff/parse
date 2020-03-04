@@ -189,7 +189,12 @@ func (p *Parser) parseStmt() Node {
 	nodes := []Node{}
 	switch p.tt {
 	case OpenBraceToken:
-		return p.parseBlockStmt("block statement")
+		block := p.parseBlockStmt("block statement")
+		if len(block.Nodes) == 2 {
+			nodes = append(nodes, Node{TokenGrammar, nil, SemicolonToken, []byte(";")})
+		} else {
+			return block
+		}
 	case LetToken, ConstToken, VarToken:
 		nodes = p.parseVarDecl(nodes)
 	case ContinueToken, BreakToken:
@@ -383,8 +388,8 @@ func (p *Parser) parseStmt() Node {
 		}
 	case DebuggerToken:
 		nodes = append(nodes, p.parseToken())
-	case SemicolonToken, LineTerminatorToken:
-		// empty
+	case SemicolonToken, LineTerminatorToken, ErrorToken:
+		nodes = append(nodes, Node{TokenGrammar, nil, SemicolonToken, []byte(";")})
 	default:
 		nodes = append(nodes, p.parseExpr())
 	}
@@ -1258,7 +1263,7 @@ ASSIGNSWITCH:
 func (p *Parser) parseExpr() Node {
 	node := p.parseAssignmentExpr()
 	for p.tt == CommaToken {
-		p.next()
+		node.Nodes = append(node.Nodes, p.parseToken())
 		node.Nodes = append(node.Nodes, p.parseAssignmentExpr().Nodes...)
 	}
 	return node
