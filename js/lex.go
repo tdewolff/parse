@@ -2,12 +2,12 @@
 package js
 
 import (
-	"fmt"
 	"io"
 	"strconv"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
@@ -636,9 +636,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	r, n := l.r.PeekRune(0)
 	l.r.Move(n)
 	if n == 1 {
-		l.err = fmt.Errorf("unexpected character '%c' found", c)
+		l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
 	} else {
-		l.err = fmt.Errorf("unexpected character 0x%x found", r)
+		l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
 	}
 	return ErrorToken, l.r.Shift()
 }

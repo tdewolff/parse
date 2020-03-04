@@ -90,6 +90,9 @@ type Parser struct {
 	prevLineTerminator bool
 	asyncLevel         int
 	inFor              bool
+
+	buf []Node
+	i   int
 }
 
 // Parse returns a JS AST tree of.
@@ -97,7 +100,10 @@ func Parse(r io.Reader) (Node, error) {
 	l := NewLexer(r)
 	defer l.Restore()
 
-	p := &Parser{l: l}
+	p := &Parser{
+		l:   l,
+		buf: make([]Node, 0, 100),
+	}
 
 	p.tt = WhitespaceToken // trick so that next() works from the start
 	p.next()
@@ -113,6 +119,22 @@ func Parse(r io.Reader) (Node, error) {
 }
 
 ////////////////////////////////////////////////////////////////
+
+func (p *Parser) push(n Node) {
+	if len(p.buf) == cap(p.buf) {
+		buf := make([]Node, 0, cap(p.buf)*2)
+		copy(buf[:len(p.buf)-1], p.buf[p.i:])
+		p.buf = buf
+		p.i = 0
+	}
+	p.buf = append(p.buf, n)
+}
+
+func (p *Parser) pop() []Node {
+	nodes := p.buf[p.i:]
+	p.i = len(p.buf)
+	return nodes
+}
 
 func (p *Parser) next() {
 	if p.tt == ErrorToken {
