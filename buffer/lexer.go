@@ -156,3 +156,9 @@ func (z *Lexer) Offset() int {
 func (z *Lexer) Bytes() []byte {
 	return z.buf[: len(z.buf)-1 : len(z.buf)-1]
 }
+
+// Reset resets position to the underlying buffer.
+func (z *Lexer) Reset() {
+	z.start = 0
+	z.pos = 0
+}

@@ -506,6 +506,14 @@ func (l *Lexer) Offset() int {
 	return l.r.Offset()
 }
 
+// Reset resets the lexer to the initial state.
+func (l *Lexer) Reset() {
+	l.r.Reset()
+	l.prevLineTerminator = true
+	l.level = 0
+	l.templateLevels = []int{}
+}
+
 // RegExp reparses the input stream for a regular expression. It is assumed that we just received DivToken or DivEqToken with Next(). This function will go back and read that as a regular expression.
 func (l *Lexer) RegExp() (TokenType, []byte) {
 	if 0 < l.r.Offset() && l.r.Peek(-1) == '/' {
