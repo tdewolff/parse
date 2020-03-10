@@ -136,13 +136,15 @@ func TestTokens(t *testing.T) {
 	test.That(t, IsIdentifier(WhileToken))
 
 	// coverage
-	for _, start := range []int{0, 0x0100, 0x0200, 0x0400, 0x0800} {
+	for _, start := range []int{0, 0x0100, 0x0200, 0x0600, 0x0800} {
 		for i := start; ; i++ {
 			if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
 				break
 			}
 		}
 	}
+	test.That(t, IsIdentifierContinue([]byte("a")))
+	test.That(t, !IsIdentifierContinue([]byte("[")))
 }
 
 func TestRegExp(t *testing.T) {

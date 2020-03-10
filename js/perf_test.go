@@ -2,6 +2,7 @@ package js
 
 import (
 	"bytes"
+	"strconv"
 	"testing"
 )
 
@@ -77,6 +78,47 @@ func BenchmarkParseTree2(b *testing.B) {
 			left = PExpr{BinExpr{op, left, right}}
 		}
 	}
+}
+
+// GrammarType determines the type of grammar.
+type GrammarType uint32
+
+// GrammarType values.
+const (
+	ErrorGrammar GrammarType = iota // extra token when errors occur
+	TokenGrammar
+	ModuleGrammar
+	BindingGrammar
+	ClauseGrammar
+	MethodGrammar
+	ParamsGrammar
+	ExprGrammar
+	StmtGrammar
+)
+
+// String returns the string representation of a GrammarType.
+func (tt GrammarType) String() string {
+	switch tt {
+	case ErrorGrammar:
+		return "Error"
+	case TokenGrammar:
+		return "Token"
+	case ModuleGrammar:
+		return "Module"
+	case BindingGrammar:
+		return "Binding"
+	case ClauseGrammar:
+		return "Clause"
+	case MethodGrammar:
+		return "Method"
+	case ParamsGrammar:
+		return "Params"
+	case ExprGrammar:
+		return "Expr"
+	case StmtGrammar:
+		return "Stmt"
+	}
+	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
 type N struct {

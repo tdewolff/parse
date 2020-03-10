@@ -1,7 +1,5 @@
 package js
 
-import "fmt"
-
 type AST struct {
 	List []IStmt
 }
@@ -80,25 +78,24 @@ func (n LabelledStmt) String() string {
 }
 
 type ReturnStmt struct {
-	Value Expr
+	Value IExpr
 }
 
 func (n ReturnStmt) String() string {
 	s := "Stmt(return"
-	if len(n.Value.List) != 0 {
+	if n.Value != nil {
 		s += " " + n.Value.String()
 	}
 	return s + ")"
 }
 
 type IfStmt struct {
-	Cond Expr
+	Cond IExpr
 	Body IStmt
 	Else IStmt // can be nil
 }
 
 func (n IfStmt) String() string {
-	fmt.Println(n.Cond, n.Body, n.Else)
 	s := "Stmt(if " + n.Cond.String() + " " + n.Body.String()
 	if n.Else != nil {
 		s += " else " + n.Else.String()
@@ -107,7 +104,7 @@ func (n IfStmt) String() string {
 }
 
 type WithStmt struct {
-	Cond Expr
+	Cond IExpr
 	Body IStmt
 }
 
@@ -116,7 +113,7 @@ func (n WithStmt) String() string {
 }
 
 type DoWhileStmt struct {
-	Cond Expr
+	Cond IExpr
 	Body IStmt
 }
 
@@ -125,7 +122,7 @@ func (n DoWhileStmt) String() string {
 }
 
 type WhileStmt struct {
-	Cond Expr
+	Cond IExpr
 	Body IStmt
 }
 
@@ -135,8 +132,8 @@ func (n WhileStmt) String() string {
 
 type ForStmt struct {
 	Init IExpr // can be nil
-	Cond Expr
-	Post Expr
+	Cond IExpr
+	Post IExpr
 	Body IStmt
 }
 
@@ -146,11 +143,11 @@ func (n ForStmt) String() string {
 		s += " " + n.Init.String()
 	}
 	s += " ;"
-	if len(n.Cond.List) != 0 {
+	if n.Cond != nil {
 		s += " " + n.Cond.String()
 	}
 	s += " ;"
-	if len(n.Post.List) != 0 {
+	if n.Post != nil {
 		s += " " + n.Post.String()
 	}
 	return s + " " + n.Body.String() + ")"
@@ -158,7 +155,7 @@ func (n ForStmt) String() string {
 
 type ForInStmt struct {
 	Init  IExpr
-	Value Expr
+	Value IExpr
 	Body  IStmt
 }
 
@@ -169,7 +166,7 @@ func (n ForInStmt) String() string {
 type ForOfStmt struct {
 	Await bool
 	Init  IExpr
-	Value AssignExpr
+	Value IExpr
 	Body  IStmt
 }
 
@@ -183,12 +180,12 @@ func (n ForOfStmt) String() string {
 
 type CaseClause struct {
 	TokenType
-	Cond Expr
+	Cond IExpr
 	Body []IStmt
 }
 
 type SwitchStmt struct {
-	Init Expr
+	Init IExpr
 	List []CaseClause
 }
 
@@ -196,7 +193,7 @@ func (n SwitchStmt) String() string {
 	s := "Stmt(switch " + n.Init.String()
 	for _, clause := range n.List {
 		s += " Clause(" + clause.TokenType.String()
-		if len(clause.Cond.List) != 0 {
+		if clause.Cond != nil {
 			s += " " + clause.Cond.String()
 		}
 		for _, item := range clause.Body {
@@ -208,7 +205,7 @@ func (n SwitchStmt) String() string {
 }
 
 type ThrowStmt struct {
-	Value Expr
+	Value IExpr
 }
 
 func (n ThrowStmt) String() string {
@@ -257,9 +254,6 @@ type Alias struct {
 }
 
 func (alias Alias) String() string {
-	if alias.Binding == nil {
-		return ""
-	}
 	s := ""
 	if alias.Name != nil {
 		s += string(alias.Name) + " as "
@@ -323,7 +317,9 @@ func (n ExportStmt) String() string {
 			if i != 0 {
 				s += " ,"
 			}
-			s += " " + item.String()
+			if item.Binding != nil {
+				s += " " + item.String()
+			}
 		}
 		s += " }"
 	}
@@ -334,10 +330,14 @@ func (n ExportStmt) String() string {
 }
 
 type ExprStmt struct {
-	Value Expr
+	Value IExpr
 }
 
 func (n ExprStmt) String() string {
+	val := n.Value.String()
+	if val[0] == '(' {
+		return "Stmt" + n.Value.String()
+	}
 	return "Stmt(" + n.Value.String() + ")"
 }
 
@@ -365,14 +365,46 @@ func (n ExprStmt) stmtNode()     {}
 
 type PropertyName struct {
 	Name         Token
-	ComputedName *AssignExpr // can be nil
+	ComputedName IExpr // can be nil
 }
 
 func (n PropertyName) String() string {
 	if n.ComputedName != nil {
-		return "[ " + n.ComputedName.String() + " ]"
+		name := n.ComputedName.String()
+		if name[0] == '(' {
+			return "[" + name[1:len(name)-1] + "]"
+		}
+		return "[" + name + "]"
 	}
 	return n.Name.String()
+}
+
+type Property struct {
+	Init   bool
+	Spread bool
+	Key    *PropertyName // can be nil
+	Value  IExpr         // can be nil, method or assignment expression
+}
+
+func (n Property) String() string {
+	s := ""
+	if n.Key != nil {
+		s += n.Key.String()
+		if n.Value != nil {
+			if n.Init {
+				s += " = "
+			} else {
+				s += ": "
+			}
+			s += n.Value.String()
+		}
+	} else {
+		if n.Spread {
+			s += "..."
+		}
+		s += n.Value.String()
+	}
+	return s
 }
 
 type BindingName struct {
@@ -424,8 +456,8 @@ func (n BindingObject) String() string {
 }
 
 type BindingElement struct {
-	Binding IBinding    // can be nil
-	Default *AssignExpr // can be nil
+	Binding IBinding // can be nil
+	Default IExpr    // can be nil
 }
 
 func (n BindingElement) String() string {
@@ -467,38 +499,6 @@ func (n Params) String() string {
 	return s + ")"
 }
 
-type Method struct {
-	Static    bool
-	Async     bool
-	Generator bool
-	Get       bool
-	Set       bool
-	Name      PropertyName
-	Params    Params
-	Body      BlockStmt
-}
-
-func (n Method) String() string {
-	s := ""
-	if n.Static {
-		s += " static"
-	}
-	if n.Async {
-		s += " async"
-	}
-	if n.Generator {
-		s += " *"
-	}
-	if n.Get {
-		s += " get"
-	}
-	if n.Set {
-		s += " set"
-	}
-	s += " " + n.Name.String() + " " + n.Params.String() + " " + n.Body.String()
-	return "Method(" + s[1:] + ")"
-}
-
 type VarDecl struct {
 	TokenType
 	List []BindingElement
@@ -528,7 +528,7 @@ func (n FuncDecl) String() string {
 		s += "function"
 	}
 	if n.Generator {
-		s += " *"
+		s += "*"
 	}
 	if n.Name != nil {
 		s += " " + string(n.Name)
@@ -539,7 +539,7 @@ func (n FuncDecl) String() string {
 type ClassDecl struct {
 	Name    []byte // can be nil
 	Extends IExpr  // can be nil TODO LHS EXPR
-	Methods []Method
+	Methods []MethodDecl
 }
 
 func (n ClassDecl) String() string {
@@ -556,48 +556,278 @@ func (n ClassDecl) String() string {
 	return s + ")"
 }
 
+type MethodDecl struct {
+	Static    bool
+	Async     bool
+	Generator bool
+	Get       bool
+	Set       bool
+	Name      PropertyName
+	Params    Params
+	Body      BlockStmt
+}
+
+func (n MethodDecl) String() string {
+	s := ""
+	if n.Static {
+		s += " static"
+	}
+	if n.Async {
+		s += " async"
+	}
+	if n.Generator {
+		s += " *"
+	}
+	if n.Get {
+		s += " get"
+	}
+	if n.Set {
+		s += " set"
+	}
+	s += " " + n.Name.String() + " " + n.Params.String() + " " + n.Body.String()
+	return "Method(" + s[1:] + ")"
+}
+
+type ArrowFunctionDecl struct {
+	Async  bool
+	Params Params
+	Body   BlockStmt
+}
+
+func (n ArrowFunctionDecl) String() string {
+	s := "("
+	if n.Async {
+		s += "async "
+	}
+	return s + n.Params.String() + " => " + n.Body.String() + ")"
+}
+
 func (n VarDecl) stmtNode()   {}
 func (n FuncDecl) stmtNode()  {}
 func (n ClassDecl) stmtNode() {}
 
-func (n VarDecl) exprNode()   {}
-func (n FuncDecl) exprNode()  {}
-func (n ClassDecl) exprNode() {}
+func (n VarDecl) exprNode()           {}
+func (n FuncDecl) exprNode()          {}
+func (n ClassDecl) exprNode()         {}
+func (n MethodDecl) exprNode()        {}
+func (n ArrowFunctionDecl) exprNode() {}
 
 ////////////////////////////////////////////////////////////////
 
-type AssignExpr struct {
-	Nodes []interface{ String() string }
+type GroupExpr struct {
+	List []IExpr
+	Rest IBinding
 }
 
-func (n AssignExpr) String() string {
-	s := "Expr("
-	for i, item := range n.Nodes {
-		if i != 0 {
-			s += " "
-		}
-		s += item.String()
-	}
-	return s + ")"
-}
-
-type Expr struct {
-	List []AssignExpr
-}
-
-func (n Expr) String() string {
-	if len(n.List) == 1 {
-		return n.List[0].String()
-	}
-	s := "Expr("
+func (n GroupExpr) String() string {
+	s := "("
 	for i, item := range n.List {
 		if i != 0 {
-			s += " , "
+			s += ", "
 		}
 		s += item.String()
+	}
+	if n.Rest != nil {
+		s += ", ...Binding(" + n.Rest.String() + ")"
 	}
 	return s + ")"
 }
 
-func (n AssignExpr) exprNode() {}
-func (n Expr) exprNode()       {}
+type ArrayExpr struct {
+	List []IExpr
+	Rest IExpr // can be nil
+}
+
+func (n ArrayExpr) String() string {
+	s := "["
+	for i, item := range n.List {
+		if i != 0 {
+			s += ", "
+		}
+		s += item.String()
+	}
+	if n.Rest != nil {
+		s += ", ..." + n.Rest.String()
+	}
+	return s + "]"
+}
+
+type ObjectExpr struct {
+	List []Property
+}
+
+func (n ObjectExpr) String() string {
+	s := "{"
+	for i, item := range n.List {
+		if i != 0 {
+			s += ", "
+		}
+		s += item.String()
+	}
+	return s + "}"
+}
+
+type TemplatePart struct {
+	Value []byte
+	Expr  IExpr
+}
+
+type TemplateExpr struct {
+	Tag  IExpr // can be nil
+	List []TemplatePart
+	Tail []byte
+}
+
+func (n TemplateExpr) String() string {
+	s := ""
+	if n.Tag != nil {
+		s += n.Tag.String()
+	}
+	for _, item := range n.List {
+		s += string(item.Value) + item.Expr.String()
+	}
+	return s + string(n.Tail)
+}
+
+type Arguments struct {
+	List []IExpr
+	Rest IExpr // can be nil
+}
+
+func (n Arguments) String() string {
+	s := "("
+	for i, item := range n.List {
+		if i != 0 {
+			s += ", "
+		}
+		s += item.String()
+	}
+	if n.Rest != nil {
+		if len(n.List) != 0 {
+			s += ", "
+		}
+		s += "..." + n.Rest.String()
+	}
+	return s + ")"
+}
+
+type NewExpr struct {
+	X IExpr
+}
+
+func (n NewExpr) String() string {
+	return "(new " + n.X.String() + ")"
+}
+
+type NewTargetExpr struct {
+}
+
+func (n NewTargetExpr) String() string {
+	return "(new.target)"
+}
+
+type YieldExpr struct {
+	Generator bool
+	Value     IExpr // can be nil
+}
+
+func (n YieldExpr) String() string {
+	if n.Value == nil {
+		return "(yield)"
+	}
+	s := "(yield"
+	if n.Generator {
+		s += "*"
+	}
+	return s + " " + n.Value.String() + ")"
+}
+
+type ConditionalExpr struct {
+	X, Y, Z IExpr
+}
+
+func (n ConditionalExpr) String() string {
+	return "(" + n.X.String() + " ? " + n.Y.String() + " : " + n.Z.String() + ")"
+}
+
+type CallExpr struct {
+	X    IExpr
+	Args Arguments
+}
+
+func (n CallExpr) String() string {
+	return n.X.String() + n.Args.String()
+}
+
+type IndexExpr struct {
+	X     IExpr
+	Index IExpr
+}
+
+func (n IndexExpr) String() string {
+	return n.X.String() + "[" + n.Index.String() + "]"
+}
+
+type OptChainExpr struct {
+	X IExpr
+	Y IExpr // can be CallExpr, IndexExpr, LiteralExpr, or TemplateExpr
+}
+
+func (n OptChainExpr) String() string {
+	s := "(" + n.X.String() + "?."
+	switch y := n.Y.(type) {
+	case *CallExpr:
+		return s + y.Args.String() + ")"
+	case *IndexExpr:
+		return s + "[" + y.Index.String() + "])"
+	default:
+		return s + y.String() + ")"
+	}
+}
+
+type UnaryExpr struct {
+	Op TokenType
+	X  IExpr
+}
+
+func (n UnaryExpr) String() string {
+	if n.Op == PostIncrToken || n.Op == PostDecrToken {
+		return "(" + n.X.String() + n.Op.String() + ")"
+	} else if IsIdentifier(n.Op) {
+		return "(" + n.Op.String() + " " + n.X.String() + ")"
+	}
+	return "(" + n.Op.String() + n.X.String() + ")"
+}
+
+type BinaryExpr struct {
+	Op   TokenType
+	X, Y IExpr
+}
+
+func (n BinaryExpr) String() string {
+	if IsIdentifier(n.Op) {
+		return "(" + n.X.String() + " " + n.Op.String() + " " + n.Y.String() + ")"
+	}
+	return "(" + n.X.String() + n.Op.String() + n.Y.String() + ")"
+}
+
+type LiteralExpr Token
+
+func (n LiteralExpr) String() string {
+	return string(n.Data)
+}
+
+func (n GroupExpr) exprNode()       {}
+func (n ArrayExpr) exprNode()       {}
+func (n ObjectExpr) exprNode()      {}
+func (n TemplateExpr) exprNode()    {}
+func (n NewExpr) exprNode()         {}
+func (n NewTargetExpr) exprNode()   {}
+func (n YieldExpr) exprNode()       {}
+func (n ConditionalExpr) exprNode() {}
+func (n CallExpr) exprNode()        {}
+func (n IndexExpr) exprNode()       {}
+func (n OptChainExpr) exprNode()    {}
+func (n UnaryExpr) exprNode()       {}
+func (n BinaryExpr) exprNode()      {}
+func (n LiteralExpr) exprNode()     {}

@@ -2,95 +2,11 @@ package js
 
 import (
 	"bytes"
-	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/parse/v2/buffer"
 )
-
-// TODO: clarify usage of yield, is it a YieldExpression or an Identifier?
-
-type Nodes []interface{ String() string }
-
-type Node struct {
-	GrammarType
-	Nodes Nodes
-
-	TokenType
-	Data []byte
-}
-
-var ErrorNode = Node{}
-
-func GrammarNode(gt GrammarType, nodes Nodes) Node {
-	return Node{GrammarType: gt, Nodes: nodes}
-}
-
-func TokenNode(tt TokenType, data []byte) Node {
-	return Node{GrammarType: TokenGrammar, TokenType: tt, Data: data}
-}
-
-func (n Node) String() string {
-	if n.GrammarType == TokenGrammar {
-		return string(n.Data)
-	}
-	s := ""
-	for _, child := range n.Nodes {
-		s += " " + child.String()
-	}
-	if 0 < len(s) {
-		s = s[1:]
-	}
-	if n.GrammarType == ModuleGrammar {
-		return s
-	}
-	return n.GrammarType.String() + "(" + s + ")"
-}
-
-// GrammarType determines the type of grammar.
-type GrammarType uint16
-
-// GrammarType values.
-const (
-	ErrorGrammar GrammarType = iota // extra token when errors occur
-	TokenGrammar
-	ModuleGrammar
-	BindingGrammar
-	ClauseGrammar
-	MethodGrammar
-	ParamsGrammar
-	ExprGrammar
-	StmtGrammar
-)
-
-// String returns the string representation of a GrammarType.
-func (tt GrammarType) String() string {
-	switch tt {
-	case ErrorGrammar:
-		return "Error"
-	case TokenGrammar:
-		return "Token"
-	case ModuleGrammar:
-		return "Module"
-	case BindingGrammar:
-		return "Binding"
-	case ClauseGrammar:
-		return "Clause"
-	case MethodGrammar:
-		return "Method"
-	case ParamsGrammar:
-		return "Params"
-	case ExprGrammar:
-		return "Expr"
-	case StmtGrammar:
-		return "Stmt"
-	}
-	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
-}
-
-////////////////////////////////////////////////////////////////
 
 // Parser is the state for the parser.
 type Parser struct {
@@ -101,6 +17,7 @@ type Parser struct {
 	data               []byte
 	prevLineTerminator bool
 	asyncLevel         int
+	generatorLevel     int
 	inFor              bool
 }
 
@@ -127,10 +44,6 @@ func Parse(r io.Reader) (AST, error) {
 }
 
 ////////////////////////////////////////////////////////////////
-
-//func (p *Parser) push(node Node) {
-//	p.buf = append(p.buf, node)
-//}
 
 func (p *Parser) next() {
 	if p.tt == ErrorToken {
@@ -223,7 +136,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		stmt = &BranchStmt{tt, name}
 	case ReturnToken:
 		p.next()
-		var value Expr
+		var value IExpr
 		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != LineTerminatorToken && p.tt != ErrorToken {
 			value = p.parseExpr()
 		}
@@ -302,7 +215,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		p.inFor = false
 
 		if p.tt == SemicolonToken {
-			var cond, post Expr
+			var cond, post IExpr
 			if await {
 				p.fail("for statement", OfToken)
 				return
@@ -322,7 +235,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			}
 			stmt = &ForStmt{init, cond, post, p.parseStmt()}
 		} else if p.tt == InToken {
-			if init == nil || await {
+			if await {
 				p.fail("for statement", OfToken)
 				return
 			}
@@ -333,10 +246,6 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			}
 			stmt = &ForInStmt{init, value, p.parseStmt()}
 		} else if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("of")) {
-			if init == nil {
-				p.fail("for statement", OfToken)
-				return
-			}
 			p.next()
 			value := p.parseAssignmentExpr()
 			if !p.consume("for statement", CloseParenToken) {
@@ -351,10 +260,10 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
 		expr := p.parseExpr()
 		stmt = &ExprStmt{expr}
-		if p.tt == ColonToken && len(expr.List) == 1 && len(expr.List[0].Nodes) == 1 {
-			if node, ok := expr.List[0].Nodes[0].(Node); ok && (node.TokenType != AwaitToken || p.asyncLevel == 0) {
+		if p.tt == ColonToken {
+			if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType != AwaitToken || p.asyncLevel == 0) {
 				p.next() // colon
-				stmt = &LabelledStmt{Token{IdentifierToken, node.Data}, p.parseStmt()}
+				stmt = &LabelledStmt{Token{IdentifierToken, literal.Data}, p.parseStmt()}
 			}
 		}
 	case SwitchToken:
@@ -380,7 +289,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			}
 
 			tt := p.tt
-			var list Expr
+			var list IExpr
 			if p.tt == CaseToken {
 				p.next()
 				list = p.parseExpr()
@@ -402,25 +311,22 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		}
 		stmt = &SwitchStmt{init, clauses}
 	case FunctionToken:
-		funcDecl := p.parseFuncDecl()
+		funcDecl := p.parseFuncDecl(false, false)
 		stmt = &funcDecl
 	case AsyncToken: // async function
 		p.next()
 		if p.tt != FunctionToken {
-			p.fail("async function statement", FunctionToken)
+			p.fail("function statement", FunctionToken)
 			return
 		}
-		p.asyncLevel++
-		funcDecl := p.parseFuncDecl()
-		funcDecl.Async = true
-		p.asyncLevel--
+		funcDecl := p.parseFuncDecl(true, false)
 		stmt = &funcDecl
 	case ClassToken:
 		classDecl := p.parseClassDecl()
 		stmt = &classDecl
 	case ThrowToken:
 		p.next()
-		var value Expr
+		var value IExpr
 		if !p.prevLineTerminator {
 			value = p.parseExpr()
 		}
@@ -458,21 +364,6 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	}
 	if p.tt == SemicolonToken {
 		p.next()
-	}
-	return
-}
-
-func (p *Parser) parseVarDecl() (varDecl VarDecl) {
-	// assume we're at var, let or const
-	varDecl.TokenType = p.tt
-	p.next()
-	for {
-		varDecl.List = append(varDecl.List, p.parseBindingElement())
-		if p.tt == CommaToken {
-			p.next()
-		} else {
-			break
-		}
 	}
 	return
 }
@@ -637,7 +528,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		varDecl := p.parseVarDecl()
 		exportStmt.Decl = &varDecl
 	} else if p.tt == FunctionToken {
-		funcDecl := p.parseFuncDecl()
+		funcDecl := p.parseFuncDecl(false, false)
 		exportStmt.Decl = &funcDecl
 	} else if p.tt == AsyncToken { // async function
 		p.next()
@@ -645,10 +536,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			p.fail("export statement", FunctionToken)
 			return
 		}
-		p.asyncLevel++
-		funcDecl := p.parseFuncDecl()
-		funcDecl.Async = true
-		p.asyncLevel--
+		funcDecl := p.parseFuncDecl(true, false)
 		exportStmt.Decl = &funcDecl
 	} else if p.tt == ClassToken {
 		classDecl := p.parseClassDecl()
@@ -657,7 +545,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		exportStmt.Default = true
 		p.next()
 		if p.tt == FunctionToken {
-			funcDecl := p.parseFuncDecl()
+			funcDecl := p.parseFuncDecl(false, true)
 			exportStmt.Decl = &funcDecl
 		} else if p.tt == AsyncToken { // async function
 			p.next()
@@ -665,17 +553,13 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 				p.fail("export statement", FunctionToken)
 				return
 			}
-			p.asyncLevel++
-			funcDecl := p.parseFuncDecl()
-			funcDecl.Async = true
-			p.asyncLevel--
+			funcDecl := p.parseFuncDecl(true, true)
 			exportStmt.Decl = &funcDecl
 		} else if p.tt == ClassToken {
 			classDecl := p.parseClassDecl()
 			exportStmt.Decl = &classDecl
 		} else {
-			assignExpr := p.parseAssignmentExpr()
-			exportStmt.Decl = &Expr{[]AssignExpr{assignExpr}}
+			exportStmt.Decl = p.parseAssignmentExpr()
 		}
 	} else {
 		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
@@ -687,19 +571,53 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	return
 }
 
-func (p *Parser) parseFuncDecl() (funcDecl FuncDecl) {
+func (p *Parser) parseVarDecl() (varDecl VarDecl) {
+	// assume we're at var, let or const
+	varDecl.TokenType = p.tt
+	p.next()
+	for {
+		varDecl.List = append(varDecl.List, p.parseBindingElement())
+		if p.tt == CommaToken {
+			p.next()
+		} else {
+			break
+		}
+	}
+	return
+}
+
+func (p *Parser) parseFuncDecl(async, nameOptional bool) (funcDecl FuncDecl) {
 	// assume we're at function
 	p.next()
-	if p.tt == MulToken {
-		funcDecl.Generator = true
+	funcDecl.Async = async
+	funcDecl.Generator = p.tt == MulToken
+	if funcDecl.Generator {
 		p.next()
 	}
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 		funcDecl.Name = p.data
 		p.next()
+	} else if !nameOptional {
+		p.fail("function declaration", IdentifierToken)
+		return
+	} else if p.tt != OpenParenToken {
+		p.fail("function declaration", IdentifierToken, OpenParenToken)
+		return
+	}
+	if funcDecl.Async {
+		p.asyncLevel++
+	}
+	if funcDecl.Generator {
+		p.generatorLevel++
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
 	funcDecl.Body = p.parseBlockStmt("function declaration")
+	if funcDecl.Generator {
+		p.generatorLevel--
+	}
+	if funcDecl.Async {
+		p.asyncLevel--
+	}
 	return
 }
 
@@ -743,8 +661,7 @@ func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
 	}
 	if p.tt == ExtendsToken {
 		p.next()
-		leftHandSideExpr := Expr{[]AssignExpr{AssignExpr{p.parseLeftHandSideExpr(nil)}}}
-		classDecl.Extends = &leftHandSideExpr
+		classDecl.Extends = p.parseLeftHandSideExpr()
 	}
 
 	if !p.consume("class statement", OpenBraceToken) {
@@ -765,7 +682,7 @@ func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
 	return
 }
 
-func (p *Parser) parseMethod() (method Method) {
+func (p *Parser) parseMethod() (method MethodDecl) {
 	if p.tt == StaticToken {
 		method.Static = true
 		p.next()
@@ -795,8 +712,7 @@ func (p *Parser) parseMethod() (method Method) {
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
-		assignExpr := p.parseAssignmentExpr()
-		method.Name = PropertyName{Token{}, &assignExpr}
+		method.Name = PropertyName{Token{}, p.parseAssignmentExpr()}
 		if p.tt != CloseBracketToken {
 			p.fail("method definition", CloseBracketToken)
 			return
@@ -822,8 +738,7 @@ func (p *Parser) parseBindingElement() (bindingElement BindingElement) {
 	bindingElement.Binding = p.parseBinding()
 	if p.tt == EqToken {
 		p.next()
-		assignExpr := p.parseAssignmentExpr()
-		bindingElement.Default = &assignExpr
+		bindingElement.Default = p.parseAssignmentExpr()
 	}
 	return
 }
@@ -904,16 +819,14 @@ func (p *Parser) parseBinding() (binding IBinding) {
 					item.Value.Binding = &BindingName{ident.Data}
 					if p.tt == EqToken {
 						p.next()
-						assignExpr := p.parseAssignmentExpr()
-						item.Value.Default = &assignExpr
+						item.Value.Default = p.parseAssignmentExpr()
 					}
 				}
 			} else if IsIdentifier(p.tt) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
 				// property name + : + binding element
 				if p.tt == OpenBracketToken {
 					p.next()
-					assignExpr := p.parseAssignmentExpr()
-					item.Key = &PropertyName{ComputedName: &assignExpr}
+					item.Key = &PropertyName{ComputedName: p.parseAssignmentExpr()}
 					if p.tt != CloseBracketToken {
 						p.fail("object binding pattern", CloseBracketToken)
 						return
@@ -954,470 +867,585 @@ func (p *Parser) parseBinding() (binding IBinding) {
 	return
 }
 
-func (p *Parser) parseObjectLiteral(nodes Nodes) Nodes {
+func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	// assume we're on {
-	nodes = append(nodes, p.parseToken())
+	p.next()
 	for p.tt != CloseBraceToken && p.tt != ErrorToken {
-		if p.tt == EllipsisToken {
-			nodes = append(nodes, p.parseToken())
-			nodes = append(nodes, p.parseAssignmentExpr())
-		} else if p.tt == CommaToken {
-			nodes = append(nodes, p.parseToken())
+		item := Property{}
+		if p.tt == CommaToken {
+			p.next()
+			continue
+		} else if p.tt == EllipsisToken {
+			p.next()
+			item.Spread = true
+			item.Value = p.parseAssignmentExpr()
 		} else {
 			async := false
-			property := Nodes{}
+			generator := false
+			idents := []Token{}
 			for p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) {
 				if p.tt == AsyncToken {
 					async = true
-					property = append(property, p.parseToken())
-				} else if IsIdentifier(p.tt) {
-					property = append(property, p.parseTokenAs(IdentifierToken))
+				} else if p.tt == MulToken {
+					generator = true
 				} else {
-					property = append(property, p.parseToken())
+					idents = append(idents, Token{p.tt, p.data})
 				}
+				p.next()
 			}
 
-			last := Node{}
-			if 0 < len(property) {
-				last, _ = property[len(property)-1].(Node)
-			}
-			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && len(property) == 1 && (last.TokenType == IdentifierToken || last.TokenType == YieldToken || last.TokenType == AwaitToken && p.asyncLevel == 0) {
-				nodes = append(nodes, TokenNode(IdentifierToken, last.Data))
+			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && async == false && generator == false && len(idents) == 1 && (idents[0].TokenType == IdentifierToken || idents[0].TokenType == YieldToken || idents[0].TokenType == AwaitToken && p.asyncLevel == 0) {
+				item.Key = &PropertyName{Name: Token{IdentifierToken, idents[0].Data}}
 				if p.tt == EqToken {
-					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseAssignmentExpr())
+					p.next()
+					item.Init = true
+					item.Value = p.parseAssignmentExpr()
 				}
-			} else if 0 < len(property) && IsIdentifier(last.TokenType) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
+			} else if 0 < len(idents) && IsIdentifier(idents[len(idents)-1].TokenType) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
+				propertyName := PropertyName{}
 				if p.tt == StringToken || IsNumeric(p.tt) {
-					property = append(property, p.parseToken())
+					propertyName.Name = Token{p.tt, p.data}
+					p.next()
 				} else if p.tt == OpenBracketToken {
-					property = append(property, p.parseToken())
-					property = append(property, p.parseAssignmentExpr())
+					p.next()
+					propertyName.ComputedName = p.parseAssignmentExpr()
 					if p.tt != CloseBracketToken {
 						p.fail("object literal", CloseBracketToken)
-						return nil
+						return
 					}
-					property = append(property, p.parseToken())
+					p.next()
+				} else {
+					propertyName.Name = Token{IdentifierToken, idents[len(idents)-1].Data}
 				}
 
 				if p.tt == ColonToken {
-					nodes = append(nodes, property...)
-					nodes = append(nodes, p.parseToken())
-					nodes = append(nodes, p.parseAssignmentExpr())
+					p.next()
+					item.Key = &propertyName
+					item.Value = p.parseAssignmentExpr()
 				} else if p.tt == OpenParenToken {
 					if async {
 						p.asyncLevel++
 					}
-					funcParams := p.parseFuncParams("method definition")
-					property = append(property, funcParams)
-					property = append(property, p.parseBlockStmt("method definition"))
+					var get, set bool
+					for _, ident := range idents {
+						if len(ident.Data) == 3 {
+							if bytes.Equal(ident.Data, []byte("get")) {
+								get = true
+							} else if bytes.Equal(ident.Data, []byte("set")) {
+								set = true
+							}
+						}
+					}
+					params := p.parseFuncParams("method definition")
+					body := p.parseBlockStmt("method definition")
+					item.Value = &MethodDecl{Async: async, Generator: generator, Get: get, Set: set, Name: propertyName, Params: params, Body: body}
 					if async {
 						p.asyncLevel--
 					}
-					nodes = append(nodes, GrammarNode(MethodGrammar, property))
 				} else {
 					p.fail("object literal", ColonToken, OpenParenToken)
-					return nil
+					return
 				}
 			} else {
 				p.fail("object literal", EqToken, CommaToken, CloseBraceToken, EllipsisToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
-				return nil
+				return
 			}
 		}
+		object.List = append(object.List, item)
 	}
 	if p.tt == CloseBraceToken {
-		nodes = append(nodes, p.parseToken())
+		p.next()
 	}
-	return nodes
+	return
 }
 
-func (p *Parser) parseTemplateLiteral(nodes Nodes) Nodes {
+func (p *Parser) parseTemplateLiteral() (template TemplateExpr) {
 	// assume we're on 'Template' or 'TemplateStart'
 	for p.tt == TemplateStartToken || p.tt == TemplateMiddleToken {
-		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseExpr())
+		tpl := p.data
+		p.next()
+		template.List = append(template.List, TemplatePart{tpl, p.parseExpr()})
 		if p.tt == TemplateEndToken {
-			nodes = append(nodes, p.parseToken())
-			return nodes
+			break
 		} else {
 			p.fail("template literal", TemplateToken)
-			return nil
+			return
 		}
 	}
-	nodes = append(nodes, p.parseToken())
-	return nodes
+	template.Tail = p.data
+	p.next()
+	return
 }
 
-func (p *Parser) parsePrimaryExpr(nodes Nodes) Nodes {
+func (p *Parser) parseArgs() (args Arguments) {
+	// assume we're on (
+	p.next()
+	args.List = []IExpr{}
+	for {
+		if p.tt == EllipsisToken {
+			p.next()
+			args.Rest = p.parseAssignmentExpr()
+			if p.tt == CommaToken {
+				p.next()
+			}
+			break
+		}
+
+		if p.tt == CloseParenToken || p.tt == ErrorToken {
+			break
+		}
+		args.List = append(args.List, p.parseAssignmentExpr())
+		if p.tt == CommaToken {
+			p.next()
+		}
+	}
+	p.consume("arguments", CloseParenToken)
+	return
+}
+
+func (p *Parser) parseExpr() (expr IExpr) {
+	return p.parseExpression(OpEnd)
+}
+
+func (p *Parser) parseAssignmentExpr() (expr IExpr) {
+	return p.parseExpression(OpComma)
+}
+
+func (p *Parser) parseLeftHandSideExpr() (expr IExpr) {
+	return p.parseExpression(OpNew)
+}
+
+func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
 		p.tt, p.data = p.l.RegExp()
 	}
 
-	switch p.tt {
-	case ThisToken, IdentifierToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
-		nodes = append(nodes, p.parseToken())
-	case YieldToken:
-		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
-	case AwaitToken:
-		if p.asyncLevel != 0 {
-			p.fail("expression")
-			return nil
-		}
-		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
-	case TemplateToken, TemplateStartToken:
-		nodes = p.parseTemplateLiteral(nodes)
-	case OpenBracketToken:
-		// array literal and [expression]
-		nodes = append(nodes, p.parseToken())
-		for p.tt != CloseBracketToken && p.tt != ErrorToken {
-			if p.tt == EllipsisToken || p.tt == CommaToken {
-				nodes = append(nodes, p.parseToken())
-			} else {
-				nodes = append(nodes, p.parseAssignmentExpr())
-			}
-		}
-		nodes = append(nodes, p.parseToken())
-	case OpenBraceToken:
-		nodes = p.parseObjectLiteral(nodes)
-	case OpenParenToken:
-		// parenthesized expression and arrow parameter list
-		nodes = append(nodes, p.parseToken())
-		for p.tt != CloseParenToken && p.tt != ErrorToken {
-			if p.tt == EllipsisToken {
-				nodes = append(nodes, p.parseToken())
-				nodes = append(nodes, p.parseBinding())
-			} else if p.tt == CommaToken {
-				nodes = append(nodes, p.parseToken())
-			} else {
-				nodes = append(nodes, p.parseAssignmentExpr())
-			}
-		}
-		nodes = append(nodes, p.parseToken())
-	case ClassToken:
-		nodes = append(nodes, p.parseClassDecl())
-	case FunctionToken:
-		nodes = append(nodes, p.parseFuncDecl())
-	case AsyncToken:
-		// async function
-		async := p.parseToken()
-		if !p.prevLineTerminator {
-			if p.tt == FunctionToken {
-				p.asyncLevel++
-				funcDecl := p.parseFuncDecl()
-				funcDecl.Async = true
-				nodes = append(nodes, funcDecl)
-				p.asyncLevel--
-			} else {
-				p.fail("async function expression", FunctionToken)
-				return nil
-			}
-		} else {
-			nodes = append(nodes, async)
-		}
-	default:
-		if IsNumeric(p.tt) {
-			nodes = append(nodes, p.parseToken())
-		} else {
-			p.fail("expression")
-			return nil
-		}
-	}
-	return nodes
-}
-
-func (p *Parser) parseLeftHandSideExprEnd(nodes Nodes) Nodes {
-	// parse arguments, [expression], .identifier, template
-	if p.tt == OpenParenToken {
-		nodes = append(nodes, p.parseToken())
-		for {
-			if p.tt == ErrorToken || p.tt == CloseParenToken {
-				break
-			} else if p.tt == CommaToken {
-				nodes = append(nodes, p.parseToken())
-			} else if p.tt == EllipsisToken {
-				nodes = append(nodes, p.parseToken())
-				nodes = append(nodes, p.parseAssignmentExpr())
-				break
-			} else {
-				nodes = append(nodes, p.parseAssignmentExpr())
-			}
-		}
-		if p.tt == CommaToken {
-			p.next()
-		}
-		if p.tt != CloseParenToken {
-			p.fail("left hand side expression", CloseParenToken)
-			return nil
-		}
-		nodes = append(nodes, p.parseToken())
-	} else if p.tt == OpenBracketToken {
-		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseExpr())
-		if p.tt != CloseBracketToken {
-			p.fail("left hand side expression", CloseBracketToken)
-			return nil
-		}
-		nodes = append(nodes, p.parseToken())
-	} else if p.tt == DotToken {
-		nodes = append(nodes, p.parseToken())
-		if !IsIdentifier(p.tt) {
-			p.fail("left hand side expression", IdentifierToken)
-			return nil
-		}
-		nodes = append(nodes, p.parseTokenAs(IdentifierToken))
-	} else if p.tt == TemplateToken || p.tt == TemplateStartToken {
-		nodes = p.parseTemplateLiteral(nodes)
-	} else {
-		p.fail("left hand side expression", OpenParenToken, OpenBracketToken, DotToken, TemplateToken)
-		return nil
-	}
-	return nodes
-}
-
-func (p *Parser) parseLeftHandSideExpr(nodes Nodes) Nodes {
-	for p.tt == NewToken {
-		nodes = append(nodes, p.parseToken())
+	var left IExpr
+	switch tt := p.tt; tt {
+	case NewToken:
+		p.next()
 		if p.tt == DotToken {
-			nodes = append(nodes, p.parseToken())
+			p.next()
 			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("target")) {
-				p.fail("left hand side expression", TargetToken)
-				return nil
+				p.fail("new expression", TargetToken)
+				return
 			}
-			nodes = append(nodes, p.parseToken())
-			goto LHSEND
+			p.next()
+			left = &NewTargetExpr{}
+		} else {
+			left = &NewExpr{p.parseExpression(OpNew)}
 		}
-	}
-
-	if p.tt == SuperToken {
-		nodes = append(nodes, p.parseToken())
-		if p.tt == TemplateToken || p.tt == TemplateStartToken {
-			p.fail("left hand side expression")
-			return nil
-		}
-		nodes = p.parseLeftHandSideExprEnd(nodes)
-	} else if p.tt == ImportToken {
-		nodes = append(nodes, p.parseToken())
+	case ImportToken:
+		left = &LiteralExpr{p.tt, p.data}
+		p.next()
 		if p.tt != OpenParenToken {
-			p.fail("left hand side expression", OpenParenToken)
-			return nil
+			p.fail("import expression", OpenParenToken)
 		}
+	case SuperToken:
+		left = &LiteralExpr{p.tt, p.data}
 		p.next()
-		nodes = append(nodes, p.parseExpr())
-		if p.tt != CloseParenToken {
-			p.fail("left hand side expression", CloseParenToken)
-			return nil
+		if p.tt != DotToken && p.tt != OpenBracketToken && p.tt != OpenParenToken {
+			p.fail("super expression", OpenBracketToken, OpenParenToken, DotToken)
 		}
+	case AwaitToken:
 		p.next()
-	} else {
-		nodes = p.parsePrimaryExpr(nodes)
-	}
-
-LHSEND:
-	// parse arguments, [expression], .identifier, template at the end of member expressions and call expressions
-	for p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == DotToken || p.tt == TemplateToken || p.tt == TemplateStartToken {
-		nodes = p.parseLeftHandSideExprEnd(nodes)
-	}
-
-	// parse optional chaining at the end of left hand expressions
-	for p.tt == OptChainToken {
-		nodes = append(nodes, p.parseToken())
-		if IsIdentifier(p.tt) {
-			nodes = append(nodes, p.parseTokenAs(IdentifierToken))
-		} else if p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == TemplateToken || p.tt == TemplateStartToken {
-			nodes = p.parseLeftHandSideExprEnd(nodes)
+		if 0 < p.asyncLevel && (p.tt != ArrowToken || p.prevLineTerminator) {
+			left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
 		} else {
-			p.fail("left hand side expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
-			return nil
+			left = &LiteralExpr{IdentifierToken, []byte("await")}
 		}
-		for p.tt == OpenParenToken || p.tt == OpenBracketToken || p.tt == DotToken || p.tt == TemplateToken || p.tt == TemplateStartToken {
-			nodes = p.parseLeftHandSideExprEnd(nodes)
-		}
-	}
-	return nodes
-}
-
-func (p *Parser) parseAssignmentExpr() AssignExpr {
-	nodes := Nodes{}
-	if p.tt == YieldToken {
-		yield := p.parseToken()
-		if p.tt == ArrowToken {
-			nodes = append(nodes, GrammarNode(ParamsGrammar, Nodes{GrammarNode(BindingGrammar, Nodes{yield})}))
-			nodes = append(nodes, p.parseToken())
-			if p.tt == OpenBraceToken {
-				nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
-			} else {
-				nodes = append(nodes, p.parseAssignmentExpr())
-			}
-		} else {
+	case YieldToken:
+		p.next()
+		if 0 < p.generatorLevel {
 			// YieldExpression
-			nodes = append(nodes, yield)
+			yieldExpr := YieldExpr{}
 			if !p.prevLineTerminator {
-				if p.tt == MulToken {
-					nodes = append(nodes, p.parseToken())
+				yieldExpr.Generator = p.tt == MulToken
+				if yieldExpr.Generator {
+					p.next()
 				}
-				nodes = append(nodes, p.parseAssignmentExpr())
+				yieldExpr.Value = p.parseExpression(OpYield - 1)
 			}
+			left = &yieldExpr
+		} else {
+			left = &LiteralExpr{IdentifierToken, []byte("yield")}
 		}
-		return AssignExpr{nodes}
-	} else if p.tt == AsyncToken {
-		async := p.parseToken()
+	case AsyncToken:
+		p.next()
 		if p.prevLineTerminator {
-			p.fail("async function expression")
-			return AssignExpr{nil}
+			p.fail("function declaration")
+			return nil
 		}
 		if p.tt == FunctionToken {
 			// primary expression
-			p.asyncLevel++
-			funcDecl := p.parseFuncDecl()
-			funcDecl.Async = true
-			nodes = append(nodes, funcDecl)
-			p.asyncLevel--
+			funcDecl := p.parseFuncDecl(true, true)
+			left = &funcDecl
+		} else if OpAssign < prec {
+			p.fail("function declaration", FunctionToken)
+			return nil
 		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			nodes = append(nodes, async)
-			nodes = append(nodes, GrammarNode(ParamsGrammar, Nodes{GrammarNode(BindingGrammar, Nodes{p.parseTokenAs(IdentifierToken)})}))
+			left = &LiteralExpr{p.tt, p.data}
+			p.next()
 			if p.tt != ArrowToken {
-				p.fail("async arrow function expression", ArrowToken)
-				return AssignExpr{nil}
+				p.fail("arrow function declaration", ArrowToken)
+				return nil
 			}
-			nodes = append(nodes, p.parseToken())
+
+			var fail bool
+			arrowFunctionDecl := ArrowFunctionDecl{}
+			arrowFunctionDecl.Async = true
+			arrowFunctionDecl.Params, fail = p.exprToParams(left)
+			if fail {
+				p.fail("expression")
+				return nil
+			}
+			p.next()
 			p.asyncLevel++
 			if p.tt == OpenBraceToken {
-				nodes = append(nodes, p.parseBlockStmt("async arrow function expression"))
+				arrowFunctionDecl.Body = p.parseBlockStmt("arrow function declaration")
 			} else {
-				nodes = append(nodes, p.parseAssignmentExpr())
+				arrowFunctionDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
 			}
 			p.asyncLevel--
+			left = &arrowFunctionDecl
 		} else {
-			p.fail("async function expression", FunctionToken, IdentifierToken)
-			return AssignExpr{nil}
+			p.fail("function declaration", FunctionToken, IdentifierToken)
+			return nil
 		}
-		return AssignExpr{nodes}
-	}
-
-ASSIGNLOOP:
-	if p.tt == DeleteToken || p.tt == VoidToken || p.tt == TypeofToken || p.tt == BitNotToken || p.tt == NotToken {
-		nodes = append(nodes, p.parseToken())
-		goto ASSIGNLOOP
-	} else if p.tt == IncrToken {
-		nodes = append(nodes, p.parseTokenAs(PreIncrToken))
-		goto ASSIGNLOOP
-	} else if p.tt == DecrToken {
-		nodes = append(nodes, p.parseTokenAs(PreDecrToken))
-		goto ASSIGNLOOP
-	} else if p.tt == AddToken {
-		nodes = append(nodes, p.parseTokenAs(PosToken))
-		goto ASSIGNLOOP
-	} else if p.tt == SubToken {
-		nodes = append(nodes, p.parseTokenAs(NegToken))
-		goto ASSIGNLOOP
-	} else if p.tt == AwaitToken && p.asyncLevel != 0 {
-		// handle AwaitExpression, otherwise await is handled by primary expression
-		await := p.parseToken()
-		if p.tt == ArrowToken {
-			nodes = append(nodes, Node{GrammarType: TokenGrammar, TokenType: IdentifierToken, Data: await.Data})
-			goto ASSIGNSWITCH
-		}
-		nodes = append(nodes, await)
-		goto ASSIGNLOOP
-	}
-	nodes = p.parseLeftHandSideExpr(nodes)
-	if !p.prevLineTerminator {
-		if p.tt == IncrToken {
-			nodes = append(nodes, p.parseTokenAs(PostIncrToken))
-		} else if p.tt == DecrToken {
-			nodes = append(nodes, p.parseTokenAs(PostDecrToken))
-		}
-	}
-
-ASSIGNSWITCH:
-	switch p.tt {
-	case NullishToken, OrToken, AndToken, BitOrToken, BitXorToken, BitAndToken, EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken, LtToken, GtToken, LtEqToken, GtEqToken, LtLtToken, GtGtToken, GtGtGtToken, AddToken, SubToken, MulToken, DivToken, ModToken, ExpToken, InstanceofToken:
-		nodes = append(nodes, p.parseToken())
-		goto ASSIGNLOOP
-	case InToken:
-		if p.inFor {
-			break
-		}
-		nodes = append(nodes, p.parseToken())
-		goto ASSIGNLOOP
-	case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
-		// we allow the left-hand-side to be a full assignment expression instead of a left-hand-side expression, but that's fine
-		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseAssignmentExpr())
-	case QuestionToken:
-		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseAssignmentExpr())
-		if p.tt != ColonToken {
-			p.fail("conditional expression", ColonToken)
-			return AssignExpr{nil}
-		}
-		nodes = append(nodes, p.parseToken())
-		nodes = append(nodes, p.parseAssignmentExpr())
-	case ArrowToken:
-		// we allow the start of an arrow function expressions to be anything in a left-hand-side expression, but that should be fine
-		if p.prevLineTerminator {
-			p.fail("expression")
-			return AssignExpr{nil}
-		}
-		// previous token should be identifier, yield, await, or arrow parameter list (end with CloseParenToken)
-		last, _ := nodes[len(nodes)-1].(Node)
-		if len(nodes) == 1 && last.TokenType == IdentifierToken || last.TokenType == YieldToken || last.TokenType == AwaitToken {
-			ident := TokenNode(IdentifierToken, last.Data)
-			nodes = append(nodes[:len(nodes)-1], GrammarNode(ParamsGrammar, Nodes{GrammarNode(BindingGrammar, Nodes{ident})}))
-		} else if last.TokenType == CloseParenToken {
-			i := len(nodes) - 2
-			for {
-				n, _ := nodes[i].(Node)
-				if n.TokenType == OpenParenToken {
-					break
-				}
-				if n.GrammarType == ExprGrammar {
-					n.GrammarType = BindingGrammar
-					nodes[i] = n
-				} else if n.TokenType == CommaToken {
-					nodes = append(nodes[:i], nodes[i+1:]...)
-				}
-				i--
+	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
+		p.next()
+		left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
+	case AddToken:
+		p.next()
+		left = &UnaryExpr{PosToken, p.parseExpression(OpPrefix - 1)}
+	case SubToken:
+		p.next()
+		left = &UnaryExpr{NegToken, p.parseExpression(OpPrefix - 1)}
+	case IncrToken:
+		p.next()
+		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpPrefix - 1)}
+	case DecrToken:
+		p.next()
+		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpPrefix - 1)}
+	case ThisToken, IdentifierToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
+		left = &LiteralExpr{p.tt, p.data}
+		p.next()
+	case TemplateToken, TemplateStartToken:
+		template := p.parseTemplateLiteral()
+		left = &template
+	case OpenBracketToken:
+		// array literal and [expression]
+		array := ArrayExpr{}
+		p.next()
+		for p.tt != CloseBracketToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken {
+				p.next()
+				array.Rest = p.parseAssignmentExpr()
+				break
+			} else if p.tt == CommaToken {
+				p.next()
+			} else {
+				array.List = append(array.List, p.parseAssignmentExpr())
 			}
-			nodes = append(nodes[:i:i], GrammarNode(ParamsGrammar, nodes[i+1:len(nodes)-1]))
-			fmt.Println(nodes)
-		} else {
-			p.fail("arrow function expression")
-			return AssignExpr{nil}
 		}
-		nodes = append(nodes, p.parseToken())
-		if p.tt == OpenBraceToken {
-			nodes = append(nodes, p.parseBlockStmt("arrow function expression"))
+		p.next()
+		left = &array
+	case OpenBraceToken:
+		object := p.parseObjectLiteral()
+		left = &object
+	case OpenParenToken:
+		// parenthesized expression and arrow parameter list
+		group := GroupExpr{}
+		p.next()
+		for p.tt != CloseParenToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken {
+				p.next()
+				group.Rest = p.parseBinding()
+			} else if p.tt == CommaToken {
+				p.next()
+			} else {
+				group.List = append(group.List, p.parseAssignmentExpr())
+			}
+		}
+		p.next()
+		if group.Rest == nil && len(group.List) == 1 {
+			left = group.List[0]
 		} else {
-			nodes = append(nodes, p.parseAssignmentExpr())
+			left = &group
+		}
+	case ClassToken:
+		classDecl := p.parseClassDecl()
+		left = &classDecl
+	case FunctionToken:
+		funcDecl := p.parseFuncDecl(false, true)
+		left = &funcDecl
+	default:
+		if IsNumeric(p.tt) {
+			left = &LiteralExpr{p.tt, p.data}
+			p.next()
+		} else {
+			p.fail("expression")
+			return
 		}
 	}
-	return AssignExpr{nodes}
+
+	for {
+		switch tt := p.tt; tt {
+		case TemplateToken, TemplateStartToken:
+			if prec >= OpCall {
+				return left
+			}
+			template := p.parseTemplateLiteral()
+			template.Tag = left
+			left = &template
+		case OpenBracketToken:
+			if prec >= OpCall {
+				return left
+			}
+			p.next()
+			left = &IndexExpr{left, p.parseExpr()}
+			if !p.consume("index expression", CloseBracketToken) {
+				return nil
+			}
+		case OpenParenToken:
+			if prec >= OpCall {
+				return left
+			}
+			left = &CallExpr{left, p.parseArgs()}
+		case DotToken:
+			if prec >= OpCall {
+				return left
+			}
+			p.next()
+			if !IsIdentifier(p.tt) {
+				p.fail("dot expression", IdentifierToken)
+				return nil
+			}
+			left = &BinaryExpr{tt, left, &LiteralExpr{p.tt, p.data}}
+			p.next()
+		case OptChainToken:
+			if prec >= OpCall {
+				return left
+			}
+			p.next()
+			if p.tt == OpenParenToken {
+				left = &OptChainExpr{left, &CallExpr{nil, p.parseArgs()}}
+			} else if p.tt == OpenBracketToken {
+				p.next()
+				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpr()}}
+				if !p.consume("optional chaining expression", CloseBracketToken) {
+					return nil
+				}
+			} else if p.tt == TemplateToken || p.tt == TemplateStartToken {
+				template := p.parseTemplateLiteral()
+				left = &OptChainExpr{left, &template}
+			} else if IsIdentifier(p.tt) {
+				left = &OptChainExpr{left, &LiteralExpr{p.tt, p.data}}
+				p.next()
+			} else {
+				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
+				return nil
+			}
+		case IncrToken:
+			if p.prevLineTerminator || prec >= OpPostfix {
+				return left
+			}
+			p.next()
+			left = &UnaryExpr{PostIncrToken, left}
+			prec = OpPostfix
+		case DecrToken:
+			if p.prevLineTerminator || prec >= OpPostfix {
+				return left
+			}
+			p.next()
+			left = &UnaryExpr{PostDecrToken, left}
+			prec = OpPostfix
+		case ExpToken:
+			if prec >= OpExp {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpExp - 1)}
+		case MulToken, DivToken, ModToken:
+			if prec >= OpMul {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpMul)}
+		case AddToken, SubToken:
+			if prec >= OpAdd {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAdd)}
+		case LtLtToken, GtGtToken, GtGtGtToken:
+			if prec >= OpShift {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpShift)}
+		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
+			if prec >= OpCompare || p.inFor && tt == InToken {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpCompare)}
+		case EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken:
+			if prec >= OpEquals {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
+		case BitAndToken:
+			if prec >= OpBitAnd {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpBitAnd)}
+		case BitXorToken:
+			if prec >= OpBitXor {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpBitXor)}
+		case BitOrToken:
+			if prec >= OpBitOr {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
+		case NullishToken:
+			if prec >= OpNullish {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpNullish)}
+		case AndToken:
+			if prec >= OpOr {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAnd)}
+		case OrToken:
+			if prec >= OpOr {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpOr)}
+		case QuestionToken:
+			if prec >= OpCond {
+				return left
+			}
+			p.next()
+			ifExpr := p.parseExpression(OpCond - 1)
+			if !p.consume("conditional expression", ColonToken) {
+				return nil
+			}
+			elseExpr := p.parseExpression(OpCond - 1)
+			left = &ConditionalExpr{left, ifExpr, elseExpr}
+		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
+			if prec >= OpAssign {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign - 1)}
+		case CommaToken:
+			if prec >= OpComma {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpComma)}
+		case ArrowToken:
+			if p.prevLineTerminator {
+				p.fail("expression")
+				return nil
+			}
+
+			var fail bool
+			arrowFunctionDecl := ArrowFunctionDecl{}
+			arrowFunctionDecl.Params, fail = p.exprToParams(left)
+			if fail {
+				p.fail("expression")
+				return nil
+			}
+			p.next()
+			if p.tt == OpenBraceToken {
+				arrowFunctionDecl.Body = p.parseBlockStmt("arrow function expression")
+			} else {
+				arrowFunctionDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
+			}
+			left = &arrowFunctionDecl
+		default:
+			return left
+		}
+	}
 }
 
-func (p *Parser) parseExpr() (expr Expr) {
-	assignExpr := p.parseAssignmentExpr()
-	expr.List = append(expr.List, assignExpr)
-	for p.tt == CommaToken {
-		p.next()
-		assignExpr = p.parseAssignmentExpr()
-		expr.List = append(expr.List, assignExpr)
+func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement, fail bool) {
+	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
+		bindingElement.Default = assign.Y
+		expr = assign.X
+	}
+	bindingElement.Binding, fail = p.exprToBinding(expr)
+	return
+}
+
+func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
+	if literal, ok := expr.(*LiteralExpr); ok && literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken {
+		binding = &BindingName{literal.Data}
+	} else if array, ok := expr.(*ArrayExpr); ok {
+		bindingArray := BindingArray{}
+		for _, item := range array.List {
+			var bindingElement BindingElement
+			bindingElement, fail = p.exprToBindingElement(item)
+			if fail {
+				return
+			}
+			bindingArray.List = append(bindingArray.List, bindingElement)
+		}
+		if array.Rest != nil {
+			bindingArray.Rest, fail = p.exprToBinding(array.Rest)
+		}
+		binding = &bindingArray
+	} else if object, ok := expr.(*ObjectExpr); ok {
+		bindingObject := BindingObject{}
+		for _, item := range object.List {
+			if item.Init || item.Spread {
+				fail = true
+				return
+			}
+			var bindingElement BindingElement
+			bindingElement, fail = p.exprToBindingElement(item.Value)
+			if fail {
+				return
+			}
+			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Key, Value: bindingElement})
+		}
+		binding = &bindingObject
+	} else {
+		fail = true
 	}
 	return
 }
 
-func (p *Parser) parseToken() Node {
-	node := TokenNode(p.tt, p.data)
-	p.next()
-	return node
-}
-
-func (p *Parser) parseTokenAs(tt TokenType) Node {
-	if len(p.data) == 0 {
-		fmt.Println(p.tt, tt)
+func (p *Parser) exprToParams(expr IExpr) (params Params, fail bool) {
+	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
+		params.List = append(params.List, BindingElement{Binding: &BindingName{literal.Data}})
+	} else if group, ok := expr.(*GroupExpr); ok {
+		for _, item := range group.List {
+			var bindingElement BindingElement
+			bindingElement, fail = p.exprToBindingElement(item)
+			if fail {
+				return
+			}
+			params.List = append(params.List, bindingElement)
+		}
+		if group.Rest != nil {
+			params.Rest = &BindingElement{Binding: group.Rest}
+		}
+	} else {
+		fail = true
 	}
-	node := TokenNode(tt, p.data)
-	p.next()
-	return node
+	return
 }
