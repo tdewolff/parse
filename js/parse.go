@@ -129,7 +129,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		tt := p.tt
 		p.next()
 		var name *Token
-		if !p.prevLineTerminator && (p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken && p.asyncLevel == 0) {
+		if !p.prevLineTerminator && p.isIdentRef(p.tt) {
 			name = &Token{IdentifierToken, p.data}
 			p.next()
 		}
@@ -812,7 +812,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 				if p.tt == ColonToken {
 					// property name + : + binding element
 					p.next()
-					item.Key = &PropertyName{Name: ident}
+					item.Key = &PropertyName{Literal: ident}
 					item.Value = p.parseBindingElement()
 				} else {
 					// single name binding
@@ -826,17 +826,17 @@ func (p *Parser) parseBinding() (binding IBinding) {
 				// property name + : + binding element
 				if p.tt == OpenBracketToken {
 					p.next()
-					item.Key = &PropertyName{ComputedName: p.parseAssignmentExpr()}
+					item.Key = &PropertyName{Computed: p.parseAssignmentExpr()}
 					if p.tt != CloseBracketToken {
 						p.fail("object binding pattern", CloseBracketToken)
 						return
 					}
 					p.next()
 				} else if IsIdentifier(p.tt) {
-					item.Key = &PropertyName{Name: Token{IdentifierToken, p.data}}
+					item.Key = &PropertyName{Literal: Token{IdentifierToken, p.data}}
 					p.next()
 				} else {
-					item.Key = &PropertyName{Name: Token{p.tt, p.data}}
+					item.Key = &PropertyName{Literal: Token{p.tt, p.data}}
 					p.next()
 				}
 				if p.tt != ColonToken {
@@ -867,91 +867,112 @@ func (p *Parser) parseBinding() (binding IBinding) {
 	return
 }
 
+func (p *Parser) isIdentRef(tt TokenType) bool {
+	return tt == IdentifierToken || tt == YieldToken && p.generatorLevel == 0 || tt == AwaitToken && p.asyncLevel == 0
+}
+
 func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	// assume we're on {
 	p.next()
 	for p.tt != CloseBraceToken && p.tt != ErrorToken {
-		item := Property{}
-		if p.tt == CommaToken {
+		property := Property{}
+		if p.tt == EllipsisToken {
 			p.next()
-			continue
-		} else if p.tt == EllipsisToken {
-			p.next()
-			item.Spread = true
-			item.Value = p.parseAssignmentExpr()
+			property.Spread = true
+			property.Value = p.parseAssignmentExpr()
 		} else {
-			async := false
-			generator := false
-			idents := []Token{}
-			for p.tt == MulToken || p.tt == AsyncToken || IsIdentifier(p.tt) {
-				if p.tt == AsyncToken {
-					async = true
-				} else if p.tt == MulToken {
-					generator = true
-				} else {
-					idents = append(idents, Token{p.tt, p.data})
-				}
+			// try to parse as MethodDefinition, otherwise fall back to PropertyName:AssignExpr or IdentifierReference
+			method := MethodDecl{}
+			if p.tt == MulToken {
 				p.next()
+				method.Generator = true
+			} else if p.tt == AsyncToken {
+				p.next()
+				if !p.prevLineTerminator {
+					method.Async = true
+					if p.tt == MulToken {
+						p.next()
+						method.Generator = true
+					}
+				} else {
+					method.Name.Literal = Token{IdentifierToken, []byte("async")}
+				}
+			} else if p.tt == IdentifierToken && len(p.data) == 3 {
+				if bytes.Equal(p.data, []byte("get")) {
+					p.next()
+					method.Get = true
+				} else if bytes.Equal(p.data, []byte("set")) {
+					p.next()
+					method.Set = true
+				}
 			}
 
-			if (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken) && async == false && generator == false && len(idents) == 1 && (idents[0].TokenType == IdentifierToken || idents[0].TokenType == YieldToken || idents[0].TokenType == AwaitToken && p.asyncLevel == 0) {
-				item.Key = &PropertyName{Name: Token{IdentifierToken, idents[0].Data}}
-				if p.tt == EqToken {
+			// PropertyName
+			if method.Name.Literal.TokenType == ErrorToken { // did not parse: async [LT]
+				if IsIdentifier(p.tt) {
+					method.Name.Literal = Token{IdentifierToken, p.data}
 					p.next()
-					item.Init = true
-					item.Value = p.parseAssignmentExpr()
-				}
-			} else if 0 < len(idents) && IsIdentifier(idents[len(idents)-1].TokenType) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
-				propertyName := PropertyName{}
-				if p.tt == StringToken || IsNumeric(p.tt) {
-					propertyName.Name = Token{p.tt, p.data}
+				} else if p.tt == StringToken || IsNumeric(p.tt) {
+					method.Name.Literal = Token{p.tt, p.data}
 					p.next()
 				} else if p.tt == OpenBracketToken {
 					p.next()
-					propertyName.ComputedName = p.parseAssignmentExpr()
+					method.Name.Computed = p.parseAssignmentExpr()
 					if p.tt != CloseBracketToken {
 						p.fail("object literal", CloseBracketToken)
 						return
 					}
 					p.next()
-				} else {
-					propertyName.Name = Token{IdentifierToken, idents[len(idents)-1].Data}
-				}
-
-				if p.tt == ColonToken {
-					p.next()
-					item.Key = &propertyName
-					item.Value = p.parseAssignmentExpr()
-				} else if p.tt == OpenParenToken {
-					if async {
-						p.asyncLevel++
-					}
-					var get, set bool
-					for _, ident := range idents {
-						if len(ident.Data) == 3 {
-							if bytes.Equal(ident.Data, []byte("get")) {
-								get = true
-							} else if bytes.Equal(ident.Data, []byte("set")) {
-								set = true
-							}
-						}
-					}
-					params := p.parseFuncParams("method definition")
-					body := p.parseBlockStmt("method definition")
-					item.Value = &MethodDecl{Async: async, Generator: generator, Get: get, Set: set, Name: propertyName, Params: params, Body: body}
-					if async {
-						p.asyncLevel--
+				} else if !method.Generator && (method.Async || method.Get || method.Set) {
+					// interpret async, get, or set as PropertyName instead of method keyword
+					if method.Async {
+						method.Name.Literal = Token{IdentifierToken, []byte("async")}
+						method.Async = false
+					} else if method.Get {
+						method.Name.Literal = Token{IdentifierToken, []byte("get")}
+						method.Get = false
+					} else if method.Set {
+						method.Name.Literal = Token{IdentifierToken, []byte("set")}
+						method.Set = false
 					}
 				} else {
-					p.fail("object literal", ColonToken, OpenParenToken)
+					p.fail("object literal", IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 					return
 				}
-			} else {
-				p.fail("object literal", EqToken, CommaToken, CloseBraceToken, EllipsisToken, IdentifierToken, StringToken, NumericToken, OpenBracketToken)
+			}
+
+			if p.tt == OpenParenToken {
+				// MethodDefinition
+				if method.Async {
+					p.asyncLevel++
+				}
+				method.Params = p.parseFuncParams("method definition")
+				method.Body = p.parseBlockStmt("method definition")
+				if method.Async {
+					p.asyncLevel--
+				}
+				property.Value = &method
+			} else if p.tt == ColonToken {
+				// PropertyName : AssignmentExpression
+				p.next()
+				property.Key = &method.Name
+				property.Value = p.parseAssignmentExpr()
+			} else if !p.isIdentRef(method.Name.Literal.TokenType) {
+				p.fail("object literal", ColonToken, OpenParenToken)
 				return
+			} else {
+				// IdentifierReference (= AssignmentExpression)?
+				property.Value = (*LiteralExpr)(&method.Name.Literal)
+				if p.tt == EqToken {
+					p.next()
+					property.Init = p.parseAssignmentExpr()
+				}
 			}
 		}
-		object.List = append(object.List, item)
+		object.List = append(object.List, property)
+		if p.tt != CloseBraceToken && !p.consume("object literal", CommaToken) {
+			return
+		}
 	}
 	if p.tt == CloseBraceToken {
 		p.next()
@@ -1085,21 +1106,16 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.fail("function declaration", FunctionToken)
 			return nil
 		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			left = &LiteralExpr{p.tt, p.data}
+			name := p.data
 			p.next()
 			if p.tt != ArrowToken {
 				p.fail("arrow function declaration", ArrowToken)
 				return nil
 			}
 
-			var fail bool
 			arrowFunctionDecl := ArrowFunctionDecl{}
 			arrowFunctionDecl.Async = true
-			arrowFunctionDecl.Params, fail = p.exprToParams(left)
-			if fail {
-				p.fail("expression")
-				return nil
-			}
+			arrowFunctionDecl.Params = Params{List: []BindingElement{{Binding: &BindingName{name}}}}
 			p.next()
 			p.asyncLevel++
 			if p.tt == OpenBraceToken {
@@ -1138,14 +1154,21 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 		// array literal and [expression]
 		array := ArrayExpr{}
 		p.next()
+		commas := 1
 		for p.tt != CloseBracketToken && p.tt != ErrorToken {
 			if p.tt == EllipsisToken {
 				p.next()
 				array.Rest = p.parseAssignmentExpr()
 				break
 			} else if p.tt == CommaToken {
+				commas++
 				p.next()
 			} else {
+				for 1 < commas {
+					array.List = append(array.List, nil)
+					commas--
+				}
+				commas = 0
 				array.List = append(array.List, p.parseAssignmentExpr())
 			}
 		}
@@ -1169,11 +1192,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 		}
 		p.next()
-		if group.Rest == nil && len(group.List) == 1 {
-			left = group.List[0]
-		} else {
-			left = &group
-		}
+		left = &group
 	case ClassToken:
 		classDecl := p.parseClassDecl()
 		left = &classDecl
@@ -1382,17 +1401,8 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 	}
 }
 
-func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement, fail bool) {
-	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
-		bindingElement.Default = assign.Y
-		expr = assign.X
-	}
-	bindingElement.Binding, fail = p.exprToBinding(expr)
-	return
-}
-
 func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
-	if literal, ok := expr.(*LiteralExpr); ok && literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken {
+	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
 		binding = &BindingName{literal.Data}
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
@@ -1411,7 +1421,7 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 	} else if object, ok := expr.(*ObjectExpr); ok {
 		bindingObject := BindingObject{}
 		for _, item := range object.List {
-			if item.Init || item.Spread {
+			if item.Init != nil || item.Spread {
 				fail = true
 				return
 			}
@@ -1423,9 +1433,18 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Key, Value: bindingElement})
 		}
 		binding = &bindingObject
-	} else {
+	} else if expr != nil {
 		fail = true
 	}
+	return
+}
+
+func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement, fail bool) {
+	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
+		bindingElement.Default = assign.Y
+		expr = assign.X
+	}
+	bindingElement.Binding, fail = p.exprToBinding(expr)
 	return
 }
 

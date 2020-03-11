@@ -364,45 +364,38 @@ func (n ExprStmt) stmtNode()     {}
 ////////////////////////////////////////////////////////////////
 
 type PropertyName struct {
-	Name         Token
-	ComputedName IExpr // can be nil
+	Literal  Token
+	Computed IExpr // can be nil
 }
 
 func (n PropertyName) String() string {
-	if n.ComputedName != nil {
-		name := n.ComputedName.String()
+	if n.Computed != nil {
+		name := n.Computed.String()
 		if name[0] == '(' {
 			return "[" + name[1:len(name)-1] + "]"
 		}
 		return "[" + name + "]"
 	}
-	return n.Name.String()
+	return n.Literal.String()
 }
 
 type Property struct {
-	Init   bool
+	Key    *PropertyName
+	Value  IExpr
+	Init   IExpr // can be nil
 	Spread bool
-	Key    *PropertyName // can be nil
-	Value  IExpr         // can be nil, method or assignment expression
 }
 
 func (n Property) String() string {
 	s := ""
 	if n.Key != nil {
-		s += n.Key.String()
-		if n.Value != nil {
-			if n.Init {
-				s += " = "
-			} else {
-				s += ": "
-			}
-			s += n.Value.String()
-		}
-	} else {
-		if n.Spread {
-			s += "..."
-		}
-		s += n.Value.String()
+		s += n.Key.String() + ": "
+	} else if n.Spread {
+		s += "..."
+	}
+	s += n.Value.String()
+	if n.Init != nil {
+		s += " = " + n.Init.String()
 	}
 	return s
 }
@@ -422,11 +415,17 @@ type BindingArray struct {
 
 func (n BindingArray) String() string {
 	s := "["
-	for _, item := range n.List {
+	for i, item := range n.List {
+		if i != 0 {
+			s += ","
+		}
 		s += " " + item.String()
 	}
 	if n.Rest != nil {
-		s += " ... Binding(" + n.Rest.String() + ")"
+		if len(n.List) != 0 {
+			s += ","
+		}
+		s += " ...Binding(" + n.Rest.String() + ")"
 	}
 	return s + " ]"
 }
@@ -443,14 +442,20 @@ type BindingObject struct {
 
 func (n BindingObject) String() string {
 	s := "{"
-	for _, item := range n.List {
+	for i, item := range n.List {
+		if i != 0 {
+			s += ","
+		}
 		if item.Key != nil {
-			s += " " + item.Key.String() + " :"
+			s += " " + item.Key.String() + ":"
 		}
 		s += " " + item.Value.String()
 	}
 	if n.Rest != nil {
-		s += " ... Binding(" + n.Rest.String() + ")"
+		if len(n.List) != 0 {
+			s += ","
+		}
+		s += " ...Binding(" + n.Rest.String() + ")"
 	}
 	return s + " }"
 }
@@ -486,15 +491,15 @@ func (n Params) String() string {
 	s := "Params("
 	for i, item := range n.List {
 		if i != 0 {
-			s += " , "
+			s += ", "
 		}
 		s += item.String()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			s += " , "
+			s += ", "
 		}
-		s += "... " + n.Rest.String()
+		s += "..." + n.Rest.String()
 	}
 	return s + ")"
 }
@@ -634,8 +639,8 @@ func (n GroupExpr) String() string {
 }
 
 type ArrayExpr struct {
-	List []IExpr
-	Rest IExpr // can be nil
+	List []IExpr // items can be nil
+	Rest IExpr   // can be nil
 }
 
 func (n ArrayExpr) String() string {
@@ -644,10 +649,15 @@ func (n ArrayExpr) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String()
+		if item != nil {
+			s += item.String()
+		}
 	}
 	if n.Rest != nil {
-		s += ", ..." + n.Rest.String()
+		if len(n.List) != 0 {
+			s += ", "
+		}
+		s += "..." + n.Rest.String()
 	}
 	return s + "]"
 }
