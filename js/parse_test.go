@@ -231,6 +231,7 @@ func TestParse(t *testing.T) {
 		// expression precedence
 		{"x = a.b.c", "Stmt(x=((a.b).c))"},
 		{"x = a**b**c", "Stmt(x=(a**(b**c)))"},
+		{"a++ < b", "Stmt((a++)<b)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},

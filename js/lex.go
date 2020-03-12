@@ -195,275 +195,284 @@ func IsIdentifier(tt TokenType) bool {
 
 // String returns the string representation of a TokenType.
 func (tt TokenType) String() string {
+	s := tt.Bytes()
+	if s == nil {
+		return "Invalid(" + strconv.Itoa(int(tt)) + ")"
+	}
+	return string(s)
+}
+
+// Bytes returns the string representation of a TokenType.
+func (tt TokenType) Bytes() []byte {
 	switch tt {
 	case ErrorToken:
-		return "Error"
+		return []byte("Error")
 	case WhitespaceToken:
-		return "Whitespace"
+		return []byte("Whitespace")
 	case LineTerminatorToken:
-		return "LineTerminator"
+		return []byte("LineTerminator")
 	case CommentToken:
-		return "Comment"
+		return []byte("Comment")
 	case CommentLineTerminatorToken:
-		return "CommentLineTerminator"
+		return []byte("CommentLineTerminator")
 	case StringToken:
-		return "String"
+		return []byte("String")
 	case TemplateToken:
-		return "Template"
+		return []byte("Template")
 	case TemplateStartToken:
-		return "TemplateStart"
+		return []byte("TemplateStart")
 	case TemplateMiddleToken:
-		return "TemplateMiddle"
+		return []byte("TemplateMiddle")
 	case TemplateEndToken:
-		return "TemplateEnd"
+		return []byte("TemplateEnd")
 	case RegExpToken:
-		return "RegExp"
+		return []byte("RegExp")
 	case NumericToken:
-		return "Numeric"
+		return []byte("Numeric")
 	case DecimalToken:
-		return "Decimal"
+		return []byte("Decimal")
 	case BinaryToken:
-		return "Binary"
+		return []byte("Binary")
 	case OctalToken:
-		return "Octal"
+		return []byte("Octal")
 	case HexadecimalToken:
-		return "Hexadecimal"
+		return []byte("Hexadecimal")
 	case BigIntToken:
-		return "BigInt"
+		return []byte("BigInt")
 	case PunctuatorToken:
-		return "Punctuator"
+		return []byte("Punctuator")
 	case OpenBraceToken:
-		return "{"
+		return []byte("{")
 	case CloseBraceToken:
-		return "}"
+		return []byte("}")
 	case OpenParenToken:
-		return "("
+		return []byte("(")
 	case CloseParenToken:
-		return ")"
+		return []byte(")")
 	case OpenBracketToken:
-		return "["
+		return []byte("[")
 	case CloseBracketToken:
-		return "]"
+		return []byte("]")
 	case DotToken:
-		return "."
+		return []byte(".")
 	case SemicolonToken:
-		return ";"
+		return []byte(";")
 	case CommaToken:
-		return ","
+		return []byte(",")
 	case QuestionToken:
-		return "?"
+		return []byte("?")
 	case ColonToken:
-		return ":"
+		return []byte(":")
 	case ArrowToken:
-		return "=>"
+		return []byte("=>")
 	case EllipsisToken:
-		return "..."
+		return []byte("...")
 	case OperatorToken:
-		return "Operator"
+		return []byte("Operator")
 	case EqToken:
-		return "="
+		return []byte("=")
 	case EqEqToken:
-		return "=="
+		return []byte("==")
 	case EqEqEqToken:
-		return "==="
+		return []byte("===")
 	case NotToken:
-		return "!"
+		return []byte("!")
 	case NotEqToken:
-		return "!="
+		return []byte("!=")
 	case NotEqEqToken:
-		return "!=="
+		return []byte("!==")
 	case LtToken:
-		return "<"
+		return []byte("<")
 	case LtEqToken:
-		return "<="
+		return []byte("<=")
 	case LtLtToken:
-		return "<<"
+		return []byte("<<")
 	case LtLtEqToken:
-		return "<<="
+		return []byte("<<=")
 	case GtToken:
-		return ">"
+		return []byte(">")
 	case GtEqToken:
-		return ">="
+		return []byte(">=")
 	case GtGtToken:
-		return ">>"
+		return []byte(">>")
 	case GtGtEqToken:
-		return ">>="
+		return []byte(">>=")
 	case GtGtGtToken:
-		return ">>>"
+		return []byte(">>>")
 	case GtGtGtEqToken:
-		return ">>>="
+		return []byte(">>>=")
 	case AddToken:
-		return "+"
+		return []byte("+")
 	case AddEqToken:
-		return "+="
+		return []byte("+=")
 	case IncrToken:
-		return "++"
+		return []byte("++")
 	case SubToken:
-		return "-"
+		return []byte("-")
 	case SubEqToken:
-		return "-="
+		return []byte("-=")
 	case DecrToken:
-		return "--"
+		return []byte("--")
 	case MulToken:
-		return "*"
+		return []byte("*")
 	case MulEqToken:
-		return "*="
+		return []byte("*=")
 	case ExpToken:
-		return "**"
+		return []byte("**")
 	case ExpEqToken:
-		return "**="
+		return []byte("**=")
 	case DivToken:
-		return "/"
+		return []byte("/")
 	case DivEqToken:
-		return "/="
+		return []byte("/=")
 	case ModToken:
-		return "%"
+		return []byte("%")
 	case ModEqToken:
-		return "%="
+		return []byte("%=")
 	case BitAndToken:
-		return "&"
+		return []byte("&")
 	case BitOrToken:
-		return "|"
+		return []byte("|")
 	case BitXorToken:
-		return "^"
+		return []byte("^")
 	case BitNotToken:
-		return "~"
+		return []byte("~")
 	case BitAndEqToken:
-		return "&="
+		return []byte("&=")
 	case BitOrEqToken:
-		return "|="
+		return []byte("|=")
 	case BitXorEqToken:
-		return "^="
+		return []byte("^=")
 	case AndToken:
-		return "&&"
+		return []byte("&&")
 	case OrToken:
-		return "||"
+		return []byte("||")
 	case NullishToken:
-		return "??"
+		return []byte("??")
 	case OptChainToken:
-		return "?."
+		return []byte("?.")
 	case IdentifierToken:
-		return "Identifier"
+		return []byte("Identifier")
 	case AwaitToken:
-		return "await"
+		return []byte("await")
 	case AsyncToken:
-		return "async"
+		return []byte("async")
 	case BreakToken:
-		return "break"
+		return []byte("break")
 	case CaseToken:
-		return "case"
+		return []byte("case")
 	case CatchToken:
-		return "catch"
+		return []byte("catch")
 	case ClassToken:
-		return "class"
+		return []byte("class")
 	case ConstToken:
-		return "const"
+		return []byte("const")
 	case ContinueToken:
-		return "continue"
+		return []byte("continue")
 	case DebuggerToken:
-		return "debugger"
+		return []byte("debugger")
 	case DefaultToken:
-		return "default"
+		return []byte("default")
 	case DeleteToken:
-		return "delete"
+		return []byte("delete")
 	case DoToken:
-		return "do"
+		return []byte("do")
 	case ElseToken:
-		return "else"
+		return []byte("else")
 	case EnumToken:
-		return "enum"
+		return []byte("enum")
 	case ExportToken:
-		return "export"
+		return []byte("export")
 	case ExtendsToken:
-		return "extends"
+		return []byte("extends")
 	case FalseToken:
-		return "false"
+		return []byte("false")
 	case FinallyToken:
-		return "finally"
+		return []byte("finally")
 	case ForToken:
-		return "for"
+		return []byte("for")
 	case FunctionToken:
-		return "function"
+		return []byte("function")
 	case IfToken:
-		return "if"
+		return []byte("if")
 	case ImplementsToken:
-		return "implements"
+		return []byte("implements")
 	case ImportToken:
-		return "import"
+		return []byte("import")
 	case InToken:
-		return "in"
+		return []byte("in")
 	case InstanceofToken:
-		return "instanceof"
+		return []byte("instanceof")
 	case InterfaceToken:
-		return "interface"
+		return []byte("interface")
 	case LetToken:
-		return "let"
+		return []byte("let")
 	case NewToken:
-		return "new"
+		return []byte("new")
 	case NullToken:
-		return "null"
+		return []byte("null")
 	case PackageToken:
-		return "package"
+		return []byte("package")
 	case PrivateToken:
-		return "private"
+		return []byte("private")
 	case ProtectedToken:
-		return "protected"
+		return []byte("protected")
 	case PublicToken:
-		return "public"
+		return []byte("public")
 	case ReturnToken:
-		return "return"
+		return []byte("return")
 	case StaticToken:
-		return "static"
+		return []byte("static")
 	case SuperToken:
-		return "super"
+		return []byte("super")
 	case SwitchToken:
-		return "switch"
+		return []byte("switch")
 	case ThisToken:
-		return "this"
+		return []byte("this")
 	case ThrowToken:
-		return "throw"
+		return []byte("throw")
 	case TrueToken:
-		return "true"
+		return []byte("true")
 	case TryToken:
-		return "try"
+		return []byte("try")
 	case TypeofToken:
-		return "typeof"
+		return []byte("typeof")
 	case VarToken:
-		return "var"
+		return []byte("var")
 	case VoidToken:
-		return "void"
+		return []byte("void")
 	case WhileToken:
-		return "while"
+		return []byte("while")
 	case WithToken:
-		return "with"
+		return []byte("with")
 	case YieldToken:
-		return "yield"
+		return []byte("yield")
 	case OfToken:
-		return "of"
+		return []byte("of")
 	case GetToken:
-		return "get"
+		return []byte("get")
 	case SetToken:
-		return "set"
+		return []byte("set")
 	case TargetToken:
-		return "target"
+		return []byte("target")
 	case AsToken:
-		return "as"
+		return []byte("as")
 	case FromToken:
-		return "from"
+		return []byte("from")
 	case PosToken:
-		return "+"
+		return []byte("+")
 	case NegToken:
-		return "-"
+		return []byte("-")
 	case PreIncrToken:
-		return "++"
+		return []byte("++")
 	case PreDecrToken:
-		return "--"
+		return []byte("--")
 	case PostIncrToken:
-		return "++"
+		return []byte("++")
 	case PostDecrToken:
-		return "--"
+		return []byte("--")
 	}
-	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////

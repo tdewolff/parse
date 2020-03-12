@@ -1113,8 +1113,8 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 				p.fail("new expression", TargetToken)
 				return
 			}
-			p.next()
 			left = &NewTargetExpr{}
+			p.next()
 		} else {
 			left = &NewExpr{p.parseExpression(OpNew)}
 		}
@@ -1147,7 +1147,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 				if yieldExpr.Generator {
 					p.next()
 				}
-				yieldExpr.Value = p.parseExpression(OpYield - 1)
+				yieldExpr.X = p.parseExpression(OpYield - 1)
 			}
 			left = &yieldExpr
 		} else {
@@ -1174,18 +1174,18 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 				return nil
 			}
 
-			arrowFunctionDecl := ArrowFunctionDecl{}
-			arrowFunctionDecl.Async = true
-			arrowFunctionDecl.Params = Params{List: []BindingElement{{Binding: &BindingName{name}}}}
+			arrowFuncDecl := ArrowFuncDecl{}
+			arrowFuncDecl.Async = true
+			arrowFuncDecl.Params = Params{List: []BindingElement{{Binding: &BindingName{name}}}}
 			p.next()
 			p.asyncLevel++
 			if p.tt == OpenBraceToken {
-				arrowFunctionDecl.Body = p.parseBlockStmt("arrow function declaration")
+				arrowFuncDecl.Body = p.parseBlockStmt("arrow function declaration")
 			} else {
-				arrowFunctionDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
+				arrowFuncDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
 			}
 			p.asyncLevel--
-			left = &arrowFunctionDecl
+			left = &arrowFuncDecl
 		} else {
 			p.fail("function declaration", FunctionToken, IdentifierToken)
 			return nil
@@ -1295,14 +1295,12 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 			p.next()
 			left = &UnaryExpr{PostIncrToken, left}
-			prec = OpPostfix
 		case DecrToken:
 			if p.prevLineTerminator || prec >= OpPostfix {
 				return left
 			}
 			p.next()
 			left = &UnaryExpr{PostDecrToken, left}
-			prec = OpPostfix
 		case ExpToken:
 			if prec >= OpExp {
 				return left
@@ -1382,19 +1380,19 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 
 			var fail bool
-			arrowFunctionDecl := ArrowFunctionDecl{}
-			arrowFunctionDecl.Params, fail = p.exprToParams(left)
+			arrowFuncDecl := ArrowFuncDecl{}
+			arrowFuncDecl.Params, fail = p.exprToParams(left)
 			if fail {
 				p.fail("expression")
 				return nil
 			}
 			p.next()
 			if p.tt == OpenBraceToken {
-				arrowFunctionDecl.Body = p.parseBlockStmt("arrow function expression")
+				arrowFuncDecl.Body = p.parseBlockStmt("arrow function expression")
 			} else {
-				arrowFunctionDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
+				arrowFuncDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
 			}
-			left = &arrowFunctionDecl
+			left = &arrowFuncDecl
 		default:
 			return left
 		}
