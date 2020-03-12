@@ -125,22 +125,6 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case LetToken, ConstToken, VarToken:
 		varDecl := p.parseVarDecl()
 		stmt = &varDecl
-	case ContinueToken, BreakToken:
-		tt := p.tt
-		p.next()
-		var name *Token
-		if !p.prevLineTerminator && p.isIdentRef(p.tt) {
-			name = &Token{IdentifierToken, p.data}
-			p.next()
-		}
-		stmt = &BranchStmt{tt, name}
-	case ReturnToken:
-		p.next()
-		var value IExpr
-		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != LineTerminatorToken && p.tt != ErrorToken {
-			value = p.parseExpr()
-		}
-		stmt = &ReturnStmt{value}
 	case IfToken:
 		p.next()
 		if !p.consume("if statement", OpenParenToken) {
@@ -158,6 +142,22 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			elseBody = p.parseStmt()
 		}
 		stmt = &IfStmt{cond, body, elseBody}
+	case ContinueToken, BreakToken:
+		tt := p.tt
+		p.next()
+		var name *Token
+		if !p.prevLineTerminator && p.isIdentRef(p.tt) {
+			name = &Token{IdentifierToken, p.data}
+			p.next()
+		}
+		stmt = &BranchStmt{tt, name}
+	case ReturnToken:
+		p.next()
+		var value IExpr
+		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != LineTerminatorToken && p.tt != ErrorToken {
+			value = p.parseExpr()
+		}
+		stmt = &ReturnStmt{value}
 	case WithToken:
 		p.next()
 		if !p.consume("with statement", OpenParenToken) {
@@ -1044,6 +1044,67 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 
 	var left IExpr
 	switch tt := p.tt; tt {
+	case IdentifierToken, StringToken, ThisToken, NullToken, TrueToken, FalseToken, RegExpToken:
+		left = &LiteralExpr{p.tt, p.data}
+		p.next()
+	case OpenBracketToken:
+		// array literal and [expression]
+		array := ArrayExpr{}
+		p.next()
+		commas := 1
+		for p.tt != CloseBracketToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken {
+				p.next()
+				array.Rest = p.parseAssignmentExpr()
+				break
+			} else if p.tt == CommaToken {
+				commas++
+				p.next()
+			} else {
+				for 1 < commas {
+					array.List = append(array.List, nil)
+					commas--
+				}
+				commas = 0
+				array.List = append(array.List, p.parseAssignmentExpr())
+			}
+		}
+		p.next()
+		left = &array
+	case OpenBraceToken:
+		object := p.parseObjectLiteral()
+		left = &object
+	case OpenParenToken:
+		// parenthesized expression and arrow parameter list
+		group := GroupExpr{}
+		p.next()
+		for p.tt != CloseParenToken && p.tt != ErrorToken {
+			if p.tt == EllipsisToken {
+				p.next()
+				group.Rest = p.parseBinding()
+			} else if p.tt == CommaToken {
+				p.next()
+			} else {
+				group.List = append(group.List, p.parseAssignmentExpr())
+			}
+		}
+		p.next()
+		left = &group
+	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
+		p.next()
+		left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
+	case AddToken:
+		p.next()
+		left = &UnaryExpr{PosToken, p.parseExpression(OpPrefix - 1)}
+	case SubToken:
+		p.next()
+		left = &UnaryExpr{NegToken, p.parseExpression(OpPrefix - 1)}
+	case IncrToken:
+		p.next()
+		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpPrefix - 1)}
+	case DecrToken:
+		p.next()
+		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpPrefix - 1)}
 	case NewToken:
 		p.next()
 		if p.tt == DotToken {
@@ -1129,76 +1190,15 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.fail("function declaration", FunctionToken, IdentifierToken)
 			return nil
 		}
-	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
-		p.next()
-		left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
-	case AddToken:
-		p.next()
-		left = &UnaryExpr{PosToken, p.parseExpression(OpPrefix - 1)}
-	case SubToken:
-		p.next()
-		left = &UnaryExpr{NegToken, p.parseExpression(OpPrefix - 1)}
-	case IncrToken:
-		p.next()
-		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpPrefix - 1)}
-	case DecrToken:
-		p.next()
-		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpPrefix - 1)}
-	case ThisToken, IdentifierToken, NullToken, TrueToken, FalseToken, StringToken, RegExpToken:
-		left = &LiteralExpr{p.tt, p.data}
-		p.next()
-	case TemplateToken, TemplateStartToken:
-		template := p.parseTemplateLiteral()
-		left = &template
-	case OpenBracketToken:
-		// array literal and [expression]
-		array := ArrayExpr{}
-		p.next()
-		commas := 1
-		for p.tt != CloseBracketToken && p.tt != ErrorToken {
-			if p.tt == EllipsisToken {
-				p.next()
-				array.Rest = p.parseAssignmentExpr()
-				break
-			} else if p.tt == CommaToken {
-				commas++
-				p.next()
-			} else {
-				for 1 < commas {
-					array.List = append(array.List, nil)
-					commas--
-				}
-				commas = 0
-				array.List = append(array.List, p.parseAssignmentExpr())
-			}
-		}
-		p.next()
-		left = &array
-	case OpenBraceToken:
-		object := p.parseObjectLiteral()
-		left = &object
-	case OpenParenToken:
-		// parenthesized expression and arrow parameter list
-		group := GroupExpr{}
-		p.next()
-		for p.tt != CloseParenToken && p.tt != ErrorToken {
-			if p.tt == EllipsisToken {
-				p.next()
-				group.Rest = p.parseBinding()
-			} else if p.tt == CommaToken {
-				p.next()
-			} else {
-				group.List = append(group.List, p.parseAssignmentExpr())
-			}
-		}
-		p.next()
-		left = &group
 	case ClassToken:
 		classDecl := p.parseClassDecl()
 		left = &classDecl
 	case FunctionToken:
 		funcDecl := p.parseFuncDecl(false, true)
 		left = &funcDecl
+	case TemplateToken, TemplateStartToken:
+		template := p.parseTemplateLiteral()
+		left = &template
 	default:
 		if IsNumeric(p.tt) {
 			left = &LiteralExpr{p.tt, p.data}
@@ -1211,13 +1211,47 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 
 	for {
 		switch tt := p.tt; tt {
-		case TemplateToken, TemplateStartToken:
+		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
+			if prec >= OpAssign {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign - 1)}
+		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
+			if prec >= OpCompare || p.inFor && tt == InToken {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpCompare)}
+		case EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken:
+			if prec >= OpEquals {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
+		case AndToken:
+			if prec >= OpOr {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAnd)}
+		case OrToken:
+			if prec >= OpOr {
+				return left
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpOr)}
+		case DotToken:
 			if prec >= OpCall {
 				return left
 			}
-			template := p.parseTemplateLiteral()
-			template.Tag = left
-			left = &template
+			p.next()
+			if !IsIdentifier(p.tt) {
+				p.fail("dot expression", IdentifierToken)
+				return nil
+			}
+			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}}
+			p.next()
 		case OpenBracketToken:
 			if prec >= OpCall {
 				return left
@@ -1232,17 +1266,6 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 				return left
 			}
 			left = &CallExpr{left, p.parseArgs()}
-		case DotToken:
-			if prec >= OpCall {
-				return left
-			}
-			p.next()
-			if !IsIdentifier(p.tt) {
-				p.fail("dot expression", IdentifierToken)
-				return nil
-			}
-			left = &BinaryExpr{tt, left, &LiteralExpr{p.tt, p.data}}
-			p.next()
 		case OptChainToken:
 			if prec >= OpCall {
 				return left
@@ -1304,18 +1327,6 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpShift)}
-		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
-			if prec >= OpCompare || p.inFor && tt == InToken {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpCompare)}
-		case EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken:
-			if prec >= OpEquals {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
 		case BitAndToken:
 			if prec >= OpBitAnd {
 				return left
@@ -1340,18 +1351,6 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpNullish)}
-		case AndToken:
-			if prec >= OpOr {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpAnd)}
-		case OrToken:
-			if prec >= OpOr {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpOr)}
 		case QuestionToken:
 			if prec >= OpCond {
 				return left
@@ -1363,18 +1362,19 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 			elseExpr := p.parseExpression(OpCond - 1)
 			left = &ConditionalExpr{left, ifExpr, elseExpr}
-		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
-			if prec >= OpAssign {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign - 1)}
 		case CommaToken:
 			if prec >= OpComma {
 				return left
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpComma)}
+		case TemplateToken, TemplateStartToken:
+			if prec >= OpCall {
+				return left
+			}
+			template := p.parseTemplateLiteral()
+			template.Tag = left
+			left = &template
 		case ArrowToken:
 			if p.prevLineTerminator {
 				p.fail("expression")

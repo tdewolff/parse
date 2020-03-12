@@ -760,6 +760,15 @@ func (n ConditionalExpr) String() string {
 	return "(" + n.X.String() + " ? " + n.Y.String() + " : " + n.Z.String() + ")"
 }
 
+type DotExpr struct {
+	X IExpr
+	Y LiteralExpr
+}
+
+func (n DotExpr) String() string {
+	return "(" + n.X.String() + "." + n.Y.String() + ")"
+}
+
 type CallExpr struct {
 	X    IExpr
 	Args Arguments
@@ -827,6 +836,29 @@ func (n LiteralExpr) String() string {
 	return string(n.Data)
 }
 
+//type IdentExpr struct {
+//	ptr  uintptr
+//	size int
+//}
+//
+//func NewIdentExpr(data []byte) IdentExpr {
+//	ptr := unsafe.Pointer(&data[0])
+//	return IdentExpr{uintptr(ptr), len(data)}
+//}
+//
+//func (n IdentExpr) Data() []byte {
+//	var data []byte
+//	sh := (*reflect.SliceHeader)(unsafe.Pointer(&data))
+//	sh.Data = n.ptr
+//	sh.Len = n.size
+//	sh.Cap = n.size
+//	return data
+//}
+//
+//func (n IdentExpr) String() string {
+//	return string(n.Data())
+//}
+
 func (n GroupExpr) exprNode()       {}
 func (n ArrayExpr) exprNode()       {}
 func (n ObjectExpr) exprNode()      {}
@@ -835,9 +867,12 @@ func (n NewExpr) exprNode()         {}
 func (n NewTargetExpr) exprNode()   {}
 func (n YieldExpr) exprNode()       {}
 func (n ConditionalExpr) exprNode() {}
+func (n DotExpr) exprNode()         {}
 func (n CallExpr) exprNode()        {}
 func (n IndexExpr) exprNode()       {}
 func (n OptChainExpr) exprNode()    {}
 func (n UnaryExpr) exprNode()       {}
 func (n BinaryExpr) exprNode()      {}
 func (n LiteralExpr) exprNode()     {}
+
+//func (n IdentExpr) exprNode()       {}
