@@ -1,7 +1,6 @@
 package html
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -82,7 +81,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.html))
+			l := NewLexer(parse.NewInputString(tt.html))
 			i := 0
 			tokens := []TokenType{}
 			for {
@@ -121,7 +120,7 @@ func TestTags(t *testing.T) {
 	}
 	for _, tt := range tagTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.html))
+			l := NewLexer(parse.NewInputString(tt.html))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -160,7 +159,7 @@ func TestAttributes(t *testing.T) {
 	}
 	for _, tt := range attributeTests {
 		t.Run(tt.attr, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.attr))
+			l := NewLexer(parse.NewInputString(tt.attr))
 			i := 0
 			for {
 				token, _ := l.Next()
@@ -191,7 +190,7 @@ func TestErrors(t *testing.T) {
 	}
 	for _, tt := range errorTests {
 		t.Run(tt.html, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.html))
+			l := NewLexer(parse.NewInputString(tt.html))
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
@@ -211,7 +210,7 @@ func TestErrors(t *testing.T) {
 }
 
 func TestTextAndAttrVal(t *testing.T) {
-	l := NewLexer(bytes.NewBufferString(`<div attr="val" >text<!--comment--><!DOCTYPE doctype><![CDATA[cdata]]><script>js</script><svg>image</svg>`))
+	l := NewLexer(parse.NewInputString(`<div attr="val" >text<!--comment--><!DOCTYPE doctype><![CDATA[cdata]]><script>js</script><svg>image</svg>`))
 	_, data := l.Next()
 	test.Bytes(t, data, []byte("<div"))
 	test.Bytes(t, l.Text(), []byte("div"))
@@ -274,18 +273,19 @@ func TestTextAndAttrVal(t *testing.T) {
 }
 
 func TestOffset(t *testing.T) {
-	l := NewLexer(bytes.NewBufferString(`<div attr="val">text</div>`))
-	test.T(t, l.Offset(), 0)
+	z := parse.NewInputString(`<div attr="val">text</div>`)
+	l := NewLexer(z)
+	test.T(t, z.Offset(), 0)
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 4) // <div
+	test.T(t, z.Offset(), 4) // <div
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 15) // attr="val"
+	test.T(t, z.Offset(), 15) // attr="val"
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 16) // >
+	test.T(t, z.Offset(), 16) // >
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 20) // text
+	test.T(t, z.Offset(), 20) // text
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 26) // </div>
+	test.T(t, z.Offset(), 26) // </div>
 }
 
 ////////////////////////////////////////////////////////////////
@@ -350,7 +350,7 @@ func BenchmarkWhitespace3(b *testing.B) {
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("<span class='user'>John Doe</span>"))
+	l := NewLexer(parse.NewInputString("<span class='user'>John Doe</span>"))
 	out := ""
 	for {
 		tt, data := l.Next()

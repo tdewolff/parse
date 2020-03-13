@@ -4,15 +4,12 @@ import (
 	"fmt"
 	"io"
 	"strings"
-
-	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // Position returns the line and column number for a certain position in a file. It is useful for recovering the position in a file that caused an error.
 // It only treates \n, \r, and \r\n as newlines, which might be different from some languages also recognizing \f, \u2028, and \u2029 to be newlines.
 func Position(r io.Reader, offset int) (line, col int, context string) {
-	l := buffer.NewLexer(r)
-
+	l := NewInput(r)
 	line = 1
 	for {
 		c := l.Peek(0)
@@ -55,7 +52,7 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 	}
 }
 
-func positionContext(l *buffer.Lexer, line, col int) (context string) {
+func positionContext(l *Input, line, col int) (context string) {
 	for {
 		c := l.Peek(0)
 		if c == 0 && l.Err() != nil || c == '\n' || c == '\r' {

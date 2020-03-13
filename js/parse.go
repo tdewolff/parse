@@ -22,12 +22,9 @@ type Parser struct {
 }
 
 // Parse returns a JS AST tree of.
-func Parse(r io.Reader) (AST, error) {
-	l := NewLexer(r)
-	defer l.Restore()
-
+func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:  l,
+		l:  NewLexer(r),
 		tt: WhitespaceToken, // trick so that next() works
 	}
 

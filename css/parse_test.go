@@ -1,7 +1,6 @@
 package css
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -114,7 +113,7 @@ func TestParse(t *testing.T) {
 	for _, tt := range parseTests {
 		t.Run(tt.css, func(t *testing.T) {
 			output := ""
-			p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
+			p := NewParser(parse.NewInputString(tt.css), tt.inline)
 			for {
 				grammar, _, data := p.Next()
 				data = parse.Copy(data)
@@ -173,7 +172,7 @@ func TestParseError(t *testing.T) {
 	}
 	for _, tt := range parseErrorTests {
 		t.Run(tt.css, func(t *testing.T) {
-			p := NewParser(bytes.NewBufferString(tt.css), tt.inline)
+			p := NewParser(parse.NewInputString(tt.css), tt.inline)
 			for {
 				grammar, _, _ := p.Next()
 				if grammar == ErrorGrammar {
@@ -192,26 +191,16 @@ func TestParseError(t *testing.T) {
 	}
 }
 
-func TestReader(t *testing.T) {
-	input := "x:a;"
-	p := NewParser(test.NewPlainReader(bytes.NewBufferString(input)), true)
-	for {
-		grammar, _, _ := p.Next()
-		if grammar == ErrorGrammar {
-			break
-		}
-	}
-}
-
 func TestParseOffset(t *testing.T) {
-	p := NewParser(bytes.NewBufferString(`div{background:url(link);}`), false)
-	test.T(t, p.Offset(), 0)
+	z := parse.NewInputString(`div{background:url(link);}`)
+	p := NewParser(z, false)
+	test.T(t, z.Offset(), 0)
 	_, _, _ = p.Next()
-	test.T(t, p.Offset(), 4) // div{
+	test.T(t, z.Offset(), 4) // div{
 	_, _, _ = p.Next()
-	test.T(t, p.Offset(), 25) // background:url(link);
+	test.T(t, z.Offset(), 25) // background:url(link);
 	_, _, _ = p.Next()
-	test.T(t, p.Offset(), 26) // }
+	test.T(t, z.Offset(), 26) // }
 }
 
 ////////////////////////////////////////////////////////////////
@@ -238,7 +227,7 @@ func BenchmarkMemFuncPtr(b *testing.B) {
 }
 
 func ExampleNewParser() {
-	p := NewParser(bytes.NewBufferString("color: red;"), true) // false because this is the content of an inline style attribute
+	p := NewParser(parse.NewInputString("color: red;"), true) // false because this is the content of an inline style attribute
 	out := ""
 	for {
 		gt, _, data := p.Next()

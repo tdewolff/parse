@@ -2,13 +2,11 @@
 package js
 
 import (
-	"io"
 	"strconv"
 	"unicode"
 	"unicode/utf8"
 
 	"github.com/tdewolff/parse/v2"
-	"github.com/tdewolff/parse/v2/buffer"
 )
 
 var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
@@ -479,7 +477,7 @@ func (tt TokenType) Bytes() []byte {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r                  *buffer.Lexer
+	r                  *parse.Input
 	err                error
 	prevLineTerminator bool
 	level              int
@@ -488,9 +486,9 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewLexer(r *parse.Input) *Lexer {
 	return &Lexer{
-		r:                  buffer.NewLexer(r),
+		r:                  r,
 		prevLineTerminator: true,
 		level:              0,
 		templateLevels:     []int{},
@@ -503,24 +501,6 @@ func (l *Lexer) Err() error {
 		return l.err
 	}
 	return l.r.Err()
-}
-
-// Restore restores the NULL byte at the end of the buffer.
-func (l *Lexer) Restore() {
-	l.r.Restore()
-}
-
-// Offset returns the current position in the input stream.
-func (l *Lexer) Offset() int {
-	return l.r.Offset()
-}
-
-// Reset resets the lexer to the initial state.
-func (l *Lexer) Reset() {
-	l.r.Reset()
-	l.prevLineTerminator = true
-	l.level = 0
-	l.templateLevels = []int{}
 }
 
 // RegExp reparses the input stream for a regular expression. It is assumed that we just received DivToken or DivEqToken with Next(). This function will go back and read that as a regular expression.
@@ -650,12 +630,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	r, n := l.r.PeekRune(0)
+	_, n := l.r.PeekRune(0)
 	l.r.Move(n)
 	if n == 1 {
-		l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
+		//l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
 	} else {
-		l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
+		//l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
 	}
 	return ErrorToken, l.r.Shift()
 }

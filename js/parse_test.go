@@ -1,10 +1,10 @@
 package js
 
 import (
-	"bytes"
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 
@@ -266,7 +266,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			ast, err := Parse(bytes.NewBufferString(tt.js))
+			ast, err := Parse(parse.NewInputString(tt.js))
 			if err != io.EOF {
 				test.Error(t, err)
 			}
@@ -420,7 +420,7 @@ func TestParseError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			_, err := Parse(bytes.NewBufferString(tt.js))
+			_, err := Parse(parse.NewInputString(tt.js))
 			test.That(t, err != io.EOF && err != nil)
 
 			e := err.Error()

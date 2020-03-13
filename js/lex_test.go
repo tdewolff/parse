@@ -1,11 +1,11 @@
 package js
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 
@@ -105,7 +105,7 @@ func TestTokens(t *testing.T) {
 
 	for _, tt := range tokenTests {
 		t.Run(tt.js, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.js))
+			l := NewLexer(parse.NewInputString(tt.js))
 			i := 0
 			tokens := []TokenType{}
 			for {
@@ -166,7 +166,7 @@ func TestRegExp(t *testing.T) {
 
 	for _, tt := range tokenTests {
 		t.Run(tt.js, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.js))
+			l := NewLexer(parse.NewInputString(tt.js))
 			i := 0
 			tokens := []TokenType{}
 			for {
@@ -189,31 +189,32 @@ func TestRegExp(t *testing.T) {
 		})
 	}
 
-	token, _ := NewLexer(bytes.NewBufferString("")).RegExp()
+	token, _ := NewLexer(parse.NewInputString("")).RegExp()
 	test.T(t, token, ErrorToken)
 }
 
 func TestOffset(t *testing.T) {
-	l := NewLexer(bytes.NewBufferString(`var i=5;`))
-	test.T(t, l.Offset(), 0)
+	z := parse.NewInputString(`var i=5;`)
+	l := NewLexer(z)
+	test.T(t, z.Offset(), 0)
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 3) // var
+	test.T(t, z.Offset(), 3) // var
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 4) // ws
+	test.T(t, z.Offset(), 4) // ws
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 5) // i
+	test.T(t, z.Offset(), 5) // i
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 6) // =
+	test.T(t, z.Offset(), 6) // =
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 7) // 5
+	test.T(t, z.Offset(), 7) // 5
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 8) // ;
+	test.T(t, z.Offset(), 8) // ;
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("var x = 'lorem ipsum';"))
+	l := NewLexer(parse.NewInputString("var x = 'lorem ipsum';"))
 	out := ""
 	for {
 		tt, data := l.Next()

@@ -1,11 +1,11 @@
 package css
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
 
+	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
 )
 
@@ -102,7 +102,7 @@ func TestTokens(t *testing.T) {
 	}
 	for _, tt := range tokenTests {
 		t.Run(tt.css, func(t *testing.T) {
-			l := NewLexer(bytes.NewBufferString(tt.css))
+			l := NewLexer(parse.NewInputString(tt.css))
 			i := 0
 			tokens := []TokenType{}
 			lexemes := []string{}
@@ -129,32 +129,33 @@ func TestTokens(t *testing.T) {
 			break
 		}
 	}
-	test.T(t, NewLexer(bytes.NewBufferString("x")).consumeBracket(), ErrorToken, "consumeBracket on 'x' must return error")
+	test.T(t, NewLexer(parse.NewInputString("x")).consumeBracket(), ErrorToken, "consumeBracket on 'x' must return error")
 }
 
 func TestOffset(t *testing.T) {
-	l := NewLexer(bytes.NewBufferString(`div{background:url(link);}`))
-	test.T(t, l.Offset(), 0)
+	z := parse.NewInputString(`div{background:url(link);}`)
+	l := NewLexer(z)
+	test.T(t, z.Offset(), 0)
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 3) // div
+	test.T(t, z.Offset(), 3) // div
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 4) // {
+	test.T(t, z.Offset(), 4) // {
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 14) // background
+	test.T(t, z.Offset(), 14) // background
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 15) // :
+	test.T(t, z.Offset(), 15) // :
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 24) // url(link)
+	test.T(t, z.Offset(), 24) // url(link)
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 25) // ;
+	test.T(t, z.Offset(), 25) // ;
 	_, _ = l.Next()
-	test.T(t, l.Offset(), 26) // }
+	test.T(t, z.Offset(), 26) // }
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewLexer() {
-	l := NewLexer(bytes.NewBufferString("color: red;"))
+	l := NewLexer(parse.NewInputString("color: red;"))
 	out := ""
 	for {
 		tt, data := l.Next()
