@@ -14,7 +14,7 @@ var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.L
 
 func IsIdentifierContinue(b []byte) bool {
 	r, _ := utf8.DecodeRune(b)
-	return unicode.IsOneOf(identifierContinue, r)
+	return r == '$' || r == '\\' || r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -630,12 +630,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	_, n := l.r.PeekRune(0)
+	r, n := l.r.PeekRune(0)
 	l.r.Move(n)
 	if n == 1 {
-		//l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
+		l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
 	} else {
-		//l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
+		l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
 	}
 	return ErrorToken, l.r.Shift()
 }

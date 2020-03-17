@@ -959,7 +959,8 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				return
 			} else {
 				// IdentifierReference (= AssignmentExpression)?
-				property.Value = (*LiteralExpr)(&method.Name.Literal)
+				lit := method.Name.Literal
+				property.Value = &LiteralExpr{lit.TokenType, lit.Data}
 				if p.tt == EqToken {
 					p.next()
 					property.Init = p.parseAssignmentExpr()
@@ -998,7 +999,7 @@ func (p *Parser) parseTemplateLiteral() (template TemplateExpr) {
 func (p *Parser) parseArgs() (args Arguments) {
 	// assume we're on (
 	p.next()
-	args.List = []IExpr{}
+	args.List = make([]IExpr, 0, 4)
 	for {
 		if p.tt == EllipsisToken {
 			p.next()
@@ -1128,13 +1129,15 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.fail("super expression", OpenBracketToken, OpenParenToken, DotToken)
 		}
 	case AwaitToken:
+		await := LiteralExpr{IdentifierToken, p.data}
 		p.next()
 		if 0 < p.asyncLevel && (p.tt != ArrowToken || p.prevLineTerminator) {
 			left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
 		} else {
-			left = &LiteralExpr{IdentifierToken, []byte("await")}
+			left = &await
 		}
 	case YieldToken:
+		yield := LiteralExpr{IdentifierToken, p.data}
 		p.next()
 		if 0 < p.generatorLevel {
 			// YieldExpression
@@ -1148,7 +1151,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			}
 			left = &yieldExpr
 		} else {
-			left = &LiteralExpr{IdentifierToken, []byte("yield")}
+			left = &yield
 		}
 	case AsyncToken:
 		p.next()

@@ -1,6 +1,7 @@
 package js
 
 type AST struct {
+	//src  Source
 	List []IStmt
 }
 
@@ -13,6 +14,40 @@ func (n AST) String() string {
 		s += item.String()
 	}
 	return s
+}
+
+//type Source *parse.Input
+//
+//func (s Source) ref(data []byte) (uint32, uint16) {
+//	offset := uint32(uintptr(unsafe.Pointer(&data[0])) - uintptr(unsafe.Pointer(&src.Bytes()[0])))
+//	return offset, uint16(len(data))
+//}
+//
+//func (s Source) data(offset uint16, length uint16) []byte {
+//	end := offset + uint32(length)
+//	return src.Bytes()[offset:end:end]
+//}
+//
+//type DataRef struct {
+//	offset uint32
+//	length uint16
+//}
+//
+//func (ref DataRef) Data(src Source) []byte {
+//	return src.data(ref)
+//}
+//
+//func (ref DataRef) String(src Source) string {
+//	return string(ref.Data(src))
+//}
+
+type Token struct {
+	TokenType
+	Data []byte
+}
+
+func (n Token) String() string {
+	return string(n.Data)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -30,15 +65,6 @@ type IBinding interface {
 type IExpr interface {
 	String() string
 	exprNode()
-}
-
-type Token struct {
-	TokenType
-	Data []byte
-}
-
-func (n Token) String() string {
-	return string(n.Data)
 }
 
 ////////////////////////////////////////////////////////////////
@@ -836,29 +862,6 @@ func (n LiteralExpr) String() string {
 	return string(n.Data)
 }
 
-//type IdentExpr struct {
-//	ptr  uintptr
-//	size int
-//}
-//
-//func NewIdentExpr(data []byte) IdentExpr {
-//	ptr := unsafe.Pointer(&data[0])
-//	return IdentExpr{uintptr(ptr), len(data)}
-//}
-//
-//func (n IdentExpr) Data() []byte {
-//	var data []byte
-//	sh := (*reflect.SliceHeader)(unsafe.Pointer(&data))
-//	sh.Data = n.ptr
-//	sh.Len = n.size
-//	sh.Cap = n.size
-//	return data
-//}
-//
-//func (n IdentExpr) String() string {
-//	return string(n.Data())
-//}
-
 func (n GroupExpr) exprNode()       {}
 func (n ArrayExpr) exprNode()       {}
 func (n ObjectExpr) exprNode()      {}
@@ -874,5 +877,3 @@ func (n OptChainExpr) exprNode()    {}
 func (n UnaryExpr) exprNode()       {}
 func (n BinaryExpr) exprNode()      {}
 func (n LiteralExpr) exprNode()     {}
-
-//func (n IdentExpr) exprNode()       {}
