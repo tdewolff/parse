@@ -41,7 +41,7 @@ HashToken			// #abc
 StringToken
 BadStringToken
 URLToken			// url(
-BadUrlToken
+BadURLToken
 DelimToken			// any unmatched character
 NumberToken			// 5
 PercentageToken		// 5%
