@@ -40,8 +40,8 @@ AtKeywordToken		// @abc
 HashToken			// #abc
 StringToken
 BadStringToken
-UrlToken			// url(
-BadUrlToken
+URLToken			// url(
+BadURLToken
 DelimToken			// any unmatched character
 NumberToken			// 5
 PercentageToken		// 5%
