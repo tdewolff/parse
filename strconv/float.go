@@ -23,7 +23,7 @@ func ParseFloat(b []byte) (float64, int) {
 	dot := -1
 	trunk := -1
 	n := uint64(0)
-	for ; i < len(b); i++ {
+	for start := i; i < len(b); i++ {
 		c := b[i]
 		if c >= '0' && c <= '9' {
 			if trunk == -1 {
@@ -36,6 +36,8 @@ func ParseFloat(b []byte) (float64, int) {
 			}
 		} else if dot == -1 && c == '.' {
 			dot = i
+		} else if i == start {
+			return 0.0, 0
 		} else {
 			break
 		}
