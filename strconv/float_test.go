@@ -43,6 +43,10 @@ func TestParseFloatError(t *testing.T) {
 		expected float64
 	}{
 		{"e1", 0, 0},
+		{".", 0, 0},
+		{"1e", 1, 1},
+		{"1e+", 1, 1},
+		{"1e+1", 4, 10},
 	}
 	for _, tt := range floatTests {
 		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
