@@ -1,0 +1,7 @@
+github.com/dvyukov/go-fuzz v0.0.0-20191022152526-8cb203812681 h1:3WV5aRRj1ELP3RcLlBp/v0WJTuy47OQMkL9GIQq8QEE=
+github.com/dvyukov/go-fuzz v0.0.0-20191022152526-8cb203812681/go.mod h1:11Gm+ccJnvAhCNLlf5+cS9KjtbaD5I5zaZpFMsTHWTw=
+github.com/tdewolff/parse/v2 v2.3.10 h1:ipN/RjAeVaX7d3yQ+pKVeXKlTZOOEoWVQoC5UOrhPEY=
+github.com/tdewolff/parse/v2 v2.3.10/go.mod h1:pclWRpgD95an4pJvzjbp1A+bl6e7R9DemblveSm/Zo4=
+github.com/tdewolff/test v1.0.4 h1:ih38SXuQJ32Hng5EtSW32xqEsVeMnPp6nNNRPhBBDE8=
+github.com/tdewolff/test v1.0.4/go.mod h1:6DAvZliBAAnD7rhVgwaM7DE5/d9NMOAJ09SqYqeK4QE=
+github.com/tdewolff/test v1.0.6/go.mod h1:6DAvZliBAAnD7rhVgwaM7DE5/d9NMOAJ09SqYqeK4QE=
