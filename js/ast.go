@@ -1,8 +1,10 @@
 package js
 
 type AST struct {
-	//src  Source
 	List []IStmt
+
+	Bound   []string
+	Unbound []string
 }
 
 func (n AST) String() string {

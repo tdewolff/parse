@@ -12,8 +12,15 @@ import (
 var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
 var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc, unicode.Other_ID_Continue}
 
-func IsIdentifierContinue(b []byte) bool {
+// IsIdentifierStart returns true if the byte-slice start is a continuation of an identifier
+func IsIdentifierStart(b []byte) bool {
 	r, _ := utf8.DecodeRune(b)
+	return r == '$' || r == '\\' || r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r)
+}
+
+// IsIdentifierEnd returns true if the byte-slice end is a start or continuation of an identifier
+func IsIdentifierEnd(b []byte) bool {
+	r, _ := utf8.DecodeLastRune(b)
 	return r == '$' || r == '\\' || r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r)
 }
 
@@ -928,7 +935,7 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 			break
 		}
 	}
-	if keyword, ok := keywords[string(l.r.Lexeme())]; ok {
+	if keyword, ok := Keywords[string(l.r.Lexeme())]; ok {
 		return keyword
 	}
 	return IdentifierToken

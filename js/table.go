@@ -28,7 +28,7 @@ const (
 	OpGroup
 )
 
-var keywords = map[string]TokenType{
+var Keywords = map[string]TokenType{
 	"async":      AsyncToken,
 	"await":      AwaitToken,
 	"break":      BreakToken,

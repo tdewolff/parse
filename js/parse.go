@@ -19,17 +19,28 @@ type Parser struct {
 	asyncLevel         int
 	generatorLevel     int
 	inFor              bool
+
+	boundVars   map[string]bool
+	unboundVars map[string]bool
 }
 
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:  NewLexer(r),
-		tt: WhitespaceToken, // trick so that next() works
+		l:           NewLexer(r),
+		tt:          WhitespaceToken, // trick so that next() works
+		boundVars:   map[string]bool{},
+		unboundVars: map[string]bool{},
 	}
 
 	p.next()
 	ast := p.parseModule()
+	for name, _ := range p.boundVars {
+		ast.Bound = append(ast.Bound, name)
+	}
+	for name, _ := range p.unboundVars {
+		ast.Unbound = append(ast.Unbound, name)
+	}
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -744,6 +755,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 	// binding identifier or binding pattern
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 		binding = &BindingName{p.data}
+		p.boundVars[string(p.data)] = true // TODO for array and object
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
@@ -1042,7 +1054,13 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 
 	var left IExpr
 	switch tt := p.tt; tt {
-	case IdentifierToken, StringToken, ThisToken, NullToken, TrueToken, FalseToken, RegExpToken:
+	case IdentifierToken:
+		left = &LiteralExpr{p.tt, p.data}
+		if !p.boundVars[string(p.data)] {
+			p.unboundVars[string(p.data)] = true
+		}
+		p.next()
+	case StringToken, ThisToken, NullToken, TrueToken, FalseToken, RegExpToken:
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 	case OpenBracketToken:
