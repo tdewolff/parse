@@ -4,6 +4,7 @@ package fuzz
 import "github.com/tdewolff/parse/v2"
 
 func Fuzz(data []byte) int {
+	data = parse.Copy(data) // ignore const-input error for OSS-Fuzz
 	newData := parse.ReplaceEntities(data, map[string][]byte{
 		"test":  []byte("&t;"),
 		"test3": []byte("&test;"),
