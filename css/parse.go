@@ -2,10 +2,12 @@ package css
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/buffer"
 )
 
 var wsBytes = []byte(" ")
@@ -76,9 +78,10 @@ func (t Token) String() string {
 
 // Parser is the state for the parser.
 type Parser struct {
-	l     *Lexer
-	state []State
-	err   error
+	l      *Lexer
+	state  []State
+	err    string
+	errPos int
 
 	buf   []Token
 	level int
@@ -107,10 +110,16 @@ func NewParser(r io.Reader, isInline bool) *Parser {
 	return p
 }
 
+// HasParseError returns true if there is a parse error (and not a read error).
+func (p *Parser) HasParseError() bool {
+	return p.err != ""
+}
+
 // Err returns the error encountered during parsing, this is often io.EOF but also other errors can be returned.
 func (p *Parser) Err() error {
-	if p.err != nil {
-		return p.err
+	if p.err != "" {
+		r := buffer.NewReader(p.l.r.Bytes())
+		return parse.NewError(r, p.errPos, p.err)
 	}
 	return p.l.Err()
 }
@@ -127,7 +136,7 @@ func (p *Parser) Offset() int {
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.
 func (p *Parser) Next() (GrammarType, TokenType, []byte) {
-	p.err = nil
+	p.err = ""
 
 	if p.prevEnd {
 		p.tt, p.data = RightBraceToken, endBytes
@@ -213,7 +222,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	// parse error
 	p.initBuf()
 	p.l.r.Move(-len(p.data))
-	p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: unexpected token '%s' in declaration", string(p.data))
+	p.err, p.errPos = fmt.Sprintf("CSS parse error: unexpected token '%s' in declaration", string(p.data)), p.l.r.Offset()
 	p.l.r.Move(len(p.data))
 
 	if p.tt == RightBraceToken {
@@ -336,7 +345,7 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
 			return BeginRulesetGrammar
 		} else if tt == ErrorToken {
-			p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: unexpected ending in qualified rule")
+			p.err, p.errPos = "CSS parse error: unexpected ending in qualified rule", p.l.r.Offset()
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
@@ -381,7 +390,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 	tt, data := p.popToken(false)
 	if tt != ColonToken {
 		p.l.r.Move(-len(data))
-		p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: expected colon in declaration")
+		p.err, p.errPos = "CSS parse error: expected colon in declaration", p.l.r.Offset()
 		p.l.r.Move(len(data))
 		p.pushBuf(ttName, dataName)
 		return p.parseDeclarationError(tt, data)
@@ -438,7 +447,7 @@ func (p *Parser) parseCustomProperty() GrammarType {
 	p.initBuf()
 	if tt, data := p.popToken(false); tt != ColonToken {
 		p.l.r.Move(-len(data))
-		p.err = parse.NewErrorLexer(p.l.r, "CSS parse error: expected colon in custom property")
+		p.err, p.errPos = "CSS parse error: expected colon in custom property", p.l.r.Offset()
 		p.l.r.Move(len(data))
 		return ErrorGrammar
 	}
