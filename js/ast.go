@@ -1,9 +1,7 @@
 package js
 
 type AST struct {
-	List []IStmt
-
-	Bound   []string
+	List    []IStmt
 	Unbound []string
 }
 

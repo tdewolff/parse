@@ -35,11 +35,10 @@ func Parse(r *parse.Input) (AST, error) {
 
 	p.next()
 	ast := p.parseModule()
-	for name, _ := range p.boundVars {
-		ast.Bound = append(ast.Bound, name)
-	}
 	for name, _ := range p.unboundVars {
-		ast.Unbound = append(ast.Unbound, name)
+		if _, ok := p.boundVars[name]; !ok {
+			ast.Unbound = append(ast.Unbound, name)
+		}
 	}
 
 	if p.err == nil {

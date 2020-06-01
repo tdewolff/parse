@@ -143,8 +143,8 @@ func TestTokens(t *testing.T) {
 			}
 		}
 	}
-	test.That(t, IsIdentifierContinue([]byte("a")))
-	test.That(t, !IsIdentifierContinue([]byte("[")))
+	test.That(t, IsIdentifierStart([]byte("a")))
+	test.That(t, !IsIdentifierStart([]byte("[")))
 }
 
 func TestRegExp(t *testing.T) {
