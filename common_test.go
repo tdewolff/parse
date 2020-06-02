@@ -68,12 +68,14 @@ func TestMediatype(t *testing.T) {
 		{" text/plain  a", "text/plain", nil},
 		{"text/plain;base64", "text/plain", map[string]string{"base64": ""}},
 		{"text/plain;inline=;base64", "text/plain", map[string]string{"inline": "", "base64": ""}},
+		{"ÿ   ", "ÿ ", nil}, // OSS-Fuzz; ÿ is two bytes in UTF8
+		{"ÿ  ;", "ÿ ", map[string]string{"": ""}},
 	}
 	for _, tt := range mediatypeTests {
 		t.Run(tt.mediatype, func(t *testing.T) {
-			mimetype, _ := Mediatype([]byte(tt.mediatype))
+			mimetype, params := Mediatype([]byte(tt.mediatype))
 			test.String(t, string(mimetype), tt.expectedMimetype, "mimetype")
-			//test.T(t, params, tt.expectedParams, "parameters") // TODO
+			test.T(t, params, tt.expectedParams, "parameters") // TODO
 		})
 	}
 }

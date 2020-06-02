@@ -36,6 +36,27 @@ func TestParseFloat(t *testing.T) {
 	}
 }
 
+func TestParseFloatError(t *testing.T) {
+	floatTests := []struct {
+		f        string
+		n        int
+		expected float64
+	}{
+		{"e1", 0, 0},
+		{".", 0, 0},
+		{"1e", 1, 1},
+		{"1e+", 1, 1},
+		{"1e+1", 4, 10},
+	}
+	for _, tt := range floatTests {
+		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
+			f, n := ParseFloat([]byte(tt.f))
+			test.T(t, n, tt.n)
+			test.T(t, f, tt.expected)
+		})
+	}
+}
+
 func TestAppendFloat(t *testing.T) {
 	floatTests := []struct {
 		f        float64

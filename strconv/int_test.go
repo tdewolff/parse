@@ -20,16 +20,34 @@ func TestParseInt(t *testing.T) {
 		{"-5", -5},
 		{"+5", 5},
 		{"9223372036854775807", 9223372036854775807},
-		{"9223372036854775808", 0},
 		{"-9223372036854775807", -9223372036854775807},
 		{"-9223372036854775808", -9223372036854775808},
-		{"-9223372036854775809", 0},
-		{"18446744073709551620", 0},
-		{"a", 0},
 	}
 	for _, tt := range intTests {
 		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
-			i, _ := ParseInt([]byte(tt.i))
+			i, n := ParseInt([]byte(tt.i))
+			test.T(t, n, len(tt.i))
+			test.T(t, i, tt.expected)
+		})
+	}
+}
+
+func TestParseIntError(t *testing.T) {
+	intTests := []struct {
+		i        string
+		n        int
+		expected int64
+	}{
+		{"a", 0, 0},
+		{"+", 0, 0},
+		{"9223372036854775808", 0, 0},
+		{"-9223372036854775809", 0, 0},
+		{"18446744073709551620", 0, 0},
+	}
+	for _, tt := range intTests {
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			i, n := ParseInt([]byte(tt.i))
+			test.T(t, n, tt.n)
 			test.T(t, i, tt.expected)
 		})
 	}
