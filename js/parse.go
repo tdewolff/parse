@@ -602,6 +602,7 @@ func (p *Parser) parseFuncDecl(async, nameOptional bool) (funcDecl FuncDecl) {
 		p.next()
 	}
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+		p.boundVars[string(p.data)] = true
 		funcDecl.Name = p.data
 		p.next()
 	} else if !nameOptional {
