@@ -1,5 +1,7 @@
 package js
 
+import "strconv"
+
 type OpPrec int
 
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
@@ -9,9 +11,9 @@ const (
 	OpYield
 	OpAssign
 	OpCond
+	OpNullish
 	OpOr
 	OpAnd
-	OpNullish
 	OpBitOr
 	OpBitXor
 	OpBitAnd
@@ -27,6 +29,54 @@ const (
 	OpCall
 	OpGroup
 )
+
+func (prec OpPrec) String() string {
+	switch prec {
+	case OpEnd:
+		return "OpEnd"
+	case OpComma:
+		return "OpComma"
+	case OpYield:
+		return "OpYield"
+	case OpAssign:
+		return "OpAssign"
+	case OpCond:
+		return "OpCond"
+	case OpNullish:
+		return "OpNullish"
+	case OpOr:
+		return "OpOr"
+	case OpAnd:
+		return "OpAnd"
+	case OpBitOr:
+		return "OpBitOr"
+	case OpBitXor:
+		return "OpBitXor"
+	case OpBitAnd:
+		return "OpBitAnd"
+	case OpEquals:
+		return "OpEquals"
+	case OpShift:
+		return "OpShift"
+	case OpAdd:
+		return "OAdd"
+	case OpMul:
+		return "OpMul"
+	case OpExp:
+		return "OpExp"
+	case OpPrefix:
+		return "OpPrefix"
+	case OpPostfix:
+		return "OpPostfix"
+	case OpNew:
+		return "OpNew"
+	case OpCall:
+		return "OpCall"
+	case OpGroup:
+		return "OpGroup"
+	}
+	return "Invalid(" + strconv.Itoa(int(prec)) + ")"
+}
 
 var Keywords = map[string]TokenType{
 	"async":      AsyncToken,

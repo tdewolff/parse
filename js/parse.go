@@ -1248,7 +1248,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
 		case AndToken:
-			if prec >= OpOr {
+			if prec >= OpAnd {
 				return left
 			}
 			p.next()

@@ -232,6 +232,10 @@ func TestParse(t *testing.T) {
 		{"x = a.b.c", "Stmt(x=((a.b).c))"},
 		{"x = a**b**c", "Stmt(x=(a**(b**c)))"},
 		{"a++ < b", "Stmt((a++)<b)"},
+		{"a??b||c", "Stmt(a??(b||c))"},
+		{"a||b??c", "Stmt((a||b)??c)"},
+		{"a&&b&&c", "Stmt((a&&b)&&c)"},
+		{"a||b||c", "Stmt((a||b)||c)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},
@@ -388,6 +392,7 @@ func TestParseError(t *testing.T) {
 		{"async function a() { await: var a", "unexpected ':' in expression"},
 		{"x = await\n=> a++", "unexpected '=>' in expression"},
 		{"function* a() { yield: var a", "unexpected ':' in expression"},
+		//{"x = ()", "expected expression in group"},
 
 		// expression to arrow function parameters
 		{"x = [x] => a", "unexpected '=>' in expression"},
