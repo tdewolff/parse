@@ -638,8 +638,7 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 		// binding rest element
 		if p.tt == EllipsisToken {
 			p.next()
-			rest := p.parseBindingElement()
-			params.Rest = &rest
+			params.Rest = p.parseBinding()
 			break
 		}
 
@@ -1034,19 +1033,45 @@ func (p *Parser) parseArgs() (args Arguments) {
 	return
 }
 
-func (p *Parser) parseExpr() (expr IExpr) {
+func (p *Parser) parseArrowFunc(async bool, params Params) (arrowFunc ArrowFunc) {
+	if p.tt != ArrowToken {
+		p.fail("arrow function", ArrowToken)
+		return
+	} else if p.prevLineTerminator {
+		p.fail("expression")
+		return
+	}
+
+	arrowFunc.Async = async
+	arrowFunc.Params = params
+	p.next()
+	if async {
+		p.asyncLevel++
+	}
+	if p.tt == OpenBraceToken {
+		arrowFunc.Body = p.parseBlockStmt("arrow function")
+	} else {
+		arrowFunc.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
+	}
+	if async {
+		p.asyncLevel--
+	}
+	return
+}
+
+func (p *Parser) parseExpr() IExpr {
 	return p.parseExpression(OpEnd)
 }
 
-func (p *Parser) parseAssignmentExpr() (expr IExpr) {
+func (p *Parser) parseAssignmentExpr() IExpr {
 	return p.parseExpression(OpComma)
 }
 
-func (p *Parser) parseLeftHandSideExpr() (expr IExpr) {
+func (p *Parser) parseLeftHandSideExpr() IExpr {
 	return p.parseExpression(OpNew)
 }
 
-func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
+func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
 		p.tt, p.data = p.l.RegExp()
@@ -1091,21 +1116,41 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 		object := p.parseObjectLiteral()
 		left = &object
 	case OpenParenToken:
-		// parenthesized expression and arrow parameter list
-		group := GroupExpr{}
+		// parenthesized expression or arrow parameter list
 		p.next()
+		var list []IExpr
+		var rest IBinding
 		for p.tt != CloseParenToken && p.tt != ErrorToken {
 			if p.tt == EllipsisToken {
 				p.next()
-				group.Rest = p.parseBinding()
+				rest = p.parseBinding()
 			} else if p.tt == CommaToken {
 				p.next()
 			} else {
-				group.List = append(group.List, p.parseAssignmentExpr())
+				list = append(list, p.parseAssignmentExpr())
 			}
 		}
 		p.next()
-		left = &group
+		if 0 < len(list) && rest == nil {
+			// could still become arrow parameter list if the next token is an arrow
+			left = list[0]
+			for _, item := range list[1:] {
+				left = &BinaryExpr{CommaToken, left, item}
+			}
+			left = &GroupExpr{left}
+		} else {
+			params := Params{List: make([]BindingElement, len(list)), Rest: rest}
+			for i, item := range list {
+				var fail bool
+				params.List[i], fail = p.exprToBindingElement(item)
+				if fail {
+					p.fail("arrow function")
+					return nil
+				}
+			}
+			arrowFunc := p.parseArrowFunc(false, params)
+			left = &arrowFunc
+		}
 	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
 		p.next()
 		left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
@@ -1127,7 +1172,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.next()
 			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("target")) {
 				p.fail("new expression", TargetToken)
-				return
+				return nil
 			}
 			left = &NewTargetExpr{}
 			p.next()
@@ -1173,39 +1218,37 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 		}
 	case AsyncToken:
 		p.next()
-		if p.prevLineTerminator {
-			p.fail("function declaration")
-			return nil
-		}
 		if p.tt == FunctionToken {
 			// primary expression
+			if p.prevLineTerminator {
+				p.fail("function declaration")
+				return nil
+			}
 			funcDecl := p.parseFuncDecl(true, true)
 			left = &funcDecl
 		} else if OpAssign < prec {
-			p.fail("function declaration", FunctionToken)
+			if p.prevLineTerminator {
+				p.fail("function declaration")
+			} else {
+				p.fail("function declaration", FunctionToken)
+			}
 			return nil
 		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			name := p.data
-			p.next()
-			if p.tt != ArrowToken {
-				p.fail("arrow function declaration", ArrowToken)
+			// async arrow function
+			if p.prevLineTerminator {
+				p.fail("arrow function")
 				return nil
 			}
-
-			arrowFuncDecl := ArrowFuncDecl{}
-			arrowFuncDecl.Async = true
-			arrowFuncDecl.Params = Params{List: []BindingElement{{Binding: &BindingName{name}}}}
+			name := p.data
 			p.next()
-			p.asyncLevel++
-			if p.tt == OpenBraceToken {
-				arrowFuncDecl.Body = p.parseBlockStmt("arrow function declaration")
-			} else {
-				arrowFuncDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
-			}
-			p.asyncLevel--
-			left = &arrowFuncDecl
+			arrowFunc := p.parseArrowFunc(true, Params{List: []BindingElement{{Binding: &BindingName{name}}}})
+			left = &arrowFunc
 		} else {
-			p.fail("function declaration", FunctionToken, IdentifierToken)
+			if p.prevLineTerminator {
+				p.fail("function declaration")
+			} else {
+				p.fail("function declaration", FunctionToken, IdentifierToken)
+			}
 			return nil
 		}
 	case ClassToken:
@@ -1223,7 +1266,7 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			p.next()
 		} else {
 			p.fail("expression")
-			return
+			return nil
 		}
 	}
 
@@ -1392,25 +1435,13 @@ func (p *Parser) parseExpression(prec OpPrec) (expr IExpr) {
 			template.Tag = left
 			left = &template
 		case ArrowToken:
-			if p.prevLineTerminator {
-				p.fail("expression")
-				return nil
-			}
-
-			var fail bool
-			arrowFuncDecl := ArrowFuncDecl{}
-			arrowFuncDecl.Params, fail = p.exprToParams(left)
+			params, fail := p.exprToParams(left)
 			if fail {
 				p.fail("expression")
 				return nil
 			}
-			p.next()
-			if p.tt == OpenBraceToken {
-				arrowFuncDecl.Body = p.parseBlockStmt("arrow function expression")
-			} else {
-				arrowFuncDecl.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
-			}
-			left = &arrowFuncDecl
+			arrowFunc := p.parseArrowFunc(false, params)
+			left = &arrowFunc
 		default:
 			return left
 		}
@@ -1468,17 +1499,12 @@ func (p *Parser) exprToParams(expr IExpr) (params Params, fail bool) {
 	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
 		params.List = append(params.List, BindingElement{Binding: &BindingName{literal.Data}})
 	} else if group, ok := expr.(*GroupExpr); ok {
-		for _, item := range group.List {
-			var bindingElement BindingElement
-			bindingElement, fail = p.exprToBindingElement(item)
-			if fail {
-				return
-			}
-			params.List = append(params.List, bindingElement)
+		var bindingElement BindingElement
+		bindingElement, fail = p.exprToBindingElement(group.X)
+		if fail {
+			return
 		}
-		if group.Rest != nil {
-			params.Rest = &BindingElement{Binding: group.Rest}
-		}
+		params.List = append(params.List, bindingElement)
 	} else {
 		fail = true
 	}

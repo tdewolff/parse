@@ -510,7 +510,7 @@ func (n BindingObject) bindingNode() {}
 
 type Params struct {
 	List []BindingElement
-	Rest *BindingElement // can be nil
+	Rest IBinding // can be nil
 }
 
 func (n Params) String() string {
@@ -525,7 +525,7 @@ func (n Params) String() string {
 		if len(n.List) != 0 {
 			s += ", "
 		}
-		s += "..." + n.Rest.String()
+		s += "...Binding(" + n.Rest.String() + ")"
 	}
 	return s + ")"
 }
@@ -621,20 +621,6 @@ func (n MethodDecl) String() string {
 	return "Method(" + s[1:] + ")"
 }
 
-type ArrowFuncDecl struct {
-	Async  bool
-	Params Params
-	Body   BlockStmt
-}
-
-func (n ArrowFuncDecl) String() string {
-	s := "("
-	if n.Async {
-		s += "async "
-	}
-	return s + n.Params.String() + " => " + n.Body.String() + ")"
-}
-
 type ClassDecl struct {
 	Name    []byte // can be nil
 	Extends IExpr  // can be nil TODO LHS EXPR
@@ -659,31 +645,19 @@ func (n VarDecl) stmtNode()   {}
 func (n FuncDecl) stmtNode()  {}
 func (n ClassDecl) stmtNode() {}
 
-func (n VarDecl) exprNode()       {}
-func (n FuncDecl) exprNode()      {}
-func (n ClassDecl) exprNode()     {}
-func (n MethodDecl) exprNode()    {}
-func (n ArrowFuncDecl) exprNode() {}
+func (n VarDecl) exprNode()    {}
+func (n FuncDecl) exprNode()   {}
+func (n ClassDecl) exprNode()  {}
+func (n MethodDecl) exprNode() {}
 
 ////////////////////////////////////////////////////////////////
 
 type GroupExpr struct {
-	List []IExpr
-	Rest IBinding
+	X IExpr
 }
 
 func (n GroupExpr) String() string {
-	s := "("
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.String()
-	}
-	if n.Rest != nil {
-		s += ", ...Binding(" + n.Rest.String() + ")"
-	}
-	return s + ")"
+	return "(" + n.X.String() + ")"
 }
 
 type ArrayExpr struct {
@@ -862,6 +836,20 @@ func (n LiteralExpr) String() string {
 	return string(n.Data)
 }
 
+type ArrowFunc struct {
+	Async  bool
+	Params Params
+	Body   BlockStmt
+}
+
+func (n ArrowFunc) String() string {
+	s := "("
+	if n.Async {
+		s += "async "
+	}
+	return s + n.Params.String() + " => " + n.Body.String() + ")"
+}
+
 func (n GroupExpr) exprNode()       {}
 func (n ArrayExpr) exprNode()       {}
 func (n ObjectExpr) exprNode()      {}
@@ -877,3 +865,4 @@ func (n OptChainExpr) exprNode()    {}
 func (n UnaryExpr) exprNode()       {}
 func (n BinaryExpr) exprNode()      {}
 func (n LiteralExpr) exprNode()     {}
+func (n ArrowFunc) exprNode()       {}

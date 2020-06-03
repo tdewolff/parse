@@ -179,7 +179,7 @@ func TestParse(t *testing.T) {
 		{"x = {set a(){}}", "Stmt(x={Method(set a Params() Stmt({ }))})"},
 		{"x = {get(){}}", "Stmt(x={Method(get Params() Stmt({ }))})"},
 		{"x = {set(){}}", "Stmt(x={Method(set Params() Stmt({ }))})"},
-		{"x = (a, b, ...c)", "Stmt(x=(a, b, ...Binding(c)))"},
+		{"x = (a, b)", "Stmt(x=((a,b)))"},
 		{"x = function() {}", "Stmt(x=Decl(function Params() Stmt({ })))"},
 		{"x = async function() {}", "Stmt(x=Decl(async function Params() Stmt({ })))"},
 		{"x = class {}", "Stmt(x=Decl(class))"},
@@ -337,7 +337,7 @@ func TestParseError(t *testing.T) {
 		{"class a extends =>", "unexpected '=>' in expression"},
 		{"class a extends async", "expected 'function' instead of EOF in function declaration"},
 		{"x=a?b", "expected ':' instead of EOF in conditional expression"},
-		{"x=async a", "expected '=>' instead of EOF in arrow function declaration"},
+		{"x=async a", "expected '=>' instead of EOF in arrow function"},
 		{"x=async", "expected 'function' or 'Identifier' instead of EOF in function declaration"},
 		{"x=async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"x=async function *", "expected 'Identifier' or '(' instead of EOF in function declaration"},
@@ -402,6 +402,7 @@ func TestParseError(t *testing.T) {
 		{"x = ({...x}) => a", "unexpected '=>' in expression"},
 		{"x = ({b(){}}) => a", "unexpected '=>' in expression"},
 		{"x = ([{...x}]) => a", "unexpected '=>' in expression"},
+		{"x = (a, b, ...c)", "expected '=>' instead of EOF in arrow function"},
 
 		// expression precedence
 		//{"x = a++--", "unexpected '--' in expression"},
