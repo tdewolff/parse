@@ -219,6 +219,7 @@ func TestParse(t *testing.T) {
 		{"class a extends async function(){}{}", "Decl(class a extends Decl(async function Params() Stmt({ })))"},
 
 		// expression to arrow function parameters
+		{"x = (a,b,c) => {a++}", "Stmt(x=(Params(Binding(a), Binding(b), Binding(c)) => Stmt({ Stmt(a++) })))"},
 		{"x = (a,b,...c) => {a++}", "Stmt(x=(Params(Binding(a), Binding(b), ...Binding(c)) => Stmt({ Stmt(a++) })))"},
 		{"x = ([a, ...b]) => {a++}", "Stmt(x=(Params(Binding([ Binding(a), ...Binding(b) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = ([,a,]) => {a++}", "Stmt(x=(Params(Binding([ Binding(), Binding(a) ])) => Stmt({ Stmt(a++) })))"},
@@ -395,6 +396,7 @@ func TestParseError(t *testing.T) {
 		//{"x = ()", "expected expression in group"},
 
 		// expression to arrow function parameters
+		{"x = ()", "expected '=>' instead of EOF in arrow function"},
 		{"x = [x] => a", "unexpected '=>' in expression"},
 		{"x = [x] => a", "unexpected '=>' in expression"},
 		{"x = ((x)) => a", "unexpected '=>' in expression"},

@@ -1499,12 +1499,26 @@ func (p *Parser) exprToParams(expr IExpr) (params Params, fail bool) {
 	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
 		params.List = append(params.List, BindingElement{Binding: &BindingName{literal.Data}})
 	} else if group, ok := expr.(*GroupExpr); ok {
-		var bindingElement BindingElement
-		bindingElement, fail = p.exprToBindingElement(group.X)
-		if fail {
-			return
+		item := group.X
+		for {
+			if expr, ok := item.(*BinaryExpr); ok && expr.Op == CommaToken {
+				item = expr.X
+				var bindingElement BindingElement
+				bindingElement, fail = p.exprToBindingElement(expr.Y)
+				if fail {
+					return
+				}
+				params.List = append([]BindingElement{bindingElement}, params.List...)
+			} else {
+				var bindingElement BindingElement
+				bindingElement, fail = p.exprToBindingElement(item)
+				if fail {
+					return
+				}
+				params.List = append([]BindingElement{bindingElement}, params.List...)
+				break
+			}
 		}
-		params.List = append(params.List, bindingElement)
 	} else {
 		fail = true
 	}
