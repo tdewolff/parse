@@ -28,6 +28,7 @@ const (
 	OpNew
 	OpCall
 	OpGroup
+	OpLiteral
 )
 
 func (prec OpPrec) String() string {
@@ -74,6 +75,8 @@ func (prec OpPrec) String() string {
 		return "OpCall"
 	case OpGroup:
 		return "OpGroup"
+	case OpLiteral:
+		return "OpLiteral"
 	}
 	return "Invalid(" + strconv.Itoa(int(prec)) + ")"
 }
