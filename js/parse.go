@@ -161,7 +161,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case ReturnToken:
 		p.next()
 		var value IExpr
-		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != ErrorToken {
+		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 			value = p.parseExpr()
 		}
 		stmt = &ReturnStmt{value}
@@ -271,7 +271,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if p.tt == ColonToken && ok && (literal.TokenType != AwaitToken || p.asyncLevel == 0) {
 			p.next() // colon
 			stmt = &LabelledStmt{Token{IdentifierToken, literal.Data}, p.parseStmt()}
-		} else if !p.prevLineTerminator && p.tt != ErrorToken && p.tt != SemicolonToken && p.tt != CloseBraceToken {
+		} else if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 			p.fail("expression statement", SemicolonToken)
 		}
 	case SwitchToken:
@@ -369,7 +369,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		stmt = &EmptyStmt{}
 	default:
 		stmt = &ExprStmt{p.parseExpr()}
-		if !p.prevLineTerminator && p.tt != ErrorToken && p.tt != SemicolonToken && p.tt != CloseBraceToken {
+		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 			p.fail("expression statement", SemicolonToken)
 		}
 	}
