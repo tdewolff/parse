@@ -104,7 +104,7 @@ func (n LabelledStmt) String() string {
 }
 
 type ReturnStmt struct {
-	Value IExpr
+	Value IExpr // can be nil
 }
 
 func (n ReturnStmt) String() string {
@@ -752,12 +752,12 @@ func (n YieldExpr) String() string {
 	return s + " " + n.X.String() + ")"
 }
 
-type ConditionalExpr struct {
-	X, Y, Z IExpr
+type CondExpr struct {
+	Cond, X, Y IExpr
 }
 
-func (n ConditionalExpr) String() string {
-	return "(" + n.X.String() + " ? " + n.Y.String() + " : " + n.Z.String() + ")"
+func (n CondExpr) String() string {
+	return "(" + n.Cond.String() + " ? " + n.X.String() + " : " + n.Y.String() + ")"
 }
 
 type DotExpr struct {
@@ -850,19 +850,19 @@ func (n ArrowFunc) String() string {
 	return s + n.Params.String() + " => " + n.Body.String() + ")"
 }
 
-func (n GroupExpr) exprNode()       {}
-func (n ArrayExpr) exprNode()       {}
-func (n ObjectExpr) exprNode()      {}
-func (n TemplateExpr) exprNode()    {}
-func (n NewExpr) exprNode()         {}
-func (n NewTargetExpr) exprNode()   {}
-func (n YieldExpr) exprNode()       {}
-func (n ConditionalExpr) exprNode() {}
-func (n DotExpr) exprNode()         {}
-func (n CallExpr) exprNode()        {}
-func (n IndexExpr) exprNode()       {}
-func (n OptChainExpr) exprNode()    {}
-func (n UnaryExpr) exprNode()       {}
-func (n BinaryExpr) exprNode()      {}
-func (n LiteralExpr) exprNode()     {}
-func (n ArrowFunc) exprNode()       {}
+func (n GroupExpr) exprNode()     {}
+func (n ArrayExpr) exprNode()     {}
+func (n ObjectExpr) exprNode()    {}
+func (n TemplateExpr) exprNode()  {}
+func (n NewExpr) exprNode()       {}
+func (n NewTargetExpr) exprNode() {}
+func (n YieldExpr) exprNode()     {}
+func (n CondExpr) exprNode()      {}
+func (n DotExpr) exprNode()       {}
+func (n CallExpr) exprNode()      {}
+func (n IndexExpr) exprNode()     {}
+func (n OptChainExpr) exprNode()  {}
+func (n UnaryExpr) exprNode()     {}
+func (n BinaryExpr) exprNode()    {}
+func (n LiteralExpr) exprNode()   {}
+func (n ArrowFunc) exprNode()     {}

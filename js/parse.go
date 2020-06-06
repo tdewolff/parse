@@ -1424,7 +1424,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return nil
 			}
 			elseExpr := p.parseExpression(OpCond - 1)
-			left = &ConditionalExpr{left, ifExpr, elseExpr}
+			left = &CondExpr{left, ifExpr, elseExpr}
 		case CommaToken:
 			if prec >= OpComma {
 				return left
