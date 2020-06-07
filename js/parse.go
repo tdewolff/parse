@@ -1055,7 +1055,7 @@ func (p *Parser) parseArrowFunc(async bool, params Params) (arrowFunc ArrowFunc)
 	if p.tt == OpenBraceToken {
 		arrowFunc.Body = p.parseBlockStmt("arrow function")
 	} else {
-		arrowFunc.Body = BlockStmt{[]IStmt{ExprStmt{p.parseAssignmentExpr()}}}
+		arrowFunc.Body = BlockStmt{[]IStmt{&ReturnStmt{p.parseAssignmentExpr()}}}
 	}
 	if async {
 		p.asyncLevel--
