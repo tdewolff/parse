@@ -1,8 +1,8 @@
 package js
 
 type AST struct {
-	List    []IStmt
-	Unbound []string
+	List []IStmt
+	Scope
 }
 
 func (n AST) String() string {
@@ -14,6 +14,10 @@ func (n AST) String() string {
 		s += item.String()
 	}
 	return s
+}
+
+type Scope struct {
+	Unbound []string
 }
 
 //type Source *parse.Input
@@ -571,6 +575,7 @@ type FuncDecl struct {
 	Name      []byte // can be nil
 	Params    Params
 	Body      BlockStmt
+	Scope
 }
 
 func (n FuncDecl) String() string {
@@ -598,6 +603,7 @@ type MethodDecl struct {
 	Name      PropertyName
 	Params    Params
 	Body      BlockStmt
+	Scope
 }
 
 func (n MethodDecl) String() string {
@@ -625,6 +631,7 @@ type ClassDecl struct {
 	Name    []byte // can be nil
 	Extends IExpr  // can be nil TODO LHS EXPR
 	Methods []MethodDecl
+	Scope
 }
 
 func (n ClassDecl) String() string {
@@ -840,6 +847,7 @@ type ArrowFunc struct {
 	Async  bool
 	Params Params
 	Body   BlockStmt
+	Scope
 }
 
 func (n ArrowFunc) String() string {
