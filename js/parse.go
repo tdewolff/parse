@@ -1419,11 +1419,11 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			}
 			p.next()
-			ifExpr := p.parseExpression(OpCond - 1)
+			ifExpr := p.parseExpression(OpComma)
 			if !p.consume("conditional expression", ColonToken) {
 				return nil
 			}
-			elseExpr := p.parseExpression(OpCond - 1)
+			elseExpr := p.parseExpression(OpComma)
 			left = &CondExpr{left, ifExpr, elseExpr}
 		case CommaToken:
 			if prec >= OpComma {

@@ -393,6 +393,7 @@ func (n ExprStmt) stmtNode()     {}
 
 ////////////////////////////////////////////////////////////////
 
+// TODO: merge Token and IExpr, others don't have to use *PropertyName in that case
 type PropertyName struct {
 	Literal  Token
 	Computed IExpr // can be nil

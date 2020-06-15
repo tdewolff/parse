@@ -217,6 +217,7 @@ func TestParse(t *testing.T) {
 		{"x = a in b", "Stmt(x=(a in b))"},
 		{"x = a.replace(b, c)", "Stmt(x=(a.replace)(b, c))"},
 		{"class a extends async function(){}{}", "Decl(class a extends Decl(async function Params() Stmt({ })))"},
+		{"x = a?b:c=d", "Stmt(x=(a ? b : (c=d)))"},
 
 		// expression to arrow function parameters
 		{"x = (a,b,c) => {a++}", "Stmt(x=(Params(Binding(a), Binding(b), Binding(c)) => Stmt({ Stmt(a++) })))"},
