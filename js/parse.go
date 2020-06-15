@@ -770,7 +770,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 			// elision
 			for p.tt == CommaToken {
 				p.next()
-				if p.tt == CommaToken || p.tt == CloseBracketToken {
+				if p.tt == CommaToken {
 					array.List = append(array.List, BindingElement{})
 				}
 			}
@@ -783,8 +783,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 					return
 				}
 				break
-			}
-			if p.tt == CloseBracketToken {
+			} else if p.tt == CloseBracketToken {
 				break
 			}
 
@@ -1096,22 +1095,21 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		// array literal and [expression]
 		array := ArrayExpr{}
 		p.next()
-		commas := 1
+		prevComma := true
 		for p.tt != CloseBracketToken && p.tt != ErrorToken {
 			if p.tt == EllipsisToken {
 				p.next()
 				array.Rest = p.parseAssignmentExpr()
 				break
 			} else if p.tt == CommaToken {
-				commas++
+				if prevComma {
+					array.List = append(array.List, nil)
+				}
+				prevComma = true
 				p.next()
 			} else {
-				for 1 < commas {
-					array.List = append(array.List, nil)
-					commas--
-				}
-				commas = 0
 				array.List = append(array.List, p.parseAssignmentExpr())
+				prevComma = false
 			}
 		}
 		p.next()

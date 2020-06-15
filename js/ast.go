@@ -688,6 +688,8 @@ func (n ArrayExpr) String() string {
 			s += ", "
 		}
 		s += "..." + n.Rest.String()
+	} else if 0 < len(n.List) && n.List[len(n.List)-1] == nil {
+		s += ","
 	}
 	return s + "]"
 }
