@@ -324,6 +324,12 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case AsyncToken: // async function
 		p.next()
 		if p.tt != FunctionToken {
+			if p.tt == OpenParenToken || p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+				params := p.parseArrowFuncParams()
+				arrowFuncDecl := p.parseArrowFunc(true, params)
+				stmt = &ExprStmt{&arrowFuncDecl}
+				break
+			}
 			p.fail("function statement", FunctionToken)
 			return
 		}
@@ -558,9 +564,15 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		if p.tt == FunctionToken {
 			funcDecl := p.parseFuncDecl(false, true)
 			exportStmt.Decl = &funcDecl
-		} else if p.tt == AsyncToken { // async function
+		} else if p.tt == AsyncToken { // async function or async arrow function
 			p.next()
 			if p.tt != FunctionToken {
+				if p.tt == OpenParenToken || p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+					params := p.parseArrowFuncParams()
+					arrowFuncDecl := p.parseArrowFunc(true, params)
+					exportStmt.Decl = &arrowFuncDecl
+					return
+				}
 				p.fail("export statement", FunctionToken)
 				return
 			}
@@ -631,6 +643,15 @@ func (p *Parser) parseFuncDecl(async, nameOptional bool) (funcDecl FuncDecl) {
 		p.asyncLevel--
 	}
 	return
+}
+
+func (p *Parser) parseArrowFuncParams() Params {
+	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+		name := p.data
+		p.next()
+		return Params{List: []BindingElement{{Binding: &BindingName{name}}}}
+	}
+	return p.parseFuncParams("arrow function")
 }
 
 func (p *Parser) parseFuncParams(in string) (params Params) {
