@@ -44,6 +44,7 @@ func TestParse(t *testing.T) {
 		{"if (a == 5) return true", "Stmt(if (a==5) Stmt(return true))"},
 		{"if (a == 5) return true else return false", "Stmt(if (a==5) Stmt(return true) else Stmt(return false))"},
 		{"if (a) b; else if (c) d;", "Stmt(if a Stmt(b) else Stmt(if c Stmt(d)))"},
+		{"if (a) 1; else if (b) 2; else 3", "Stmt(if a Stmt(1) else Stmt(if b Stmt(2) else Stmt(3)))"},
 		{"with (a = 5) return true", "Stmt(with (a=5) Stmt(return true))"},
 		{"do a++; while (a < 4)", "Stmt(do Stmt(a++) while (a<4))"},
 		{"do {a++} while (a < 4)", "Stmt(do Stmt({ Stmt(a++) }) while (a<4))"},
@@ -57,6 +58,9 @@ func TestParse(t *testing.T) {
 		{"for (var a of b) {}", "Stmt(for Decl(var Binding(a)) of b Stmt({ }))"},
 		{"for (var a=5 of b) {}", "Stmt(for Decl(var Binding(a = 5)) of b Stmt({ }))"},
 		{"for await (var a of b) {}", "Stmt(for await Decl(var Binding(a)) of b Stmt({ }))"},
+		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
+		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
+		{"for (a = b;;) {}", "Stmt(for (a=b) ; ; Stmt({ }))"},
 		{"throw 5", "Stmt(throw 5)"},
 		{"try {} catch {b}", "Stmt(try Stmt({ }) catch Stmt({ Stmt(b) }))"},
 		{"try {} finally {c}", "Stmt(try Stmt({ }) finally Stmt({ Stmt(c) }))"},
@@ -112,28 +116,27 @@ func TestParse(t *testing.T) {
 		{"export default class{}", "Stmt(export default Decl(class))"},
 		{"export default a", "Stmt(export default a)"},
 
-		// edge-cases
-		{"let\nawait 0", "Decl(let Binding(await)) Stmt(0)"},
-		{"yield * a = 5", "Stmt((yield*a)=5)"},
+		// yield, await, async
 		{"yield\na = 5", "Stmt(yield) Stmt(a=5)"},
 		{"yield * yield * a", "Stmt((yield*yield)*a)"},
-		{"function* a(){ yield a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield (a=5)) }))"},
-		{"function* a(){ yield * a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield* (a=5)) }))"},
-		{"function* a(){ yield\na = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield) Stmt(a=5) }))"},
-		{"function* a(){ yield yield a }", "Decl(function* a Params() Stmt({ Stmt(yield (yield a)) }))"},
-		{"function* a(){ yield * yield * a }", "Decl(function* a Params() Stmt({ Stmt(yield* (yield* a)) }))"},
-		{"if (a) 1; else if (b) 2; else 3", "Stmt(if a Stmt(1) else Stmt(if b Stmt(2) else Stmt(3)))"},
-		{"async function a(){x = await => a++}", "Decl(async function a Params() Stmt({ Stmt(x=(Params(Binding(await)) => Stmt({ Stmt(return (a++)) }))) }))"},
+		{"function*a(){ yield a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield (a=5)) }))"},
+		{"function*a(){ yield * a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield* (a=5)) }))"},
+		{"function*a(){ yield\na = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield) Stmt(a=5) }))"},
+		{"function*a(){ yield yield a }", "Decl(function* a Params() Stmt({ Stmt(yield (yield a)) }))"},
+		{"function*a(){ yield * yield * a }", "Decl(function* a Params() Stmt({ Stmt(yield* (yield* a)) }))"},
+		{"function*a(b = yield c){}", "Decl(function* a Params(Binding(b = (yield c))) Stmt({ }))"},
+		{"function*a(){ x = function yield(){} }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function yield Params() Stmt({ }))) }))"},
+		{"function*a(){ x = function b(){ x = yield } }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=yield) }))) }))"},
+		{"let\nawait 0", "Decl(let Binding(await)) Stmt(0)"},
 		{"x = {await}", "Stmt(x={await})"},
-		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
 		{"async function a(){ x = {await: 5} }", "Decl(async function a Params() Stmt({ Stmt(x={await: 5}) }))"},
 		{"async function a(){ x = await a }", "Decl(async function a Params() Stmt({ Stmt(x=(await a)) }))"},
 		{"async function a(){ x = await a+y }", "Decl(async function a Params() Stmt({ Stmt(x=((await a)+y)) }))"},
+		{"async function a(b = await c){}", "Decl(async function a Params(Binding(b = (await c))) Stmt({ }))"},
+		{"async function a(){ x = function await(){} }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function await Params() Stmt({ }))) }))"},
+		{"async function a(){ x = function b(){ x = await } }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=await) }))) }))"},
+		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
 		{"async a => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
-		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
-		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
-		{"for (a = b;;) {}", "Stmt(for (a=b) ; ; Stmt({ }))"},
-		{"!!a", "Stmt(!(!a))"},
 
 		// bindings
 		{"let []", "Decl(let Binding([ ]))"},
@@ -201,16 +204,16 @@ func TestParse(t *testing.T) {
 		{"x = async a => await b", "Stmt(x=(async Params(Binding(a)) => Stmt({ Stmt(return (await b)) })))"},
 		{"x = await => a++", "Stmt(x=(Params(Binding(await)) => Stmt({ Stmt(return (a++)) })))"},
 		{"x = a??b", "Stmt(x=(a??b))"},
-		{"x = a[b]", "Stmt(x=a[b])"},
-		{"x = import(a)", "Stmt(x=import(a))"},
+		{"x = a[b]", "Stmt(x=(a[b]))"},
 		{"x = a?.b?.c.d", "Stmt(x=(((a?.b)?.c).d))"},
 		{"x = a?.[b]?.`tpl`", "Stmt(x=((a?.[b])?.`tpl`))"},
 		{"x = a?.(b)", "Stmt(x=(a?.(b)))"},
-		{"x = super(a)", "Stmt(x=super(a))"},
-		{"x = a(a,b,...c,)", "Stmt(x=a(a, b, ...c))"},
+		{"x = super(a)", "Stmt(x=(super(a)))"},
+		{"x = a(a,b,...c,)", "Stmt(x=(a(a, b, ...c)))"},
 		{"x = new a(b)", "Stmt(x=(new a(b)))"},
 		{"x = new new.target", "Stmt(x=(new (new.target)))"},
 		{"x = new import.meta", "Stmt(x=(new (import.meta)))"},
+		{"x = import(a)", "Stmt(x=(import(a)))"},
 		{"x = +a", "Stmt(x=(+a))"},
 		{"x = ++a", "Stmt(x=(++a))"},
 		{"x = -a", "Stmt(x=(-a))"},
@@ -225,7 +228,7 @@ func TestParse(t *testing.T) {
 		{"x = !a", "Stmt(x=(!a))"},
 		{"x = delete a", "Stmt(x=(delete a))"},
 		{"x = a in b", "Stmt(x=(a in b))"},
-		{"x = a.replace(b, c)", "Stmt(x=(a.replace)(b, c))"},
+		{"x = a.replace(b, c)", "Stmt(x=((a.replace)(b, c)))"},
 		{"class a extends async function(){}{}", "Decl(class a extends Decl(async function Params() Stmt({ })))"},
 		{"x = a?b:c=d", "Stmt(x=(a ? b : (c=d)))"},
 
@@ -241,23 +244,28 @@ func TestParse(t *testing.T) {
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
 
 		// expression precedence
+		{"!!a", "Stmt(!(!a))"},
 		{"x = a.b.c", "Stmt(x=((a.b).c))"},
 		{"x = a+b+c", "Stmt(x=((a+b)+c))"},
 		{"x = a**b**c", "Stmt(x=(a**(b**c)))"},
 		{"a++ < b", "Stmt((a++)<b)"},
-		{"a??b||c", "Stmt(a??(b||c))"},
-		{"a||b??c", "Stmt((a||b)??c)"},
 		{"a&&b&&c", "Stmt((a&&b)&&c)"},
 		{"a||b||c", "Stmt((a||b)||c)"},
+		{"new new a(b)", "Stmt(new (new a(b)))"},
+		{"new super.a(b)", "Stmt(new (super.a)(b))"},
+		{"new new.target(a)", "Stmt(new (new.target)(a))"},
+		{"new import.meta(a)", "Stmt(new (import.meta)(a))"},
+		{"a||b?c:d", "Stmt((a||b) ? c : d)"},
+		{"a??b?c:d", "Stmt((a??b) ? c : d)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},
 		{"return /abc/;", "Stmt(return /abc/)"},
 		{"a/b/g", "Stmt((a/b)/g)"},
 		{"{}/1/g", "Stmt({ }) Stmt(/1/g)"},
-		{"i(0)/1/g", "Stmt((i(0)/1)/g)"},
+		{"i(0)/1/g", "Stmt(((i(0))/1)/g)"},
 		{"if(0)/1/g", "Stmt(if 0 Stmt(/1/g))"},
-		{"a.if(0)/1/g", "Stmt(((a.if)(0)/1)/g)"},
+		{"a.if(0)/1/g", "Stmt((((a.if)(0))/1)/g)"},
 		{"this/1/g", "Stmt((this/1)/g)"},
 		{"switch(a){case /1/g:}", "Stmt(switch a Clause(case /1/g))"},
 		{"(a+b)/1/g", "Stmt((((a+b))/1)/g)"},
@@ -292,6 +300,22 @@ func TestParse(t *testing.T) {
 	}
 }
 
+//func TestX(t *testing.T) {
+//	var tests = []struct {
+//		js string
+//	}{
+//		{"a + yield b"},
+//		{"function *g(){a + yield b}"},
+//	}
+//	for _, tt := range tests {
+//		fmt.Println()
+//		fmt.Println(tt.js)
+//		ast, err := Parse(parse.NewInputString(tt.js))
+//		fmt.Println(ast)
+//		fmt.Println(err)
+//	}
+//}
+
 func TestParseError(t *testing.T) {
 	var tests = []struct {
 		js  string
@@ -302,7 +326,7 @@ func TestParseError(t *testing.T) {
 		{"with", "expected '(' instead of EOF in with statement"},
 		{"with(a", "expected ')' instead of EOF in with statement"},
 		{"do a++", "expected 'while' instead of EOF in do statement"},
-		{"do a++ while", "expected ';' instead of 'while' in expression statement"},
+		{"do a++ while", "unexpected 'while' in expression"},
 		{"do a++; while", "expected '(' instead of EOF in do statement"},
 		{"do a++; while(a", "expected ')' instead of EOF in do statement"},
 		{"while", "expected '(' instead of EOF in while statement"},
@@ -322,8 +346,8 @@ func TestParseError(t *testing.T) {
 		{"switch(a){case a", "expected ':' instead of EOF in switch statement"},
 		{"async", "expected 'function' instead of EOF in function statement"},
 		{"try{}catch(a", "expected ')' instead of EOF in try statement"},
-		{"function", "expected 'Identifier' instead of EOF in function declaration"},
-		{"async function", "expected 'Identifier' instead of EOF in function declaration"},
+		{"function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
+		{"async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"function a", "expected '(' instead of EOF in function declaration"},
 		{"function a(b", "expected ',' or ')' instead of EOF in function declaration"},
 		{"function a(...b", "expected ')' instead of EOF in function declaration"},
@@ -363,7 +387,7 @@ func TestParseError(t *testing.T) {
 		{"x=a?.[b", "expected ']' instead of EOF in optional chaining expression"},
 		{"`tmp${", "unexpected EOF in expression"},
 		{"`tmp${x", "expected 'Template' instead of EOF in template literal"},
-		{"`tmpl` x `tmpl`", "expected ';' instead of 'x' in expression statement"},
+		{"`tmpl` x `tmpl`", "unexpected 'x' in expression"},
 		{"x=5=>", "unexpected '=>' in expression"},
 		{"x=new.bad", "expected 'target' instead of 'bad' in new.target expression"},
 		{"x=import.bad", "expected 'meta' instead of 'bad' in import.meta expression"},
@@ -371,8 +395,10 @@ func TestParseError(t *testing.T) {
 		{"x=super(a", "expected ')' instead of EOF in arguments"},
 		{"x=super[a", "expected ']' instead of EOF in index expression"},
 		{"x=super.", "expected 'Identifier' instead of EOF in dot expression"},
+		{"x=new super(b)", "expected '[' or '.' instead of '(' in super expression"},
 		{"x=import", "expected '(' instead of EOF in import expression"},
 		{"x=import(5", "expected ')' instead of EOF in arguments"},
+		{"x=new import(b)", "unexpected '(' in expression"},
 		{"import", "expected 'String', 'Identifier', '*', or '{' instead of EOF in import statement"},
 		{"import *", "expected 'as' instead of EOF in import statement"},
 		{"import * as", "expected 'Identifier' instead of EOF in import statement"},
@@ -395,6 +421,17 @@ func TestParseError(t *testing.T) {
 		{"export async", "expected 'function' instead of EOF in export statement"},
 		{"export default async", "expected 'function' instead of EOF in export statement"},
 
+		// yield, async, await
+		{"yield a = 5", "unexpected 'a' in expression"},
+		{"function*a() { yield: var a", "unexpected ':' in expression"},
+		{"function*a() { x = b + yield c", "unexpected 'yield' in expression"},
+		{"function a(b = yield c){}", "expected ',' or ')' instead of 'c' in function declaration"},
+		{"x = await\n=> a++", "unexpected '=>' in expression"},
+		{"async function a() { class a extends await", "unexpected 'await' in expression"},
+		{"async function a() { await: var a", "unexpected ':' in expression"},
+		{"async function a() { x = new await c", "unexpected 'await' in expression"},
+		{"async function a() { x = await =>", "unexpected '=>' in expression"},
+
 		// specific cases
 		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
 		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
@@ -404,12 +441,7 @@ func TestParseError(t *testing.T) {
 		{"for b", "expected '(' instead of 'b' in for statement"},
 		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
 		{"for (var a in b;) {}", "expected ')' instead of ';' in for statement"},
-		{"async function a() { class a extends await", "unexpected EOF in expression"},
-		{"async function a() { await: var a", "unexpected ':' in expression"},
-		{"x = await\n=> a++", "unexpected '=>' in expression"},
-		{"function* a() { yield: var a", "unexpected ':' in expression"},
-		{"yield a = 5", "expected ';' instead of 'a' in expression statement"},
-		{"if (a) 1 else 3", "expected ';' instead of 'else' in expression statement"},
+		{"if (a) 1 else 3", "unexpected 'else' in expression"},
 
 		// expression to arrow function parameters
 		{"x = ()", "expected '=>' instead of EOF in arrow function"},
@@ -423,19 +455,13 @@ func TestParseError(t *testing.T) {
 		{"x = (a, b, ...c)", "expected '=>' instead of EOF in arrow function"},
 
 		// expression precedence
-		//{"x = a++--", "unexpected '--' in expression"},
-		//{"x = a--++", "unexpected '++' in expression"},
+		{"x = a + yield b", "unexpected 'b' in expression"},
+		{"a??b||c", "unexpected '||' in expression"},
+		{"a||b??c", "unexpected '??' in expression"},
+		{"x = a++--", "unexpected '--' in expression"},
 		{"x = a\n++", "unexpected EOF in expression"},
-		//{"x = a++**b", "unexpected '**' in expression"},
-		//{"x = a++>>", "unexpected '>>' in expression"},
-		//{"x = a++==", "unexpected '==' in expression"},
-		//{"x = a++|", "unexpected '|' in expression"},
-		//{"x = a++&", "unexpected '&' in expression"},
-		//{"x = a++^", "unexpected '^' in expression"},
-		//{"x = a++??", "unexpected '??' in expression"},
-		//{"x = a++||", "unexpected '||' in expression"},
-		//{"x = a++&&", "unexpected '&&' in expression"},
-		//{"x = a++?", "unexpected '?' in expression"},
+		{"x = a++?", "unexpected EOF in expression"},
+		{"a+b =", "unexpected '=' in expression"},
 
 		// regular expressions
 		{"x = x / foo /", "unexpected EOF in expression"},

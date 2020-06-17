@@ -4,47 +4,36 @@ import "strconv"
 
 type OpPrec int
 
-// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_Precedence
 const (
-	OpEnd OpPrec = iota
-	OpComma
-	OpYield
-	OpAssign
-	OpCond
-	OpNullish
-	OpOr
-	OpAnd
-	OpBitOr
-	OpBitXor
-	OpBitAnd
-	OpEquals
-	OpCompare
-	OpShift
-	OpAdd
-	OpMul
-	OpExp
-	OpPrefix
-	OpPostfix
-	OpNew
-	OpCall
-	OpGroup
-	OpLiteral
+	OpExpr     OpPrec = iota // a,b
+	OpAssign                 // a?b:c, yield x, ()=>x, async ()=>x, a=b, a+=b, ...
+	OpCoalesce               // a??b
+	OpOr                     // a||b
+	OpAnd                    // a&&b
+	OpBitOr                  // a|b
+	OpBitXor                 // a^b
+	OpBitAnd                 // a&b
+	OpEquals                 // a==b, a!=b, a===b, a!==b
+	OpCompare                // a<b, a>b, a<=b, a>=b, a instanceof b, a in b
+	OpShift                  // a<<b, a>>b, a>>>b
+	OpAdd                    // a+b, a-b
+	OpMul                    // a*b, a/b, a%b
+	OpExp                    // a**b
+	OpUnary                  // ++x, --x, delete x, void x, typeof x, +x, -x, ~x, !x, await x
+	OpUpdate                 // x++, x--
+	OpLHS                    // new x, a(b), super(x), import(x), a?.(b), a?.[b], a?.b, a?.`b`
+	OpMember                 // a[b], a.b, a`b`, super[x], super.x, new.target, import.meta, new a(b)
+	OpPrimary                // literal, function, class, parenthesized
 )
 
 func (prec OpPrec) String() string {
 	switch prec {
-	case OpEnd:
-		return "OpEnd"
-	case OpComma:
-		return "OpComma"
-	case OpYield:
-		return "OpYield"
+	case OpExpr:
+		return "OpExpr"
 	case OpAssign:
 		return "OpAssign"
-	case OpCond:
-		return "OpCond"
-	case OpNullish:
-		return "OpNullish"
+	case OpCoalesce:
+		return "OpCoalesce"
 	case OpOr:
 		return "OpOr"
 	case OpAnd:
@@ -57,6 +46,8 @@ func (prec OpPrec) String() string {
 		return "OpBitAnd"
 	case OpEquals:
 		return "OpEquals"
+	case OpCompare:
+		return "OpCompare"
 	case OpShift:
 		return "OpShift"
 	case OpAdd:
@@ -65,18 +56,16 @@ func (prec OpPrec) String() string {
 		return "OpMul"
 	case OpExp:
 		return "OpExp"
-	case OpPrefix:
-		return "OpPrefix"
-	case OpPostfix:
-		return "OpPostfix"
-	case OpNew:
-		return "OpNew"
-	case OpCall:
-		return "OpCall"
-	case OpGroup:
-		return "OpGroup"
-	case OpLiteral:
-		return "OpLiteral"
+	case OpUnary:
+		return "OpUnary"
+	case OpUpdate:
+		return "OpUpdate"
+	case OpLHS:
+		return "OpLHS"
+	case OpMember:
+		return "OpMember"
+	case OpPrimary:
+		return "OpPrimary"
 	}
 	return "Invalid(" + strconv.Itoa(int(prec)) + ")"
 }

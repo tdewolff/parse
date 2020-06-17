@@ -16,8 +16,8 @@ type Parser struct {
 	tt                 TokenType
 	data               []byte
 	prevLineTerminator bool
-	asyncLevel         int
-	generatorLevel     int
+	async              bool
+	generator          bool
 	inFor              bool
 
 	boundVars   map[string]bool
@@ -137,7 +137,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("if statement", OpenParenToken) {
 			return
 		}
-		cond := p.parseExpr()
+		cond := p.parseExpression(OpExpr)
 		if !p.consume("if statement", CloseParenToken) {
 			return
 		}
@@ -153,7 +153,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		tt := p.tt
 		p.next()
 		var name *Token
-		if !p.prevLineTerminator && p.isIdentRef(p.tt) {
+		if !p.prevLineTerminator && p.isIdentifierReference(p.tt) {
 			name = &Token{IdentifierToken, p.data}
 			p.next()
 		}
@@ -162,7 +162,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		p.next()
 		var value IExpr
 		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
-			value = p.parseExpr()
+			value = p.parseExpression(OpExpr)
 		}
 		stmt = &ReturnStmt{value}
 	case WithToken:
@@ -170,7 +170,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("with statement", OpenParenToken) {
 			return
 		}
-		cond := p.parseExpr()
+		cond := p.parseExpression(OpExpr)
 		if !p.consume("with statement", CloseParenToken) {
 			return
 		}
@@ -187,7 +187,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("do statement", OpenParenToken) {
 			return
 		}
-		stmt = &DoWhileStmt{p.parseExpr(), body}
+		stmt = &DoWhileStmt{p.parseExpression(OpExpr), body}
 		if !p.consume("do statement", CloseParenToken) {
 			return
 		}
@@ -196,7 +196,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("while statement", OpenParenToken) {
 			return
 		}
-		cond := p.parseExpr()
+		cond := p.parseExpression(OpExpr)
 		if !p.consume("while statement", CloseParenToken) {
 			return
 		}
@@ -217,7 +217,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			varDecl := p.parseVarDecl()
 			init = &varDecl
 		} else if p.tt != SemicolonToken {
-			init = p.parseExpr()
+			init = p.parseExpression(OpExpr)
 		}
 		p.inFor = false
 
@@ -229,13 +229,13 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			}
 			p.next()
 			if p.tt != SemicolonToken {
-				cond = p.parseExpr()
+				cond = p.parseExpression(OpExpr)
 			}
 			if !p.consume("for statement", SemicolonToken) {
 				return
 			}
 			if p.tt != CloseParenToken {
-				post = p.parseExpr()
+				post = p.parseExpression(OpExpr)
 			}
 			if !p.consume("for statement", CloseParenToken) {
 				return
@@ -247,14 +247,14 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 				return
 			}
 			p.next()
-			value := p.parseExpr()
+			value := p.parseExpression(OpExpr)
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
 			stmt = &ForInStmt{init, value, p.parseStmt()}
 		} else if p.tt == IdentifierToken && bytes.Equal(p.data, []byte("of")) {
 			p.next()
-			value := p.parseAssignmentExpr()
+			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
@@ -265,21 +265,21 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		}
 	case IdentifierToken, YieldToken, AwaitToken:
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
-		expr := p.parseExpr()
+		expr := p.parseExpression(OpExpr)
 		stmt = &ExprStmt{expr}
 		literal, ok := expr.(*LiteralExpr)
-		if p.tt == ColonToken && ok && (literal.TokenType != AwaitToken || p.asyncLevel == 0) {
+		if p.tt == ColonToken && ok && p.isIdentifierReference(literal.TokenType) {
 			p.next() // colon
 			stmt = &LabelledStmt{Token{IdentifierToken, literal.Data}, p.parseStmt()}
 		} else if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
-			p.fail("expression statement", SemicolonToken)
+			p.fail("expression")
 		}
 	case SwitchToken:
 		p.next()
 		if !p.consume("switch statement", OpenParenToken) {
 			return
 		}
-		init := p.parseExpr()
+		init := p.parseExpression(OpExpr)
 		if !p.consume("switch statement", CloseParenToken) {
 			return
 		}
@@ -300,7 +300,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			var list IExpr
 			if p.tt == CaseToken {
 				p.next()
-				list = p.parseExpr()
+				list = p.parseExpression(OpExpr)
 			} else if p.tt == DefaultToken {
 				p.next()
 			} else {
@@ -324,8 +324,8 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case AsyncToken: // async function
 		p.next()
 		if p.tt != FunctionToken {
-			if p.tt == OpenParenToken || p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-				params := p.parseArrowFuncParams()
+			if p.tt == OpenParenToken || p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
+				params := p.parseAsyncArrowFuncParams()
 				arrowFuncDecl := p.parseArrowFunc(true, params)
 				stmt = &ExprStmt{&arrowFuncDecl}
 				break
@@ -342,7 +342,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		p.next()
 		var value IExpr
 		if !p.prevLineTerminator {
-			value = p.parseExpr()
+			value = p.parseExpression(OpExpr)
 		}
 		stmt = &ThrowStmt{value}
 	case TryToken:
@@ -374,9 +374,9 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case SemicolonToken, ErrorToken:
 		stmt = &EmptyStmt{}
 	default:
-		stmt = &ExprStmt{p.parseExpr()}
+		stmt = &ExprStmt{p.parseExpression(OpExpr)}
 		if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
-			p.fail("expression statement", SemicolonToken)
+			p.fail("expression")
 		}
 	}
 	if p.tt == SemicolonToken {
@@ -567,8 +567,8 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		} else if p.tt == AsyncToken { // async function or async arrow function
 			p.next()
 			if p.tt != FunctionToken {
-				if p.tt == OpenParenToken || p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-					params := p.parseArrowFuncParams()
+				if p.tt == OpenParenToken || p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
+					params := p.parseAsyncArrowFuncParams()
 					arrowFuncDecl := p.parseArrowFunc(true, params)
 					exportStmt.Decl = &arrowFuncDecl
 					return
@@ -582,7 +582,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			classDecl := p.parseClassDecl()
 			exportStmt.Decl = &classDecl
 		} else {
-			exportStmt.Decl = p.parseAssignmentExpr()
+			exportStmt.Decl = p.parseExpression(OpAssign)
 		}
 	} else {
 		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
@@ -609,7 +609,7 @@ func (p *Parser) parseVarDecl() (varDecl VarDecl) {
 	return
 }
 
-func (p *Parser) parseFuncDecl(async, nameOptional bool) (funcDecl FuncDecl) {
+func (p *Parser) parseFuncDecl(async, inExpr bool) (funcDecl FuncDecl) {
 	// assume we're at function
 	p.next()
 	funcDecl.Async = async
@@ -617,39 +617,29 @@ func (p *Parser) parseFuncDecl(async, nameOptional bool) (funcDecl FuncDecl) {
 	if funcDecl.Generator {
 		p.next()
 	}
-	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+	if inExpr && (p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
 		p.boundVars[string(p.data)] = true
 		funcDecl.Name = p.data
 		p.next()
-	} else if !nameOptional {
-		p.fail("function declaration", IdentifierToken)
-		return
 	} else if p.tt != OpenParenToken {
 		p.fail("function declaration", IdentifierToken, OpenParenToken)
 		return
 	}
-	if funcDecl.Async {
-		p.asyncLevel++
-	}
-	if funcDecl.Generator {
-		p.generatorLevel++
-	}
+	parentAsync, parentGenerator := p.async, p.generator
+	p.async, p.generator = funcDecl.Async, funcDecl.Generator
 	funcDecl.Params = p.parseFuncParams("function declaration")
 	funcDecl.Body = p.parseBlockStmt("function declaration")
-	if funcDecl.Generator {
-		p.generatorLevel--
-	}
-	if funcDecl.Async {
-		p.asyncLevel--
-	}
+	p.async, p.generator = parentAsync, parentGenerator
 	return
 }
 
-func (p *Parser) parseArrowFuncParams() Params {
-	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+func (p *Parser) parseAsyncArrowFuncParams() Params {
+	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
 		name := p.data
 		p.next()
 		return Params{List: []BindingElement{{Binding: &BindingName{name}}}}
+	} else if p.tt == AwaitToken {
+		p.fail("arrow function")
 	}
 	return p.parseFuncParams("arrow function")
 }
@@ -693,7 +683,7 @@ func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
 	}
 	if p.tt == ExtendsToken {
 		p.next()
-		classDecl.Extends = p.parseLeftHandSideExpr()
+		classDecl.Extends = p.parseExpression(OpLHS)
 	}
 
 	if !p.consume("class statement", OpenBraceToken) {
@@ -744,7 +734,7 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
-		method.Name = PropertyName{Token{}, p.parseAssignmentExpr()}
+		method.Name = PropertyName{Token{}, p.parseExpression(OpAssign)}
 		if p.tt != CloseBracketToken {
 			p.fail("method definition", CloseBracketToken)
 			return
@@ -754,14 +744,11 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 		p.fail("method definition", IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 		return
 	}
-	if method.Async {
-		p.asyncLevel++
-	}
+	parentAsync, parentGenerator := p.async, p.generator
+	p.async, p.generator = method.Async, method.Generator
 	method.Params = p.parseFuncParams("method definition")
 	method.Body = p.parseBlockStmt("method definition")
-	if method.Async {
-		p.asyncLevel--
-	}
+	p.async, p.generator = parentAsync, parentGenerator
 	return
 }
 
@@ -770,14 +757,14 @@ func (p *Parser) parseBindingElement() (bindingElement BindingElement) {
 	bindingElement.Binding = p.parseBinding()
 	if p.tt == EqToken {
 		p.next()
-		bindingElement.Default = p.parseAssignmentExpr()
+		bindingElement.Default = p.parseExpression(OpAssign)
 	}
 	return
 }
 
 func (p *Parser) parseBinding() (binding IBinding) {
 	// binding identifier or binding pattern
-	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
 		binding = &BindingName{p.data}
 		p.boundVars[string(p.data)] = true // TODO for array and object
 		p.next()
@@ -824,7 +811,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 			// binding rest property
 			if p.tt == EllipsisToken {
 				p.next()
-				if p.tt != IdentifierToken && p.tt != YieldToken && p.tt != AwaitToken {
+				if p.tt != IdentifierToken && (p.generator || p.tt != YieldToken) && (p.async || p.tt != AwaitToken) {
 					p.fail("object binding pattern", IdentifierToken)
 					return
 				}
@@ -838,7 +825,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 			}
 
 			item := BindingObjectItem{}
-			if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
+			if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
 				ident := Token{p.tt, p.data}
 				p.next()
 				if p.tt == ColonToken {
@@ -851,14 +838,14 @@ func (p *Parser) parseBinding() (binding IBinding) {
 					item.Value.Binding = &BindingName{ident.Data}
 					if p.tt == EqToken {
 						p.next()
-						item.Value.Default = p.parseAssignmentExpr()
+						item.Value.Default = p.parseExpression(OpAssign)
 					}
 				}
 			} else if IsIdentifier(p.tt) || p.tt == StringToken || IsNumeric(p.tt) || p.tt == OpenBracketToken {
 				// property name + : + binding element
 				if p.tt == OpenBracketToken {
 					p.next()
-					item.Key = &PropertyName{Computed: p.parseAssignmentExpr()}
+					item.Key = &PropertyName{Computed: p.parseExpression(OpAssign)}
 					if p.tt != CloseBracketToken {
 						p.fail("object binding pattern", CloseBracketToken)
 						return
@@ -899,10 +886,6 @@ func (p *Parser) parseBinding() (binding IBinding) {
 	return
 }
 
-func (p *Parser) isIdentRef(tt TokenType) bool {
-	return tt == IdentifierToken || tt == YieldToken && p.generatorLevel == 0 || tt == AwaitToken && p.asyncLevel == 0
-}
-
 func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	// assume we're on {
 	p.next()
@@ -911,7 +894,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 		if p.tt == EllipsisToken {
 			p.next()
 			property.Spread = true
-			property.Value = p.parseAssignmentExpr()
+			property.Value = p.parseExpression(OpAssign)
 		} else {
 			// try to parse as MethodDefinition, otherwise fall back to PropertyName:AssignExpr or IdentifierReference
 			method := MethodDecl{}
@@ -949,7 +932,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 					p.next()
 				} else if p.tt == OpenBracketToken {
 					p.next()
-					method.Name.Computed = p.parseAssignmentExpr()
+					method.Name.Computed = p.parseExpression(OpAssign)
 					if p.tt != CloseBracketToken {
 						p.fail("object literal", CloseBracketToken)
 						return
@@ -975,21 +958,18 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 
 			if p.tt == OpenParenToken {
 				// MethodDefinition
-				if method.Async {
-					p.asyncLevel++
-				}
+				parentAsync, parentGenerator := p.async, p.generator
+				p.async, p.generator = method.Async, method.Generator
 				method.Params = p.parseFuncParams("method definition")
 				method.Body = p.parseBlockStmt("method definition")
-				if method.Async {
-					p.asyncLevel--
-				}
+				p.async, p.generator = parentAsync, parentGenerator
 				property.Value = &method
 			} else if p.tt == ColonToken {
 				// PropertyName : AssignmentExpression
 				p.next()
 				property.Key = &method.Name
-				property.Value = p.parseAssignmentExpr()
-			} else if !p.isIdentRef(method.Name.Literal.TokenType) {
+				property.Value = p.parseExpression(OpAssign)
+			} else if !p.isIdentifierReference(method.Name.Literal.TokenType) {
 				p.fail("object literal", ColonToken, OpenParenToken)
 				return
 			} else {
@@ -998,7 +978,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				property.Value = &LiteralExpr{lit.TokenType, lit.Data}
 				if p.tt == EqToken {
 					p.next()
-					property.Init = p.parseAssignmentExpr()
+					property.Init = p.parseExpression(OpAssign)
 				}
 			}
 		}
@@ -1018,7 +998,7 @@ func (p *Parser) parseTemplateLiteral() (template TemplateExpr) {
 	for p.tt == TemplateStartToken || p.tt == TemplateMiddleToken {
 		tpl := p.data
 		p.next()
-		template.List = append(template.List, TemplatePart{tpl, p.parseExpr()})
+		template.List = append(template.List, TemplatePart{tpl, p.parseExpression(OpExpr)})
 		if p.tt == TemplateEndToken {
 			break
 		} else {
@@ -1038,7 +1018,7 @@ func (p *Parser) parseArgs() (args Arguments) {
 	for {
 		if p.tt == EllipsisToken {
 			p.next()
-			args.Rest = p.parseAssignmentExpr()
+			args.Rest = p.parseExpression(OpAssign)
 			if p.tt == CommaToken {
 				p.next()
 			}
@@ -1048,7 +1028,7 @@ func (p *Parser) parseArgs() (args Arguments) {
 		if p.tt == CloseParenToken || p.tt == ErrorToken {
 			break
 		}
-		args.List = append(args.List, p.parseAssignmentExpr())
+		args.List = append(args.List, p.parseExpression(OpAssign))
 		if p.tt == CommaToken {
 			p.next()
 		}
@@ -1069,32 +1049,18 @@ func (p *Parser) parseArrowFunc(async bool, params Params) (arrowFunc ArrowFunc)
 	arrowFunc.Async = async
 	arrowFunc.Params = params
 	p.next()
-	if async {
-		p.asyncLevel++
-	}
+	parentAsync, parentGenerator := p.async, p.generator
+	p.async, p.generator = arrowFunc.Async, false
 	if p.tt == OpenBraceToken {
 		arrowFunc.Body = p.parseBlockStmt("arrow function")
 	} else {
-		arrowFunc.Body = BlockStmt{[]IStmt{&ReturnStmt{p.parseAssignmentExpr()}}}
+		arrowFunc.Body = BlockStmt{[]IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}}
 	}
-	if async {
-		p.asyncLevel--
-	}
+	p.async, p.generator = parentAsync, parentGenerator
 	return
 }
 
-func (p *Parser) parseExpr() IExpr {
-	return p.parseExpression(OpEnd)
-}
-
-func (p *Parser) parseAssignmentExpr() IExpr {
-	return p.parseExpression(OpComma)
-}
-
-func (p *Parser) parseLeftHandSideExpr() IExpr {
-	return p.parseExpression(OpNew)
-}
-
+// parseExpression parses an expression that has a precendence of prec or higher.
 func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
@@ -1102,6 +1068,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	}
 
 	var left IExpr
+	precLeft := OpPrimary
 	switch tt := p.tt; tt {
 	case IdentifierToken:
 		left = &LiteralExpr{p.tt, p.data}
@@ -1120,7 +1087,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		for p.tt != CloseBracketToken && p.tt != ErrorToken {
 			if p.tt == EllipsisToken {
 				p.next()
-				array.Rest = p.parseAssignmentExpr()
+				array.Rest = p.parseExpression(OpAssign)
 				break
 			} else if p.tt == CommaToken {
 				if prevComma {
@@ -1129,7 +1096,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				prevComma = true
 				p.next()
 			} else {
-				array.List = append(array.List, p.parseAssignmentExpr())
+				array.List = append(array.List, p.parseExpression(OpAssign))
 				prevComma = false
 			}
 		}
@@ -1150,7 +1117,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			} else if p.tt == CommaToken {
 				p.next()
 			} else {
-				list = append(list, p.parseAssignmentExpr())
+				list = append(list, p.parseExpression(OpAssign))
 			}
 		}
 		p.next()
@@ -1173,22 +1140,56 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			}
 			arrowFunc := p.parseArrowFunc(false, params)
 			left = &arrowFunc
+			precLeft = OpAssign
 		}
 	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
+		if OpUnary < prec {
+			p.fail("expression")
+		}
 		p.next()
-		left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
+		left = &UnaryExpr{tt, p.parseExpression(OpUnary)}
+		precLeft = OpUnary
 	case AddToken:
+		if OpUnary < prec {
+			p.fail("expression")
+		}
 		p.next()
-		left = &UnaryExpr{PosToken, p.parseExpression(OpPrefix - 1)}
+		left = &UnaryExpr{PosToken, p.parseExpression(OpUnary)}
+		precLeft = OpUnary
 	case SubToken:
+		if OpUnary < prec {
+			p.fail("expression")
+		}
 		p.next()
-		left = &UnaryExpr{NegToken, p.parseExpression(OpPrefix - 1)}
+		left = &UnaryExpr{NegToken, p.parseExpression(OpUnary)}
+		precLeft = OpUnary
 	case IncrToken:
+		if OpUpdate < prec {
+			p.fail("expression")
+		}
 		p.next()
-		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpPrefix - 1)}
+		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpUnary)}
+		precLeft = OpUnary
 	case DecrToken:
+		if OpUpdate < prec {
+			p.fail("expression")
+		}
 		p.next()
-		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpPrefix - 1)}
+		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpUnary)}
+		precLeft = OpUnary
+	case AwaitToken:
+		// either accepted as IdentifierReference or as AwaitExpression, if followed by => it could be a BindingIdentifier for an arrow function
+		await := LiteralExpr{IdentifierToken, p.data}
+		if p.async && (p.tt != ArrowToken || p.prevLineTerminator) && prec <= OpUnary {
+			p.next()
+			left = &UnaryExpr{tt, p.parseExpression(OpUnary)}
+			precLeft = OpUnary
+		} else if p.async && (p.tt != ArrowToken || p.prevLineTerminator) {
+			p.fail("expression")
+		} else {
+			p.next()
+			left = &await
+		}
 	case NewToken:
 		p.next()
 		if p.tt == DotToken {
@@ -1198,11 +1199,23 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return nil
 			}
 			left = &NewTargetExpr{}
+			precLeft = OpMember
 			p.next()
 		} else {
-			left = &NewExpr{p.parseExpression(OpNew)}
+			newExpr := &NewExpr{p.parseExpression(OpMember), nil}
+			if p.tt == OpenParenToken {
+				args := p.parseArgs()
+				newExpr.Args = &args
+				precLeft = OpMember
+			} else {
+				precLeft = OpLHS
+			}
+			left = newExpr
 		}
 	case ImportToken:
+		if OpMember < prec {
+			p.fail("expression")
+		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 		if p.tt == DotToken {
@@ -1212,39 +1225,47 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return nil
 			}
 			left = &ImportMetaExpr{}
+			precLeft = OpMember
 			p.next()
 		} else if p.tt != OpenParenToken {
 			p.fail("import expression", OpenParenToken)
+		} else if prec == OpMember {
+			p.fail("expression")
+		} else {
+			precLeft = OpLHS
 		}
 	case SuperToken:
+		if OpMember < prec {
+			p.fail("expression")
+		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
-		if p.tt != DotToken && p.tt != OpenBracketToken && p.tt != OpenParenToken {
+		if prec == OpMember && p.tt != DotToken && p.tt != OpenBracketToken {
+			p.fail("super expression", OpenBracketToken, DotToken)
+		} else if p.tt != DotToken && p.tt != OpenBracketToken && p.tt != OpenParenToken {
 			p.fail("super expression", OpenBracketToken, OpenParenToken, DotToken)
 		}
-	case AwaitToken:
-		await := LiteralExpr{IdentifierToken, p.data}
-		p.next()
-		if 0 < p.asyncLevel && (p.tt != ArrowToken || p.prevLineTerminator) {
-			left = &UnaryExpr{tt, p.parseExpression(OpPrefix - 1)}
-		} else {
-			left = &await
-		}
+		precLeft = OpLHS
 	case YieldToken:
+		// either accepted as IdentifierReference or as YieldExpression
 		yield := LiteralExpr{IdentifierToken, p.data}
-		p.next()
-		if 0 < p.generatorLevel {
+		if p.generator && prec <= OpAssign {
 			// YieldExpression
+			p.next()
 			yieldExpr := YieldExpr{}
 			if !p.prevLineTerminator {
 				yieldExpr.Generator = p.tt == MulToken
 				if yieldExpr.Generator {
 					p.next()
 				}
-				yieldExpr.X = p.parseExpression(OpYield - 1)
+				yieldExpr.X = p.parseExpression(OpAssign)
 			}
 			left = &yieldExpr
+			precLeft = OpAssign
+		} else if p.generator {
+			p.fail("expression")
 		} else {
+			p.next()
 			left = &yield
 		}
 	case AsyncToken:
@@ -1264,16 +1285,16 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				p.fail("function declaration", FunctionToken)
 			}
 			return nil
-		} else if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
-			// async arrow function
+		} else if p.tt == OpenParenToken || p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
+			// async arrow function expression
 			if p.prevLineTerminator {
 				p.fail("arrow function")
 				return nil
 			}
-			name := p.data
-			p.next()
-			arrowFunc := p.parseArrowFunc(true, Params{List: []BindingElement{{Binding: &BindingName{name}}}})
+			params := p.parseAsyncArrowFuncParams()
+			arrowFunc := p.parseArrowFunc(true, params)
 			left = &arrowFunc
+			precLeft = OpAssign
 		} else {
 			if p.prevLineTerminator {
 				p.fail("function declaration")
@@ -1304,38 +1325,64 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	for {
 		switch tt := p.tt; tt {
 		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
-			if prec >= OpAssign {
+			if OpAssign < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign - 1)}
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign)}
+			precLeft = OpAssign
 		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
-			if prec >= OpCompare || p.inFor && tt == InToken {
+			if OpCompare < prec || p.inFor && tt == InToken {
 				return left
+			} else if precLeft < OpCompare {
+				p.fail("expression")
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpShift)}
+			precLeft = OpCompare
+		case EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken:
+			if OpEquals < prec {
+				return left
+			} else if precLeft < OpEquals {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpCompare)}
-		case EqEqToken, NotEqToken, EqEqEqToken, NotEqEqToken:
-			if prec >= OpEquals {
+			precLeft = OpEquals
+		case AndToken:
+			if OpAnd < prec {
 				return left
+			} else if precLeft < OpAnd {
+				p.fail("expression")
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
-		case AndToken:
-			if prec >= OpAnd {
+			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
+			precLeft = OpAnd
+		case OrToken:
+			if OpOr < prec {
 				return left
+			} else if precLeft < OpOr {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAnd)}
-		case OrToken:
-			if prec >= OpOr {
+			precLeft = OpOr
+		case NullishToken:
+			if OpCoalesce < prec {
 				return left
+			} else if precLeft < OpBitOr && precLeft != OpCoalesce {
+				p.fail("expression")
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpOr)}
+			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
+			precLeft = OpCoalesce
 		case DotToken:
-			if prec >= OpCall {
+			if OpMember < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			p.next()
 			if !IsIdentifier(p.tt) {
@@ -1343,23 +1390,41 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return nil
 			}
 			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}}
+			precLeft = OpMember
 			p.next()
 		case OpenBracketToken:
-			if prec >= OpCall {
+			if OpMember < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			p.next()
-			left = &IndexExpr{left, p.parseExpr()}
+			left = &IndexExpr{left, p.parseExpression(OpExpr)}
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
 			}
+			precLeft = OpMember
 		case OpenParenToken:
-			if prec >= OpCall {
+			if OpLHS < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			left = &CallExpr{left, p.parseArgs()}
+			precLeft = OpLHS
+		case TemplateToken, TemplateStartToken:
+			if OpMember < prec {
+				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
+			}
+			template := p.parseTemplateLiteral()
+			template.Tag = left
+			left = &template
+			precLeft = OpMember
 		case OptChainToken:
-			if prec >= OpCall {
+			// left must be LHS
+			if OpLHS < prec {
 				return left
 			}
 			p.next()
@@ -1367,7 +1432,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				left = &OptChainExpr{left, &CallExpr{nil, p.parseArgs()}}
 			} else if p.tt == OpenBracketToken {
 				p.next()
-				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpr()}}
+				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpression(OpExpr)}}
 				if !p.consume("optional chaining expression", CloseBracketToken) {
 					return nil
 				}
@@ -1381,91 +1446,115 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
 				return nil
 			}
+			precLeft = OpLHS
 		case IncrToken:
-			if p.prevLineTerminator || prec >= OpPostfix {
+			if p.prevLineTerminator || OpUpdate < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			p.next()
 			left = &UnaryExpr{PostIncrToken, left}
+			precLeft = OpUpdate
 		case DecrToken:
-			if p.prevLineTerminator || prec >= OpPostfix {
+			if p.prevLineTerminator || OpUpdate < prec {
 				return left
+			} else if precLeft < OpLHS {
+				p.fail("expression")
 			}
 			p.next()
 			left = &UnaryExpr{PostDecrToken, left}
+			precLeft = OpUpdate
 		case ExpToken:
-			if prec >= OpExp {
+			if OpExp < prec {
 				return left
+			} else if precLeft < OpUpdate {
+				p.fail("expression")
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpExp - 1)}
+			left = &BinaryExpr{tt, left, p.parseExpression(OpExp)}
+			precLeft = OpExp
 		case MulToken, DivToken, ModToken:
-			if prec >= OpMul {
+			if OpMul < prec {
 				return left
+			} else if precLeft < OpMul {
+				p.fail("expression")
+			}
+			p.next()
+			left = &BinaryExpr{tt, left, p.parseExpression(OpExp)}
+			precLeft = OpMul
+		case AddToken, SubToken:
+			if OpAdd < prec {
+				return left
+			} else if precLeft < OpAdd {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpMul)}
-		case AddToken, SubToken:
-			if prec >= OpAdd {
+			precLeft = OpAdd
+		case LtLtToken, GtGtToken, GtGtGtToken:
+			if OpShift < prec {
 				return left
+			} else if precLeft < OpShift {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAdd)}
-		case LtLtToken, GtGtToken, GtGtGtToken:
-			if prec >= OpShift {
+			precLeft = OpShift
+		case BitAndToken:
+			if OpBitAnd < prec {
 				return left
+			} else if precLeft < OpBitAnd {
+				p.fail("expression")
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpShift)}
-		case BitAndToken:
-			if prec >= OpBitAnd {
+			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
+			precLeft = OpBitAnd
+		case BitXorToken:
+			if OpBitXor < prec {
 				return left
+			} else if precLeft < OpBitXor {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitAnd)}
-		case BitXorToken:
-			if prec >= OpBitXor {
+			precLeft = OpBitXor
+		case BitOrToken:
+			if OpBitOr < prec {
 				return left
+			} else if precLeft < OpBitOr {
+				p.fail("expression")
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitXor)}
-		case BitOrToken:
-			if prec >= OpBitOr {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
-		case NullishToken:
-			if prec >= OpNullish {
-				return left
-			}
-			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpNullish)}
+			precLeft = OpBitOr
 		case QuestionToken:
-			if prec >= OpCond {
+			if OpAssign < prec {
 				return left
+			} else if precLeft < OpCoalesce {
+				p.fail("expression")
 			}
 			p.next()
-			ifExpr := p.parseExpression(OpComma)
+			ifExpr := p.parseExpression(OpAssign)
 			if !p.consume("conditional expression", ColonToken) {
 				return nil
 			}
-			elseExpr := p.parseExpression(OpComma)
+			elseExpr := p.parseExpression(OpAssign)
 			left = &CondExpr{left, ifExpr, elseExpr}
+			precLeft = OpAssign
 		case CommaToken:
-			if prec >= OpComma {
+			if OpExpr < prec {
 				return left
 			}
 			p.next()
-			left = &BinaryExpr{tt, left, p.parseExpression(OpComma)}
-		case TemplateToken, TemplateStartToken:
-			if prec >= OpCall {
-				return left
-			}
-			template := p.parseTemplateLiteral()
-			template.Tag = left
-			left = &template
+			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign)}
+			precLeft = OpExpr
 		case ArrowToken:
+			if OpAssign < prec {
+				return left
+			} else if precLeft < OpPrimary {
+				p.fail("expression")
+			}
 			params, fail := p.exprToParams(left)
 			if fail {
 				p.fail("expression")
@@ -1473,6 +1562,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			}
 			arrowFunc := p.parseArrowFunc(false, params)
 			left = &arrowFunc
+			precLeft = OpAssign
 		default:
 			return left
 		}
@@ -1480,7 +1570,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 }
 
 func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
-	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
+	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || !p.generator && literal.TokenType == YieldToken || !p.async && literal.TokenType == AwaitToken) {
 		binding = &BindingName{literal.Data}
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
@@ -1527,7 +1617,7 @@ func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement
 }
 
 func (p *Parser) exprToParams(expr IExpr) (params Params, fail bool) {
-	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || literal.TokenType == YieldToken || literal.TokenType == AwaitToken) {
+	if literal, ok := expr.(*LiteralExpr); ok && (literal.TokenType == IdentifierToken || !p.generator && literal.TokenType == YieldToken || !p.async && literal.TokenType == AwaitToken) {
 		params.List = append(params.List, BindingElement{Binding: &BindingName{literal.Data}})
 	} else if group, ok := expr.(*GroupExpr); ok {
 		item := group.X
@@ -1554,4 +1644,8 @@ func (p *Parser) exprToParams(expr IExpr) (params Params, fail bool) {
 		fail = true
 	}
 	return
+}
+
+func (p *Parser) isIdentifierReference(tt TokenType) bool {
+	return tt == IdentifierToken || tt == YieldToken && !p.generator || tt == AwaitToken && !p.async
 }

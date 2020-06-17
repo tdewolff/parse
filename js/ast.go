@@ -732,10 +732,14 @@ func (n TemplateExpr) String() string {
 }
 
 type NewExpr struct {
-	X IExpr
+	X    IExpr
+	Args *Arguments // can be nil
 }
 
 func (n NewExpr) String() string {
+	if n.Args != nil {
+		return "(new " + n.X.String() + n.Args.String() + ")"
+	}
 	return "(new " + n.X.String() + ")"
 }
 
@@ -792,7 +796,7 @@ type CallExpr struct {
 }
 
 func (n CallExpr) String() string {
-	return n.X.String() + n.Args.String()
+	return "(" + n.X.String() + n.Args.String() + ")"
 }
 
 type IndexExpr struct {
@@ -801,7 +805,7 @@ type IndexExpr struct {
 }
 
 func (n IndexExpr) String() string {
-	return n.X.String() + "[" + n.Index.String() + "]"
+	return "(" + n.X.String() + "[" + n.Index.String() + "])"
 }
 
 type OptChainExpr struct {
