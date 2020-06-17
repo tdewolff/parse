@@ -210,6 +210,7 @@ func TestParse(t *testing.T) {
 		{"x = a(a,b,...c,)", "Stmt(x=a(a, b, ...c))"},
 		{"x = new a(b)", "Stmt(x=(new a(b)))"},
 		{"x = new new.target", "Stmt(x=(new (new.target)))"},
+		{"x = new import.meta", "Stmt(x=(new (import.meta)))"},
 		{"x = +a", "Stmt(x=(+a))"},
 		{"x = ++a", "Stmt(x=(++a))"},
 		{"x = -a", "Stmt(x=(-a))"},
@@ -241,6 +242,7 @@ func TestParse(t *testing.T) {
 
 		// expression precedence
 		{"x = a.b.c", "Stmt(x=((a.b).c))"},
+		{"x = a+b+c", "Stmt(x=((a+b)+c))"},
 		{"x = a**b**c", "Stmt(x=(a**(b**c)))"},
 		{"a++ < b", "Stmt((a++)<b)"},
 		{"a??b||c", "Stmt(a??(b||c))"},
@@ -363,7 +365,8 @@ func TestParseError(t *testing.T) {
 		{"`tmp${x", "expected 'Template' instead of EOF in template literal"},
 		{"`tmpl` x `tmpl`", "expected ';' instead of 'x' in expression statement"},
 		{"x=5=>", "unexpected '=>' in expression"},
-		{"x=new.bad", "expected 'target' instead of 'bad' in new expression"},
+		{"x=new.bad", "expected 'target' instead of 'bad' in new.target expression"},
+		{"x=import.bad", "expected 'meta' instead of 'bad' in import.meta expression"},
 		{"x=super", "expected '[', '(', or '.' instead of EOF in super expression"},
 		{"x=super(a", "expected ')' instead of EOF in arguments"},
 		{"x=super[a", "expected ']' instead of EOF in index expression"},

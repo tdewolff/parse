@@ -178,6 +178,7 @@ const (
 	GetToken
 	SetToken
 	TargetToken
+	MetaToken
 	AsToken
 	FromToken
 )
@@ -460,6 +461,8 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("set")
 	case TargetToken:
 		return []byte("target")
+	case MetaToken:
+		return []byte("meta")
 	case AsToken:
 		return []byte("as")
 	case FromToken:

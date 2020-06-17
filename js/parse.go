@@ -1194,7 +1194,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		if p.tt == DotToken {
 			p.next()
 			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("target")) {
-				p.fail("new expression", TargetToken)
+				p.fail("new.target expression", TargetToken)
 				return nil
 			}
 			left = &NewTargetExpr{}
@@ -1205,7 +1205,15 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case ImportToken:
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
-		if p.tt != OpenParenToken {
+		if p.tt == DotToken {
+			p.next()
+			if p.tt != IdentifierToken || !bytes.Equal(p.data, []byte("meta")) {
+				p.fail("import.meta expression", MetaToken)
+				return nil
+			}
+			left = &ImportMetaExpr{}
+			p.next()
+		} else if p.tt != OpenParenToken {
 			p.fail("import expression", OpenParenToken)
 		}
 	case SuperToken:

@@ -746,6 +746,13 @@ func (n NewTargetExpr) String() string {
 	return "(new.target)"
 }
 
+type ImportMetaExpr struct {
+}
+
+func (n ImportMetaExpr) String() string {
+	return "(import.meta)"
+}
+
 type YieldExpr struct {
 	Generator bool
 	X         IExpr // can be nil
@@ -861,19 +868,20 @@ func (n ArrowFunc) String() string {
 	return s + n.Params.String() + " => " + n.Body.String() + ")"
 }
 
-func (n GroupExpr) exprNode()     {}
-func (n ArrayExpr) exprNode()     {}
-func (n ObjectExpr) exprNode()    {}
-func (n TemplateExpr) exprNode()  {}
-func (n NewExpr) exprNode()       {}
-func (n NewTargetExpr) exprNode() {}
-func (n YieldExpr) exprNode()     {}
-func (n CondExpr) exprNode()      {}
-func (n DotExpr) exprNode()       {}
-func (n CallExpr) exprNode()      {}
-func (n IndexExpr) exprNode()     {}
-func (n OptChainExpr) exprNode()  {}
-func (n UnaryExpr) exprNode()     {}
-func (n BinaryExpr) exprNode()    {}
-func (n LiteralExpr) exprNode()   {}
-func (n ArrowFunc) exprNode()     {}
+func (n GroupExpr) exprNode()      {}
+func (n ArrayExpr) exprNode()      {}
+func (n ObjectExpr) exprNode()     {}
+func (n TemplateExpr) exprNode()   {}
+func (n NewExpr) exprNode()        {}
+func (n NewTargetExpr) exprNode()  {}
+func (n ImportMetaExpr) exprNode() {}
+func (n YieldExpr) exprNode()      {}
+func (n CondExpr) exprNode()       {}
+func (n DotExpr) exprNode()        {}
+func (n CallExpr) exprNode()       {}
+func (n IndexExpr) exprNode()      {}
+func (n OptChainExpr) exprNode()   {}
+func (n UnaryExpr) exprNode()      {}
+func (n BinaryExpr) exprNode()     {}
+func (n LiteralExpr) exprNode()    {}
+func (n ArrowFunc) exprNode()      {}
