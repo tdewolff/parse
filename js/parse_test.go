@@ -57,7 +57,6 @@ func TestParse(t *testing.T) {
 		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
 		{"for (var a of b) {}", "Stmt(for Decl(var Binding(a)) of b Stmt({ }))"},
 		{"for (var a=5 of b) {}", "Stmt(for Decl(var Binding(a = 5)) of b Stmt({ }))"},
-		{"for await (var a of b) {}", "Stmt(for await Decl(var Binding(a)) of b Stmt({ }))"},
 		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
 		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
 		{"for (a = b;;) {}", "Stmt(for (a=b) ; ; Stmt({ }))"},
@@ -135,6 +134,7 @@ func TestParse(t *testing.T) {
 		{"async function a(b = await c){}", "Decl(async function a Params(Binding(b = (await c))) Stmt({ }))"},
 		{"async function a(){ x = function await(){} }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function await Params() Stmt({ }))) }))"},
 		{"async function a(){ x = function b(){ x = await } }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=await) }))) }))"},
+		{"async function a(){ for await (var a of b) {} }", "Decl(async function a Params() Stmt({ Stmt(for await Decl(var Binding(a)) of b Stmt({ })) }))"},
 		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
 		{"async a => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
 
@@ -300,21 +300,70 @@ func TestParse(t *testing.T) {
 	}
 }
 
-//func TestX(t *testing.T) {
-//	var tests = []struct {
-//		js string
-//	}{
-//		{"a + yield b"},
-//		{"function *g(){a + yield b}"},
-//	}
-//	for _, tt := range tests {
-//		fmt.Println()
-//		fmt.Println(tt.js)
-//		ast, err := Parse(parse.NewInputString(tt.js))
-//		fmt.Println(ast)
-//		fmt.Println(err)
-//	}
-//}
+func TestParseScope(t *testing.T) {
+	var tests = []struct {
+		js      string
+		bound   string
+		unbound string
+	}{
+		{"var a; const b; let c; d;", "a b c", "d"},
+		{"var {a:b, c=d, ...e};", "a c e", "d"},
+		{"var [a, b=c, ...d];", "a b d", "c"},
+		{"function a(b,c){var d; e = 5}", "a,b c d", ",e"},
+		{"(a,b) => {var c; d = 5}", "a b,c", ",d"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.js, func(t *testing.T) {
+			ast, err := Parse(parse.NewInputString(tt.js))
+			if err != io.EOF {
+				test.Error(t, err)
+			}
+			bound := ""
+			unbound := ""
+			addVars := func(scope Scope) {
+				if len(bound) != 0 {
+					bound += ","
+					unbound += ","
+				}
+				first := true
+				for name := range scope.Bound {
+					if !first {
+						bound += " "
+					}
+					bound += name
+					first = false
+				}
+				first = true
+				for name := range scope.Unbound {
+					if !first {
+						unbound += " "
+					}
+					unbound += name
+					first = false
+				}
+			}
+
+			addVars(ast.Scope)
+			for _, istmt := range ast.List {
+				switch stmt := istmt.(type) {
+				case *FuncDecl:
+					addVars(stmt.Scope)
+				case *ClassDecl:
+					for _, method := range stmt.Methods {
+						addVars(method.Scope)
+					}
+				case *ExprStmt:
+					switch expr := stmt.Value.(type) {
+					case *ArrowFunc:
+						addVars(expr.Scope)
+					}
+				}
+			}
+			test.String(t, bound, tt.bound)
+			test.String(t, unbound, tt.unbound)
+		})
+	}
+}
 
 func TestParseError(t *testing.T) {
 	var tests = []struct {
@@ -335,8 +384,9 @@ func TestParseError(t *testing.T) {
 		{"for(a", "expected 'in', 'of', or ';' instead of EOF in for statement"},
 		{"for(a;a", "expected ';' instead of EOF in for statement"},
 		{"for(a;a;a", "expected ')' instead of EOF in for statement"},
-		{"for await(a;", "expected 'of' instead of ';' in for statement"},
-		{"for await(a in", "expected 'of' instead of 'in' in for statement"},
+		{"for await", "expected '(' instead of 'await' in for statement"},
+		{"async function a(){ for await(a;", "expected 'of' instead of ';' in for statement"},
+		{"async function a(){ for await(a in", "expected 'of' instead of 'in' in for statement"},
 		{"for(var a of b", "expected ')' instead of EOF in for statement"},
 		{"switch", "expected '(' instead of EOF in switch statement"},
 		{"switch(a", "expected ')' instead of EOF in switch statement"},

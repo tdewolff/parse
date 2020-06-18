@@ -17,7 +17,8 @@ func (n AST) String() string {
 }
 
 type Scope struct {
-	Unbound []string
+	Bound   map[string]bool
+	Unbound map[string]bool
 }
 
 //type Source *parse.Input
@@ -432,7 +433,7 @@ func (n Property) String() string {
 }
 
 type BindingName struct {
-	Data []byte // can be nil TODO: when?
+	Data []byte
 }
 
 func (n BindingName) String() string {
@@ -630,9 +631,8 @@ func (n MethodDecl) String() string {
 
 type ClassDecl struct {
 	Name    []byte // can be nil
-	Extends IExpr  // can be nil TODO LHS EXPR
+	Extends IExpr  // can be nil
 	Methods []MethodDecl
-	Scope
 }
 
 func (n ClassDecl) String() string {

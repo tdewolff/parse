@@ -19,27 +19,18 @@ type Parser struct {
 	async              bool
 	generator          bool
 	inFor              bool
-
-	boundVars   map[string]bool
-	unboundVars map[string]bool
+	scope              Scope
 }
 
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:           NewLexer(r),
-		tt:          WhitespaceToken, // trick so that next() works
-		boundVars:   map[string]bool{},
-		unboundVars: map[string]bool{},
+		l:  NewLexer(r),
+		tt: WhitespaceToken, // trick so that next() works
 	}
 
 	p.next()
 	ast := p.parseModule()
-	for name, _ := range p.unboundVars {
-		if _, ok := p.boundVars[name]; !ok {
-			ast.Unbound = append(ast.Unbound, name)
-		}
-	}
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -108,9 +99,11 @@ func (p *Parser) consume(in string, tt TokenType) bool {
 }
 
 func (p *Parser) parseModule() (ast AST) {
+	p.scope = Scope{map[string]bool{}, map[string]bool{}}
 	for {
 		switch p.tt {
 		case ErrorToken:
+			ast.Scope = p.scope
 			return
 		case ImportToken:
 			importStmt := p.parseImportStmt()
@@ -203,7 +196,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		stmt = &WhileStmt{cond, p.parseStmt()}
 	case ForToken:
 		p.next()
-		await := p.tt == AwaitToken
+		await := p.async && p.tt == AwaitToken
 		if await {
 			p.next()
 		}
@@ -618,18 +611,19 @@ func (p *Parser) parseFuncDecl(async, inExpr bool) (funcDecl FuncDecl) {
 		p.next()
 	}
 	if inExpr && (p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
-		p.boundVars[string(p.data)] = true
+		p.scope.Bound[string(p.data)] = true
 		funcDecl.Name = p.data
 		p.next()
 	} else if p.tt != OpenParenToken {
 		p.fail("function declaration", IdentifierToken, OpenParenToken)
 		return
 	}
-	parentAsync, parentGenerator := p.async, p.generator
-	p.async, p.generator = funcDecl.Async, funcDecl.Generator
+	parentAsync, parentGenerator, parentScope := p.async, p.generator, p.scope
+	p.async, p.generator, p.scope = funcDecl.Async, funcDecl.Generator, Scope{map[string]bool{}, map[string]bool{}}
 	funcDecl.Params = p.parseFuncParams("function declaration")
 	funcDecl.Body = p.parseBlockStmt("function declaration")
-	p.async, p.generator = parentAsync, parentGenerator
+	funcDecl.Scope = p.scope
+	p.async, p.generator, p.scope = parentAsync, parentGenerator, parentScope
 	return
 }
 
@@ -766,7 +760,7 @@ func (p *Parser) parseBinding() (binding IBinding) {
 	// binding identifier or binding pattern
 	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
 		binding = &BindingName{p.data}
-		p.boundVars[string(p.data)] = true // TODO for array and object
+		p.scope.Bound[string(p.data)] = true // TODO for array and object
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
@@ -1038,6 +1032,7 @@ func (p *Parser) parseArgs() (args Arguments) {
 }
 
 func (p *Parser) parseArrowFunc(async bool, params Params) (arrowFunc ArrowFunc) {
+	//
 	if p.tt != ArrowToken {
 		p.fail("arrow function", ArrowToken)
 		return
@@ -1072,8 +1067,8 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	switch tt := p.tt; tt {
 	case IdentifierToken:
 		left = &LiteralExpr{p.tt, p.data}
-		if !p.boundVars[string(p.data)] {
-			p.unboundVars[string(p.data)] = true
+		if !p.scope.Bound[string(p.data)] {
+			p.scope.Unbound[string(p.data)] = true
 		}
 		p.next()
 	case StringToken, ThisToken, NullToken, TrueToken, FalseToken, RegExpToken:
