@@ -18,7 +18,7 @@ func (n AST) String() string {
 
 type Scope struct {
 	Bound   map[string]bool
-	Unbound map[string]bool
+	Unbound map[string]int
 }
 
 //type Source *parse.Input
@@ -76,6 +76,7 @@ type IExpr interface {
 
 type BlockStmt struct {
 	List []IStmt
+	Scope
 }
 
 func (n BlockStmt) String() string {
@@ -412,10 +413,12 @@ func (n PropertyName) String() string {
 }
 
 type Property struct {
+	// either Key, Init, or Spread are set. When Key or Spread are set then Value is AssignmentExpression
+	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
 	Key    *PropertyName
-	Value  IExpr
 	Init   IExpr // can be nil
 	Spread bool
+	Value  IExpr
 }
 
 func (n Property) String() string {
@@ -668,9 +671,13 @@ func (n GroupExpr) String() string {
 	return "(" + n.X.String() + ")"
 }
 
+type Element struct {
+	Value  IExpr // can be nil
+	Spread bool
+}
+
 type ArrayExpr struct {
-	List []IExpr // items can be nil
-	Rest IExpr   // can be nil
+	List []Element
 }
 
 func (n ArrayExpr) String() string {
@@ -679,16 +686,14 @@ func (n ArrayExpr) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		if item != nil {
-			s += item.String()
+		if item.Value != nil {
+			if item.Spread {
+				s += "..."
+			}
+			s += item.Value.String()
 		}
 	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
-		}
-		s += "..." + n.Rest.String()
-	} else if 0 < len(n.List) && n.List[len(n.List)-1] == nil {
+	if 0 < len(n.List) && n.List[len(n.List)-1].Value == nil {
 		s += ","
 	}
 	return s + "]"

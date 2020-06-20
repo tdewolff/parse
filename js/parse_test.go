@@ -2,6 +2,8 @@ package js
 
 import (
 	"io"
+	"sort"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -166,12 +168,16 @@ func TestParse(t *testing.T) {
 		// expressions
 		{"x = [a, ...b]", "Stmt(x=[a, ...b])"},
 		{"x = [...b]", "Stmt(x=[...b])"},
+		{"x = [...a, ...b]", "Stmt(x=[...a, ...b])"},
 		{"x = [,]", "Stmt(x=[,])"},
 		{"x = [,,]", "Stmt(x=[, ,])"},
 		{"x = [a,]", "Stmt(x=[a])"},
 		{"x = [a,,]", "Stmt(x=[a, ,])"},
 		{"x = [,a]", "Stmt(x=[, a])"},
 		{"x = {a}", "Stmt(x={a})"},
+		{"x = {...a}", "Stmt(x={...a})"},
+		{"x = {a, ...b}", "Stmt(x={a, ...b})"},
+		{"x = {...a, ...b}", "Stmt(x={...a, ...b})"},
 		{"x = {a=5}", "Stmt(x={a = 5})"},
 		{"x = {yield=5}", "Stmt(x={yield = 5})"},
 		{"x = {a:5}", "Stmt(x={a: 5})"},
@@ -240,6 +246,9 @@ func TestParse(t *testing.T) {
 		{"x = ({a}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a) })) => Stmt({ Stmt(a++) })))"},
 		{"x = ({a:b, c:d}) => {a++}", "Stmt(x=(Params(Binding({ a: Binding(b), c: Binding(d) })) => Stmt({ Stmt(a++) })))"},
 		{"x = ({a:[b]}) => {a++}", "Stmt(x=(Params(Binding({ a: Binding([ Binding(b) ]) })) => Stmt({ Stmt(a++) })))"},
+		{"x = ({a=5}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a = 5) })) => Stmt({ Stmt(a++) })))"},
+		{"x = ({...a}) => {a++}", "Stmt(x=(Params(Binding({ ...Binding(a) })) => Stmt({ Stmt(a++) })))"},
+		{"x = ([{...a}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ ...Binding(a) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = ([{a: b}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ a: Binding(b) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
 
@@ -296,71 +305,6 @@ func TestParse(t *testing.T) {
 				test.Error(t, err)
 			}
 			test.String(t, ast.String(), tt.expected)
-		})
-	}
-}
-
-func TestParseScope(t *testing.T) {
-	var tests = []struct {
-		js      string
-		bound   string
-		unbound string
-	}{
-		{"var a; const b; let c; d;", "a b c", "d"},
-		{"var {a:b, c=d, ...e};", "a c e", "d"},
-		{"var [a, b=c, ...d];", "a b d", "c"},
-		{"function a(b,c){var d; e = 5}", "a,b c d", ",e"},
-		{"(a,b) => {var c; d = 5}", "a b,c", ",d"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.js, func(t *testing.T) {
-			ast, err := Parse(parse.NewInputString(tt.js))
-			if err != io.EOF {
-				test.Error(t, err)
-			}
-			bound := ""
-			unbound := ""
-			addVars := func(scope Scope) {
-				if len(bound) != 0 {
-					bound += ","
-					unbound += ","
-				}
-				first := true
-				for name := range scope.Bound {
-					if !first {
-						bound += " "
-					}
-					bound += name
-					first = false
-				}
-				first = true
-				for name := range scope.Unbound {
-					if !first {
-						unbound += " "
-					}
-					unbound += name
-					first = false
-				}
-			}
-
-			addVars(ast.Scope)
-			for _, istmt := range ast.List {
-				switch stmt := istmt.(type) {
-				case *FuncDecl:
-					addVars(stmt.Scope)
-				case *ClassDecl:
-					for _, method := range stmt.Methods {
-						addVars(method.Scope)
-					}
-				case *ExprStmt:
-					switch expr := stmt.Value.(type) {
-					case *ArrowFunc:
-						addVars(expr.Scope)
-					}
-				}
-			}
-			test.String(t, bound, tt.bound)
-			test.String(t, unbound, tt.unbound)
 		})
 	}
 }
@@ -485,6 +429,7 @@ func TestParseError(t *testing.T) {
 		// specific cases
 		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
 		{"let {if = 5}", "expected ':' instead of '=' in object binding pattern"},
+		{"let {...}", "expected 'Identifier' instead of '}' in object binding pattern"},
 		{"let {...[]}", "expected 'Identifier' instead of '[' in object binding pattern"},
 		{"let {...{}}", "expected 'Identifier' instead of '{' in object binding pattern"},
 		{"for", "expected '(' instead of EOF in for statement"},
@@ -492,16 +437,17 @@ func TestParseError(t *testing.T) {
 		{"for (a b)", "expected 'in', 'of', or ';' instead of 'b' in for statement"},
 		{"for (var a in b;) {}", "expected ')' instead of ';' in for statement"},
 		{"if (a) 1 else 3", "unexpected 'else' in expression"},
+		{"x = [...]", "unexpected ']' in expression"},
+		{"x = {...}", "unexpected '}' in expression"},
 
 		// expression to arrow function parameters
 		{"x = ()", "expected '=>' instead of EOF in arrow function"},
 		{"x = [x] => a", "unexpected '=>' in expression"},
 		{"x = [x] => a", "unexpected '=>' in expression"},
 		{"x = ((x)) => a", "unexpected '=>' in expression"},
-		{"x = ({x = 5}) => a", "unexpected '=>' in expression"},
-		{"x = ({...x}) => a", "unexpected '=>' in expression"},
+		{"x = ([...x, y]) => a", "unexpected '=>' in expression"},
+		{"x = ({...x, y}) => a", "unexpected '=>' in expression"},
 		{"x = ({b(){}}) => a", "unexpected '=>' in expression"},
-		{"x = ([{...x}]) => a", "unexpected '=>' in expression"},
 		{"x = (a, b, ...c)", "expected '=>' instead of EOF in arrow function"},
 
 		// expression precedence
@@ -528,6 +474,136 @@ func TestParseError(t *testing.T) {
 				e = e[:len(tt.err)]
 			}
 			test.String(t, e, tt.err)
+		})
+	}
+}
+
+type ScopeVars struct {
+	bound, unbound string
+	scopes         int
+}
+
+func (v *ScopeVars) String() string {
+	return "bound:" + v.bound + " unbound:" + v.unbound
+}
+
+func (v *ScopeVars) AddScope(scope Scope) {
+	if v.scopes != 0 {
+		v.bound += "/"
+		v.unbound += "/"
+	}
+	v.scopes++
+
+	bounds := []string{}
+	unbounds := []string{}
+	for name := range scope.Bound {
+		bounds = append(bounds, name)
+	}
+	for name, n := range scope.Unbound {
+		if n != 0 {
+			unbounds = append(unbounds, name)
+		}
+	}
+	sort.Strings(bounds)
+	sort.Strings(unbounds)
+	v.bound += strings.Join(bounds, ",")
+	v.unbound += strings.Join(unbounds, ",")
+}
+
+func (v *ScopeVars) AddExpr(iexpr IExpr) {
+	switch expr := iexpr.(type) {
+	case *FuncDecl:
+		v.AddScope(expr.Scope)
+		for _, item := range expr.Body.List {
+			v.AddStmt(item)
+		}
+	case *ClassDecl:
+		for _, method := range expr.Methods {
+			v.AddScope(method.Scope)
+		}
+	case *ArrowFunc:
+		v.AddScope(expr.Scope)
+		for _, item := range expr.Body.List {
+			v.AddStmt(item)
+		}
+	case *UnaryExpr:
+		v.AddExpr(expr.X)
+	case *BinaryExpr:
+		v.AddExpr(expr.X)
+		v.AddExpr(expr.Y)
+	case *GroupExpr:
+		v.AddExpr(expr.X)
+	}
+}
+
+func (v *ScopeVars) AddStmt(istmt IStmt) {
+	switch stmt := istmt.(type) {
+	case *BlockStmt:
+		v.AddScope(stmt.Scope)
+		for _, item := range stmt.List {
+			v.AddStmt(item)
+		}
+	case *FuncDecl:
+		v.AddScope(stmt.Scope)
+		for _, item := range stmt.Body.List {
+			v.AddStmt(item)
+		}
+	case *ClassDecl:
+		for _, method := range stmt.Methods {
+			v.AddScope(method.Scope)
+		}
+	case *ExprStmt:
+		v.AddExpr(stmt.Value)
+	}
+}
+
+func TestParseScope(t *testing.T) {
+	// vars registers all bound and unbound variables per scope. Unbound variables are not defined in the scope and are either defined in a parent scope or in global. Bound variables are variables that are defined in this scope. Divided by | on the left are bound vars and on the right unbound. Each scope is separated by /, and the variables are separated by a comma.
+	// var and function declarations are function-scoped
+	// const, let, and class declarations are block-scoped
+	// unbound variables are registered at function-scope, not for every block-scope!
+	var tests = []struct {
+		js             string
+		bound, unbound string
+	}{
+		{"var a; b;", "a", "b"},
+		{"var {a:b, c=d, ...e};", "b,c,e", "d"},
+		{"var [a, b=c, ...d];", "a,b,d", "c"},
+		{"x={a:b, c=d, ...e};", "", "b,c,d,e,x"},
+		{"x=[a, b=c, ...d];", "", "a,b,c,d,x"},
+		{"yield = 5", "", "yield"},
+		{"await = 5", "", "await"},
+		{"function a(b,c){var d; e = 5}", "a/b,c,d", "/e"},
+		{"!function a(b,c){var d; e = 5}", "/a,b,c,d", "/e"},
+		{"a => a%5", "/a", "/"},
+		{"a => a%b", "/a", "/b"},
+		{"(a) + (a => a%5)", "/a", "a/"},
+		{"(a=b) => {var c; d = 5}", "/a,c", "/b,d"},
+		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "/d,f"},
+		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "/c,e"},
+		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a/e"},
+		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a/d"},
+		{"yield => yield%5", "/yield", "/"},
+		{"await => await%5", "/await", "/"},
+		{"function*a(){b => yield%5}", "a//b", "//yield"},
+		{"async function a(){b => await%5}", "a//b", "//await"},
+		{"let a; {let b = a;}", "a/b", "/"},
+		{"let a; {var b = a;}", "a,b/", "/"},
+		{"let a; {class b{}}", "a/b", "/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.js, func(t *testing.T) {
+			ast, err := Parse(parse.NewInputString(tt.js))
+			if err != io.EOF {
+				test.Error(t, err)
+			}
+
+			vars := ScopeVars{}
+			vars.AddScope(ast.Scope)
+			for _, istmt := range ast.List {
+				vars.AddStmt(istmt)
+			}
+			test.String(t, vars.String(), "bound:"+tt.bound+" unbound:"+tt.unbound)
 		})
 	}
 }

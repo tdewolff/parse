@@ -492,7 +492,6 @@ type Lexer struct {
 	prevLineTerminator bool
 	level              int
 	templateLevels     []int
-	regexp             bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
