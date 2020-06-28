@@ -519,6 +519,7 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	} else if 1 < l.r.Offset() && l.r.Peek(-1) == '=' && l.r.Peek(-2) == '/' {
 		l.r.Move(-2)
 	} else {
+		l.err = parse.NewErrorLexer(l.r, "regular expression must start with '/' or '/='")
 		return ErrorToken, nil
 	}
 	l.r.Skip() // trick to set start = pos
@@ -526,7 +527,8 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	if l.consumeRegExpToken() {
 		return RegExpToken, l.r.Shift()
 	}
-	return l.consumeOperatorToken(), l.r.Shift() // never fails
+	l.err = parse.NewErrorLexer(l.r, "unexpected EOF or newline in regular expression")
+	return ErrorToken, nil
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
@@ -639,12 +641,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	r, n := l.r.PeekRune(0)
-	l.r.Move(n)
-	if n == 1 {
-		l.err = parse.NewErrorLexer(l.r, "unexpected character '%c' found", c)
+	if r, _ := l.r.PeekRune(0); unicode.IsGraphic(r) {
+		l.err = parse.NewErrorLexer(l.r, "unexpected '%c'", r)
+	} else if r < 128 {
+		l.err = parse.NewErrorLexer(l.r, "unexpected 0x%02X", c)
 	} else {
-		l.err = parse.NewErrorLexer(l.r, "unexpected character 0x%x found", r)
+		l.err = parse.NewErrorLexer(l.r, "unexpected %U", r)
 	}
 	return ErrorToken, l.r.Shift()
 }
@@ -671,6 +673,16 @@ func (l *Lexer) consumeWhitespaceRune() bool {
 			l.r.Move(n)
 			return true
 		}
+	}
+	return false
+}
+
+func (l *Lexer) isLineTerminator() bool {
+	c := l.r.Peek(0)
+	if c == '\n' || c == '\r' {
+		return true
+	} else if c == 0xE2 && l.r.Peek(1) == 0x80 && (l.r.Peek(2) == 0xA8 || l.r.Peek(2) == 0xA9) {
+		return true
 	}
 	return false
 }
@@ -1049,7 +1061,6 @@ func (l *Lexer) consumeStringToken() bool {
 
 func (l *Lexer) consumeRegExpToken() bool {
 	// assume to be on /
-	mark := l.r.Pos()
 	l.r.Move(1)
 	inClass := false
 	for {
@@ -1063,12 +1074,10 @@ func (l *Lexer) consumeRegExpToken() bool {
 			inClass = false
 		} else if c == '\\' {
 			l.r.Move(1)
-			if l.consumeLineTerminator() || l.r.Peek(0) == 0 && l.r.Err() != nil {
-				l.r.Rewind(mark)
+			if l.isLineTerminator() || l.r.Peek(0) == 0 && l.r.Err() != nil {
 				return false
 			}
-		} else if l.consumeLineTerminator() || c == 0 && l.r.Err() != nil {
-			l.r.Rewind(mark)
+		} else if l.isLineTerminator() || c == 0 && l.r.Err() != nil {
 			return false
 		}
 		l.r.Move(1)

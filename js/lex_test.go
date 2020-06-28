@@ -160,8 +160,8 @@ func TestRegExp(t *testing.T) {
 		{"a=/regexp\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
 		{"a=/regexp\\\x00/;return", TTs{IdentifierToken, EqToken, RegExpToken, SemicolonToken, ReturnToken}},
 		{"a=/x/\u200C\u3009", TTs{IdentifierToken, EqToken, RegExpToken, ErrorToken}},
-		{"a=/end", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken}},
-		{"a=/\\\nend", TTs{IdentifierToken, EqToken, DivToken, ErrorToken}},
+		{"a=/end", TTs{IdentifierToken, EqToken, ErrorToken}},
+		{"a=/\\\nend", TTs{IdentifierToken, EqToken, ErrorToken}},
 	}
 
 	for _, tt := range tokenTests {
@@ -209,6 +209,37 @@ func TestOffset(t *testing.T) {
 	test.T(t, z.Offset(), 7) // 5
 	_, _ = l.Next()
 	test.T(t, z.Offset(), 8) // ;
+}
+
+func TestLexerErrors(t *testing.T) {
+	l := NewLexer(parse.NewInputString("@"))
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected '@'")
+
+	l = NewLexer(parse.NewInputString("\x00"))
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected 0x00")
+
+	l = NewLexer(parse.NewInputString("\x7f"))
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected 0x7F")
+
+	l = NewLexer(parse.NewInputString("\u200F"))
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected U+200F")
+
+	l = NewLexer(parse.NewInputString("\u2010"))
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected '\u2010'")
+
+	l = NewLexer(parse.NewInputString(""))
+	l.RegExp()
+	test.T(t, l.Err().(*parse.Error).Message, "regular expression must start with '/' or '/='")
+
+	l = NewLexer(parse.NewInputString("/"))
+	l.Next()
+	l.RegExp()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline in regular expression")
 }
 
 ////////////////////////////////////////////////////////////////
