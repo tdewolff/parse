@@ -234,12 +234,12 @@ func TestLexerErrors(t *testing.T) {
 
 	l = NewLexer(parse.NewInputString(""))
 	l.RegExp()
-	test.T(t, l.Err().(*parse.Error).Message, "regular expression must start with '/' or '/='")
+	test.T(t, l.Err().(*parse.Error).Message, "expected '/' or '/='")
 
 	l = NewLexer(parse.NewInputString("/"))
 	l.Next()
 	l.RegExp()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline in regular expression")
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline")
 }
 
 ////////////////////////////////////////////////////////////////

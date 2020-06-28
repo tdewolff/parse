@@ -463,6 +463,14 @@ func TestParseError(t *testing.T) {
 		{"x = x / foo /", "unexpected EOF in expression"},
 		{"bar (true) /foo/", "unexpected EOF in expression"},
 		{"yield /abc/", "unexpected EOF in expression"},
+
+		// other
+		{"\x00", "unexpected 0x00"},
+		{"@", "unexpected '@'"},
+		{"\u200F", "unexpected U+200F"},
+		{"\u2010", "unexpected '\u2010'"},
+		{"a=\u2010", "unexpected '\u2010' in expression"},
+		{"/", "unexpected EOF or newline in regular expression"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

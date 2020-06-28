@@ -65,30 +65,37 @@ func (p *Parser) next() {
 
 func (p *Parser) fail(in string, expected ...TokenType) {
 	if p.err == nil {
-		s := "unexpected"
+		msg := "unexpected"
 		if 0 < len(expected) {
-			s = "expected"
+			msg = "expected"
 			for i, tt := range expected[:len(expected)-1] {
 				if 0 < i {
-					s += ","
+					msg += ","
 				}
-				s += " '" + tt.String() + "'"
+				msg += " '" + tt.String() + "'"
 			}
 			if 2 < len(expected) {
-				s += ", or"
+				msg += ", or"
 			} else if 1 < len(expected) {
-				s += " or"
+				msg += " or"
 			}
-			s += " '" + expected[len(expected)-1].String() + "' instead of"
+			msg += " '" + expected[len(expected)-1].String() + "' instead of"
 		}
 
-		at := "'" + string(p.data) + "'"
 		if p.tt == ErrorToken {
-			at = p.l.Err().Error()
+			if p.l.Err() == io.EOF {
+				msg += " EOF"
+			} else if lexerErr, ok := p.l.Err().(*parse.Error); ok {
+				msg = lexerErr.Message
+			} else {
+				msg = p.l.Err().Error()
+			}
+		} else {
+			msg += " '" + string(p.data) + "'"
 		}
 
 		offset := p.l.r.Offset() - len(p.data)
-		p.err = parse.NewError(buffer.NewReader(p.l.r.Bytes()), offset, "%s %s in %s", s, at, in)
+		p.err = parse.NewError(buffer.NewReader(p.l.r.Bytes()), offset, "%s in %s", msg, in)
 		p.tt = ErrorToken
 		p.data = nil
 	}
@@ -1156,6 +1163,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
 		p.tt, p.data = p.l.RegExp()
+		if p.tt == ErrorToken {
+			p.fail("regular expression")
+			return nil
+		}
 	}
 
 	var left IExpr
@@ -1216,6 +1227,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpPrimary {
 				p.fail("expression")
+				return nil
 			}
 			var fail bool
 			var scope Scope
@@ -1242,6 +1254,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			precLeft = OpAssign
 		} else if len(list) == 0 || rest != nil {
 			p.fail("arrow function", ArrowToken)
+			return nil
 		} else {
 			// parenthesized expression
 			left = list[0]
@@ -1253,6 +1266,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
 		if OpUnary < prec {
 			p.fail("expression")
+			return nil
 		}
 		p.next()
 		left = &UnaryExpr{tt, p.parseExpression(OpUnary)}
@@ -1260,6 +1274,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case AddToken:
 		if OpUnary < prec {
 			p.fail("expression")
+			return nil
 		}
 		p.next()
 		left = &UnaryExpr{PosToken, p.parseExpression(OpUnary)}
@@ -1267,6 +1282,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case SubToken:
 		if OpUnary < prec {
 			p.fail("expression")
+			return nil
 		}
 		p.next()
 		left = &UnaryExpr{NegToken, p.parseExpression(OpUnary)}
@@ -1274,6 +1290,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case IncrToken:
 		if OpUpdate < prec {
 			p.fail("expression")
+			return nil
 		}
 		p.next()
 		left = &UnaryExpr{PreIncrToken, p.parseExpression(OpUnary)}
@@ -1281,6 +1298,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case DecrToken:
 		if OpUpdate < prec {
 			p.fail("expression")
+			return nil
 		}
 		p.next()
 		left = &UnaryExpr{PreDecrToken, p.parseExpression(OpUnary)}
@@ -1294,6 +1312,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			precLeft = OpUnary
 		} else if p.async && (p.tt != ArrowToken || p.prevLineTerminator) {
 			p.fail("expression")
+			return nil
 		} else {
 			p.varUse(p.data)
 			p.next()
@@ -1324,6 +1343,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case ImportToken:
 		if OpMember < prec {
 			p.fail("expression")
+			return nil
 		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
@@ -1338,21 +1358,26 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			p.next()
 		} else if p.tt != OpenParenToken {
 			p.fail("import expression", OpenParenToken)
+			return nil
 		} else if prec == OpMember {
 			p.fail("expression")
+			return nil
 		} else {
 			precLeft = OpLHS
 		}
 	case SuperToken:
 		if OpMember < prec {
 			p.fail("expression")
+			return nil
 		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 		if prec == OpMember && p.tt != DotToken && p.tt != OpenBracketToken {
 			p.fail("super expression", OpenBracketToken, DotToken)
+			return nil
 		} else if p.tt != DotToken && p.tt != OpenBracketToken && p.tt != OpenParenToken {
 			p.fail("super expression", OpenBracketToken, OpenParenToken, DotToken)
+			return nil
 		}
 		precLeft = OpLHS
 	case YieldToken:
@@ -1373,6 +1398,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			precLeft = OpAssign
 		} else if p.generator {
 			p.fail("expression")
+			return nil
 		} else {
 			p.varUse(p.data)
 			p.next()
@@ -1391,8 +1417,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		} else if OpAssign < prec {
 			if p.prevLineTerminator {
 				p.fail("function declaration")
+				return nil
 			} else {
 				p.fail("function declaration", FunctionToken)
+				return nil
 			}
 			return nil
 		} else if p.tt == OpenParenToken || p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
@@ -1438,6 +1466,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign)}
@@ -1447,6 +1476,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpCompare {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpShift)}
@@ -1456,6 +1486,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpEquals {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpCompare)}
@@ -1465,6 +1496,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpAnd {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
@@ -1474,6 +1506,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpOr {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAnd)}
@@ -1483,6 +1516,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpBitOr && precLeft != OpCoalesce {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitOr)}
@@ -1492,6 +1526,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			if !IsIdentifier(p.tt) {
@@ -1506,6 +1541,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &IndexExpr{left, p.parseExpression(OpExpr)}
@@ -1518,6 +1554,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			left = &CallExpr{left, p.parseArgs()}
 			precLeft = OpLHS
@@ -1526,6 +1563,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			template := p.parseTemplateLiteral()
 			template.Tag = left
@@ -1561,6 +1599,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &UnaryExpr{PostIncrToken, left}
@@ -1570,6 +1609,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpLHS {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &UnaryExpr{PostDecrToken, left}
@@ -1579,6 +1619,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpUpdate {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpExp)}
@@ -1588,6 +1629,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpMul {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpExp)}
@@ -1597,6 +1639,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpAdd {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpMul)}
@@ -1606,6 +1649,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpShift {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAdd)}
@@ -1615,6 +1659,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpBitAnd {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpEquals)}
@@ -1624,6 +1669,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpBitXor {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitAnd)}
@@ -1633,6 +1679,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpBitOr {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			left = &BinaryExpr{tt, left, p.parseExpression(OpBitXor)}
@@ -1642,6 +1689,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpCoalesce {
 				p.fail("expression")
+				return nil
 			}
 			p.next()
 			ifExpr := p.parseExpression(OpAssign)
@@ -1664,6 +1712,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return left
 			} else if precLeft < OpPrimary {
 				p.fail("expression")
+				return nil
 			}
 			var name []byte
 			if literal, ok := left.(*LiteralExpr); ok && p.isIdentifierReference(literal.TokenType) {

@@ -519,7 +519,7 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	} else if 1 < l.r.Offset() && l.r.Peek(-1) == '=' && l.r.Peek(-2) == '/' {
 		l.r.Move(-2)
 	} else {
-		l.err = parse.NewErrorLexer(l.r, "regular expression must start with '/' or '/='")
+		l.err = parse.NewErrorLexer(l.r, "expected '/' or '/='")
 		return ErrorToken, nil
 	}
 	l.r.Skip() // trick to set start = pos
@@ -527,7 +527,7 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	if l.consumeRegExpToken() {
 		return RegExpToken, l.r.Shift()
 	}
-	l.err = parse.NewErrorLexer(l.r, "unexpected EOF or newline in regular expression")
+	l.err = parse.NewErrorLexer(l.r, "unexpected EOF or newline")
 	return ErrorToken, nil
 }
 
