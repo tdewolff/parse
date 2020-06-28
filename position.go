@@ -11,14 +11,8 @@ import (
 func Position(r io.Reader, offset int) (line, col int, context string) {
 	l := NewInput(r)
 	line = 1
-	for {
+	for l.Pos() < offset {
 		c := l.Peek(0)
-		if c == 0 && l.Err() != nil || offset == l.Pos() {
-			col = l.Pos() + 1
-			context = positionContext(l, line, col)
-			return
-		}
-
 		n := 1
 		newline := false
 		if c == '\n' {
@@ -35,12 +29,14 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 			if r, n = l.PeekRune(0); r == '\u2028' || r == '\u2029' {
 				newline = true
 			}
+		} else if c == 0 && l.Err() != nil {
+			break
 		}
 
 		if 1 < n && offset < l.Pos()+n {
-			// move onto offset position, let next iteration handle it
+			// move onto offset position
 			l.Move(offset - l.Pos())
-			continue
+			break
 		}
 		l.Move(n)
 
@@ -50,6 +46,10 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 			l.Skip()
 		}
 	}
+
+	col = l.Pos() + 1
+	context = positionContext(l, line, col)
+	return
 }
 
 func positionContext(l *Input, line, col int) (context string) {
