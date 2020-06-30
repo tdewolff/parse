@@ -656,10 +656,10 @@ func (n VarDecl) stmtNode()   {}
 func (n FuncDecl) stmtNode()  {}
 func (n ClassDecl) stmtNode() {}
 
-func (n VarDecl) exprNode()    {}
+func (n VarDecl) exprNode()    {} // not a real IExpr, used for ForInit and ExportDecl
 func (n FuncDecl) exprNode()   {}
 func (n ClassDecl) exprNode()  {}
-func (n MethodDecl) exprNode() {}
+func (n MethodDecl) exprNode() {} // not a real IExpr, used for ObjectExpression PropertyName
 
 ////////////////////////////////////////////////////////////////
 

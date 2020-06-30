@@ -1333,8 +1333,12 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			newExpr := &NewExpr{p.parseExpression(OpMember), nil}
 			if p.tt == OpenParenToken {
 				args := p.parseArgs()
-				newExpr.Args = &args
-				precLeft = OpMember
+				if len(args.List) == 0 && args.Rest == nil {
+					precLeft = OpLHS
+				} else {
+					newExpr.Args = &args
+					precLeft = OpMember
+				}
 			} else {
 				precLeft = OpLHS
 			}
