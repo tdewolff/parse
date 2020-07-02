@@ -1,7 +1,10 @@
 package js
 
 import (
+	"bytes"
+	"fmt"
 	"io"
+	"math/rand"
 	"sort"
 	"strings"
 	"testing"
@@ -614,6 +617,208 @@ func TestParseScope(t *testing.T) {
 				vars.AddStmt(istmt)
 			}
 			test.String(t, vars.String(), "bound:"+tt.bound+" unbound:"+tt.unbound)
+		})
+	}
+}
+
+var n = []int{3, 10, 50, 100, 1000}
+var mapStrings []map[string]bool
+var mapInts []map[int]bool
+var arrayStrings [][]string
+var arrayBytes [][][]byte
+var arrayInts [][]int
+
+func helperRandString() string {
+	cs := []byte("abcdefghijklmnopqrstuvwxyz")
+	b := make([]byte, rand.Intn(10))
+	for i := range b {
+		b[i] = cs[rand.Intn(len(cs))]
+	}
+	return string(b)
+}
+
+func init() {
+	for j := 0; j < len(n); j++ {
+		ms := map[string]bool{}
+		mi := map[int]bool{}
+		as := []string{}
+		ab := [][]byte{}
+		ai := []int{}
+		for i := 0; i < n[j]; i++ {
+			s := helperRandString()
+			ms[s] = true
+			mi[i] = true
+			as = append(as, s)
+			ab = append(ab, []byte(s))
+			ai = append(ai, i)
+		}
+		mapStrings = append(mapStrings, ms)
+		mapInts = append(mapInts, mi)
+		arrayStrings = append(arrayStrings, as)
+		arrayBytes = append(arrayBytes, ab)
+		arrayInts = append(arrayInts, ai)
+	}
+}
+
+func BenchmarkAddMapStrings(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				m := map[string]bool{}
+				for i := 0; i < n[j]; i++ {
+					m[arrayStrings[j][i]] = true
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAddMapInts(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				m := map[int]bool{}
+				for i := 0; i < n[j]; i++ {
+					m[arrayInts[j][i]] = true
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAddArrayStrings(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				a := []string{}
+				for i := 0; i < n[j]; i++ {
+					a = append(a, arrayStrings[j][i])
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAddArrayBytes(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				a := [][]byte{}
+				for i := 0; i < n[j]; i++ {
+					a = append(a, arrayBytes[j][i])
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkAddArrayInts(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				a := []int{}
+				for i := 0; i < n[j]; i++ {
+					a = append(a, arrayInts[j][i])
+				}
+			}
+		})
+	}
+}
+
+var z = 0
+
+func BenchmarkLookupMapStrings(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					if mapStrings[j][arrayStrings[j][i]] == true {
+						z++
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupMapBytes(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					if mapStrings[j][string(arrayBytes[j][i])] == true {
+						z++
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupMapInts(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					if mapInts[j][arrayInts[j][i]] == true {
+						z++
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupArrayStrings(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					s := arrayStrings[j][i]
+					for _, ss := range arrayStrings[j] {
+						if s == ss {
+							z++
+							break
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupArrayBytes(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					s := arrayBytes[j][i]
+					for _, ss := range arrayBytes[j] {
+						if bytes.Equal(s, ss) {
+							z++
+							break
+						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupArrayInts(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					q := arrayInts[j][i]
+					for _, qq := range arrayInts[j] {
+						if q == qq {
+							z++
+							break
+						}
+					}
+				}
+			}
 		})
 	}
 }

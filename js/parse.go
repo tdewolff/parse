@@ -18,24 +18,36 @@ const (
 // Parser is the state for the parser.
 type Parser struct {
 	l   *Lexer
+	src Src
 	err error
 
 	tt                 TokenType
 	data               []byte
 	prevLineTerminator bool
 	inFor              bool
+
 	functionState
+	unbound map[string]int
 }
 
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:  NewLexer(r),
-		tt: WhitespaceToken, // trick so that next() works
+		l:       NewLexer(r),
+		tt:      WhitespaceToken, // trick so that next() works
+		unbound: map[string]int{},
 	}
+	p.src = Src(p.l.r.Bytes())
 
 	p.next()
 	ast := p.parseModule()
+	ast.Src = p.src
+	ast.UnboundVars = make([]string, 0, len(p.unbound))
+	for name, n := range p.unbound {
+		if 0 < n {
+			ast.UnboundVars = append(ast.UnboundVars, name)
+		}
+	}
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -118,7 +130,7 @@ type functionState struct {
 }
 
 func (p *Parser) enterFunctionScope(scope *Scope, async, generator bool) (state functionState) {
-	*scope = Scope{map[string]bool{}, map[string]int{}}
+	*scope = Scope{p.blockScope, map[string]bool{}}
 	state = p.functionState
 	p.functionScope = scope
 	p.blockScope = scope
@@ -132,7 +144,7 @@ func (p *Parser) restoreFunctionScope(state functionState) {
 }
 
 func (p *Parser) enterBlockScope(scope *Scope) (blockScope *Scope) {
-	*scope = Scope{map[string]bool{}, nil}
+	*scope = Scope{p.blockScope, map[string]bool{}}
 	blockScope = p.blockScope
 	p.blockScope = scope
 	return
@@ -143,6 +155,9 @@ func (p *Parser) restoreBlockScope(blockScope *Scope) {
 }
 
 func (p *Parser) varUse(name []byte) {
+	if !p.blockScope.use(name) {
+		p.unbound[string(name)]++
+	}
 	if !p.functionScope.Bound[string(name)] && (p.functionScope == p.blockScope || !p.blockScope.Bound[string(name)]) {
 		p.functionScope.Unbound[string(name)]++
 	}
@@ -202,9 +217,9 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	case ContinueToken, BreakToken:
 		tt := p.tt
 		p.next()
-		var name *Token
+		var name Ref
 		if !p.prevLineTerminator && p.isIdentifierReference(p.tt) {
-			name = &Token{IdentifierToken, p.data}
+			name = p.src.Ref(p.tt, p.data)
 			p.next()
 		}
 		stmt = &BranchStmt{tt, name}
@@ -317,10 +332,11 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		// could be expression or labelled statement, try expression first and convert to labelled statement if possible
 		expr := p.parseExpression(OpExpr)
 		stmt = &ExprStmt{expr}
-		literal, ok := expr.(*LiteralExpr)
-		if p.tt == ColonToken && ok && p.isIdentifierReference(literal.TokenType) {
+		lit, ok := expr.(*LiteralExpr)
+		if p.tt == ColonToken && ok && p.isIdentifierReference(lit.TokenType) {
 			p.next() // colon
-			stmt = &LabelledStmt{Token{IdentifierToken, literal.Data}, p.parseStmt()}
+			lit.TokenType = IdentifierToken
+			stmt = &LabelledStmt{Ref(*lit), p.parseStmt()}
 		} else if !p.prevLineTerminator && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 			p.fail("expression")
 		}
@@ -801,14 +817,14 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 	}
 
 	if IsIdentifier(p.tt) {
-		method.Name = PropertyName{Token{IdentifierToken, p.data}, nil}
+		method.Name = PropertyName{LiteralExpr(p.src.Ref(p.tt, p.data)), nil}
 		p.next()
 	} else if p.tt == StringToken || IsNumeric(p.tt) {
-		method.Name = PropertyName{Token{p.tt, p.data}, nil}
+		method.Name = PropertyName{LiteralExpr(p.src.Ref(p.tt, p.data)), nil}
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
-		method.Name = PropertyName{Token{}, p.parseExpression(OpAssign)}
+		method.Name = PropertyName{LiteralExpr{}, p.parseExpression(OpAssign)}
 		if p.tt != CloseBracketToken {
 			p.fail("method definition", CloseBracketToken)
 			return
@@ -839,7 +855,8 @@ func (p *Parser) parseBindingElement(bindingScope BindingScope) (bindingElement 
 func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 	// binding identifier or binding pattern
 	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
-		binding = &BindingName{p.data}
+		bindingName := BindingName(p.src.Ref(p.tt, p.data))
+		binding = &bindingName
 		p.varDefine(p.data, bindingScope)
 		p.next()
 	} else if p.tt == OpenBracketToken {
@@ -889,7 +906,7 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 					p.fail("object binding pattern", IdentifierToken)
 					return
 				}
-				object.Rest = &BindingName{p.data}
+				object.Rest = BindingName(p.src.Ref(p.tt, p.data))
 				p.varDefine(p.data, bindingScope)
 				p.next()
 				if p.tt != CloseBraceToken {
@@ -901,17 +918,17 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 
 			item := BindingObjectItem{}
 			if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
-				ident := Token{p.tt, p.data}
+				lit := LiteralExpr(p.src.Ref(p.tt, p.data))
 				p.next()
 				if p.tt == ColonToken {
 					// property name + : + binding element
 					p.next()
-					item.Key = &PropertyName{Literal: ident}
+					item.Key = &PropertyName{Literal: lit}
 					item.Value = p.parseBindingElement(bindingScope)
 				} else {
 					// single name binding
-					item.Value.Binding = &BindingName{ident.Data}
-					p.varDefine(ident.Data, bindingScope)
+					item.Value.Binding = (*BindingName)(&lit)
+					p.varDefine(lit.Data(p.src), bindingScope)
 					if p.tt == EqToken {
 						p.next()
 						item.Value.Default = p.parseExpression(OpAssign)
@@ -928,10 +945,10 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 					}
 					p.next()
 				} else if IsIdentifier(p.tt) {
-					item.Key = &PropertyName{Literal: Token{IdentifierToken, p.data}}
+					item.Key = &PropertyName{Literal: LiteralExpr(p.src.Ref(IdentifierToken, p.data))}
 					p.next()
 				} else {
-					item.Key = &PropertyName{Literal: Token{p.tt, p.data}}
+					item.Key = &PropertyName{Literal: LiteralExpr(p.src.Ref(p.tt, p.data))}
 					p.next()
 				}
 				if p.tt != ColonToken {
@@ -974,6 +991,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 		} else {
 			// try to parse as MethodDefinition, otherwise fall back to PropertyName:AssignExpr or IdentifierReference
 			method := MethodDecl{}
+			data := p.data
 			if p.tt == MulToken {
 				p.next()
 				method.Generator = true
@@ -986,7 +1004,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 						method.Generator = true
 					}
 				} else {
-					method.Name.Literal = Token{IdentifierToken, []byte("async")}
+					method.Name.Literal = LiteralExpr(p.src.Ref(IdentifierToken, data))
 				}
 			} else if p.tt == IdentifierToken && len(p.data) == 3 {
 				if bytes.Equal(p.data, []byte("get")) {
@@ -1001,10 +1019,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			// PropertyName
 			if method.Name.Literal.TokenType == ErrorToken { // did not parse: async [LT]
 				if IsIdentifier(p.tt) {
-					method.Name.Literal = Token{IdentifierToken, p.data}
+					method.Name.Literal = LiteralExpr(p.src.Ref(IdentifierToken, p.data))
 					p.next()
 				} else if p.tt == StringToken || IsNumeric(p.tt) {
-					method.Name.Literal = Token{p.tt, p.data}
+					method.Name.Literal = LiteralExpr(p.src.Ref(p.tt, p.data))
 					p.next()
 				} else if p.tt == OpenBracketToken {
 					p.next()
@@ -1016,16 +1034,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 					p.next()
 				} else if !method.Generator && (method.Async || method.Get || method.Set) {
 					// interpret async, get, or set as PropertyName instead of method keyword
-					if method.Async {
-						method.Name.Literal = Token{IdentifierToken, []byte("async")}
-						method.Async = false
-					} else if method.Get {
-						method.Name.Literal = Token{IdentifierToken, []byte("get")}
-						method.Get = false
-					} else if method.Set {
-						method.Name.Literal = Token{IdentifierToken, []byte("set")}
-						method.Set = false
-					}
+					method.Async = false
+					method.Get = false
+					method.Set = false
+					method.Name.Literal = LiteralExpr(p.src.Ref(IdentifierToken, data))
 				} else {
 					p.fail("object literal", IdentifierToken, StringToken, NumericToken, OpenBracketToken)
 					return
@@ -1050,9 +1062,8 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				return
 			} else {
 				// IdentifierReference (= AssignmentExpression)?
-				lit := method.Name.Literal
-				property.Value = &LiteralExpr{lit.TokenType, lit.Data}
-				p.varUse(lit.Data)
+				property.Value = &method.Name.Literal
+				p.varUse(method.Name.Literal.Data(p.src))
 				if p.tt == EqToken {
 					p.next()
 					property.Init = p.parseExpression(OpAssign)
@@ -1116,9 +1127,11 @@ func (p *Parser) parseArgs() (args Arguments) {
 
 func (p *Parser) parseAsyncArrowFuncParams() Params {
 	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken {
-		name := p.data
+		tt := p.tt
+		data := p.data
 		p.next()
-		return Params{List: []BindingElement{{Binding: &BindingName{name}}}}
+		bindingName := BindingName(p.src.Ref(tt, data))
+		return Params{List: []BindingElement{{Binding: &bindingName}}}
 	} else if p.tt == AwaitToken {
 		p.fail("arrow function")
 	}
@@ -1173,11 +1186,13 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	precLeft := OpPrimary
 	switch tt := p.tt; tt {
 	case IdentifierToken:
-		left = &LiteralExpr{p.tt, p.data}
+		lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+		left = &lit
 		p.varUse(p.data)
 		p.next()
 	case StringToken, ThisToken, NullToken, TrueToken, FalseToken, RegExpToken:
-		left = &LiteralExpr{p.tt, p.data}
+		lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+		left = &lit
 		p.next()
 	case OpenBracketToken:
 		// array literal and [expression]
@@ -1305,7 +1320,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		precLeft = OpUnary
 	case AwaitToken:
 		// either accepted as IdentifierReference or as AwaitExpression, if followed by => it could be a BindingIdentifier for an arrow function
-		await := LiteralExpr{IdentifierToken, p.data}
+		await := LiteralExpr(p.src.Ref(IdentifierToken, p.data))
 		if p.async && (p.tt != ArrowToken || p.prevLineTerminator) && prec <= OpUnary {
 			p.next()
 			left = &UnaryExpr{tt, p.parseExpression(OpUnary)}
@@ -1349,7 +1364,8 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			p.fail("expression")
 			return nil
 		}
-		left = &LiteralExpr{p.tt, p.data}
+		lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+		left = &lit
 		p.next()
 		if p.tt == DotToken {
 			p.next()
@@ -1374,7 +1390,8 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			p.fail("expression")
 			return nil
 		}
-		left = &LiteralExpr{p.tt, p.data}
+		lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+		left = &lit
 		p.next()
 		if prec == OpMember && p.tt != DotToken && p.tt != OpenBracketToken {
 			p.fail("super expression", OpenBracketToken, DotToken)
@@ -1386,7 +1403,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		precLeft = OpLHS
 	case YieldToken:
 		// either accepted as IdentifierReference or as YieldExpression
-		yield := LiteralExpr{IdentifierToken, p.data}
+		yield := LiteralExpr(p.src.Ref(IdentifierToken, p.data))
 		if p.generator && prec <= OpAssign {
 			// YieldExpression
 			p.next()
@@ -1455,7 +1472,8 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		left = &template
 	default:
 		if IsNumeric(p.tt) {
-			left = &LiteralExpr{p.tt, p.data}
+			lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+			left = &lit
 			p.next()
 		} else {
 			p.fail("expression")
@@ -1537,7 +1555,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				p.fail("dot expression", IdentifierToken)
 				return nil
 			}
-			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}}
+			left = &DotExpr{left, LiteralExpr(p.src.Ref(IdentifierToken, p.data))}
 			precLeft = OpMember
 			p.next()
 		case OpenBracketToken:
@@ -1591,7 +1609,8 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				template := p.parseTemplateLiteral()
 				left = &OptChainExpr{left, &template}
 			} else if IsIdentifier(p.tt) {
-				left = &OptChainExpr{left, &LiteralExpr{p.tt, p.data}}
+				lit := LiteralExpr(p.src.Ref(p.tt, p.data))
+				left = &OptChainExpr{left, &lit}
 				p.next()
 			} else {
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
@@ -1718,19 +1737,17 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				p.fail("expression")
 				return nil
 			}
-			var name []byte
-			if literal, ok := left.(*LiteralExpr); ok && p.isIdentifierReference(literal.TokenType) {
-				name = literal.Data
-			} else {
+			lit, ok := left.(*LiteralExpr)
+			if !ok || !p.isIdentifierReference(lit.TokenType) {
 				p.fail("expression")
 				return nil
 			}
 			var scope Scope
-			p.functionScope.Unbound[string(name)]--
+			p.functionScope.Unbound[string(lit.Data(p.src))]--
 			parent := p.enterFunctionScope(&scope, false, false)
-			p.varDefine(name, FunctionBindingScope)
+			p.varDefine(lit.Data(p.src), FunctionBindingScope)
 
-			params := Params{[]BindingElement{{Binding: &BindingName{name}}}, nil}
+			params := Params{[]BindingElement{{Binding: (*BindingName)(lit)}}, nil}
 			arrowFunc := p.parseArrowFunc(params)
 			arrowFunc.Scope = scope
 			p.restoreFunctionScope(parent)
@@ -1744,10 +1761,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 }
 
 func (p *Parser) exprToBinding(expr IExpr, parentFunctionScope *Scope) (binding IBinding, fail bool) {
-	if literal, ok := expr.(*LiteralExpr); ok && p.isIdentifierReference(literal.TokenType) {
-		parentFunctionScope.Unbound[string(literal.Data)]--
-		p.varDefine(literal.Data, FunctionBindingScope)
-		binding = &BindingName{literal.Data}
+	if lit, ok := expr.(*LiteralExpr); ok && p.isIdentifierReference(lit.TokenType) {
+		parentFunctionScope.Unbound[string(lit.Data(p.src))]--
+		p.varDefine(lit.Data(p.src), FunctionBindingScope)
+		binding = (*BindingName)(lit)
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
 		for i, item := range array.List {
@@ -1776,10 +1793,10 @@ func (p *Parser) exprToBinding(expr IExpr, parentFunctionScope *Scope) (binding 
 				fail = true
 				return
 			} else if item.Spread {
-				if literal, ok := item.Value.(*LiteralExpr); ok && p.isIdentifierReference(literal.TokenType) {
-					parentFunctionScope.Unbound[string(literal.Data)]--
-					p.varDefine(literal.Data, FunctionBindingScope)
-					bindingObject.Rest = &BindingName{literal.Data}
+				if lit, ok := item.Value.(*LiteralExpr); ok && p.isIdentifierReference(lit.TokenType) {
+					parentFunctionScope.Unbound[string(lit.Data(p.src))]--
+					p.varDefine(lit.Data(p.src), FunctionBindingScope)
+					bindingObject.Rest = BindingName(*lit)
 					break
 				} else {
 					fail = true
@@ -1820,8 +1837,8 @@ func (p *Parser) exprToBindingElement(expr IExpr, parentFunctionScope *Scope) (b
 func (p *Parser) exprRebindVars(iexpr IExpr, parentFunctionScope *Scope) {
 	switch expr := iexpr.(type) {
 	case *LiteralExpr:
-		parentFunctionScope.Unbound[string(expr.Data)]--
-		p.functionScope.Unbound[string(expr.Data)]++
+		parentFunctionScope.Unbound[string(expr.Data(p.src))]--
+		p.functionScope.Unbound[string(expr.Data(p.src))]++
 	}
 }
 
