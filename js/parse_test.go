@@ -319,6 +319,7 @@ func TestParseError(t *testing.T) {
 		js  string
 		err string
 	}{
+		{"{a", "unexpected EOF in block statement"},
 		{"if", "expected '(' instead of EOF in if statement"},
 		{"if(a", "expected ')' instead of EOF in if statement"},
 		{"with", "expected '(' instead of EOF in with statement"},
@@ -343,17 +344,18 @@ func TestParseError(t *testing.T) {
 		{"switch(a){bad:5}", "expected 'case' or 'default' instead of 'bad' in switch statement"},
 		{"switch(a){case", "unexpected EOF in expression"},
 		{"switch(a){case a", "expected ':' instead of EOF in switch statement"},
+		{"switch(a){case a:", "unexpected EOF in switch statement"},
 		{"async", "expected 'function' instead of EOF in function statement"},
 		{"try{}catch(a", "expected ')' instead of EOF in try statement"},
 		{"function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"function a", "expected '(' instead of EOF in function declaration"},
-		{"function a(b", "expected ',' or ')' instead of EOF in function declaration"},
-		{"function a(...b", "expected ')' instead of EOF in function declaration"},
+		{"function a(b", "unexpected EOF in function declaration"},
+		{"function a(b,", "unexpected EOF in function declaration"},
 		{"function a(...b", "expected ')' instead of EOF in function declaration"},
 		{"function a()", "expected '{' instead of EOF in function declaration"},
 		{"class A", "expected '{' instead of EOF in class statement"},
-		{"class A{", "expected '}' instead of EOF in class statement"},
+		{"class A{", "unexpected EOF in class statement"},
 		{"class A extends a b {}", "expected '{' instead of 'b' in class statement"},
 		{"class A{+", "expected 'Identifier', 'String', 'Numeric', or '[' instead of '+' in method definition"},
 		{"class A{[a", "expected ']' instead of EOF in method definition"},
@@ -367,15 +369,20 @@ func TestParseError(t *testing.T) {
 		{"x={[a", "expected ']' instead of EOF in object literal"},
 		{"x={[a]", "expected ':' or '(' instead of EOF in object literal"},
 		{"x={+", "expected 'Identifier', 'String', 'Numeric', or '[' instead of '+' in object literal"},
-		{"x={async\na", "expected ',' instead of 'a' in object literal"},
+		{"x={async\na", "unexpected 'a' in object literal"},
 		{"class a extends ||", "unexpected '||' in expression"},
 		{"class a extends =", "unexpected '=' in expression"},
 		{"class a extends ?", "unexpected '?' in expression"},
 		{"class a extends =>", "unexpected '=>' in expression"},
 		{"class a extends async", "expected 'function' instead of EOF in function declaration"},
 		{"x=a?b", "expected ':' instead of EOF in conditional expression"},
-		{"x=async a", "expected '=>' instead of EOF in arrow function"},
+		{"x=(a", "unexpected EOF in expression"},
+		{"x={a", "unexpected EOF in object literal"},
+		{"x=a[b", "expected ']' instead of EOF in index expression"},
 		{"x=async", "expected 'function' or 'Identifier' instead of EOF in function declaration"},
+		{"x=async a", "expected '=>' instead of EOF in arrow function"},
+		{"x=async (a", "unexpected EOF in arrow function"},
+		{"x=async (a,", "unexpected EOF in arrow function"},
 		{"x=async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"x=async function *", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"x=async function a", "expected '(' instead of EOF in function declaration"},
@@ -424,7 +431,7 @@ func TestParseError(t *testing.T) {
 		{"yield a = 5", "unexpected 'a' in expression"},
 		{"function*a() { yield: var a", "unexpected ':' in expression"},
 		{"function*a() { x = b + yield c", "unexpected 'yield' in expression"},
-		{"function a(b = yield c){}", "expected ',' or ')' instead of 'c' in function declaration"},
+		{"function a(b = yield c){}", "unexpected 'c' in function declaration"},
 		{"x = await\n=> a++", "unexpected '=>' in expression"},
 		{"async function a() { class a extends await", "unexpected 'await' in expression"},
 		{"async function a() { await: var a", "unexpected ':' in expression"},
@@ -509,12 +516,13 @@ func (v *ScopeVars) AddScope(scope Scope) {
 
 	bounds := []string{}
 	unbounds := []string{}
-	for name := range scope.Bound {
-		bounds = append(bounds, name)
-	}
-	for name, n := range scope.Unbound {
-		if n != 0 {
-			unbounds = append(unbounds, name)
+	for name, v := range scope.Vars {
+		if 0 < v.Uses {
+			if v.Declared {
+				bounds = append(bounds, name)
+			} else {
+				unbounds = append(unbounds, name)
+			}
 		}
 	}
 	sort.Strings(bounds)
@@ -603,6 +611,12 @@ func TestParseScope(t *testing.T) {
 		{"let a; {let b = a;}", "a/b", "/"},
 		{"let a; {var b = a;}", "a,b/", "/"},
 		{"let a; {class b{}}", "a/b", "/"},
+		{"a = 5; var a;", "a", ""},
+		{"a = 5; let a;", "a", ""},
+		{"!function(){throw new Error()}", "/", "/Error"},
+		{"function(){return a}", "/", "/a"},
+		{"function(){return a} var a;", "a/", "/"},
+		{"function(){return a} if(5){var a}", "a/", "/"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

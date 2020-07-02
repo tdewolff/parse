@@ -27,27 +27,22 @@ type Parser struct {
 	inFor              bool
 
 	functionState
-	unbound map[string]int
+	undeclared map[string]struct{}
 }
 
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:       NewLexer(r),
-		tt:      WhitespaceToken, // trick so that next() works
-		unbound: map[string]int{},
+		l:          NewLexer(r),
+		tt:         WhitespaceToken, // trick so that next() works
+		undeclared: map[string]struct{}{},
 	}
 	p.src = Src(p.l.r.Bytes())
 
 	p.next()
 	ast := p.parseModule()
 	ast.Src = p.src
-	ast.UnboundVars = make([]string, 0, len(p.unbound))
-	for name, n := range p.unbound {
-		if 0 < n {
-			ast.UnboundVars = append(ast.UnboundVars, name)
-		}
-	}
+	ast.Undeclared = p.undeclared
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -130,7 +125,7 @@ type functionState struct {
 }
 
 func (p *Parser) enterFunctionScope(scope *Scope, async, generator bool) (state functionState) {
-	*scope = Scope{p.blockScope, map[string]bool{}}
+	*scope = Scope{p.blockScope, map[string]Var{}}
 	state = p.functionState
 	p.functionScope = scope
 	p.blockScope = scope
@@ -140,42 +135,51 @@ func (p *Parser) enterFunctionScope(scope *Scope, async, generator bool) (state 
 }
 
 func (p *Parser) restoreFunctionScope(state functionState) {
+	for name, v := range p.functionScope.Vars {
+		if !v.Declared && 0 < v.Uses {
+			p.undeclared[name] = struct{}{}
+		}
+	}
 	p.functionState = state
 }
 
 func (p *Parser) enterBlockScope(scope *Scope) (blockScope *Scope) {
-	*scope = Scope{p.blockScope, map[string]bool{}}
+	*scope = Scope{p.blockScope, map[string]Var{}}
 	blockScope = p.blockScope
 	p.blockScope = scope
 	return
 }
 
 func (p *Parser) restoreBlockScope(blockScope *Scope) {
+	for name, v := range p.blockScope.Vars {
+		if !v.Declared && 0 < v.Uses {
+			p.undeclared[name] = struct{}{}
+		}
+	}
 	p.blockScope = blockScope
 }
 
 func (p *Parser) varUse(name []byte) {
-	if !p.blockScope.use(name) {
-		p.unbound[string(name)]++
-	}
-	if !p.functionScope.Bound[string(name)] && (p.functionScope == p.blockScope || !p.blockScope.Bound[string(name)]) {
-		p.functionScope.Unbound[string(name)]++
+	ok := p.blockScope.use(name)
+	if !ok {
+		p.blockScope.Vars[string(name)] = Var{1, false}
 	}
 }
 
-func (p *Parser) varDefine(name []byte, bindingScope BindingScope) {
+func (p *Parser) varDeclare(name []byte, bindingScope BindingScope) {
 	if bindingScope == FunctionBindingScope {
-		p.functionScope.Bound[string(name)] = true
+		p.functionScope.declare(name)
 	} else {
-		p.blockScope.Bound[string(name)] = true
+		p.blockScope.declare(name)
 	}
 }
 
 func (p *Parser) parseModule() (ast AST) {
-	p.enterFunctionScope(&ast.Scope, false, false)
+	state := p.enterFunctionScope(&ast.Scope, false, false)
 	for {
 		switch p.tt {
 		case ErrorToken:
+			p.restoreFunctionScope(state)
 			return
 		case ImportToken:
 			importStmt := p.parseImportStmt()
@@ -356,13 +360,16 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		}
 
 		clauses := []CaseClause{}
-		for p.tt != ErrorToken {
-			if p.tt == CloseBraceToken {
+		for {
+			if p.tt == ErrorToken {
+				p.fail("switch statement")
+				return
+			} else if p.tt == CloseBraceToken {
 				p.next()
 				break
 			}
 
-			tt := p.tt
+			clause := p.tt
 			var list IExpr
 			if p.tt == CaseToken {
 				p.next()
@@ -381,7 +388,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			for p.tt != CaseToken && p.tt != DefaultToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				stmts = append(stmts, p.parseStmt())
 			}
-			clauses = append(clauses, CaseClause{tt, list, stmts})
+			clauses = append(clauses, CaseClause{clause, list, stmts})
 		}
 		stmt = &SwitchStmt{init, clauses}
 	case FunctionToken:
@@ -465,8 +472,11 @@ func (p *Parser) parseBlockStmt(in string, enterScope bool) (blockStmt BlockStmt
 	if enterScope {
 		parentBlockScope = p.enterBlockScope(&blockStmt.Scope)
 	}
-	for p.tt != ErrorToken {
-		if p.tt == CloseBraceToken {
+	for {
+		if p.tt == ErrorToken {
+			p.fail("block statement")
+			return
+		} else if p.tt == CloseBraceToken {
 			break
 		}
 		blockStmt.List = append(blockStmt.List, p.parseStmt())
@@ -693,29 +703,25 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 	if !p.consume(in, OpenParenToken) {
 		return
 	}
-
-	for p.tt != CloseParenToken {
-		// binding rest element
+	for p.tt != CloseParenToken && p.tt != ErrorToken {
 		if p.tt == EllipsisToken {
+			// binding rest element
 			p.next()
 			params.Rest = p.parseBinding(FunctionBindingScope)
-			break
-		}
-
-		params.List = append(params.List, p.parseBindingElement(FunctionBindingScope))
-
-		if p.tt == CommaToken {
-			p.next()
-		} else if p.tt == CloseParenToken {
-			break
-		} else {
-			p.fail(in, CommaToken, CloseParenToken)
+			p.consume(in, CloseParenToken)
 			return
 		}
+		params.List = append(params.List, p.parseBindingElement(FunctionBindingScope))
+		if p.tt != CommaToken {
+			break
+		}
+		p.next()
 	}
-	if !p.consume(in, CloseParenToken) {
+	if p.tt != CloseParenToken {
+		p.fail(in)
 		return
 	}
+	p.next()
 	return
 }
 
@@ -745,7 +751,7 @@ func (p *Parser) parseAnyFuncDecl(async, inExpr bool) (funcDecl FuncDecl) {
 	}
 	if inExpr && (p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
 		if !inExpr {
-			p.varDefine(p.data, FunctionBindingScope)
+			p.varDeclare(p.data, FunctionBindingScope)
 		}
 		funcDecl.Name = p.data
 		p.next()
@@ -755,7 +761,7 @@ func (p *Parser) parseAnyFuncDecl(async, inExpr bool) (funcDecl FuncDecl) {
 	}
 	parent := p.enterFunctionScope(&funcDecl.Scope, funcDecl.Async, funcDecl.Generator)
 	if inExpr && funcDecl.Name != nil {
-		p.varDefine(funcDecl.Name, FunctionBindingScope)
+		p.varDeclare(funcDecl.Name, FunctionBindingScope)
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
 	funcDecl.Body = p.parseBlockStmt("function declaration", false)
@@ -768,7 +774,7 @@ func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
 	p.next()
 	if p.tt == IdentifierToken || p.tt == YieldToken || p.tt == AwaitToken {
 		classDecl.Name = p.data
-		p.varDefine(p.data, BlockBindingScope)
+		p.varDeclare(p.data, BlockBindingScope)
 		p.next()
 	}
 	if p.tt == ExtendsToken {
@@ -779,17 +785,18 @@ func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
 	if !p.consume("class statement", OpenBraceToken) {
 		return
 	}
-	for p.tt != ErrorToken {
-		if p.tt == SemicolonToken {
+	for {
+		if p.tt == ErrorToken {
+			p.fail("class statement")
+			return
+		} else if p.tt == SemicolonToken {
 			p.next()
 			continue
 		} else if p.tt == CloseBraceToken {
+			p.next()
 			break
 		}
 		classDecl.Methods = append(classDecl.Methods, p.parseMethod())
-	}
-	if !p.consume("class statement", CloseBraceToken) {
-		return
 	}
 	return
 }
@@ -857,7 +864,7 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 	if p.tt == IdentifierToken || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
 		bindingName := BindingName(p.src.Ref(p.tt, p.data))
 		binding = &bindingName
-		p.varDefine(p.data, bindingScope)
+		p.varDeclare(p.data, bindingScope)
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
@@ -907,7 +914,7 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 					return
 				}
 				object.Rest = BindingName(p.src.Ref(p.tt, p.data))
-				p.varDefine(p.data, bindingScope)
+				p.varDeclare(p.data, bindingScope)
 				p.next()
 				if p.tt != CloseBraceToken {
 					p.fail("object binding pattern", CloseBraceToken)
@@ -928,7 +935,7 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 				} else {
 					// single name binding
 					item.Value.Binding = (*BindingName)(&lit)
-					p.varDefine(lit.Data(p.src), bindingScope)
+					p.varDeclare(lit.Data(p.src), bindingScope)
 					if p.tt == EqToken {
 						p.next()
 						item.Value.Default = p.parseExpression(OpAssign)
@@ -982,7 +989,15 @@ func (p *Parser) parseBinding(bindingScope BindingScope) (binding IBinding) {
 func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	// assume we're on {
 	p.next()
-	for p.tt != CloseBraceToken && p.tt != ErrorToken {
+	for {
+		if p.tt == ErrorToken {
+			p.fail("object literal", CloseBraceToken)
+			return
+		} else if p.tt == CloseBraceToken {
+			p.next()
+			break
+		}
+
 		property := Property{}
 		if p.tt == EllipsisToken {
 			p.next()
@@ -1071,12 +1086,12 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			}
 		}
 		object.List = append(object.List, property)
-		if p.tt != CloseBraceToken && !p.consume("object literal", CommaToken) {
+		if p.tt == CommaToken {
+			p.next()
+		} else if p.tt != CloseBraceToken {
+			p.fail("object literal")
 			return
 		}
-	}
-	if p.tt == CloseBraceToken {
-		p.next()
 	}
 	return
 }
@@ -1199,8 +1214,14 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		array := ArrayExpr{}
 		p.next()
 		prevComma := true
-		for p.tt != CloseBracketToken && p.tt != ErrorToken {
-			if p.tt == CommaToken {
+		for {
+			if p.tt == ErrorToken {
+				p.fail("expression")
+				return nil
+			} else if p.tt == CloseBracketToken {
+				p.next()
+				break
+			} else if p.tt == CommaToken {
 				if prevComma {
 					array.List = append(array.List, Element{})
 				}
@@ -1215,7 +1236,6 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				prevComma = false
 			}
 		}
-		p.next()
 		left = &array
 	case OpenBraceToken:
 		object := p.parseObjectLiteral()
@@ -1225,8 +1245,14 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		p.next()
 		var list []IExpr
 		var rest IExpr
-		for p.tt != CloseParenToken && p.tt != ErrorToken {
-			if p.tt == EllipsisToken {
+		for {
+			if p.tt == ErrorToken {
+				p.fail("expression")
+				return nil
+			} else if p.tt == CloseParenToken {
+				p.next()
+				break
+			} else if p.tt == EllipsisToken {
 				p.next()
 				rest = p.parseExpression(OpLHS) // all variables are saved as unbound
 			} else if p.tt == CommaToken {
@@ -1235,7 +1261,6 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				list = append(list, p.parseExpression(OpAssign))
 			}
 		}
-		p.next()
 		if p.tt == ArrowToken {
 			// arrow function
 			if OpAssign < prec {
@@ -1743,9 +1768,11 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				return nil
 			}
 			var scope Scope
-			p.functionScope.Unbound[string(lit.Data(p.src))]--
+			v := p.functionScope.Vars[string(lit.Data(p.src))]
+			v.Uses--
+			p.functionScope.Vars[string(lit.Data(p.src))] = v
 			parent := p.enterFunctionScope(&scope, false, false)
-			p.varDefine(lit.Data(p.src), FunctionBindingScope)
+			p.varDeclare(lit.Data(p.src), FunctionBindingScope)
 
 			params := Params{[]BindingElement{{Binding: (*BindingName)(lit)}}, nil}
 			arrowFunc := p.parseArrowFunc(params)
@@ -1762,8 +1789,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 
 func (p *Parser) exprToBinding(expr IExpr, parentFunctionScope *Scope) (binding IBinding, fail bool) {
 	if lit, ok := expr.(*LiteralExpr); ok && p.isIdentifierReference(lit.TokenType) {
-		parentFunctionScope.Unbound[string(lit.Data(p.src))]--
-		p.varDefine(lit.Data(p.src), FunctionBindingScope)
+		v := parentFunctionScope.Vars[string(lit.Data(p.src))]
+		v.Uses--
+		parentFunctionScope.Vars[string(lit.Data(p.src))] = v
+		p.varDeclare(lit.Data(p.src), FunctionBindingScope)
 		binding = (*BindingName)(lit)
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
@@ -1794,8 +1823,10 @@ func (p *Parser) exprToBinding(expr IExpr, parentFunctionScope *Scope) (binding 
 				return
 			} else if item.Spread {
 				if lit, ok := item.Value.(*LiteralExpr); ok && p.isIdentifierReference(lit.TokenType) {
-					parentFunctionScope.Unbound[string(lit.Data(p.src))]--
-					p.varDefine(lit.Data(p.src), FunctionBindingScope)
+					v := parentFunctionScope.Vars[string(lit.Data(p.src))]
+					v.Uses--
+					parentFunctionScope.Vars[string(lit.Data(p.src))] = v
+					p.varDeclare(lit.Data(p.src), FunctionBindingScope)
 					bindingObject.Rest = BindingName(*lit)
 					break
 				} else {
@@ -1815,6 +1846,7 @@ func (p *Parser) exprToBinding(expr IExpr, parentFunctionScope *Scope) (binding 
 			if item.Key != nil && item.Key.Computed != nil {
 				p.exprRebindVars(item.Key.Computed, parentFunctionScope)
 			}
+
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Key, Value: bindingElement})
 		}
 		binding = &bindingObject
@@ -1837,8 +1869,13 @@ func (p *Parser) exprToBindingElement(expr IExpr, parentFunctionScope *Scope) (b
 func (p *Parser) exprRebindVars(iexpr IExpr, parentFunctionScope *Scope) {
 	switch expr := iexpr.(type) {
 	case *LiteralExpr:
-		parentFunctionScope.Unbound[string(expr.Data(p.src))]--
-		p.functionScope.Unbound[string(expr.Data(p.src))]++
+		v := parentFunctionScope.Vars[string(expr.Data(p.src))]
+		v.Uses--
+		parentFunctionScope.Vars[string(expr.Data(p.src))] = v
+
+		v = p.functionScope.Vars[string(expr.Data(p.src))]
+		v.Uses++
+		p.functionScope.Vars[string(expr.Data(p.src))] = v
 	}
 }
 

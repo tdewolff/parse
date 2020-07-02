@@ -41,20 +41,28 @@ func (src Src) Ref(tt TokenType, data []byte) Ref {
 	return Ref{offset, uint16(len(data)), tt}
 }
 
-type Scope struct {
-	Parent *Scope
-	Bound  map[string]int
+type Var struct {
+	Uses     int
+	Declared bool
 }
 
-func (s Scope) define(b []byte) {
-	if _, ok := s.Bound[string(b)]; !ok {
-		s.Bound[string(b)] = 1
-	}
+type Scope struct {
+	Parent *Scope
+	Vars   map[string]Var
+}
+
+func (s Scope) declare(b []byte) {
+	v := s.Vars[string(b)]
+	v.Uses++
+	v.Declared = true
+	s.Vars[string(b)] = v
 }
 
 func (s Scope) use(b []byte) bool {
-	if _, ok := s.Bound[string(b)]; ok {
-		s.Bound[string(b)]++
+	if _, ok := s.Vars[string(b)]; ok {
+		v := s.Vars[string(b)]
+		v.Uses++
+		s.Vars[string(b)] = v
 		return true
 	} else if s.Parent != nil {
 		return s.Parent.use(b)
@@ -69,7 +77,7 @@ type AST struct {
 
 	Src
 	Scope
-	UnboundVars []string
+	Undeclared map[string]struct{}
 }
 
 func (n AST) String() string {
