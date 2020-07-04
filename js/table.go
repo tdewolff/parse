@@ -71,7 +71,7 @@ func (prec OpPrec) String() string {
 }
 
 var Keywords = map[string]TokenType{
-	"async":      AsyncToken,
+	// reserved
 	"await":      AwaitToken,
 	"break":      BreakToken,
 	"case":       CaseToken,
@@ -92,20 +92,12 @@ var Keywords = map[string]TokenType{
 	"for":        ForToken,
 	"function":   FunctionToken,
 	"if":         IfToken,
-	"implements": ImplementsToken,
 	"import":     ImportToken,
 	"in":         InToken,
 	"instanceof": InstanceofToken,
-	"interface":  InterfaceToken,
-	"let":        LetToken,
 	"new":        NewToken,
 	"null":       NullToken,
-	"package":    PackageToken,
-	"private":    PrivateToken,
-	"protected":  ProtectedToken,
-	"public":     PublicToken,
 	"return":     ReturnToken,
-	"static":     StaticToken,
 	"super":      SuperToken,
 	"switch":     SwitchToken,
 	"this":       ThisToken,
@@ -118,6 +110,26 @@ var Keywords = map[string]TokenType{
 	"while":      WhileToken,
 	"with":       WithToken,
 	"yield":      YieldToken,
+
+	// strict mode
+	"let":        LetToken,
+	"static":     StaticToken,
+	"implements": ImplementsToken,
+	"interface":  InterfaceToken,
+	"package":    PackageToken,
+	"private":    PrivateToken,
+	"protected":  ProtectedToken,
+	"public":     PublicToken,
+
+	// extra
+	"as":     AsToken,
+	"async":  AsyncToken,
+	"from":   FromToken,
+	"get":    GetToken,
+	"meta":   MetaToken,
+	"of":     OfToken,
+	"set":    SetToken,
+	"target": TargetToken,
 }
 
 var Globals = map[string]struct{}{

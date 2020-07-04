@@ -124,9 +124,8 @@ const (
 )
 
 const (
-	IdentifierToken TokenType = 0x0800 + iota
+	ReservedToken TokenType = 0x0800 + iota
 	AwaitToken
-	AsyncToken
 	BreakToken
 	CaseToken
 	CatchToken
@@ -146,20 +145,12 @@ const (
 	ForToken
 	FunctionToken
 	IfToken
-	ImplementsToken
 	ImportToken
 	InToken
 	InstanceofToken
-	InterfaceToken
-	LetToken
 	NewToken
 	NullToken
-	PackageToken
-	PrivateToken
-	ProtectedToken
-	PublicToken
 	ReturnToken
-	StaticToken
 	SuperToken
 	SwitchToken
 	ThisToken
@@ -172,8 +163,19 @@ const (
 	WhileToken
 	WithToken
 	YieldToken
+)
 
-	// unused in lexer
+const (
+	IdentifierToken TokenType = 0x1000 + iota
+	AsyncToken
+	ImplementsToken
+	InterfaceToken
+	LetToken
+	PackageToken
+	PrivateToken
+	ProtectedToken
+	PublicToken
+	StaticToken
 	OfToken
 	GetToken
 	SetToken
@@ -195,8 +197,16 @@ func IsOperator(tt TokenType) bool {
 	return tt&0x0400 != 0
 }
 
-func IsIdentifier(tt TokenType) bool {
+func IsIdentifierName(tt TokenType) bool {
+	return tt&0x1800 != 0
+}
+
+func IsReservedWord(tt TokenType) bool {
 	return tt&0x0800 != 0
+}
+
+func IsIdentifier(tt TokenType) bool {
+	return tt&0x1000 != 0
 }
 
 // String returns the string representation of a TokenType.
@@ -361,8 +371,6 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("Identifier")
 	case AwaitToken:
 		return []byte("await")
-	case AsyncToken:
-		return []byte("async")
 	case BreakToken:
 		return []byte("break")
 	case CaseToken:
@@ -401,34 +409,18 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("function")
 	case IfToken:
 		return []byte("if")
-	case ImplementsToken:
-		return []byte("implements")
 	case ImportToken:
 		return []byte("import")
 	case InToken:
 		return []byte("in")
 	case InstanceofToken:
 		return []byte("instanceof")
-	case InterfaceToken:
-		return []byte("interface")
-	case LetToken:
-		return []byte("let")
 	case NewToken:
 		return []byte("new")
 	case NullToken:
 		return []byte("null")
-	case PackageToken:
-		return []byte("package")
-	case PrivateToken:
-		return []byte("private")
-	case ProtectedToken:
-		return []byte("protected")
-	case PublicToken:
-		return []byte("public")
 	case ReturnToken:
 		return []byte("return")
-	case StaticToken:
-		return []byte("static")
 	case SuperToken:
 		return []byte("super")
 	case SwitchToken:
@@ -453,20 +445,38 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("with")
 	case YieldToken:
 		return []byte("yield")
-	case OfToken:
-		return []byte("of")
+	case LetToken:
+		return []byte("let")
+	case StaticToken:
+		return []byte("static")
+	case ImplementsToken:
+		return []byte("implements")
+	case InterfaceToken:
+		return []byte("interface")
+	case PackageToken:
+		return []byte("package")
+	case PrivateToken:
+		return []byte("private")
+	case ProtectedToken:
+		return []byte("protected")
+	case PublicToken:
+		return []byte("public")
+	case AsToken:
+		return []byte("as")
+	case AsyncToken:
+		return []byte("async")
+	case FromToken:
+		return []byte("from")
 	case GetToken:
 		return []byte("get")
+	case MetaToken:
+		return []byte("meta")
+	case OfToken:
+		return []byte("of")
 	case SetToken:
 		return []byte("set")
 	case TargetToken:
 		return []byte("target")
-	case MetaToken:
-		return []byte("meta")
-	case AsToken:
-		return []byte("as")
-	case FromToken:
-		return []byte("from")
 	case PosToken:
 		return []byte("+")
 	case NegToken:

@@ -2,7 +2,7 @@ package js
 
 import "github.com/tdewolff/parse/v2"
 
-func IsIdentifierName(b []byte) (TokenType, bool) {
+func ParseIdentifierName(b []byte) (TokenType, bool) {
 	// TODO: optimize
 	l := NewLexer(parse.NewInputBytes(b))
 	tt := l.consumeIdentifierToken()
@@ -10,7 +10,7 @@ func IsIdentifierName(b []byte) (TokenType, bool) {
 	return tt, l.r.Pos() == len(b)
 }
 
-func IsNumericLiteral(b []byte) (TokenType, bool) {
+func ParseNumericLiteral(b []byte) (TokenType, bool) {
 	if len(b) == 0 || (b[0] < '0' || '9' < b[0]) && b[0] != '.' {
 		return 0, false
 	}

@@ -33,12 +33,13 @@ func TestTokens(t *testing.T) {
 		{">>= >>>= &= |= ^= =>", TTs{GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitOrEqToken, BitXorEqToken, ArrowToken}},
 		{"?.5", TTs{QuestionToken, DecimalToken}},
 		{"?.a", TTs{OptChainToken, IdentifierToken}},
-		{"async await break case catch class const continue", TTs{AsyncToken, AwaitToken, BreakToken, CaseToken, CatchToken, ClassToken, ConstToken, ContinueToken}},
+		{"await break case catch class const continue", TTs{AwaitToken, BreakToken, CaseToken, CatchToken, ClassToken, ConstToken, ContinueToken}},
 		{"debugger default delete do else enum export extends", TTs{DebuggerToken, DefaultToken, DeleteToken, DoToken, ElseToken, EnumToken, ExportToken, ExtendsToken}},
-		{"false finally for function if implements import in", TTs{FalseToken, FinallyToken, ForToken, FunctionToken, IfToken, ImplementsToken, ImportToken, InToken}},
-		{"instanceof interface let new null package private protected", TTs{InstanceofToken, InterfaceToken, LetToken, NewToken, NullToken, PackageToken, PrivateToken, ProtectedToken}},
-		{"public return static super switch this throw true", TTs{PublicToken, ReturnToken, StaticToken, SuperToken, SwitchToken, ThisToken, ThrowToken, TrueToken}},
+		{"false finally for function if import in instanceof", TTs{FalseToken, FinallyToken, ForToken, FunctionToken, IfToken, ImportToken, InToken, InstanceofToken}},
+		{"new null return super switch this throw true", TTs{NewToken, NullToken, ReturnToken, SuperToken, SwitchToken, ThisToken, ThrowToken, TrueToken}},
 		{"try typeof var void while with yield", TTs{TryToken, TypeofToken, VarToken, VoidToken, WhileToken, WithToken, YieldToken}},
+		{"implements interface let package private protected public static", TTs{ImplementsToken, InterfaceToken, LetToken, PackageToken, PrivateToken, ProtectedToken, PublicToken, StaticToken}},
+		{"as async from get meta of set target", TTs{AsToken, AsyncToken, FromToken, GetToken, MetaToken, OfToken, SetToken, TargetToken}},
 
 		{"/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", TTs{CommentLineTerminatorToken, CommentToken, LineTerminatorToken, CommentToken}},
 		{"<!-", TTs{LtToken, NotToken, SubToken}},
@@ -133,7 +134,10 @@ func TestTokens(t *testing.T) {
 	test.That(t, !IsOperator(WhileToken))
 	test.That(t, !IsIdentifier(CommaToken))
 	test.That(t, !IsIdentifier(GtGtEqToken))
-	test.That(t, IsIdentifier(WhileToken))
+	test.That(t, IsReservedWord(WhileToken))
+	test.That(t, IsIdentifier(AsyncToken))
+	test.That(t, IsIdentifierName(WhileToken))
+	test.That(t, IsIdentifierName(AsToken))
 
 	// coverage
 	for _, start := range []int{0, 0x0100, 0x0200, 0x0600, 0x0800} {

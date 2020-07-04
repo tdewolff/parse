@@ -3,6 +3,7 @@ package js
 import (
 	"bytes"
 	"fmt"
+	"hash/maphash"
 	"io"
 	"math/rand"
 	"sort"
@@ -10,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
+	"github.com/tdewolff/parse/v2/css"
 	"github.com/tdewolff/test"
 )
 
@@ -40,6 +42,7 @@ func TestParse(t *testing.T) {
 		{"var a,\nb = c;", "Decl(var Binding(a) Binding(b = c))"},
 		{";", "Stmt(;)"},
 		{"{; var a = 3;}", "Stmt({ Stmt(;) Decl(var Binding(a = 3)) })"},
+		{"{a=5}", "Stmt({ Stmt(a=5) })"},
 		{"return", "Stmt(return)"},
 		{"return 5*3", "Stmt(return (5*3))"},
 		{"break", "Stmt(break)"},
@@ -242,6 +245,15 @@ func TestParse(t *testing.T) {
 		{"x = a.replace(b, c)", "Stmt(x=((a.replace)(b, c)))"},
 		{"class a extends async function(){}{}", "Decl(class a extends Decl(async function Params() Stmt({ })))"},
 		{"x = a?b:c=d", "Stmt(x=(a ? b : (c=d)))"},
+		{"implements = 0", "Stmt(implements=0)"},
+		{"interface = 0", "Stmt(interface=0)"},
+		//{"let = 0", "Stmt(let=0)"},
+		{"(let [a] = 0)", "Stmt(((let[a])=0))"},
+		{"package = 0", "Stmt(package=0)"},
+		{"private = 0", "Stmt(private=0)"},
+		{"protected = 0", "Stmt(protected=0)"},
+		{"public = 0", "Stmt(public=0)"},
+		{"static = 0", "Stmt(static=0)"},
 
 		// expression to arrow function parameters
 		{"x = (a,b,c) => {a++}", "Stmt(x=(Params(Binding(a), Binding(b), Binding(c)) => Stmt({ Stmt(a++) })))"},
@@ -295,6 +307,12 @@ func TestParse(t *testing.T) {
 		{"/abc/ ? /def/ : /geh/", "Stmt(/abc/ ? /def/ : /geh/)"},
 		{"yield * /abc/", "Stmt(yield*/abc/)"},
 
+		// variable reuse
+		{"var a; var a", "Decl(var Binding(a)) Decl(var Binding(a))"},
+		{"var a; {let a}", "Decl(var Binding(a)) Stmt({ Decl(let Binding(a)) })"},
+		{"{let a} var a", "Stmt({ Decl(let Binding(a)) }) Decl(var Binding(a))"},
+		{"function a(b,b){}", "Decl(function a Params(Binding(b), Binding(b)) Stmt({ }))"},
+
 		// ASI
 		{"return a", "Stmt(return a)"},
 		{"return; a", "Stmt(return) Stmt(a)"},
@@ -302,6 +320,7 @@ func TestParse(t *testing.T) {
 		{"return /*comment*/ a", "Stmt(return a)"},
 		{"return /*com\nment*/ a", "Stmt(return) Stmt(a)"},
 		{"return //comment\n a", "Stmt(return) Stmt(a)"},
+		{"a?.b\n`c`", "Stmt((a?.b)`c`)"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -324,10 +343,10 @@ func TestParseError(t *testing.T) {
 		{"if(a", "expected ')' instead of EOF in if statement"},
 		{"with", "expected '(' instead of EOF in with statement"},
 		{"with(a", "expected ')' instead of EOF in with statement"},
-		{"do a++", "expected 'while' instead of EOF in do statement"},
+		{"do a++", "expected 'while' instead of EOF in do-while statement"},
 		{"do a++ while", "unexpected 'while' in expression"},
-		{"do a++; while", "expected '(' instead of EOF in do statement"},
-		{"do a++; while(a", "expected ')' instead of EOF in do statement"},
+		{"do a++; while", "expected '(' instead of EOF in do-while statement"},
+		{"do a++; while(a", "expected ')' instead of EOF in do-while statement"},
 		{"while", "expected '(' instead of EOF in while statement"},
 		{"while(a", "expected ')' instead of EOF in while statement"},
 		{"for", "expected '(' instead of EOF in for statement"},
@@ -346,7 +365,11 @@ func TestParseError(t *testing.T) {
 		{"switch(a){case a", "expected ':' instead of EOF in switch statement"},
 		{"switch(a){case a:", "unexpected EOF in switch statement"},
 		{"async", "expected 'function' instead of EOF in function statement"},
-		{"try{}catch(a", "expected ')' instead of EOF in try statement"},
+		{"try{", "unexpected EOF in try statement"},
+		{"try{}catch(a", "expected ')' instead of EOF in try-catch statement"},
+		{"try{}catch(a,", "expected ')' instead of ',' in try-catch statement"},
+		{"try{}catch(a){", "unexpected EOF in try-catch statement"},
+		{"try{}finally{", "unexpected EOF in try-finally statement"},
 		{"function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"function a", "expected '(' instead of EOF in function declaration"},
@@ -476,6 +499,16 @@ func TestParseError(t *testing.T) {
 		{"bar (true) /foo/", "unexpected EOF in expression"},
 		{"yield /abc/", "unexpected EOF in expression"},
 
+		// variable reuse
+		{"let a; var a", "identifier 'a' has already been declared"},
+		{"let a; {var a}", "identifier 'a' has already been declared"},
+		{"var a; let a", "identifier 'a' has already been declared"},
+		{"{var a} let a", "identifier 'a' has already been declared"},
+		{"var a; const a", "identifier 'a' has already been declared"},
+		{"var a; function a(){}", "identifier 'a' has already been declared"},
+		{"var a; async function a(){}", "identifier 'a' has already been declared"},
+		{"var a; class a{}", "identifier 'a' has already been declared"},
+
 		// other
 		{"\x00", "unexpected 0x00"},
 		{"@", "unexpected '@'"},
@@ -499,82 +532,101 @@ func TestParseError(t *testing.T) {
 }
 
 type ScopeVars struct {
+	ctx            *VarCtx
 	bound, unbound string
 	scopes         int
 }
 
-func (v *ScopeVars) String() string {
-	return "bound:" + v.bound + " unbound:" + v.unbound
+func NewScopeVars(ctx *VarCtx, unbounds map[string]struct{}) *ScopeVars {
+	unboundsArray := []string{}
+	for name, _ := range unbounds {
+		unboundsArray = append(unboundsArray, name)
+	}
+	sort.Strings(unboundsArray)
+	return &ScopeVars{
+		ctx:     ctx,
+		unbound: strings.Join(unboundsArray, ","),
+	}
 }
 
-func (v *ScopeVars) AddScope(scope Scope) {
-	if v.scopes != 0 {
-		v.bound += "/"
-		v.unbound += "/"
-	}
-	v.scopes++
+func (sv *ScopeVars) String() string {
+	return "bound:" + sv.bound + " unbound:" + sv.unbound
+}
 
+func (sv *ScopeVars) AddScope(scope Scope) {
+	if sv.scopes != 0 {
+		sv.bound += "/"
+	}
+	sv.scopes++
+
+	//fmt.Printf("---\n")
 	bounds := []string{}
-	unbounds := []string{}
-	for name, v := range scope.Vars {
+	for _, v := range scope.Vars {
 		if 0 < v.Uses {
-			if v.Declared {
-				bounds = append(bounds, name)
-			} else {
-				unbounds = append(unbounds, name)
-			}
+			//fmt.Printf("scope %s %v %v uses=%d\n", string(v.Data), v.Ref, v.Decl, v.Uses)
+			bounds = append(bounds, string(v.Data))
 		}
 	}
 	sort.Strings(bounds)
-	sort.Strings(unbounds)
-	v.bound += strings.Join(bounds, ",")
-	v.unbound += strings.Join(unbounds, ",")
+	sv.bound += strings.Join(bounds, ",")
 }
 
-func (v *ScopeVars) AddExpr(iexpr IExpr) {
+func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 	switch expr := iexpr.(type) {
 	case *FuncDecl:
-		v.AddScope(expr.Scope)
+		sv.AddScope(expr.Scope)
 		for _, item := range expr.Body.List {
-			v.AddStmt(item)
+			sv.AddStmt(item)
 		}
 	case *ClassDecl:
 		for _, method := range expr.Methods {
-			v.AddScope(method.Scope)
+			sv.AddScope(method.Scope)
 		}
 	case *ArrowFunc:
-		v.AddScope(expr.Scope)
+		sv.AddScope(expr.Scope)
 		for _, item := range expr.Body.List {
-			v.AddStmt(item)
+			sv.AddStmt(item)
 		}
 	case *UnaryExpr:
-		v.AddExpr(expr.X)
+		sv.AddExpr(expr.X)
 	case *BinaryExpr:
-		v.AddExpr(expr.X)
-		v.AddExpr(expr.Y)
+		sv.AddExpr(expr.X)
+		sv.AddExpr(expr.Y)
 	case *GroupExpr:
-		v.AddExpr(expr.X)
+		sv.AddExpr(expr.X)
+	case *VarRef:
+		//fmt.Printf("usage %s %v\n", string(expr.Data(sv.ctx)), sv.ctx.vars[*expr].Ref)
 	}
 }
 
-func (v *ScopeVars) AddStmt(istmt IStmt) {
+func (sv *ScopeVars) AddStmt(istmt IStmt) {
 	switch stmt := istmt.(type) {
 	case *BlockStmt:
-		v.AddScope(stmt.Scope)
+		sv.AddScope(stmt.Scope)
 		for _, item := range stmt.List {
-			v.AddStmt(item)
+			sv.AddStmt(item)
 		}
 	case *FuncDecl:
-		v.AddScope(stmt.Scope)
+		sv.AddScope(stmt.Scope)
 		for _, item := range stmt.Body.List {
-			v.AddStmt(item)
+			sv.AddStmt(item)
 		}
 	case *ClassDecl:
 		for _, method := range stmt.Methods {
-			v.AddScope(method.Scope)
+			sv.AddScope(method.Scope)
+		}
+	case *ReturnStmt:
+		sv.AddExpr(stmt.Value)
+	case *ThrowStmt:
+		sv.AddExpr(stmt.Value)
+	case *VarDecl:
+		for _, item := range stmt.List {
+			if item.Default != nil {
+				sv.AddExpr(item.Default)
+			}
 		}
 	case *ExprStmt:
-		v.AddExpr(stmt.Value)
+		sv.AddExpr(stmt.Value)
 	}
 }
 
@@ -594,29 +646,39 @@ func TestParseScope(t *testing.T) {
 		{"x=[a, b=c, ...d];", "", "a,b,c,d,x"},
 		{"yield = 5", "", "yield"},
 		{"await = 5", "", "await"},
-		{"function a(b,c){var d; e = 5}", "a/b,c,d", "/e"},
-		{"!function a(b,c){var d; e = 5}", "/a,b,c,d", "/e"},
-		{"a => a%5", "/a", "/"},
-		{"a => a%b", "/a", "/b"},
-		{"(a) + (a => a%5)", "/a", "a/"},
-		{"(a=b) => {var c; d = 5}", "/a,c", "/b,d"},
-		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "/d,f"},
-		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "/c,e"},
-		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a/e"},
-		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a/d"},
-		{"yield => yield%5", "/yield", "/"},
-		{"await => await%5", "/await", "/"},
-		{"function*a(){b => yield%5}", "a//b", "//yield"},
-		{"async function a(){b => await%5}", "a//b", "//await"},
-		{"let a; {let b = a;}", "a/b", "/"},
-		{"let a; {var b = a;}", "a,b/", "/"},
-		{"let a; {class b{}}", "a/b", "/"},
+		{"function a(b,c){var d; e = 5; a}", "a/b,c,d", "e"},
+		{"!function a(b,c){var d; e = 5; a}", "/a,b,c,d", "e"},
+		{"a => a%5", "/a", ""},
+		{"a => a%b", "/a", "b"},
+		{"(a) + (a => a%5)", "/a", "a"},
+		{"(a=b) => {var c; d = 5}", "/a,c", "b,d"},
+		{"(a,b=a) => {}", "/a,b", ""},
+		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "d,f"},
+		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "c,e"},
+		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a,e"},
+		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d"},
+		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d"},
+		{"yield => yield%5", "/yield", ""},
+		{"await => await%5", "/await", ""},
+		{"function*a(){b => yield%5}", "a//b", "yield"},
+		{"async function a(){b => await%5}", "a//b", "await"},
+		{"let a; {let b = a}", "a/b", ""},
+		{"let a; {var b = a}", "a,b/", ""},
+		{"let a; {class b{}}", "a/b", ""},
 		{"a = 5; var a;", "a", ""},
 		{"a = 5; let a;", "a", ""},
-		{"!function(){throw new Error()}", "/", "/Error"},
-		{"function(){return a}", "/", "/a"},
-		{"function(){return a} var a;", "a/", "/"},
-		{"function(){return a} if(5){var a}", "a/", "/"},
+		{"a = 5; {var a}", "a/", ""},
+		{"a = 5; {let a}", "/a", "a"},
+		{"{a = 5} var a", "a/", ""},
+		{"{a = 5} let a", "a/", ""},
+		{"var a; {a = 5}", "a/", ""},
+		{"let a; {a = 5}", "a/", ""},
+		{"{var a} a = 5", "a/", ""},
+		{"{let a} a = 5", "/a", "a"},
+		{"!function(){throw new Error()}", "/", "Error"},
+		{"function(){return a}", "/", "a"},
+		{"function(){return a} var a;", "a/", ""},
+		{"function(){return a} if(5){var a}", "a/", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -625,7 +687,7 @@ func TestParseScope(t *testing.T) {
 				test.Error(t, err)
 			}
 
-			vars := ScopeVars{}
+			vars := NewScopeVars(ast.Ctx, ast.Undeclared)
 			vars.AddScope(ast.Scope)
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
@@ -635,7 +697,8 @@ func TestParseScope(t *testing.T) {
 	}
 }
 
-var n = []int{3, 10, 50, 100, 1000}
+var n = []int{4, 12, 20, 30, 40, 50, 150}
+var randStrings [][]byte
 var mapStrings []map[string]bool
 var mapInts []map[int]bool
 var arrayStrings [][]string
@@ -671,6 +734,9 @@ func init() {
 		arrayStrings = append(arrayStrings, as)
 		arrayBytes = append(arrayBytes, ab)
 		arrayInts = append(arrayInts, ai)
+	}
+	for j := 0; j < 1000; j++ {
+		randStrings = append(randStrings, []byte(helperRandString()))
 	}
 }
 
@@ -831,6 +897,88 @@ func BenchmarkLookupArrayInts(b *testing.B) {
 							break
 						}
 					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkMapHash(b *testing.B) {
+	h := &maphash.Hash{}
+	s := []byte(helperRandString())
+	for k := 0; k < b.N; k++ {
+		h.Write(s)
+		_ = h.Sum64()
+		h.Reset()
+	}
+}
+
+func BenchmarkHash(b *testing.B) {
+	s := []byte(helperRandString())
+	for k := 0; k < b.N; k++ {
+		_ = css.ToHash(s)
+	}
+}
+
+type benchRef uint
+
+type benchPtr struct {
+	data []byte
+}
+
+type benchVar struct {
+	ptr  *benchVar
+	data []byte
+}
+
+var listAST []interface{}
+var listPtr []*benchPtr
+var listVar []benchVar
+
+func BenchmarkASTPtr(b *testing.B) {
+	for j := 0; j < 3; j++ {
+		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				listAST = listAST[:0:0]
+				listPtr = listPtr[:0:0]
+				for _, b := range randStrings {
+					v := &benchPtr{b}
+					listAST = append(listAST, &v)
+					listPtr = append(listPtr, v)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkASTIdx(b *testing.B) {
+	for j := 0; j < 3; j++ {
+		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				listAST = listAST[:0:0]
+				listPtr = listPtr[:0:0]
+				for _, b := range randStrings {
+					v := &benchPtr{b}
+					ref := benchRef(len(listPtr))
+					listAST = append(listAST, &ref)
+					listPtr = append(listPtr, v)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkASTVar(b *testing.B) {
+	for j := 0; j < 3; j++ {
+		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				listAST = listAST[:0:0]
+				listVar = listVar[:0:0]
+				for _, b := range randStrings {
+					v := benchVar{data: b}
+					v.ptr = &v
+					listAST = append(listAST, len(listPtr))
+					listVar = append(listVar, v)
 				}
 			}
 		})
