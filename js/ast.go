@@ -3,9 +3,39 @@ package js
 import (
 	"bytes"
 	"fmt"
-	"unsafe"
+	"strconv"
 )
 
+type DeclType int
+
+const (
+	NoDecl       DeclType = iota // unbound variables
+	VariableDecl                 // var and function
+	LexicalDecl                  // let, const, class
+	ArgumentDecl                 // function arguments
+	CatchArgumentDecl
+	FuncExprNameDecl // function expression name
+)
+
+func (decl DeclType) String() string {
+	switch decl {
+	case NoDecl:
+		return "NoDecl"
+	case VariableDecl:
+		return "Variable"
+	case LexicalDecl:
+		return "Lexical"
+	case ArgumentDecl:
+		return "Argument"
+	case CatchArgumentDecl:
+		return "CatchArgument"
+	case FuncExprNameDecl:
+		return "FuncExprName"
+	}
+	return "Invalid(" + strconv.Itoa(int(decl)) + ")"
+}
+
+// TODO: use
 //length uint16
 //offset uint32
 //
@@ -19,63 +49,107 @@ import (
 //}
 //uint16(len(data)), uint32(offset)
 
-func init() {
-	fmt.Println("sizeof Var", unsafe.Sizeof(Var{}))
-}
-
 // VarRef is an index into VarCtx.vars and is used by the AST to refer to a variable
-type VarRef uint32
+// The chain of pointers: VarRef --(idx)--> VarArray --(ptr)--> Var --([]byte)--> data
+type VarRef uint32 // TODO: is VarRef faster than *VarRef
 
-func (ref *VarRef) Data(c *VarCtx) []byte {
-	return c.vars[*ref].Data
+func (ref *VarRef) Get(c *VarCtx) *Var {
+	return c.vars[*ref]
 }
 
 func (ref *VarRef) String(c *VarCtx) string {
 	return string(c.vars[*ref].Data)
 }
 
+// VarArray is sortable by uses
+type VarArray []*Var
+
+func (vs VarArray) Len() int {
+	return len(vs)
+}
+
+func (vs VarArray) Swap(i, j int) {
+	vs[i], vs[j] = vs[j], vs[i]
+}
+
+func (vs VarArray) Less(i, j int) bool {
+	return vs[i].Uses < vs[j].Uses
+}
+
+func (vs VarArray) String() string {
+	s := "["
+	for i, item := range vs {
+		if i != 0 {
+			s += ", "
+		}
+		s += item.String()
+	}
+	return s + "]"
+}
+
 // Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables
 type Var struct {
 	Ref  VarRef
 	Uses uint32
-	Decl TokenType
-	Data []byte
+	Decl DeclType
+
+	IsRenamed bool
+	Data      []byte
+	OrigData  []byte
+}
+
+func (v *Var) String() string {
+	return fmt.Sprintf("Var{%v %v %v %v %s}", v.Ref, v.Uses, v.Decl, v.IsRenamed, string(v.Data))
 }
 
 // VarCtx holds the context needed for variable identifiers. It holds a list of all variables to which VarRef is indexing.
 type VarCtx struct {
 	src  []byte
-	vars []*Var
+	vars VarArray
 }
 
 func NewVarCtx(src []byte) *VarCtx {
 	return &VarCtx{
 		src:  src,
-		vars: []*Var{nil},
+		vars: VarArray{nil},
 	}
 }
 
-func (ctx *VarCtx) Add(decl TokenType, data []byte) *Var {
-	v := &Var{VarRef(len(ctx.vars)), 0, decl, data}
+func (ctx *VarCtx) Add(decl DeclType, data []byte) *Var {
+	v := &Var{VarRef(len(ctx.vars)), 0, decl, false, data, data}
 	ctx.vars = append(ctx.vars, v)
 	return v
 }
 
 // Scope is a function or block scope with a list of variables declared and used
+// TODO: handle with statement and eval function calls in scope
 type Scope struct {
-	Parent     *Scope
-	Children   []*Scope
-	Vars       []*Var
-	undeclared []*Var
-	isBlock    bool
+	Parent, Func *Scope
+	Declared     VarArray // TODO: merge with undeclared?
+	Undeclared   VarArray
+}
+
+func (s *Scope) String() string {
+	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
 }
 
 // Declare a new variable
-func (s *Scope) Declare(ctx *VarCtx, decl TokenType, name []byte) (*VarRef, bool) {
+func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool) {
+	// refer to new variable for previously undeclared symbols in the current and lower scopes
+	// this happens in `{a=5} var a` where both a's refer to the same variable
+	if decl == VariableDecl {
+		// find function scope for var and function declarations
+		s = s.Func
+	}
+
 	if v := s.findScopeVar(name); v != nil {
 		// variable already declared, an error if declaration types are different (such as var and let)
-		if v.Decl != decl {
-			return &v.Ref, false
+		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != FuncExprNameDecl {
+			// redeclaration of let, const, class on an already declared name is an error, except if the declared name is a function expression name
+			return nil, false
+		}
+		if v.Decl == FuncExprNameDecl {
+			v.Decl = decl
 		}
 		v.Uses++
 		return &v.Ref, true
@@ -84,22 +158,15 @@ func (s *Scope) Declare(ctx *VarCtx, decl TokenType, name []byte) (*VarRef, bool
 	// add variable to the context list and to the scope
 	v := ctx.Add(decl, name)
 	v.Uses++
-	s.Vars = append(s.Vars, v)
+	s.Declared = append(s.Declared, v)
 
-	// refer to new variable for previously undeclared symbols in the current and lower scopes
-	// this happens in `{a=5} var a` where both a's refer to the same variable
-	if decl == VarToken || decl == FunctionToken {
-		// find function scope for var and function declarations
-		for s.isBlock {
-			s = s.Parent
-		}
-	}
-	for i, uv := range s.undeclared {
-		if uv != nil {
-			if bytes.Equal(uv.Data, v.Data) {
+	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
+		for _, uv := range s.Undeclared {
+			if uv.Uses != 0 && bytes.Equal(uv.Data, name) {
+				fmt.Println("found undecl", uv)
 				v.Uses += uv.Uses
-				ctx.vars[uv.Ref] = v  // point undeclared variable reference to the new declared variable
-				s.undeclared[i] = nil // remove from undeclared
+				uv.Uses = 0          // remove from undeclared
+				ctx.vars[uv.Ref] = v // point undeclared variable reference to the new declared variable
 			}
 		}
 	}
@@ -112,11 +179,11 @@ func (s *Scope) Use(ctx *VarCtx, name []byte) *VarRef {
 	v := s.findDeclared(name)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
-		v, _ = s.findUndeclared(name)
+		v = s.findUndeclared(name)
 		if v == nil {
 			// add variable to the context list and to the scope's undeclared
-			v = ctx.Add(IdentifierToken, name)
-			s.undeclared = append(s.undeclared, v)
+			v = ctx.Add(NoDecl, name)
+			s.Undeclared = append(s.Undeclared, v)
 		}
 	}
 	v.Uses++
@@ -125,7 +192,7 @@ func (s *Scope) Use(ctx *VarCtx, name []byte) *VarRef {
 
 // find declared variable in the current scope
 func (s *Scope) findScopeVar(name []byte) *Var {
-	for _, v := range s.Vars {
+	for _, v := range s.Declared {
 		if bytes.Equal(name, v.Data) {
 			return v
 		}
@@ -144,25 +211,13 @@ func (s *Scope) findDeclared(name []byte) *Var {
 }
 
 // find undeclared variable in the current and lower scopes
-func (s *Scope) findUndeclared(name []byte) (*Var, int) {
-	for i, v := range s.undeclared {
-		if v != nil && bytes.Equal(v.Data, name) {
-			return v, i
+func (s *Scope) findUndeclared(name []byte) *Var {
+	for _, v := range s.Undeclared {
+		if v.Uses != 0 && bytes.Equal(v.Data, name) {
+			return v
 		}
 	}
-	return nil, 0
-}
-
-// undo Use for a variable (in the context the variable is not being declared, only being used)
-func (s *Scope) Unuse(name []byte) {
-	if v, i := s.findUndeclared(name); v != nil {
-		v.Uses--
-		if v.Uses == 0 {
-			s.undeclared[i] = nil
-		}
-	} else if v := s.findDeclared(name); v != nil {
-		v.Uses--
-	}
+	return nil
 }
 
 ////////////////////////////////////////////////////////////////
@@ -171,7 +226,6 @@ type AST struct {
 	List []IStmt
 	Ctx  *VarCtx
 	Scope
-	Undeclared map[string]struct{}
 }
 
 func (ast AST) String() string {
