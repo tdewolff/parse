@@ -9,12 +9,11 @@ import (
 type DeclType int
 
 const (
-	NoDecl       DeclType = iota // unbound variables
-	VariableDecl                 // var and function
-	LexicalDecl                  // let, const, class
-	ArgumentDecl                 // function arguments
-	CatchArgumentDecl
-	FuncExprNameDecl // function expression name
+	NoDecl           DeclType = iota // unbound variables
+	VariableDecl                     // var and function
+	LexicalDecl                      // let, const, class
+	ArgumentDecl                     // function arguments and catch statement argument
+	FuncExprNameDecl                 // function expression name
 )
 
 func (decl DeclType) String() string {
@@ -27,8 +26,6 @@ func (decl DeclType) String() string {
 		return "Lexical"
 	case ArgumentDecl:
 		return "Argument"
-	case CatchArgumentDecl:
-		return "CatchArgument"
 	case FuncExprNameDecl:
 		return "FuncExprName"
 	}
@@ -82,7 +79,11 @@ func (vs VarArray) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String()
+		if item == nil {
+			s += "nil"
+		} else {
+			s += item.String()
+		}
 	}
 	return s + "]"
 }
@@ -143,7 +144,7 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 	}
 
 	if v := s.findScopeVar(name); v != nil {
-		// variable already declared, an error if declaration types are different (such as var and let)
+		// variable already declared, might be an error or a duplicate declaration
 		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != FuncExprNameDecl {
 			// redeclaration of let, const, class on an already declared name is an error, except if the declared name is a function expression name
 			return nil, false
@@ -163,7 +164,6 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
 		for _, uv := range s.Undeclared {
 			if uv.Uses != 0 && bytes.Equal(uv.Data, name) {
-				fmt.Println("found undecl", uv)
 				v.Uses += uv.Uses
 				uv.Uses = 0          // remove from undeclared
 				ctx.vars[uv.Ref] = v // point undeclared variable reference to the new declared variable
@@ -218,6 +218,68 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 		}
 	}
 	return nil
+}
+
+func (s *Scope) remove(v *Var) {
+	if v.Decl == NoDecl {
+		for i := len(s.Undeclared) - 1; 0 <= i; i-- {
+			if v.Ref == s.Undeclared[i].Ref {
+				s.Undeclared = append(s.Undeclared[:i], s.Undeclared[i+1:]...)
+				break
+			}
+		}
+	} else {
+		for i := len(s.Declared) - 1; 0 <= i; i-- {
+			if v.Ref == s.Declared[i].Ref {
+				s.Declared = append(s.Declared[:i], s.Declared[i+1:]...)
+				break
+			}
+		}
+	}
+}
+
+func (s *Scope) MoveDeclare(ctx *VarCtx, decl DeclType, ref *VarRef) *VarRef {
+	v := ref.Get(ctx)
+	if 1 < v.Uses {
+		v.Uses--
+		ref, _ = s.Declare(ctx, decl, v.Data)
+		return ref
+	}
+	s.Parent.remove(v)
+
+	v.Decl = decl
+	s.Declared = append(s.Declared, v)
+	return ref
+}
+
+func (s *Scope) MoveUse(ctx *VarCtx, ref *VarRef) *VarRef {
+	fmt.Println("move use", ref)
+	vold := ref.Get(ctx)
+	name := vold.Data
+	vold.Uses--
+	if vold.Uses == 0 {
+		fmt.Println("remove")
+		s.Parent.remove(vold)
+	}
+
+	// check if variable is declared in the current or upper scopes
+	v := s.findDeclared(name)
+	if v == nil {
+		// check if variable is already used before in the current or lower scopes
+		v = s.findUndeclared(name)
+		if v == nil {
+			// add variable to the context list and to the scope's undeclared
+			if vold.Uses != 0 {
+				fmt.Println("add")
+				v = ctx.Add(NoDecl, name)
+			} else {
+				v = vold
+			}
+			s.Undeclared = append(s.Undeclared, v)
+		}
+	}
+	v.Uses++
+	return &v.Ref
 }
 
 ////////////////////////////////////////////////////////////////

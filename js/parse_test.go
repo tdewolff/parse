@@ -666,6 +666,7 @@ func TestParseScope(t *testing.T) {
 		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a,e"},
 		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d"},
 		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d"},
+		{"(a=(b=>b/a)) => a", "/a/b", ""},
 		{"label: a", "", "a"},
 		{"yield => yield%5", "/yield", ""},
 		{"await => await%5", "/await", ""},
