@@ -140,6 +140,7 @@ func TestParse(t *testing.T) {
 		{"function*a(b = yield c){}", "Decl(function* a Params(Binding(b = (yield c))) Stmt({ }))"},
 		{"function*a(){ x = function yield(){} }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function yield Params() Stmt({ }))) }))"},
 		{"function*a(){ x = function b(){ x = yield } }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=yield) }))) }))"},
+		{"function*a(){ (yield a) }", "Decl(function* a Params() Stmt({ Stmt((yield a)) }))"},
 		{"let\nawait 0", "Decl(let Binding(await)) Stmt(0)"},
 		{"x = {await}", "Stmt(x={await})"},
 		{"async function a(){ x = {await: 5} }", "Decl(async function a Params() Stmt({ Stmt(x={await: 5}) }))"},
@@ -149,6 +150,7 @@ func TestParse(t *testing.T) {
 		{"async function a(){ x = function await(){} }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function await Params() Stmt({ }))) }))"},
 		{"async function a(){ x = function b(){ x = await } }", "Decl(async function a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=await) }))) }))"},
 		{"async function a(){ for await (var a of b) {} }", "Decl(async function a Params() Stmt({ Stmt(for await Decl(var Binding(a)) of b Stmt({ })) }))"},
+		{"async function a(){ (await a) }", "Decl(async function a Params() Stmt({ Stmt((await a)) }))"},
 		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
 
 		// bindings
@@ -462,11 +464,13 @@ func TestParseError(t *testing.T) {
 		{"function*a() { yield: var a", "unexpected ':' in expression"},
 		{"function*a() { x = b + yield c", "unexpected 'yield' in expression"},
 		{"function a(b = yield c){}", "unexpected 'c' in function declaration"},
+		{"function*a(){ (yield) => yield }", "unexpected ')' in expression"},
 		{"x = await\n=> a++", "unexpected '=>' in expression"},
 		{"async function a() { class a extends await", "unexpected 'await' in expression"},
 		{"async function a() { await: var a", "unexpected ':' in expression"},
 		{"async function a() { x = new await c", "unexpected 'await' in expression"},
 		{"async function a() { x = await =>", "unexpected '=>' in expression"},
+		{"async function a(){ (await) => await }", "unexpected ')' in expression"},
 
 		// specific cases
 		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
@@ -582,6 +586,17 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 	switch expr := iexpr.(type) {
 	case *FuncDecl:
 		sv.AddScope(expr.Scope)
+		for _, item := range expr.Params.List {
+			if item.Binding != nil {
+				sv.AddBinding(item.Binding)
+			}
+			if item.Default != nil {
+				sv.AddExpr(item.Default)
+			}
+		}
+		if expr.Params.Rest != nil {
+			sv.AddBinding(expr.Params.Rest)
+		}
 		for _, item := range expr.Body.List {
 			sv.AddStmt(item)
 		}
@@ -591,6 +606,17 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 		}
 	case *ArrowFunc:
 		sv.AddScope(expr.Scope)
+		for _, item := range expr.Params.List {
+			if item.Binding != nil {
+				sv.AddBinding(item.Binding)
+			}
+			if item.Default != nil {
+				sv.AddExpr(item.Default)
+			}
+		}
+		if expr.Params.Rest != nil {
+			sv.AddBinding(expr.Params.Rest)
+		}
 		for _, item := range expr.Body.List {
 			sv.AddStmt(item)
 		}
@@ -604,6 +630,35 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 	}
 }
 
+func (sv *ScopeVars) AddBinding(ibinding IBinding) {
+	switch binding := ibinding.(type) {
+	case *BindingArray:
+		for _, item := range binding.List {
+			if item.Binding != nil {
+				sv.AddBinding(item.Binding)
+			}
+			if item.Default != nil {
+				sv.AddExpr(item.Default)
+			}
+		}
+		if binding.Rest != nil {
+			sv.AddBinding(binding.Rest)
+		}
+	case *BindingObject:
+		for _, item := range binding.List {
+			if item.Key != nil && item.Key.Computed != nil {
+				sv.AddExpr(item.Key.Computed)
+			}
+			if item.Value.Binding != nil {
+				sv.AddBinding(item.Value.Binding)
+			}
+			if item.Value.Default != nil {
+				sv.AddExpr(item.Value.Default)
+			}
+		}
+	}
+}
+
 func (sv *ScopeVars) AddStmt(istmt IStmt) {
 	switch stmt := istmt.(type) {
 	case *BlockStmt:
@@ -613,6 +668,17 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		}
 	case *FuncDecl:
 		sv.AddScope(stmt.Scope)
+		for _, item := range stmt.Params.List {
+			if item.Binding != nil {
+				sv.AddBinding(item.Binding)
+			}
+			if item.Default != nil {
+				sv.AddExpr(item.Default)
+			}
+		}
+		if stmt.Params.Rest != nil {
+			sv.AddBinding(stmt.Params.Rest)
+		}
 		for _, item := range stmt.Body.List {
 			sv.AddStmt(item)
 		}
@@ -624,6 +690,10 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		sv.AddExpr(stmt.Value)
 	case *ThrowStmt:
 		sv.AddExpr(stmt.Value)
+	case *TryStmt:
+		sv.AddStmt(&stmt.Body)
+		sv.AddStmt(&stmt.Catch)
+		sv.AddStmt(&stmt.Finally)
 	case *VarDecl:
 		for _, item := range stmt.List {
 			if item.Default != nil {
@@ -654,8 +724,11 @@ func TestParseScope(t *testing.T) {
 		{"function a(b,c){var d; e = 5; a}", "a/b,c,d", "e"},
 		{"!function a(b,c){var d; e = 5; a}", "/a,b,c,d", "e"},
 		{"function a(b=c){var c}", "a/b,c", "c"},
+		{"class a{b(){}}", "a/", ""}, // classes are not tracked
+		{"!class a{b(){}}", "/", ""},
 		{"a => a%5", "/a", ""},
 		{"a => a%b", "/a", "b"},
+		{"(a) + (a)", "", "a"},
 		{"(a) + (a => a%5)", "/a", "a"},
 		{"(a=b) => {var c; d = 5}", "/a,c", "b,d"},
 		{"(a,b=a) => {}", "/a,b", ""},
@@ -667,6 +740,8 @@ func TestParseScope(t *testing.T) {
 		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d"},
 		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d"},
 		{"(a=(b=>b/a)) => a", "/a/b", ""},
+		{"(a=(b=>b/c)) => a", "/a/b", "c"},
+		{"(a=(function b(){})) => a", "/a/b", ""},
 		{"label: a", "", "a"},
 		{"yield => yield%5", "/yield", ""},
 		{"await => await%5", "/await", ""},
@@ -689,6 +764,8 @@ func TestParseScope(t *testing.T) {
 		{"function(){return a}", "/", "a"},
 		{"function(){return a} var a;", "a/", ""},
 		{"function(){return a} if(5){var a}", "a/", ""},
+		{"try{}catch(a){let b; c}", "//a,b/", "c"},
+		{"try{}catch(a){var b; c}", "b//a/", "c"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -725,6 +802,7 @@ func TestParseRef(t *testing.T) {
 		{"a=function(b=c){var c}", "a=1,b=2,c=3,c=4"},
 		{"a=function(b){var b}", "a=1,b=2"},
 		{"a=function(b,b){}", "a=1,b=2"},
+		{"(a) + (a)", "a=1"},
 		{"(b,c=b)=>{}", "b=1,c=2"},
 		{"(b=c,c)=>{}", "b=1,c=2,c=3"},
 		{"(b=c)=>{var c}", "b=1,c=2,c=3"},

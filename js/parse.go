@@ -23,6 +23,7 @@ type Parser struct {
 	prevLT           bool
 	inFor            bool
 	async, generator bool
+	assumeArrowFunc  bool
 
 	ctx   *VarCtx
 	scope *Scope
@@ -125,7 +126,6 @@ func (p *Parser) consume(in string, tt TokenType) bool {
 }
 
 func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
-	// TODO: inline?
 	// create a new scope object and add it to the parent
 	parent := p.scope
 	p.scope = scope
@@ -149,7 +149,6 @@ func (p *Parser) hoistUndeclared() {
 	p.scope.Undeclared = p.scope.Undeclared[:0]
 }
 func (p *Parser) exitScope(parent *Scope) {
-	// TODO: inline?
 	p.hoistUndeclared()
 	p.scope = parent
 }
@@ -417,7 +416,8 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 				}
 				p.next()
 			}
-			catch = p.parseBlockStmt("try-catch statement", false)
+			block := p.parseBlockStmt("try-catch statement", false)
+			catch.List = block.List
 			p.exitScope(parent)
 		}
 		if p.tt == FinallyToken {
@@ -783,14 +783,27 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 }
 
 func (p *Parser) parseClassDecl() (classDecl ClassDecl) {
+	return p.parseAnyClass(false)
+}
+
+func (p *Parser) parseClassExpr() (classDecl ClassDecl) {
+	return p.parseAnyClass(true)
+}
+
+func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 	// assume we're at class
 	p.next()
 	if IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken {
-		var ok bool
-		classDecl.Name, ok = p.scope.Declare(p.ctx, LexicalDecl, p.data)
-		if !ok {
-			p.failMessage("identifier '%s' has already been declared", string(p.data))
-			return
+		if !inExpr {
+			var ok bool
+			classDecl.Name, ok = p.scope.Declare(p.ctx, LexicalDecl, p.data)
+			if !ok {
+				p.failMessage("identifier '%s' has already been declared", string(p.data))
+				return
+			}
+		} else {
+			v := p.ctx.Add(LexicalDecl, p.data)
+			classDecl.Name = &v.Ref
 		}
 		p.next()
 	}
@@ -1019,6 +1032,38 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 	return
 }
 
+func (p *Parser) parseArrayLiteral() (array ArrayExpr) {
+	// assume we're on [
+	p.next()
+	prevComma := true
+	for {
+		if p.tt == ErrorToken {
+			p.fail("expression")
+			return
+		} else if p.tt == CloseBracketToken {
+			p.next()
+			break
+		} else if p.tt == CommaToken {
+			if prevComma {
+				array.List = append(array.List, Element{})
+			}
+			prevComma = true
+			p.next()
+		} else {
+			spread := p.tt == EllipsisToken
+			if spread {
+				p.next()
+			}
+			array.List = append(array.List, Element{p.parseAssignmentExpression(), spread})
+			prevComma = false
+			if spread && p.tt != CloseBracketToken {
+				p.assumeArrowFunc = false
+			}
+		}
+	}
+	return
+}
+
 func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	// assume we're on {
 	p.next()
@@ -1035,7 +1080,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 		if p.tt == EllipsisToken {
 			p.next()
 			property.Spread = true
-			property.Value = p.parseExpression(OpAssign)
+			property.Value = p.parseAssignmentExpression()
+			if p.tt != CloseBraceToken {
+				p.assumeArrowFunc = false
+			}
 		} else {
 			// try to parse as MethodDefinition, otherwise fall back to PropertyName:AssignExpr or IdentifierReference
 			method := MethodDecl{}
@@ -1102,17 +1150,22 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				p.async, p.generator = parentAsync, parentGenerator
 				p.exitScope(parent)
 				property.Value = &method
+				p.assumeArrowFunc = false
 			} else if p.tt == ColonToken {
 				// PropertyName : AssignmentExpression
 				p.next()
 				property.Key = &method.Name
-				property.Value = p.parseExpression(OpAssign)
+				property.Value = p.parseAssignmentExpression()
 			} else if !p.isIdentifierReference(method.Name.Literal.TokenType) {
 				p.fail("object literal", ColonToken, OpenParenToken)
 				return
 			} else {
 				// IdentifierReference (= AssignmentExpression)?
-				property.Value = p.scope.Use(p.ctx, method.Name.Literal.Data)
+				if p.assumeArrowFunc {
+					property.Value, _ = p.scope.Declare(p.ctx, ArgumentDecl, method.Name.Literal.Data) // cannot fail
+				} else {
+					property.Value = p.scope.Use(p.ctx, method.Name.Literal.Data)
+				}
 				if p.tt == EqToken {
 					p.next()
 					property.Init = p.parseExpression(OpAssign)
@@ -1149,7 +1202,6 @@ func (p *Parser) parseTemplateLiteral() (template TemplateExpr) {
 }
 
 func (p *Parser) parseArgs() (args Arguments) {
-	// TODO: whats this for? why cap=4?
 	// assume we're on (
 	p.next()
 	args.List = make([]IExpr, 0, 4)
@@ -1205,7 +1257,16 @@ func (p *Parser) parseIdentifierArrowFunc(ref *VarRef) (arrowFunc ArrowFunc) {
 	parentAsync, parentGenerator := p.async, p.generator
 	p.async, p.generator = false, false
 
-	p.scope.MoveDeclare(p.ctx, ArgumentDecl, ref)
+	v := ref.Get(p.ctx)
+	if 1 < v.Uses {
+		v.Uses--
+		ref, _ = p.scope.Declare(p.ctx, ArgumentDecl, v.Data) // cannot fail
+	} else {
+		// must be undeclared
+		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
+		v.Decl = ArgumentDecl
+		p.scope.Declared = append(p.scope.Declared, v)
+	}
 
 	arrowFunc.Params.List = []BindingElement{{ref, nil}}
 	arrowFunc.Body = p.parseArrowFuncBody()
@@ -1225,26 +1286,8 @@ func (p *Parser) parseArrowFuncBody() (body BlockStmt) {
 		return
 	}
 
-	//numDeclared, numUndeclared := 0, 0
-	//fmt.Println("vars:", p.ctx.vars)
-	//fmt.Println("remove last", numVars)
-	//for _, v := range p.ctx.vars[len(p.ctx.vars)-numVars:] {
-	//	if v.Decl == NoDecl {
-	//		numUndeclared++
-	//	} else {
-	//		numDeclared++
-	//	}
-	//}
-	//fmt.Println("decls", numDeclared, "undecls", numUndeclared)
-	//fmt.Println(p.scope.Declared[len(p.scope.Declared)-numDeclared:])
-	//fmt.Println(p.scope.Undeclared[len(p.scope.Undeclared)-numUndeclared:])
-	//p.scope.Declared = p.scope.Declared[:len(p.scope.Declared)-numDeclared]
-	//p.scope.Undeclared = p.scope.Undeclared[:len(p.scope.Undeclared)-numUndeclared]
-
 	// hoist undeclared vars in arguments as in `function f(a=b){var b}` where the b's are different vars
 	p.hoistUndeclared()
-
-	//p.ctx.vars = p.ctx.vars[:len(p.ctx.vars)-numVars]
 
 	p.next()
 	if p.tt == OpenBraceToken {
@@ -1321,32 +1364,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 	case OpenBracketToken:
-		// array literal and [expression]
-		array := ArrayExpr{}
-		p.next()
-		prevComma := true
-		for {
-			if p.tt == ErrorToken {
-				p.fail("expression")
-				return nil
-			} else if p.tt == CloseBracketToken {
-				p.next()
-				break
-			} else if p.tt == CommaToken {
-				if prevComma {
-					array.List = append(array.List, Element{})
-				}
-				prevComma = true
-				p.next()
-			} else {
-				spread := p.tt == EllipsisToken
-				if spread {
-					p.next()
-				}
-				array.List = append(array.List, Element{p.parseExpression(OpAssign), spread})
-				prevComma = false
-			}
-		}
+		array := p.parseArrayLiteral()
 		left = &array
 	case OpenBraceToken:
 		object := p.parseObjectLiteral()
@@ -1362,7 +1380,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			}
 			break
 		}
-		left, precLeft = p.parseParenExprOrArrowFunc()
+		left, precLeft = p.parseParenthesizedExpressionOrArrowFunc()
 	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
 		if OpUnary < prec {
 			p.fail("expression")
@@ -1508,7 +1526,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		p.next()
 		left = p.parseAsyncExpression(prec)
 	case ClassToken:
-		classDecl := p.parseClassDecl()
+		classDecl := p.parseClassExpr()
 		left = &classDecl
 	case FunctionToken:
 		funcDecl := p.parseFuncExpr()
@@ -1795,9 +1813,38 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 	}
 }
 
-func (p *Parser) parseParenExprOrArrowFunc() (left IExpr, precLeft OpPrec) {
+func (p *Parser) parseAssignmentExpression() IExpr {
+	// this could be a BindingElement or an AssignmentExpression. Here we handle BindingIdentifier with a possible Initializer, BindingPattern will be handled by parseArrayLiteral or parseObjectLiteral
+	if p.assumeArrowFunc && IsIdentifier(p.tt) {
+		tt := p.tt
+		data := p.data
+		p.next()
+		if p.tt == EqToken || p.tt == CommaToken || p.tt == CloseParenToken || p.tt == CloseBraceToken || p.tt == CloseBracketToken {
+			var left IExpr
+			left, _ = p.scope.Declare(p.ctx, ArgumentDecl, data) // cannot fail
+			return p.parseExpressionSuffix(left, OpAssign, OpPrimary)
+		}
+		p.assumeArrowFunc = false
+		if tt == AsyncToken {
+			return p.parseAsyncExpression(OpAssign)
+		}
+		return p.parseIdentifierExpression(OpAssign, data)
+	} else if p.tt != OpenBracketToken && p.tt != OpenBraceToken {
+		p.assumeArrowFunc = false
+	}
+	return p.parseExpression(OpAssign)
+}
+
+func (p *Parser) parseParenthesizedExpressionOrArrowFunc() (left IExpr, precLeft OpPrec) {
 	// expect to be at (
 	p.next()
+
+	arrowFunc := ArrowFunc{}
+	parent := p.enterScope(&arrowFunc.Scope, true)
+	parentAssumeArrowFunc := p.assumeArrowFunc
+	p.assumeArrowFunc = true
+
+	// parse a parenthesized expression but assume we might be parsing an arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables an undeclared and merge them with the parent scope.
 
 	var list []IExpr
 	var rest IBinding
@@ -1808,24 +1855,25 @@ func (p *Parser) parseParenExprOrArrowFunc() (left IExpr, precLeft OpPrec) {
 		} else if p.tt == CloseParenToken {
 			p.next()
 			break
-		} else if p.tt == EllipsisToken {
+		} else if p.tt == EllipsisToken && p.assumeArrowFunc {
 			p.next()
-			rest = p.parseBinding(NoDecl)
+			rest = p.parseBinding(ArgumentDecl)
+			if !p.consume("expression", CloseParenToken) {
+				return nil, 0
+			}
+			break
 		} else if p.tt == CommaToken {
 			p.next()
 		} else {
-			list = append(list, p.parseExpression(OpAssign))
+			list = append(list, p.parseAssignmentExpression())
 		}
 	}
 
-	if p.tt == ArrowToken {
-		// arrow function
-		arrowFunc := ArrowFunc{}
-
-		parent := p.enterScope(&arrowFunc.Scope, true)
+	if p.tt == ArrowToken && p.assumeArrowFunc {
 		parentAsync, parentGenerator := p.async, p.generator
 		p.async, p.generator = false, false
 
+		// arrow function
 		var fail bool
 		arrowFunc.Params = Params{List: make([]BindingElement, len(list)), Rest: rest}
 		for i, item := range list {
@@ -1837,7 +1885,7 @@ func (p *Parser) parseParenExprOrArrowFunc() (left IExpr, precLeft OpPrec) {
 		}
 		arrowFunc.Body = p.parseArrowFuncBody()
 
-		p.async, p.generator = parentAsync, parentGenerator
+		p.async, p.generator, p.assumeArrowFunc = parentAsync, parentGenerator, parentAssumeArrowFunc
 		p.exitScope(parent)
 
 		left = &arrowFunc
@@ -1846,6 +1894,12 @@ func (p *Parser) parseParenExprOrArrowFunc() (left IExpr, precLeft OpPrec) {
 		p.fail("arrow function", ArrowToken)
 		return nil, 0
 	} else {
+		p.assumeArrowFunc = parentAssumeArrowFunc
+		p.exitScope(parent)
+
+		arrowFunc.Scope.UndeclareScope(p.ctx)
+		// TODO: Parent and Func pointers are bad for any nested FuncDecl/ArrowFunc inside, maybe not a problem?
+
 		// parenthesized expression
 		left = list[0]
 		for _, item := range list[1:] {
@@ -1861,8 +1915,7 @@ func (p *Parser) parseParenExprOrArrowFunc() (left IExpr, precLeft OpPrec) {
 // Any unbound variables of the parameters (Initializer, ComputedPropertyName) are kept in the parent scope
 func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 	if ref, ok := expr.(*VarRef); ok {
-		binding = p.scope.MoveDeclare(p.ctx, ArgumentDecl, ref)
-		//binding, _ = p.scope.Declare(p.ctx, ArgumentDecl, ref.Get(p.ctx).Data) // doesn't fail
+		binding = ref
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
 		for i, item := range array.List {
@@ -1894,7 +1947,7 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 			} else if item.Spread {
 				// can only be BindingIdentifier
 				if ref, ok := item.Value.(*VarRef); ok {
-					bindingObject.Rest, _ = p.scope.Declare(p.ctx, ArgumentDecl, ref.Get(p.ctx).Data) // doesn't fail
+					bindingObject.Rest = ref
 					break
 				} else {
 					fail = true
@@ -1907,11 +1960,7 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 				return
 			}
 			if item.Init != nil {
-				p.exprUseVariables(item.Init)
 				bindingElement.Default = item.Init
-			}
-			if item.Key != nil && item.Key.Computed != nil {
-				p.exprUseVariables(item.Key.Computed)
 			}
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Key, Value: bindingElement})
 		}
@@ -1925,69 +1974,11 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding, fail bool) {
 func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement, fail bool) {
 	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
 		bindingElement.Binding, fail = p.exprToBinding(assign.X)
-		p.exprUseVariables(assign.Y)
 		bindingElement.Default = assign.Y
 	} else {
 		bindingElement.Binding, fail = p.exprToBinding(expr)
 	}
 	return
-}
-
-func (p *Parser) exprUseVariables(iexpr IExpr) {
-	switch expr := iexpr.(type) {
-	case *VarRef:
-		iexpr = p.scope.Use(p.ctx, expr.Get(p.ctx).Data)
-	case *GroupExpr:
-		p.exprUseVariables(expr.X)
-	case *UnaryExpr:
-		p.exprUseVariables(expr.X)
-	case *BinaryExpr:
-		p.exprUseVariables(expr.X)
-		p.exprUseVariables(expr.Y)
-	case *OptChainExpr:
-		p.exprUseVariables(expr.X)
-		p.exprUseVariables(expr.Y)
-	case *IndexExpr:
-		p.exprUseVariables(expr.X)
-		p.exprUseVariables(expr.Index)
-	case *CallExpr:
-		p.exprUseVariables(expr.X)
-		for _, arg := range expr.Args.List {
-			p.exprUseVariables(arg)
-		}
-		if expr.Args.Rest != nil {
-			p.exprUseVariables(expr.Args.Rest)
-		}
-	case *DotExpr:
-		p.exprUseVariables(expr.X)
-	case *CondExpr:
-		p.exprUseVariables(expr.Cond)
-		p.exprUseVariables(expr.X)
-		p.exprUseVariables(expr.Y)
-	case *YieldExpr:
-		p.exprUseVariables(expr.X)
-	case *NewExpr:
-		p.exprUseVariables(expr.X)
-		if expr.Args != nil {
-			for _, arg := range expr.Args.List {
-				p.exprUseVariables(arg)
-			}
-			if expr.Args.Rest != nil {
-				p.exprUseVariables(expr.Args.Rest)
-			}
-		}
-	case *TemplateExpr:
-		p.exprUseVariables(expr.Tag)
-		for _, part := range expr.List {
-			p.exprUseVariables(part.Expr)
-		}
-	case *ArrayExpr:
-		for _, elem := range expr.List {
-			p.exprUseVariables(elem.Value)
-		}
-	case *ObjectExpr:
-		// TODO
-	}
 }
 
 func (p *Parser) isIdentifierReference(tt TokenType) bool {

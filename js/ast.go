@@ -130,7 +130,7 @@ type Scope struct {
 	Undeclared   VarArray
 }
 
-func (s *Scope) String() string {
+func (s Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
 }
 
@@ -220,66 +220,25 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 	return nil
 }
 
-func (s *Scope) remove(v *Var) {
-	if v.Decl == NoDecl {
-		for i := len(s.Undeclared) - 1; 0 <= i; i-- {
-			if v.Ref == s.Undeclared[i].Ref {
-				s.Undeclared = append(s.Undeclared[:i], s.Undeclared[i+1:]...)
-				break
-			}
-		}
-	} else {
-		for i := len(s.Declared) - 1; 0 <= i; i-- {
-			if v.Ref == s.Declared[i].Ref {
-				s.Declared = append(s.Declared[:i], s.Declared[i+1:]...)
-				break
-			}
-		}
-	}
-}
-
-func (s *Scope) MoveDeclare(ctx *VarCtx, decl DeclType, ref *VarRef) *VarRef {
-	v := ref.Get(ctx)
-	if 1 < v.Uses {
-		v.Uses--
-		ref, _ = s.Declare(ctx, decl, v.Data)
-		return ref
-	}
-	s.Parent.remove(v)
-
-	v.Decl = decl
-	s.Declared = append(s.Declared, v)
-	return ref
-}
-
-func (s *Scope) MoveUse(ctx *VarCtx, ref *VarRef) *VarRef {
-	fmt.Println("move use", ref)
-	vold := ref.Get(ctx)
-	name := vold.Data
-	vold.Uses--
-	if vold.Uses == 0 {
-		fmt.Println("remove")
-		s.Parent.remove(vold)
-	}
-
-	// check if variable is declared in the current or upper scopes
-	v := s.findDeclared(name)
-	if v == nil {
-		// check if variable is already used before in the current or lower scopes
-		v = s.findUndeclared(name)
-		if v == nil {
+func (s *Scope) UndeclareScope(ctx *VarCtx) {
+	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use as it will still be referenced.
+	for _, vorig := range s.Declared {
+		name := vorig.Data
+		if v := s.Parent.findDeclared(name); v != nil {
+			v.Uses++
+			ctx.vars[vorig.Ref] = v
+			break
+		} else if v = s.Parent.findUndeclared(name); v != nil {
+			// check if variable is already used before in the current or lower scopes
+			v.Uses++
+			ctx.vars[vorig.Ref] = v
+			break
+		} else {
 			// add variable to the context list and to the scope's undeclared
-			if vold.Uses != 0 {
-				fmt.Println("add")
-				v = ctx.Add(NoDecl, name)
-			} else {
-				v = vold
-			}
-			s.Undeclared = append(s.Undeclared, v)
+			vorig.Decl = NoDecl
+			s.Parent.Undeclared = append(s.Undeclared, vorig)
 		}
 	}
-	v.Uses++
-	return &v.Ref
 }
 
 ////////////////////////////////////////////////////////////////
