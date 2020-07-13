@@ -10,6 +10,7 @@ type DeclType int
 
 const (
 	NoDecl           DeclType = iota // unbound variables
+	ArgumentNoDecl                   // unbound variable used in argument so that f(a=b){var b} refers to different b's
 	VariableDecl                     // var and function
 	LexicalDecl                      // let, const, class
 	ArgumentDecl                     // function arguments and catch statement argument
@@ -20,6 +21,8 @@ func (decl DeclType) String() string {
 	switch decl {
 	case NoDecl:
 		return "NoDecl"
+	case ArgumentNoDecl:
+		return "ArgumentNoDecl"
 	case VariableDecl:
 		return "Variable"
 	case LexicalDecl:
@@ -95,12 +98,16 @@ type Var struct {
 	Decl DeclType
 
 	IsRenamed bool
-	Data      []byte
+	Data      []byte // TODO: rename to Name
 	OrigData  []byte
 }
 
 func (v *Var) String() string {
-	return fmt.Sprintf("Var{%v %v %v %v %s}", v.Ref, v.Uses, v.Decl, v.IsRenamed, string(v.Data))
+	name := string(v.Data)
+	if !bytes.Equal(v.Data, v.OrigData) {
+		name = string(v.OrigData) + "=>" + name
+	}
+	return fmt.Sprintf("Var{%v %v %v %v %s}", v.Ref, v.Uses, v.Decl, v.IsRenamed, name)
 }
 
 // VarCtx holds the context needed for variable identifiers. It holds a list of all variables to which VarRef is indexing.
@@ -125,9 +132,10 @@ func (ctx *VarCtx) Add(decl DeclType, data []byte) *Var {
 // Scope is a function or block scope with a list of variables declared and used
 // TODO: handle with statement and eval function calls in scope
 type Scope struct {
-	Parent, Func *Scope
-	Declared     VarArray // TODO: merge with undeclared?
-	Undeclared   VarArray
+	Parent, Func    *Scope
+	Declared        VarArray // TODO: merge with others?
+	Undeclared      VarArray
+	argumentsOffset int
 }
 
 func (s Scope) String() string {
@@ -138,6 +146,7 @@ func (s Scope) String() string {
 func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool) {
 	// refer to new variable for previously undeclared symbols in the current and lower scopes
 	// this happens in `{a=5} var a` where both a's refer to the same variable
+	curScope := s
 	if decl == VariableDecl {
 		// find function scope for var and function declarations
 		s = s.Func
@@ -153,22 +162,35 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 			v.Decl = decl
 		}
 		v.Uses++
+		if s != curScope {
+			curScope.Undeclared = append(curScope.Undeclared, v) // add variable declaration as used variable to the current scope
+		}
 		return &v.Ref, true
 	}
 
-	// add variable to the context list and to the scope
-	v := ctx.Add(decl, name)
-	v.Uses++
-	s.Declared = append(s.Declared, v)
-
+	var v *Var
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
-		for _, uv := range s.Undeclared {
-			if uv.Uses != 0 && bytes.Equal(uv.Data, name) {
-				v.Uses += uv.Uses
-				uv.Uses = 0          // remove from undeclared
-				ctx.vars[uv.Ref] = v // point undeclared variable reference to the new declared variable
+		for i, uv := range s.Undeclared[s.argumentsOffset:] {
+			if 0 < uv.Uses && bytes.Equal(uv.Data, name) {
+				v = uv
+				s.Undeclared = append(s.Undeclared[:s.argumentsOffset+i], s.Undeclared[s.argumentsOffset+i+1:]...)
+				break
+				//v.Uses += uv.Uses
+				//uv.Uses = 0          // remove from undeclared
+				//ctx.vars[uv.Ref] = v // point undeclared variable reference to the new declared variable
 			}
 		}
+	}
+	if v == nil {
+		// add variable to the context list and to the scope
+		v = ctx.Add(decl, name)
+	} else {
+		v.Decl = decl
+	}
+	v.Uses++
+	s.Declared = append(s.Declared, v)
+	if s != curScope {
+		curScope.Undeclared = append(curScope.Undeclared, v) // add variable declaration as used variable to the current scope
 	}
 	return &v.Ref, true
 }
@@ -176,7 +198,7 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 // Use a variable
 func (s *Scope) Use(ctx *VarCtx, name []byte) *VarRef {
 	// check if variable is declared in the current or upper scopes
-	v := s.findDeclared(name)
+	v, declaredScope := s.findDeclared(name)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
 		v = s.findUndeclared(name)
@@ -185,6 +207,8 @@ func (s *Scope) Use(ctx *VarCtx, name []byte) *VarRef {
 			v = ctx.Add(NoDecl, name)
 			s.Undeclared = append(s.Undeclared, v)
 		}
+	} else if declaredScope != s {
+		s.Undeclared = append(s.Undeclared, v)
 	}
 	v.Uses++
 	return &v.Ref
@@ -201,13 +225,13 @@ func (s *Scope) findScopeVar(name []byte) *Var {
 }
 
 // find declared variable in the current and upper scopes
-func (s *Scope) findDeclared(name []byte) *Var {
+func (s *Scope) findDeclared(name []byte) (*Var, *Scope) {
 	if v := s.findScopeVar(name); v != nil {
-		return v
+		return v, s
 	} else if s.Parent != nil {
 		return s.Parent.findDeclared(name)
 	}
-	return nil
+	return nil, nil
 }
 
 // find undeclared variable in the current and lower scopes
@@ -220,11 +244,26 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 	return nil
 }
 
+func (s *Scope) MarkUndeclaredAsArguments() {
+	s.argumentsOffset = len(s.Undeclared)
+}
+
+func (s *Scope) HoistUndeclared() {
+	// copy all undeclared variables to the parent scope
+	// TODO: don't add duplicate entries? or remove at the end?
+	for _, v := range s.Undeclared {
+		if 0 < v.Uses && v.Decl == NoDecl {
+			s.Parent.Undeclared = append(s.Parent.Undeclared, v)
+		}
+	}
+	//s.Undeclared = s.Undeclared[:0]
+}
+
 func (s *Scope) UndeclareScope(ctx *VarCtx) {
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use as it will still be referenced.
 	for _, vorig := range s.Declared {
 		name := vorig.Data
-		if v := s.Parent.findDeclared(name); v != nil {
+		if v, _ := s.Parent.findDeclared(name); v != nil {
 			v.Uses++
 			ctx.vars[vorig.Ref] = v
 			break

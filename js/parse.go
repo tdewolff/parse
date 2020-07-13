@@ -129,7 +129,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	// create a new scope object and add it to the parent
 	parent := p.scope
 	p.scope = scope
-	*scope = Scope{parent, nil, VarArray{}, VarArray{}}
+	*scope = Scope{parent, nil, VarArray{}, VarArray{}, 0}
 	if isFunc {
 		scope.Func = scope
 	} else if parent != nil {
@@ -138,18 +138,8 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	return parent
 }
 
-func (p *Parser) hoistUndeclared() {
-	// TODO: don't add duplicate entries? or remove at the end?
-	// add all undeclared variables in lower scopes to the current scope
-	for _, v := range p.scope.Undeclared {
-		if 0 < v.Uses {
-			p.scope.Parent.Undeclared = append(p.scope.Parent.Undeclared, v)
-		}
-	}
-	p.scope.Undeclared = p.scope.Undeclared[:0]
-}
 func (p *Parser) exitScope(parent *Scope) {
-	p.hoistUndeclared()
+	p.scope.HoistUndeclared()
 	p.scope = parent
 }
 
@@ -719,7 +709,7 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 	p.next()
 
 	// hoist undeclared vars in arguments as in `function f(a=b){var b}` where the b's are different vars
-	p.hoistUndeclared()
+	p.scope.MarkUndeclaredAsArguments()
 	return
 }
 
@@ -1287,7 +1277,7 @@ func (p *Parser) parseArrowFuncBody() (body BlockStmt) {
 	}
 
 	// hoist undeclared vars in arguments as in `function f(a=b){var b}` where the b's are different vars
-	p.hoistUndeclared()
+	p.scope.MarkUndeclaredAsArguments()
 
 	p.next()
 	if p.tt == OpenBraceToken {

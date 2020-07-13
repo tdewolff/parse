@@ -545,15 +545,15 @@ func TestParseError(t *testing.T) {
 }
 
 type ScopeVars struct {
-	ctx            *VarCtx
-	bound, unbound string
-	scopes         int
+	ctx                  *VarCtx
+	bound, uses, unbound string
+	scopes               int
 }
 
 func NewScopeVars(ctx *VarCtx, unbounds VarArray) *ScopeVars {
 	unboundsArray := []string{}
 	for _, v := range unbounds {
-		if 0 < v.Uses {
+		if 0 < v.Uses && v.Decl == NoDecl {
 			unboundsArray = append(unboundsArray, string(v.Data))
 		}
 	}
@@ -565,12 +565,13 @@ func NewScopeVars(ctx *VarCtx, unbounds VarArray) *ScopeVars {
 }
 
 func (sv *ScopeVars) String() string {
-	return "bound:" + sv.bound + " unbound:" + sv.unbound
+	return "bound:" + sv.bound + " uses:" + sv.uses + " unbound:" + sv.unbound
 }
 
 func (sv *ScopeVars) AddScope(scope Scope) {
 	if sv.scopes != 0 {
 		sv.bound += "/"
+		sv.uses += "/"
 	}
 	sv.scopes++
 
@@ -580,6 +581,13 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 	}
 	sort.Strings(bounds)
 	sv.bound += strings.Join(bounds, ",")
+
+	uses := []string{}
+	for _, v := range scope.Undeclared {
+		uses = append(uses, string(v.Data))
+	}
+	sort.Strings(uses)
+	sv.uses += strings.Join(uses, ",")
 }
 
 func (sv *ScopeVars) AddExpr(iexpr IExpr) {
@@ -690,10 +698,21 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		sv.AddExpr(stmt.Value)
 	case *ThrowStmt:
 		sv.AddExpr(stmt.Value)
+	case *IfStmt:
+		sv.AddStmt(stmt.Body)
+		if stmt.Else != nil {
+			sv.AddStmt(stmt.Else)
+		}
 	case *TryStmt:
-		sv.AddStmt(&stmt.Body)
-		sv.AddStmt(&stmt.Catch)
-		sv.AddStmt(&stmt.Finally)
+		if 0 < len(stmt.Body.List) {
+			sv.AddStmt(&stmt.Body)
+		}
+		if 0 < len(stmt.Catch.List) {
+			sv.AddStmt(&stmt.Catch)
+		}
+		if 0 < len(stmt.Finally.List) {
+			sv.AddStmt(&stmt.Finally)
+		}
 	case *VarDecl:
 		for _, item := range stmt.List {
 			if item.Default != nil {
@@ -711,61 +730,62 @@ func TestParseScope(t *testing.T) {
 	// const, let, and class declarations are block-scoped
 	// unbound variables are registered at function-scope, not for every block-scope!
 	var tests = []struct {
-		js             string
-		bound, unbound string
+		js                   string
+		bound, uses, unbound string
 	}{
-		{"var a; b;", "a", "b"},
-		{"var {a:b, c=d, ...e};", "b,c,e", "d"},
-		{"var [a, b=c, ...d];", "a,b,d", "c"},
-		{"x={a:b, c=d, ...e};", "", "b,c,d,e,x"},
-		{"x=[a, b=c, ...d];", "", "a,b,c,d,x"},
-		{"yield = 5", "", "yield"},
-		{"await = 5", "", "await"},
-		{"function a(b,c){var d; e = 5; a}", "a/b,c,d", "e"},
-		{"!function a(b,c){var d; e = 5; a}", "/a,b,c,d", "e"},
-		{"function a(b=c){var c}", "a/b,c", "c"},
-		{"class a{b(){}}", "a/", ""}, // classes are not tracked
-		{"!class a{b(){}}", "/", ""},
-		{"a => a%5", "/a", ""},
-		{"a => a%b", "/a", "b"},
-		{"(a) + (a)", "", "a"},
-		{"(a) + (a => a%5)", "/a", "a"},
-		{"(a=b) => {var c; d = 5}", "/a,c", "b,d"},
-		{"(a,b=a) => {}", "/a,b", ""},
-		{"(a=b) => {var b}", "/a,b", "b"},
-		{"({[a+b]:c}) => {}", "/c", "a,b"},
-		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "d,f"},
-		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "c,e"},
-		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a,e"},
-		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d"},
-		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d"},
-		{"(a=(b=>b/a)) => a", "/a/b", ""},
-		{"(a=(b=>b/c)) => a", "/a/b", "c"},
-		{"(a=(function b(){})) => a", "/a/b", ""},
-		{"label: a", "", "a"},
-		{"yield => yield%5", "/yield", ""},
-		{"await => await%5", "/await", ""},
-		{"function*a(){b => yield%5}", "a//b", "yield"},
-		{"async function a(){b => await%5}", "a//b", "await"},
-		{"let a; {let b = a}", "a/b", ""},
-		{"let a; {var b = a}", "a,b/", ""},
-		{"let a; {class b{}}", "a/b", ""},
-		{"a = 5; var a;", "a", ""},
-		{"a = 5; let a;", "a", ""},
-		{"a = 5; {var a}", "a/", ""},
-		{"a = 5; {let a}", "/a", "a"},
-		{"{a = 5} var a", "a/", ""},
-		{"{a = 5} let a", "a/", ""},
-		{"var a; {a = 5}", "a/", ""},
-		{"let a; {a = 5}", "a/", ""},
-		{"{var a} a = 5", "a/", ""},
-		{"{let a} a = 5", "/a", "a"},
-		{"!function(){throw new Error()}", "/", "Error"},
-		{"function(){return a}", "/", "a"},
-		{"function(){return a} var a;", "a/", ""},
-		{"function(){return a} if(5){var a}", "a/", ""},
-		{"try{}catch(a){let b; c}", "//a,b/", "c"},
-		{"try{}catch(a){var b; c}", "b//a/", "c"},
+		{"var a; b;", "a", "b", "b"},
+		{"var {a:b, c=d, ...e};", "b,c,e", "d", "d"},
+		{"var [a, b=c, ...d];", "a,b,d", "c", "c"},
+		{"x={a:b, c=d, ...e};", "", "b,c,d,e,x", "b,c,d,e,x"},
+		{"x=[a, b=c, ...d];", "", "a,b,c,d,x", "a,b,c,d,x"},
+		{"yield = 5", "", "yield", "yield"},
+		{"await = 5", "", "await", "await"},
+		{"function a(b,c){var d; e = 5; a}", "a/b,c,d", "e/a,e", "e"},
+		{"!function a(b,c){var d; e = 5; a}", "/a,b,c,d", "e/e", "e"},
+		{"function a(b=c){var c}", "a/b,c", "c/c", "c"},
+		{"class a{b(){}}", "a/", "/", ""}, // classes are not tracked
+		{"!class a{b(){}}", "/", "/", ""},
+		{"a => a%5", "/a", "/", ""},
+		{"a => a%b", "/a", "b/b", "b"},
+		{"(a) + (a)", "", "a", "a"},
+		{"(a) + (a => a%5)", "/a", "a/", "a"},
+		{"(a=b) => {var c; d = 5}", "/a,c", "b,d/b,d", "b,d"},
+		{"(a,b=a) => {}", "/a,b", "/", ""},
+		{"(a=b) => {var b}", "/a,b", "b/b", "b"},
+		{"({[a+b]:c}) => {}", "/c", "a,b/a,b", "a,b"},
+		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "d,f/d,f", "d,f"},
+		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "c,e/c,e", "c,e"},
+		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a,e/e", "a,e"},
+		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d/d", "a,d"},
+		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d/a,d/d", "a,d"},
+		{"(a=(b=>b/a)) => a", "/a/b", "//a", ""},
+		{"(a=(b=>b/c)) => a", "/a/b", "c/c/c", "c"},
+		{"(a=(function b(){})) => a", "/a/b", "//", ""},
+		{"label: a", "", "a", "a"},
+		{"yield => yield%5", "/yield", "/", ""},
+		{"await => await%5", "/await", "/", ""},
+		{"function*a(){b => yield%5}", "a//b", "yield/yield/yield", "yield"},
+		{"async function a(){b => await%5}", "a//b", "await/await/await", "await"},
+		{"let a; {let b = a}", "a/b", "/a", ""},
+		{"let a; {var b = a}", "a,b/", "/a,b", ""},
+		{"let a; {class b{}}", "a/b", "/", ""},
+		{"a = 5; var a;", "a", "", ""},
+		{"a = 5; let a;", "a", "", ""},
+		{"a = 5; {var a}", "a/", "/a", ""},
+		{"a = 5; {let a}", "/a", "a/", "a"},
+		{"{a = 5} var a", "a/", "/a", ""},
+		{"{a = 5} let a", "a/", "/a", ""},
+		{"var a; {a = 5}", "a/", "/a", ""},
+		{"let a; {a = 5}", "a/", "/a", ""},
+		{"{var a} a = 5", "a/", "/a", ""},
+		{"{let a} a = 5", "/a", "a/", "a"},
+		{"!function(){throw new Error()}", "/", "Error/Error", "Error"},
+		{"function(){return a}", "/", "a/a", "a"},
+		{"function(){return a} var a;", "a/", "/a", ""},
+		{"function(){return a} if(5){var a}", "a//", "/a/a", ""},
+		{"try{}catch(a){let b; c}", "/a,b", "c/c", "c"},
+		{"try{}catch(a){var b; c}", "b/a", "c/b,c", "c"},
+		{"var a;try{}catch(a){var a}", "a/a", "/a", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -779,7 +799,7 @@ func TestParseScope(t *testing.T) {
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
 			}
-			test.String(t, vars.String(), "bound:"+tt.bound+" unbound:"+tt.unbound)
+			test.String(t, vars.String(), "bound:"+tt.bound+" uses:"+tt.uses+" unbound:"+tt.unbound)
 		})
 	}
 }
@@ -809,6 +829,7 @@ func TestParseRef(t *testing.T) {
 		{"a=>{var a}", "a=1"},
 		{"(b,b)=>{}", "b=1"},
 		{"try{}catch(a){var a}", "a=1,a=2"},
+		{"var a;try{}catch(a){a}", "a=1,a=2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
