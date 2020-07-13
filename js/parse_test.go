@@ -554,7 +554,7 @@ func NewScopeVars(ctx *VarCtx, unbounds VarArray) *ScopeVars {
 	unboundsArray := []string{}
 	for _, v := range unbounds {
 		if 0 < v.Uses && v.Decl == NoDecl {
-			unboundsArray = append(unboundsArray, string(v.Data))
+			unboundsArray = append(unboundsArray, string(v.Name))
 		}
 	}
 	sort.Strings(unboundsArray)
@@ -577,14 +577,14 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 
 	bounds := []string{}
 	for _, v := range scope.Declared {
-		bounds = append(bounds, string(v.Data))
+		bounds = append(bounds, string(v.Name))
 	}
 	sort.Strings(bounds)
 	sv.bound += strings.Join(bounds, ",")
 
 	uses := []string{}
 	for _, v := range scope.Undeclared {
-		uses = append(uses, string(v.Data))
+		uses = append(uses, string(v.Name))
 	}
 	sort.Strings(uses)
 	sv.uses += strings.Join(uses, ",")
@@ -844,7 +844,7 @@ func TestParseRef(t *testing.T) {
 					if len(s) != 0 {
 						s += ","
 					}
-					s += fmt.Sprintf("%s=%d", string(v.Data), v.Ref)
+					s += fmt.Sprintf("%s=%d", string(v.Name), v.Ref)
 				}
 			}
 			test.String(t, s, tt.refs)

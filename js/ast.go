@@ -51,14 +51,14 @@ func (decl DeclType) String() string {
 
 // VarRef is an index into VarCtx.vars and is used by the AST to refer to a variable
 // The chain of pointers: VarRef --(idx)--> VarArray --(ptr)--> Var --([]byte)--> data
-type VarRef uint32 // TODO: is VarRef faster than *VarRef
+type VarRef uint32 // *VarRef is faster than VarRef
 
 func (ref *VarRef) Get(c *VarCtx) *Var {
 	return c.vars[*ref]
 }
 
 func (ref *VarRef) String(c *VarCtx) string {
-	return string(c.vars[*ref].Data)
+	return string(c.vars[*ref].Name)
 }
 
 // VarArray is sortable by uses
@@ -98,14 +98,14 @@ type Var struct {
 	Decl DeclType
 
 	IsRenamed bool
-	Data      []byte // TODO: rename to Name
-	OrigData  []byte
+	Name      []byte
+	OrigName  []byte
 }
 
 func (v *Var) String() string {
-	name := string(v.Data)
-	if !bytes.Equal(v.Data, v.OrigData) {
-		name = string(v.OrigData) + "=>" + name
+	name := string(v.Name)
+	if !bytes.Equal(v.Name, v.OrigName) {
+		name = string(v.OrigName) + "=>" + name
 	}
 	return fmt.Sprintf("Var{%v %v %v %v %s}", v.Ref, v.Uses, v.Decl, v.IsRenamed, name)
 }
@@ -171,7 +171,7 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 	var v *Var
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
 		for i, uv := range s.Undeclared[s.argumentsOffset:] {
-			if 0 < uv.Uses && bytes.Equal(uv.Data, name) {
+			if 0 < uv.Uses && bytes.Equal(uv.Name, name) {
 				v = uv
 				s.Undeclared = append(s.Undeclared[:s.argumentsOffset+i], s.Undeclared[s.argumentsOffset+i+1:]...)
 				break
@@ -217,7 +217,7 @@ func (s *Scope) Use(ctx *VarCtx, name []byte) *VarRef {
 // find declared variable in the current scope
 func (s *Scope) findScopeVar(name []byte) *Var {
 	for _, v := range s.Declared {
-		if bytes.Equal(name, v.Data) {
+		if bytes.Equal(name, v.Name) {
 			return v
 		}
 	}
@@ -237,7 +237,7 @@ func (s *Scope) findDeclared(name []byte) (*Var, *Scope) {
 // find undeclared variable in the current and lower scopes
 func (s *Scope) findUndeclared(name []byte) *Var {
 	for _, v := range s.Undeclared {
-		if v.Uses != 0 && bytes.Equal(v.Data, name) {
+		if v.Uses != 0 && bytes.Equal(v.Name, name) {
 			return v
 		}
 	}
@@ -262,7 +262,7 @@ func (s *Scope) HoistUndeclared() {
 func (s *Scope) UndeclareScope(ctx *VarCtx) {
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use as it will still be referenced.
 	for _, vorig := range s.Declared {
-		name := vorig.Data
+		name := vorig.Name
 		if v, _ := s.Parent.findDeclared(name); v != nil {
 			v.Uses++
 			ctx.vars[vorig.Ref] = v

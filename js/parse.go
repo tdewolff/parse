@@ -1250,7 +1250,7 @@ func (p *Parser) parseIdentifierArrowFunc(ref *VarRef) (arrowFunc ArrowFunc) {
 	v := ref.Get(p.ctx)
 	if 1 < v.Uses {
 		v.Uses--
-		ref, _ = p.scope.Declare(p.ctx, ArgumentDecl, v.Data) // cannot fail
+		ref, _ = p.scope.Declare(p.ctx, ArgumentDecl, v.Name) // cannot fail
 	} else {
 		// must be undeclared
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
