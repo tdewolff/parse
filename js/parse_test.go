@@ -92,8 +92,9 @@ func TestParse(t *testing.T) {
 		{"class A { }", "Decl(class A)"},
 		{"class A extends B { }", "Decl(class A extends B)"},
 		{"class { a(b) {} }", "Decl(class Method(a Params(Binding(b)) Stmt({ })))"},
-		{"class { 'a'(b) {} }", "Decl(class Method('a' Params(Binding(b)) Stmt({ })))"},
 		{"class { 5(b) {} }", "Decl(class Method(5 Params(Binding(b)) Stmt({ })))"},
+		{"class { 'a'(b) {} }", "Decl(class Method(a Params(Binding(b)) Stmt({ })))"},
+		{"class { '5'(b) {} }", "Decl(class Method(5 Params(Binding(b)) Stmt({ })))"},
 		{"class { get() {} }", "Decl(class Method(get Params() Stmt({ })))"},
 		{"class { get a() {} }", "Decl(class Method(get a Params() Stmt({ })))"},
 		{"class { set a(b) {} }", "Decl(class Method(set a Params(Binding(b)) Stmt({ })))"},
@@ -171,7 +172,7 @@ func TestParse(t *testing.T) {
 		{"let {name = 5}", "Decl(let Binding({ Binding(name = 5) }))"},
 		{"let {await = 5}", "Decl(let Binding({ Binding(await = 5) }))"},
 		{"let {if: name}", "Decl(let Binding({ if: Binding(name) }))"},
-		{"let {\"string\": name}", "Decl(let Binding({ \"string\": Binding(name) }))"},
+		{"let {\"string\": name}", "Decl(let Binding({ string: Binding(name) }))"},
 		{"let {[a = 5]: name}", "Decl(let Binding({ [a=5]: Binding(name) }))"},
 		{"let {if: name = 5}", "Decl(let Binding({ if: Binding(name = 5) }))"},
 		{"let {if: yield = 5}", "Decl(let Binding({ if: Binding(yield = 5) }))"},
@@ -199,7 +200,7 @@ func TestParse(t *testing.T) {
 		{"x = {yield:5}", "Stmt(x={yield: 5})"},
 		{"x = {async:5}", "Stmt(x={async: 5})"},
 		{"x = {if:5}", "Stmt(x={if: 5})"},
-		{"x = {\"string\":5}", "Stmt(x={\"string\": 5})"},
+		{"x = {\"string\":5}", "Stmt(x={string: 5})"},
 		{"x = {3:5}", "Stmt(x={3: 5})"},
 		{"x = {[3]:5}", "Stmt(x={[3]: 5})"},
 		{"x = {a, if: b, do(){}, ...d}", "Stmt(x={a, if: b, Method(do Params() Stmt({ })), ...d})"},
@@ -656,8 +657,8 @@ func (sv *ScopeVars) AddBinding(ibinding IBinding) {
 		}
 	case *BindingObject:
 		for _, item := range binding.List {
-			if item.Key.Computed {
-				sv.AddExpr(item.Key.Value)
+			if item.Key.IsComputed() {
+				sv.AddExpr(item.Key.Computed)
 			}
 			if item.Value.Binding != nil {
 				sv.AddBinding(item.Value.Binding)

@@ -650,29 +650,31 @@ func (n ExprStmt) stmtNode()     {}
 ////////////////////////////////////////////////////////////////
 
 type PropertyName struct {
-	Value    IExpr // can be nil
-	Computed bool  // if false, then Value is always *LiteralExpr
+	Literal  LiteralExpr
+	Computed IExpr // can be nil
 }
 
-func (n PropertyName) IsIdent(c *VarCtx, data []byte) bool {
-	if n.Computed {
-		return false
-	}
-	if lit := n.Value.(*LiteralExpr); lit.TokenType == IdentifierToken && bytes.Equal(data, lit.Data) {
-		return true
-	}
-	return false
+func (n PropertyName) IsSet() bool {
+	return n.IsComputed() || n.Literal.TokenType != ErrorToken
+}
+
+func (n PropertyName) IsComputed() bool {
+	return n.Computed != nil
+}
+
+func (n PropertyName) IsIdent(data []byte) bool {
+	return !n.IsComputed() && n.Literal.TokenType == IdentifierToken && bytes.Equal(data, n.Literal.Data)
 }
 
 func (n PropertyName) String(c *VarCtx) string {
-	val := n.Value.String(c)
-	if n.Computed {
+	if n.Computed != nil {
+		val := n.Computed.String(c)
 		if val[0] == '(' {
 			return "[" + val[1:len(val)-1] + "]"
 		}
 		return "[" + val + "]"
 	}
-	return val
+	return string(n.Literal.Data)
 }
 
 type BindingArray struct {
@@ -698,7 +700,7 @@ func (n BindingArray) String(c *VarCtx) string {
 }
 
 type BindingObjectItem struct {
-	Key   PropertyName
+	Key   PropertyName // can be unset
 	Value BindingElement
 }
 
@@ -713,8 +715,8 @@ func (n BindingObject) String(c *VarCtx) string {
 		if i != 0 {
 			s += ","
 		}
-		if item.Key.Value != nil {
-			if ref, ok := item.Value.Binding.(*VarRef); item.Key.Computed || !ok || !bytes.Equal(ref.Get(c).Name, item.Key.Value.(*LiteralExpr).Data) {
+		if item.Key.IsSet() {
+			if ref, ok := item.Value.Binding.(*VarRef); !ok || !item.Key.IsIdent(ref.Get(c).Name) {
 				s += " " + item.Key.String(c) + ":"
 			}
 		}
@@ -934,9 +936,9 @@ func (n ArrayExpr) String(c *VarCtx) string {
 }
 
 type Property struct {
-	// either Name.Value or Spread are set. When Spread is set then Value is AssignmentExpression
+	// either Name or Spread are set. When Spread is set then Value is AssignmentExpression
 	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
-	Name   PropertyName
+	Name   PropertyName // can be unset
 	Spread bool
 	Value  IExpr
 	Init   IExpr // can be nil
@@ -944,8 +946,8 @@ type Property struct {
 
 func (n Property) String(c *VarCtx) string {
 	s := ""
-	if n.Name.Value != nil {
-		if ref, ok := n.Value.(*VarRef); n.Name.Computed || !ok || !bytes.Equal(ref.Get(c).Name, n.Name.Value.(*LiteralExpr).Data) {
+	if n.Name.IsSet() {
+		if ref, ok := n.Value.(*VarRef); !ok || !n.Name.IsIdent(ref.Get(c).Name) {
 			s += n.Name.String(c) + ": "
 		}
 	} else if n.Spread {

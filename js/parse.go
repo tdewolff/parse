@@ -853,7 +853,7 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 	}
 
 	if data != nil && p.tt == OpenParenToken {
-		method.Name.Value = &LiteralExpr{IdentifierToken, data}
+		method.Name.Literal = LiteralExpr{IdentifierToken, data}
 		if method.Async || method.Get || method.Set {
 			method.Async = false
 			method.Get = false
@@ -879,24 +879,23 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 
 func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 	if IsIdentifierName(p.tt) {
-		propertyName.Value = &LiteralExpr{IdentifierToken, p.data}
+		propertyName.Literal = LiteralExpr{IdentifierToken, p.data}
 		p.next()
 	} else if p.tt == StringToken {
 		if _, ok := ParseIdentifierName(p.data[1 : len(p.data)-1]); ok {
-			propertyName.Value = &LiteralExpr{IdentifierToken, p.data[1 : len(p.data)-1]}
+			propertyName.Literal = LiteralExpr{IdentifierToken, p.data[1 : len(p.data)-1]}
 		} else if tt, ok := ParseNumericLiteral(p.data[1 : len(p.data)-1]); ok {
-			propertyName.Value = &LiteralExpr{tt, p.data[1 : len(p.data)-1]}
+			propertyName.Literal = LiteralExpr{tt, p.data[1 : len(p.data)-1]}
 		} else {
-			propertyName.Value = &LiteralExpr{p.tt, p.data}
+			propertyName.Literal = LiteralExpr{p.tt, p.data}
 		}
 		p.next()
 	} else if IsNumeric(p.tt) {
-		propertyName.Value = &LiteralExpr{p.tt, p.data}
+		propertyName.Literal = LiteralExpr{p.tt, p.data}
 		p.next()
 	} else if p.tt == OpenBracketToken {
 		p.next()
-		propertyName.Value = p.parseExpression(OpAssign)
-		propertyName.Computed = true
+		propertyName.Computed = p.parseExpression(OpAssign)
 		if p.tt != CloseBracketToken {
 			p.fail(in, CloseBracketToken)
 			return
@@ -993,7 +992,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 			item := BindingObjectItem{}
 			if p.isIdentifierReference(p.tt) {
 				name := p.data
-				item.Key = PropertyName{&LiteralExpr{IdentifierToken, p.data}, false}
+				item.Key = PropertyName{LiteralExpr{IdentifierToken, p.data}, nil}
 				p.next()
 				if p.tt == ColonToken {
 					// property name + : + binding element
@@ -1014,7 +1013,8 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 					}
 				}
 			} else {
-				item.Key = p.parsePropertyName("object binding pattern")
+				propertyName := p.parsePropertyName("object binding pattern")
+				item.Key = propertyName
 				if p.tt != ColonToken {
 					p.fail("object binding pattern", ColonToken)
 					return
@@ -1110,7 +1110,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 						data = nil
 					}
 				} else {
-					method.Name.Value = &LiteralExpr{IdentifierToken, data}
+					method.Name.Literal = LiteralExpr{IdentifierToken, data}
 					data = nil
 				}
 			} else if p.tt == GetToken {
@@ -1125,13 +1125,13 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 
 			// PropertyName
 			if data != nil && !method.Generator && (p.tt == EqToken || p.tt == CommaToken || p.tt == CloseBraceToken || p.tt == ColonToken || p.tt == OpenParenToken) {
-				method.Name.Value = &LiteralExpr{IdentifierToken, data}
+				method.Name.Literal = LiteralExpr{IdentifierToken, data}
 				method.Async = false
 				method.Get = false
 				method.Set = false
-			} else if method.Name.Value == nil {
+			} else if !method.Name.IsSet() { // did not parse async [LT]
 				method.Name = p.parsePropertyName("object literal")
-				if method.Name.Value == nil {
+				if !method.Name.IsSet() {
 					return
 				}
 			}
@@ -1154,13 +1154,13 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				p.next()
 				property.Name = method.Name
 				property.Value = p.parseAssignmentExpression()
-			} else if method.Name.Computed || !p.isIdentifierReference(method.Name.Value.(*LiteralExpr).TokenType) {
+			} else if method.Name.IsComputed() || !p.isIdentifierReference(method.Name.Literal.TokenType) {
 				p.fail("object literal", ColonToken, OpenParenToken)
 				return
 			} else {
 				// IdentifierReference (= AssignmentExpression)?
-				name := parse.Copy(method.Name.Value.(*LiteralExpr).Data) // copy so that renaming doesn't rename the key
-				property.Name = method.Name                               // set key explicitly so after renaming the original is still known
+				name := parse.Copy(method.Name.Literal.Data) // copy so that renaming doesn't rename the key
+				property.Name = method.Name                  // set key explicitly so after renaming the original is still known
 				if p.assumeArrowFunc {
 					property.Value, _ = p.scope.Declare(p.ctx, ArgumentDecl, name) // cannot fail
 				} else {
