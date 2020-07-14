@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"unsafe"
 )
 
-type DeclType int
+type DeclType uint16
 
 const (
 	NoDecl           DeclType = iota // unbound variables
@@ -53,12 +54,12 @@ func (decl DeclType) String() string {
 // The chain of pointers: VarRef --(idx)--> VarArray --(ptr)--> Var --([]byte)--> data
 type VarRef uint32 // *VarRef is faster than VarRef
 
-func (ref *VarRef) Get(c *VarCtx) *Var {
-	return c.vars[*ref]
+func (ref *VarRef) Get(ctx *VarCtx) *Var {
+	return ctx.vars[*ref]
 }
 
-func (ref *VarRef) String(c *VarCtx) string {
-	return string(c.vars[*ref].Name)
+func (ref *VarRef) String(ctx *VarCtx) string {
+	return string(ctx.vars[*ref].Name)
 }
 
 // VarArray is sortable by uses
@@ -82,13 +83,13 @@ func (vs VarArray) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		if item == nil {
-			s += "nil"
-		} else {
-			s += item.String()
-		}
+		s += fmt.Sprintf("%v=>", item) + item.String()
 	}
 	return s + "]"
+}
+
+func init() {
+	fmt.Println("Var:", unsafe.Sizeof(Var{}))
 }
 
 // Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables
@@ -127,6 +128,17 @@ func (ctx *VarCtx) Add(decl DeclType, data []byte) *Var {
 	v := &Var{VarRef(len(ctx.vars)), 0, decl, false, data, data}
 	ctx.vars = append(ctx.vars, v)
 	return v
+}
+
+func (ctx *VarCtx) String() string {
+	s := "["
+	for i, v := range ctx.vars {
+		if i != 0 {
+			s += ", "
+		}
+		s += v.String()
+	}
+	return s + "]"
 }
 
 // Scope is a function or block scope with a list of variables declared and used
@@ -637,44 +649,30 @@ func (n ExprStmt) stmtNode()     {}
 
 ////////////////////////////////////////////////////////////////
 
-// TODO: merge Token and IExpr, others don't have to use *PropertyName in that case
 type PropertyName struct {
-	Literal  LiteralExpr
-	Computed IExpr // can be nil
+	Value    IExpr // can be nil
+	Computed bool  // if false, then Value is always *LiteralExpr
+}
+
+func (n PropertyName) IsIdent(c *VarCtx, data []byte) bool {
+	if n.Computed {
+		return false
+	}
+	if lit := n.Value.(*LiteralExpr); lit.TokenType == IdentifierToken && bytes.Equal(data, lit.Data) {
+		return true
+	}
+	return false
 }
 
 func (n PropertyName) String(c *VarCtx) string {
-	if n.Computed != nil {
-		name := n.Computed.String(c)
-		if name[0] == '(' {
-			return "[" + name[1:len(name)-1] + "]"
+	val := n.Value.String(c)
+	if n.Computed {
+		if val[0] == '(' {
+			return "[" + val[1:len(val)-1] + "]"
 		}
-		return "[" + name + "]"
+		return "[" + val + "]"
 	}
-	return n.Literal.String(c)
-}
-
-type Property struct {
-	// either Key, Init, or Spread are set. When Key or Spread are set then Value is AssignmentExpression
-	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
-	Key    *PropertyName
-	Init   IExpr // can be nil
-	Spread bool
-	Value  IExpr
-}
-
-func (n Property) String(c *VarCtx) string {
-	s := ""
-	if n.Key != nil {
-		s += n.Key.String(c) + ": "
-	} else if n.Spread {
-		s += "..."
-	}
-	s += n.Value.String(c)
-	if n.Init != nil {
-		s += " = " + n.Init.String(c)
-	}
-	return s
+	return val
 }
 
 type BindingArray struct {
@@ -700,7 +698,7 @@ func (n BindingArray) String(c *VarCtx) string {
 }
 
 type BindingObjectItem struct {
-	Key   *PropertyName // can be nil
+	Key   PropertyName
 	Value BindingElement
 }
 
@@ -715,8 +713,10 @@ func (n BindingObject) String(c *VarCtx) string {
 		if i != 0 {
 			s += ","
 		}
-		if item.Key != nil {
-			s += " " + item.Key.String(c) + ":"
+		if item.Key.Value != nil {
+			if ref, ok := item.Value.Binding.(*VarRef); item.Key.Computed || !ok || !bytes.Equal(ref.Get(c).Name, item.Key.Value.(*LiteralExpr).Data) {
+				s += " " + item.Key.String(c) + ":"
+			}
 		}
 		s += " " + item.Value.String(c)
 	}
@@ -931,6 +931,31 @@ func (n ArrayExpr) String(c *VarCtx) string {
 		s += ","
 	}
 	return s + "]"
+}
+
+type Property struct {
+	// either Name.Value or Spread are set. When Spread is set then Value is AssignmentExpression
+	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
+	Name   PropertyName
+	Spread bool
+	Value  IExpr
+	Init   IExpr // can be nil
+}
+
+func (n Property) String(c *VarCtx) string {
+	s := ""
+	if n.Name.Value != nil {
+		if ref, ok := n.Value.(*VarRef); n.Name.Computed || !ok || !bytes.Equal(ref.Get(c).Name, n.Name.Value.(*LiteralExpr).Data) {
+			s += n.Name.String(c) + ": "
+		}
+	} else if n.Spread {
+		s += "..."
+	}
+	s += n.Value.String(c)
+	if n.Init != nil {
+		s += " = " + n.Init.String(c)
+	}
+	return s
 }
 
 type ObjectExpr struct {

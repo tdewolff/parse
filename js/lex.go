@@ -197,14 +197,17 @@ func IsOperator(tt TokenType) bool {
 	return tt&0x0400 != 0
 }
 
+// IsIdentifierName matches IdentifierName, i.e. any identifier
 func IsIdentifierName(tt TokenType) bool {
 	return tt&0x1800 != 0
 }
 
+// IsReservedWord matches ReservedWord
 func IsReservedWord(tt TokenType) bool {
 	return tt&0x0800 != 0
 }
 
+// IsIdentifier matches Identifier, i.e. IdentifierName but not ReservedWord. Does not match yield or await.
 func IsIdentifier(tt TokenType) bool {
 	return tt&0x1000 != 0
 }

@@ -94,11 +94,13 @@ func TestParse(t *testing.T) {
 		{"class { a(b) {} }", "Decl(class Method(a Params(Binding(b)) Stmt({ })))"},
 		{"class { 'a'(b) {} }", "Decl(class Method('a' Params(Binding(b)) Stmt({ })))"},
 		{"class { 5(b) {} }", "Decl(class Method(5 Params(Binding(b)) Stmt({ })))"},
+		{"class { get() {} }", "Decl(class Method(get Params() Stmt({ })))"},
 		{"class { get a() {} }", "Decl(class Method(get a Params() Stmt({ })))"},
 		{"class { set a(b) {} }", "Decl(class Method(set a Params(Binding(b)) Stmt({ })))"},
 		{"class { * a(b) {} }", "Decl(class Method(* a Params(Binding(b)) Stmt({ })))"},
 		{"class { async a(b) {} }", "Decl(class Method(async a Params(Binding(b)) Stmt({ })))"},
 		{"class { async * a(b) {} }", "Decl(class Method(async * a Params(Binding(b)) Stmt({ })))"},
+		{"class { static() {} }", "Decl(class Method(static Params() Stmt({ })))"},
 		{"class { static a(b) {} }", "Decl(class Method(static a Params(Binding(b)) Stmt({ })))"},
 		{"class { [5](b) {} }", "Decl(class Method([5] Params(Binding(b)) Stmt({ })))"},
 		{"`tmpl`", "Stmt(`tmpl`)"},
@@ -654,8 +656,8 @@ func (sv *ScopeVars) AddBinding(ibinding IBinding) {
 		}
 	case *BindingObject:
 		for _, item := range binding.List {
-			if item.Key != nil && item.Key.Computed != nil {
-				sv.AddExpr(item.Key.Computed)
+			if item.Key.Computed {
+				sv.AddExpr(item.Key.Value)
 			}
 			if item.Value.Binding != nil {
 				sv.AddBinding(item.Value.Binding)
