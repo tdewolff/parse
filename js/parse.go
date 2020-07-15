@@ -8,10 +8,6 @@ import (
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
-var (
-	starBytes = []byte("*")
-)
-
 // Parser is the state for the parser.
 type Parser struct {
 	l   *Lexer
@@ -137,7 +133,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 }
 
 func (p *Parser) exitScope(parent *Scope) {
-	p.scope.HoistUndeclared()
+	p.scope.HoistUndeclared(p.ast)
 	p.scope = parent
 }
 
@@ -489,6 +485,7 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 			}
 		}
 		if p.tt == MulToken {
+			star := p.data
 			p.next()
 			if p.tt != AsToken {
 				p.fail("import statement", AsToken)
@@ -499,7 +496,7 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 				p.fail("import statement", IdentifierToken)
 				return
 			}
-			importStmt.List = []Alias{Alias{starBytes, p.data}}
+			importStmt.List = []Alias{Alias{star, p.data}}
 			p.next()
 		} else if p.tt == OpenBraceToken {
 			p.next()
@@ -559,6 +556,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	p.next()
 	if p.tt == MulToken || p.tt == OpenBraceToken {
 		if p.tt == MulToken {
+			star := p.data
 			p.next()
 			if p.tt == AsToken {
 				p.next()
@@ -566,10 +564,10 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 					p.fail("export statement", IdentifierToken)
 					return
 				}
-				exportStmt.List = []Alias{Alias{starBytes, p.data}}
+				exportStmt.List = []Alias{Alias{star, p.data}}
 				p.next()
 			} else {
-				exportStmt.List = []Alias{Alias{nil, starBytes}}
+				exportStmt.List = []Alias{Alias{nil, star}}
 			}
 			if p.tt != FromToken {
 				p.fail("export statement", FromToken)
@@ -708,8 +706,8 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 	}
 	p.next()
 
-	// hoist undeclared vars in arguments as in `function f(a=b){var b}` where the b's are different vars
-	p.scope.MarkUndeclaredAsArguments()
+	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
+	p.scope.MarkArguments()
 	return
 }
 
@@ -1288,8 +1286,8 @@ func (p *Parser) parseArrowFuncBody() (body BlockStmt) {
 		return
 	}
 
-	// hoist undeclared vars in arguments as in `function f(a=b){var b}` where the b's are different vars
-	p.scope.MarkUndeclaredAsArguments()
+	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
+	p.scope.MarkArguments()
 
 	p.next()
 	if p.tt == OpenBraceToken {

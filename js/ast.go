@@ -221,44 +221,50 @@ func (s *Scope) findDeclared(name []byte) (*Var, *Scope) {
 // find undeclared variable in the current and lower scopes
 func (s *Scope) findUndeclared(name []byte) *Var {
 	for _, v := range s.Undeclared {
-		if v.Uses != 0 && bytes.Equal(name, v.Name) {
+		if 0 < v.Uses && bytes.Equal(name, v.Name) {
 			return v
 		}
 	}
 	return nil
 }
 
-func (s *Scope) MarkUndeclaredAsArguments() {
+func (s *Scope) MarkArguments() {
 	// set the offset for variables used for arguments, to ensure different b's for: function f(a=b){var b}
 	s.argumentsOffset = len(s.Undeclared)
 }
 
-func (s *Scope) HoistUndeclared() {
+func (s *Scope) HoistUndeclared(ast *AST) {
 	// copy all undeclared variables to the parent scope
-	// TODO: don't add duplicate entries? or remove at the end?
-	for _, v := range s.Undeclared {
-		if 0 < v.Uses && v.Decl == NoDecl {
-			s.Parent.Undeclared = append(s.Parent.Undeclared, v)
+	for _, vorig := range s.Undeclared {
+		if 0 < vorig.Uses && vorig.Decl == NoDecl {
+			if v := s.Parent.findUndeclared(vorig.Name); v != nil {
+				// check if variable is already used before in the current or lower scopes
+				v.Uses++
+				ast.Vars[vorig.Ref] = v // point reference to existing var
+			} else {
+				// add variable to the context list and to the scope's undeclared
+				s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
+			}
 		}
 	}
 }
 
 func (s *Scope) UndeclareScope(ast *AST) {
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
+	// TODO; remove new vars, pass difference to this function?
 	for _, vorig := range s.Declared {
 		if v, _ := s.Parent.findDeclared(vorig.Name); v != nil {
+			// check if variable has been declared in this scope
 			v.Uses++
-			ast.Vars[vorig.Ref] = v
-			break // TODO why?
-		} else if v = s.Parent.findUndeclared(vorig.Name); v != nil {
+			ast.Vars[vorig.Ref] = v // point reference to existing var
+		} else if v := s.Parent.findUndeclared(vorig.Name); v != nil {
 			// check if variable is already used before in the current or lower scopes
 			v.Uses++
-			ast.Vars[vorig.Ref] = v
-			break
+			ast.Vars[vorig.Ref] = v // point reference to existing var
 		} else {
 			// add variable to the context list and to the scope's undeclared
 			vorig.Decl = NoDecl
-			s.Parent.Undeclared = append(s.Undeclared, vorig)
+			s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
 		}
 	}
 }

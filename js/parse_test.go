@@ -745,6 +745,8 @@ func TestParseScope(t *testing.T) {
 		{"a => a%5", "/a", "/", ""},
 		{"a => a%b", "/a", "b/b", "b"},
 		{"(a) + (a)", "", "a", "a"},
+		{"(a,b)", "", "a,b", "a,b"},
+		{"(a,b) + (a,b)", "", "a,b", "a,b"},
 		{"(a) + (a => a%5)", "/a", "a/", "a"},
 		{"(a=b) => {var c; d = 5}", "/a,c", "b,d/b,d", "b,d"},
 		{"(a,b=a) => {}", "/a,b", "/", ""},
@@ -809,6 +811,7 @@ func TestParseRef(t *testing.T) {
 		{"a; a", "a=1"},
 		{"var a; {var a}", "a=1"},
 		{"var a; {let a}", "a=1,a=2"},
+		{"{a} {a} var a", "a=1,a=1"}, // second block must add a new var in case the block contains a var decl
 		{"function a(b,c=b){}", "a=1,b=2,c=3"},
 		{"function a(b=c,c){}", "a=1,b=2,c=3,c=4"},
 		{"function a(b=c){var c}", "a=1,b=2,c=3,c=4"},
@@ -820,6 +823,7 @@ func TestParseRef(t *testing.T) {
 		{"a=function(b){var b}", "a=1,b=2"},
 		{"a=function(b,b){}", "a=1,b=2"},
 		{"(a) + (a)", "a=1"},
+		{"(a),(a)", "a=1,a=1"}, // second parens could have been arrow function, so must have added new var
 		{"(b,c=b)=>{}", "b=1,c=2"},
 		{"(b=c,c)=>{}", "b=1,c=2,c=3"},
 		{"(b=c)=>{var c}", "b=1,c=2,c=3"},
@@ -827,6 +831,7 @@ func TestParseRef(t *testing.T) {
 		{"(b,b)=>{}", "b=1"},
 		{"try{}catch(a){var a}", "a=1,a=2"},
 		{"var a;try{}catch(a){a}", "a=1,a=2"},
+		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
