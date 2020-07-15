@@ -32,10 +32,10 @@ type Parser struct {
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (AST, error) {
 	p := &Parser{
-		l:  NewLexer(r),
-		tt: WhitespaceToken, // trick so that next() works
+		l:   NewLexer(r),
+		tt:  WhitespaceToken, // trick so that next() works
+		ctx: NewVarCtx(),
 	}
-	p.ctx = NewVarCtx(p.l.r.Bytes())
 
 	p.next()
 	ast := p.parseModule()
@@ -758,7 +758,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 	p.async, p.generator = funcDecl.Async, funcDecl.Generator
 
 	if inExpr && name != nil {
-		funcDecl.Name, ok = p.scope.Declare(p.ctx, FuncExprNameDecl, name)
+		funcDecl.Name, ok = p.scope.Declare(p.ctx, ExprDecl, name)
 		if !ok {
 			p.failMessage("identifier '%s' has already been declared", string(name))
 			return
@@ -792,7 +792,8 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 				return
 			}
 		} else {
-			v := p.ctx.Add(LexicalDecl, p.data)
+			//classDecl.Name, ok = p.scope.Declare(p.ctx, ExprDecl, p.data) // classes do not register vars
+			v := p.ctx.Add(ExprDecl, p.data)
 			classDecl.Name = &v.Ref
 		}
 		p.next()

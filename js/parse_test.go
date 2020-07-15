@@ -812,27 +812,27 @@ func TestParseRef(t *testing.T) {
 		js   string
 		refs string
 	}{
-		{"a; a", "a=1"},
-		{"var a; {var a}", "a=1"},
-		{"var a; {let a}", "a=1,a=2"},
-		{"function a(b,c=b){}", "a=1,b=2,c=3"},
-		{"function a(b=c,c){}", "a=1,b=2,c=3,c=4"},
-		{"function a(b=c){var c}", "a=1,b=2,c=3,c=4"},
-		{"function a(b){var b}", "a=1,b=2"},
-		{"function a(b,b){}", "a=1,b=2"},
-		{"a=function(b,c=b){}", "a=1,b=2,c=3"},
-		{"a=function(b=c,c){}", "a=1,b=2,c=3,c=4"},
-		{"a=function(b=c){var c}", "a=1,b=2,c=3,c=4"},
-		{"a=function(b){var b}", "a=1,b=2"},
-		{"a=function(b,b){}", "a=1,b=2"},
-		{"(a) + (a)", "a=1"},
-		{"(b,c=b)=>{}", "b=1,c=2"},
-		{"(b=c,c)=>{}", "b=1,c=2,c=3"},
-		{"(b=c)=>{var c}", "b=1,c=2,c=3"},
-		{"a=>{var a}", "a=1"},
-		{"(b,b)=>{}", "b=1"},
-		{"try{}catch(a){var a}", "a=1,a=2"},
-		{"var a;try{}catch(a){a}", "a=1,a=2"},
+		{"a; a", "a=0"},
+		{"var a; {var a}", "a=0"},
+		{"var a; {let a}", "a=0,a=1"},
+		{"function a(b,c=b){}", "a=0,b=1,c=2"},
+		{"function a(b=c,c){}", "a=0,b=1,c=2,c=3"},
+		{"function a(b=c){var c}", "a=0,b=1,c=2,c=3"},
+		{"function a(b){var b}", "a=0,b=1"},
+		{"function a(b,b){}", "a=0,b=1"},
+		{"a=function(b,c=b){}", "a=0,b=1,c=2"},
+		{"a=function(b=c,c){}", "a=0,b=1,c=2,c=3"},
+		{"a=function(b=c){var c}", "a=0,b=1,c=2,c=3"},
+		{"a=function(b){var b}", "a=0,b=1"},
+		{"a=function(b,b){}", "a=0,b=1"},
+		{"(a) + (a)", "a=0"},
+		{"(b,c=b)=>{}", "b=0,c=1"},
+		{"(b=c,c)=>{}", "b=0,c=1,c=2"},
+		{"(b=c)=>{var c}", "b=0,c=1,c=2"},
+		{"a=>{var a}", "a=0"},
+		{"(b,b)=>{}", "b=0"},
+		{"try{}catch(a){var a}", "a=0,a=1"},
+		{"var a;try{}catch(a){a}", "a=0,a=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -842,7 +842,7 @@ func TestParseRef(t *testing.T) {
 			}
 
 			s := ""
-			for _, v := range ast.Ctx.vars[1:] {
+			for _, v := range ast.Ctx.Vars {
 				if 0 < v.Uses {
 					if len(s) != 0 {
 						s += ","

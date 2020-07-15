@@ -4,62 +4,72 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"unsafe"
 )
 
 type DeclType uint16
 
 const (
-	NoDecl           DeclType = iota // unbound variables
-	ArgumentNoDecl                   // unbound variable used in argument so that f(a=b){var b} refers to different b's
-	VariableDecl                     // var and function
-	LexicalDecl                      // let, const, class
-	ArgumentDecl                     // function arguments and catch statement argument
-	FuncExprNameDecl                 // function expression name
+	NoDecl       DeclType = iota // undeclared variables
+	VariableDecl                 // var and function
+	LexicalDecl                  // let, const, class
+	ArgumentDecl                 // function, method, and catch statement arguments
+	ExprDecl                     // function expression name or class expression name
 )
 
 func (decl DeclType) String() string {
 	switch decl {
 	case NoDecl:
 		return "NoDecl"
-	case ArgumentNoDecl:
-		return "ArgumentNoDecl"
 	case VariableDecl:
-		return "Variable"
+		return "VariableDecl"
 	case LexicalDecl:
-		return "Lexical"
+		return "LexicalDecl"
 	case ArgumentDecl:
-		return "Argument"
-	case FuncExprNameDecl:
-		return "FuncExprName"
+		return "ArgumentDecl"
+	case ExprDecl:
+		return "ExprDecl"
 	}
 	return "Invalid(" + strconv.Itoa(int(decl)) + ")"
 }
 
-// TODO: use
-//length uint16
-//offset uint32
-//
-//end := v.offset + uint32(v.length)
-//return c.src[v.offset:end:end]
-//
-//offset := uintptr(unsafe.Pointer(&data[0])) - uintptr(unsafe.Pointer(&c.src[0]))
-//if math.MaxUint32 < uint64(offset) || math.MaxUint16 < len(data) || math.MaxUint32 == len(c.list) {
-//	// TODO: or make uints bigger
-//	panic("variable name too long")
-//}
-//uint16(len(data)), uint32(offset)
-
-// VarRef is an index into VarCtx.vars and is used by the AST to refer to a variable
-// The chain of pointers: VarRef --(idx)--> VarArray --(ptr)--> Var --([]byte)--> data
-type VarRef uint32 // *VarRef is faster than VarRef
-
-func (ref *VarRef) Get(ctx *VarCtx) *Var {
-	return ctx.vars[*ref]
+// VarCtx holds the context needed for variable identifiers. It holds a list of all variables to which VarRef is indexing.
+type VarCtx struct {
+	Vars VarArray
 }
 
-func (ref *VarRef) String(ctx *VarCtx) string {
-	return string(ctx.vars[*ref].Name)
+func NewVarCtx() *VarCtx {
+	return &VarCtx{
+		Vars: VarArray{},
+	}
+}
+
+func (ctx *VarCtx) Add(decl DeclType, data []byte) *Var {
+	v := &Var{VarRef(len(ctx.Vars)), 0, decl, data}
+	ctx.Vars = append(ctx.Vars, v)
+	return v
+}
+
+func (ctx *VarCtx) String() string {
+	s := "["
+	for i, v := range ctx.Vars {
+		if i != 0 {
+			s += ", "
+		}
+		s += v.String()
+	}
+	return s + "]"
+}
+
+// VarRef is an index into VarCtx.Vars and is used by the AST to refer to a variable
+// The chain of pointers: *VarRef --(ptr)--> VarRef(in Var) --(Vars[idx])--> *Var --(ptr)--> Var
+type VarRef uint32 // *VarRef is faster than VarRef and refers to the VarRef stored in Var
+
+func (ref VarRef) Get(ctx *VarCtx) *Var {
+	return ctx.Vars[ref]
+}
+
+func (ref VarRef) String(ctx *VarCtx) string {
+	return string(ctx.Vars[ref].Name)
 }
 
 // VarArray is sortable by uses
@@ -88,64 +98,23 @@ func (vs VarArray) String() string {
 	return s + "]"
 }
 
-func init() {
-	fmt.Println("Var:", unsafe.Sizeof(Var{}))
-}
-
 // Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables
 type Var struct {
 	Ref  VarRef
-	Uses uint32
+	Uses uint16
 	Decl DeclType
-
-	IsRenamed bool
-	Name      []byte
-	OrigName  []byte
+	Name []byte
 }
 
 func (v *Var) String() string {
-	name := string(v.Name)
-	if !bytes.Equal(v.Name, v.OrigName) {
-		name = string(v.OrigName) + "=>" + name
-	}
-	return fmt.Sprintf("Var{%v %v %v %v %s}", v.Ref, v.Uses, v.Decl, v.IsRenamed, name)
-}
-
-// VarCtx holds the context needed for variable identifiers. It holds a list of all variables to which VarRef is indexing.
-type VarCtx struct {
-	src  []byte
-	vars VarArray
-}
-
-func NewVarCtx(src []byte) *VarCtx {
-	return &VarCtx{
-		src:  src,
-		vars: VarArray{nil},
-	}
-}
-
-func (ctx *VarCtx) Add(decl DeclType, data []byte) *Var {
-	v := &Var{VarRef(len(ctx.vars)), 0, decl, false, data, data}
-	ctx.vars = append(ctx.vars, v)
-	return v
-}
-
-func (ctx *VarCtx) String() string {
-	s := "["
-	for i, v := range ctx.vars {
-		if i != 0 {
-			s += ", "
-		}
-		s += v.String()
-	}
-	return s + "]"
+	return fmt.Sprintf("Var{%v %v %v %s}", v.Ref, v.Uses, v.Decl, string(v.Name))
 }
 
 // Scope is a function or block scope with a list of variables declared and used
-// TODO: handle with statement and eval function calls in scope
+// TODO: handle with statement and eval function calls in scope?
 type Scope struct {
 	Parent, Func    *Scope
-	Declared        VarArray // TODO: merge with others?
+	Declared        VarArray
 	Undeclared      VarArray
 	argumentsOffset int
 }
@@ -166,11 +135,11 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 
 	if v := s.findScopeVar(name); v != nil {
 		// variable already declared, might be an error or a duplicate declaration
-		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != FuncExprNameDecl {
+		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != ExprDecl {
 			// redeclaration of let, const, class on an already declared name is an error, except if the declared name is a function expression name
 			return nil, false
 		}
-		if v.Decl == FuncExprNameDecl {
+		if v.Decl == ExprDecl {
 			v.Decl = decl
 		}
 		v.Uses++
@@ -187,9 +156,6 @@ func (s *Scope) Declare(ctx *VarCtx, decl DeclType, name []byte) (*VarRef, bool)
 				v = uv
 				s.Undeclared = append(s.Undeclared[:s.argumentsOffset+i], s.Undeclared[s.argumentsOffset+i+1:]...)
 				break
-				//v.Uses += uv.Uses
-				//uv.Uses = 0          // remove from undeclared
-				//ctx.vars[uv.Ref] = v // point undeclared variable reference to the new declared variable
 			}
 		}
 	}
@@ -257,6 +223,7 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 }
 
 func (s *Scope) MarkUndeclaredAsArguments() {
+	// set the offset for variables used for arguments, to ensure different b's for: function f(a=b){var b}
 	s.argumentsOffset = len(s.Undeclared)
 }
 
@@ -268,21 +235,20 @@ func (s *Scope) HoistUndeclared() {
 			s.Parent.Undeclared = append(s.Parent.Undeclared, v)
 		}
 	}
-	//s.Undeclared = s.Undeclared[:0]
 }
 
 func (s *Scope) UndeclareScope(ctx *VarCtx) {
-	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use as it will still be referenced.
+	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
 	for _, vorig := range s.Declared {
 		name := vorig.Name
 		if v, _ := s.Parent.findDeclared(name); v != nil {
 			v.Uses++
-			ctx.vars[vorig.Ref] = v
+			ctx.Vars[vorig.Ref] = v
 			break
 		} else if v = s.Parent.findUndeclared(name); v != nil {
 			// check if variable is already used before in the current or lower scopes
 			v.Uses++
-			ctx.vars[vorig.Ref] = v
+			ctx.Vars[vorig.Ref] = v
 			break
 		} else {
 			// add variable to the context list and to the scope's undeclared
@@ -333,10 +299,10 @@ type BlockStmt struct {
 	Scope
 }
 
-func (n BlockStmt) String(c *VarCtx) string {
+func (n BlockStmt) String(ctx *VarCtx) string {
 	s := "Stmt({"
 	for _, item := range n.List {
-		s += " " + item.String(c)
+		s += " " + item.String(ctx)
 	}
 	return s + " })"
 }
@@ -346,7 +312,7 @@ type BranchStmt struct {
 	Label []byte // can be nil
 }
 
-func (n BranchStmt) String(c *VarCtx) string {
+func (n BranchStmt) String(ctx *VarCtx) string {
 	s := "Stmt(" + n.Type.String()
 	if n.Label != nil {
 		s += " " + string(n.Label)
@@ -359,18 +325,18 @@ type LabelledStmt struct {
 	Value IStmt
 }
 
-func (n LabelledStmt) String(c *VarCtx) string {
-	return "Stmt(" + string(n.Label) + " : " + n.Value.String(c) + ")"
+func (n LabelledStmt) String(ctx *VarCtx) string {
+	return "Stmt(" + string(n.Label) + " : " + n.Value.String(ctx) + ")"
 }
 
 type ReturnStmt struct {
 	Value IExpr // can be nil
 }
 
-func (n ReturnStmt) String(c *VarCtx) string {
+func (n ReturnStmt) String(ctx *VarCtx) string {
 	s := "Stmt(return"
 	if n.Value != nil {
-		s += " " + n.Value.String(c)
+		s += " " + n.Value.String(ctx)
 	}
 	return s + ")"
 }
@@ -381,10 +347,10 @@ type IfStmt struct {
 	Else IStmt // can be nil
 }
 
-func (n IfStmt) String(c *VarCtx) string {
-	s := "Stmt(if " + n.Cond.String(c) + " " + n.Body.String(c)
+func (n IfStmt) String(ctx *VarCtx) string {
+	s := "Stmt(if " + n.Cond.String(ctx) + " " + n.Body.String(ctx)
 	if n.Else != nil {
-		s += " else " + n.Else.String(c)
+		s += " else " + n.Else.String(ctx)
 	}
 	return s + ")"
 }
@@ -394,8 +360,8 @@ type WithStmt struct {
 	Body IStmt
 }
 
-func (n WithStmt) String(c *VarCtx) string {
-	return "Stmt(with " + n.Cond.String(c) + " " + n.Body.String(c) + ")"
+func (n WithStmt) String(ctx *VarCtx) string {
+	return "Stmt(with " + n.Cond.String(ctx) + " " + n.Body.String(ctx) + ")"
 }
 
 type DoWhileStmt struct {
@@ -403,8 +369,8 @@ type DoWhileStmt struct {
 	Body IStmt
 }
 
-func (n DoWhileStmt) String(c *VarCtx) string {
-	return "Stmt(do " + n.Body.String(c) + " while " + n.Cond.String(c) + ")"
+func (n DoWhileStmt) String(ctx *VarCtx) string {
+	return "Stmt(do " + n.Body.String(ctx) + " while " + n.Cond.String(ctx) + ")"
 }
 
 type WhileStmt struct {
@@ -412,8 +378,8 @@ type WhileStmt struct {
 	Body IStmt
 }
 
-func (n WhileStmt) String(c *VarCtx) string {
-	return "Stmt(while " + n.Cond.String(c) + " " + n.Body.String(c) + ")"
+func (n WhileStmt) String(ctx *VarCtx) string {
+	return "Stmt(while " + n.Cond.String(ctx) + " " + n.Body.String(ctx) + ")"
 }
 
 type ForStmt struct {
@@ -423,20 +389,20 @@ type ForStmt struct {
 	Body IStmt
 }
 
-func (n ForStmt) String(c *VarCtx) string {
+func (n ForStmt) String(ctx *VarCtx) string {
 	s := "Stmt(for"
 	if n.Init != nil {
-		s += " " + n.Init.String(c)
+		s += " " + n.Init.String(ctx)
 	}
 	s += " ;"
 	if n.Cond != nil {
-		s += " " + n.Cond.String(c)
+		s += " " + n.Cond.String(ctx)
 	}
 	s += " ;"
 	if n.Post != nil {
-		s += " " + n.Post.String(c)
+		s += " " + n.Post.String(ctx)
 	}
-	return s + " " + n.Body.String(c) + ")"
+	return s + " " + n.Body.String(ctx) + ")"
 }
 
 type ForInStmt struct {
@@ -445,8 +411,8 @@ type ForInStmt struct {
 	Body  IStmt
 }
 
-func (n ForInStmt) String(c *VarCtx) string {
-	return "Stmt(for " + n.Init.String(c) + " in " + n.Value.String(c) + " " + n.Body.String(c) + ")"
+func (n ForInStmt) String(ctx *VarCtx) string {
+	return "Stmt(for " + n.Init.String(ctx) + " in " + n.Value.String(ctx) + " " + n.Body.String(ctx) + ")"
 }
 
 type ForOfStmt struct {
@@ -456,12 +422,12 @@ type ForOfStmt struct {
 	Body  IStmt
 }
 
-func (n ForOfStmt) String(c *VarCtx) string {
+func (n ForOfStmt) String(ctx *VarCtx) string {
 	s := "Stmt(for"
 	if n.Await {
 		s += " await"
 	}
-	return s + " " + n.Init.String(c) + " of " + n.Value.String(c) + " " + n.Body.String(c) + ")"
+	return s + " " + n.Init.String(ctx) + " of " + n.Value.String(ctx) + " " + n.Body.String(ctx) + ")"
 }
 
 type CaseClause struct {
@@ -475,15 +441,15 @@ type SwitchStmt struct {
 	List []CaseClause
 }
 
-func (n SwitchStmt) String(c *VarCtx) string {
-	s := "Stmt(switch " + n.Init.String(c)
+func (n SwitchStmt) String(ctx *VarCtx) string {
+	s := "Stmt(switch " + n.Init.String(ctx)
 	for _, clause := range n.List {
 		s += " Clause(" + clause.TokenType.String()
 		if clause.Cond != nil {
-			s += " " + clause.Cond.String(c)
+			s += " " + clause.Cond.String(ctx)
 		}
 		for _, item := range clause.List {
-			s += " " + item.String(c)
+			s += " " + item.String(ctx)
 		}
 		s += ")"
 	}
@@ -494,8 +460,8 @@ type ThrowStmt struct {
 	Value IExpr
 }
 
-func (n ThrowStmt) String(c *VarCtx) string {
-	return "Stmt(throw " + n.Value.String(c) + ")"
+func (n ThrowStmt) String(ctx *VarCtx) string {
+	return "Stmt(throw " + n.Value.String(ctx) + ")"
 }
 
 type TryStmt struct {
@@ -505,17 +471,17 @@ type TryStmt struct {
 	Finally BlockStmt
 }
 
-func (n TryStmt) String(c *VarCtx) string {
-	s := "Stmt(try " + n.Body.String(c)
+func (n TryStmt) String(ctx *VarCtx) string {
+	s := "Stmt(try " + n.Body.String(ctx)
 	if len(n.Catch.List) != 0 || n.Binding != nil {
 		s += " catch"
 		if n.Binding != nil {
-			s += " Binding(" + n.Binding.String(c) + ")"
+			s += " Binding(" + n.Binding.String(ctx) + ")"
 		}
-		s += " " + n.Catch.String(c)
+		s += " " + n.Catch.String(ctx)
 	}
 	if len(n.Finally.List) != 0 {
-		s += " finally " + n.Finally.String(c)
+		s += " finally " + n.Finally.String(ctx)
 	}
 	return s + ")"
 }
@@ -523,14 +489,14 @@ func (n TryStmt) String(c *VarCtx) string {
 type DebuggerStmt struct {
 }
 
-func (n DebuggerStmt) String(c *VarCtx) string {
+func (n DebuggerStmt) String(ctx *VarCtx) string {
 	return "Stmt(debugger)"
 }
 
 type EmptyStmt struct {
 }
 
-func (n EmptyStmt) String(c *VarCtx) string {
+func (n EmptyStmt) String(ctx *VarCtx) string {
 	return "Stmt(;)"
 }
 
@@ -539,7 +505,7 @@ type Alias struct {
 	Binding []byte // can be nil
 }
 
-func (alias Alias) String(c *VarCtx) string {
+func (alias Alias) String(ctx *VarCtx) string {
 	s := ""
 	if alias.Name != nil {
 		s += string(alias.Name) + " as "
@@ -553,7 +519,7 @@ type ImportStmt struct {
 	Module  []byte
 }
 
-func (n ImportStmt) String(c *VarCtx) string {
+func (n ImportStmt) String(ctx *VarCtx) string {
 	s := "Stmt(import"
 	if n.Default != nil {
 		s += " " + string(n.Default)
@@ -562,7 +528,7 @@ func (n ImportStmt) String(c *VarCtx) string {
 		}
 	}
 	if len(n.List) == 1 {
-		s += " " + n.List[0].String(c)
+		s += " " + n.List[0].String(ctx)
 	} else if 1 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
@@ -570,7 +536,7 @@ func (n ImportStmt) String(c *VarCtx) string {
 				s += " ,"
 			}
 			if item.Binding != nil {
-				s += " " + item.String(c)
+				s += " " + item.String(ctx)
 			}
 		}
 		s += " }"
@@ -588,15 +554,15 @@ type ExportStmt struct {
 	Decl    IExpr
 }
 
-func (n ExportStmt) String(c *VarCtx) string {
+func (n ExportStmt) String(ctx *VarCtx) string {
 	s := "Stmt(export"
 	if n.Decl != nil {
 		if n.Default {
 			s += " default"
 		}
-		return s + " " + n.Decl.String(c) + ")"
+		return s + " " + n.Decl.String(ctx) + ")"
 	} else if len(n.List) == 1 {
-		s += " " + n.List[0].String(c)
+		s += " " + n.List[0].String(ctx)
 	} else if 1 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
@@ -604,7 +570,7 @@ func (n ExportStmt) String(c *VarCtx) string {
 				s += " ,"
 			}
 			if item.Binding != nil {
-				s += " " + item.String(c)
+				s += " " + item.String(ctx)
 			}
 		}
 		s += " }"
@@ -619,12 +585,12 @@ type ExprStmt struct {
 	Value IExpr
 }
 
-func (n ExprStmt) String(c *VarCtx) string {
-	val := n.Value.String(c)
+func (n ExprStmt) String(ctx *VarCtx) string {
+	val := n.Value.String(ctx)
 	if val[0] == '(' && val[len(val)-1] == ')' {
-		return "Stmt" + n.Value.String(c)
+		return "Stmt" + n.Value.String(ctx)
 	}
-	return "Stmt(" + n.Value.String(c) + ")"
+	return "Stmt(" + n.Value.String(ctx) + ")"
 }
 
 func (n BlockStmt) stmtNode()    {}
@@ -666,9 +632,9 @@ func (n PropertyName) IsIdent(data []byte) bool {
 	return !n.IsComputed() && n.Literal.TokenType == IdentifierToken && bytes.Equal(data, n.Literal.Data)
 }
 
-func (n PropertyName) String(c *VarCtx) string {
+func (n PropertyName) String(ctx *VarCtx) string {
 	if n.Computed != nil {
-		val := n.Computed.String(c)
+		val := n.Computed.String(ctx)
 		if val[0] == '(' {
 			return "[" + val[1:len(val)-1] + "]"
 		}
@@ -682,19 +648,19 @@ type BindingArray struct {
 	Rest IBinding // can be nil
 }
 
-func (n BindingArray) String(c *VarCtx) string {
+func (n BindingArray) String(ctx *VarCtx) string {
 	s := "["
 	for i, item := range n.List {
 		if i != 0 {
 			s += ","
 		}
-		s += " " + item.String(c)
+		s += " " + item.String(ctx)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ","
 		}
-		s += " ...Binding(" + n.Rest.String(c) + ")"
+		s += " ...Binding(" + n.Rest.String(ctx) + ")"
 	}
 	return s + " ]"
 }
@@ -709,24 +675,24 @@ type BindingObject struct {
 	Rest *VarRef // can be nil
 }
 
-func (n BindingObject) String(c *VarCtx) string {
+func (n BindingObject) String(ctx *VarCtx) string {
 	s := "{"
 	for i, item := range n.List {
 		if i != 0 {
 			s += ","
 		}
 		if item.Key.IsSet() {
-			if ref, ok := item.Value.Binding.(*VarRef); !ok || !item.Key.IsIdent(ref.Get(c).Name) {
-				s += " " + item.Key.String(c) + ":"
+			if ref, ok := item.Value.Binding.(*VarRef); !ok || !item.Key.IsIdent(ref.Get(ctx).Name) {
+				s += " " + item.Key.String(ctx) + ":"
 			}
 		}
-		s += " " + item.Value.String(c)
+		s += " " + item.Value.String(ctx)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ","
 		}
-		s += " ...Binding(" + n.Rest.String(c) + ")"
+		s += " ...Binding(" + n.Rest.String(ctx) + ")"
 	}
 	return s + " }"
 }
@@ -736,13 +702,13 @@ type BindingElement struct {
 	Default IExpr    // can be nil
 }
 
-func (n BindingElement) String(c *VarCtx) string {
+func (n BindingElement) String(ctx *VarCtx) string {
 	if n.Binding == nil {
 		return "Binding()"
 	}
-	s := "Binding(" + n.Binding.String(c)
+	s := "Binding(" + n.Binding.String(ctx)
 	if n.Default != nil {
-		s += " = " + n.Default.String(c)
+		s += " = " + n.Default.String(ctx)
 	}
 	return s + ")"
 }
@@ -758,19 +724,19 @@ type Params struct {
 	Rest IBinding // can be nil
 }
 
-func (n Params) String(c *VarCtx) string {
+func (n Params) String(ctx *VarCtx) string {
 	s := "Params("
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String(c)
+		s += item.String(ctx)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ", "
 		}
-		s += "...Binding(" + n.Rest.String(c) + ")"
+		s += "...Binding(" + n.Rest.String(ctx) + ")"
 	}
 	return s + ")"
 }
@@ -780,19 +746,19 @@ type Arguments struct {
 	Rest IExpr // can be nil
 }
 
-func (n Arguments) String(c *VarCtx) string {
+func (n Arguments) String(ctx *VarCtx) string {
 	s := "("
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String(c)
+		s += item.String(ctx)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ", "
 		}
-		s += "..." + n.Rest.String(c)
+		s += "..." + n.Rest.String(ctx)
 	}
 	return s + ")"
 }
@@ -802,10 +768,10 @@ type VarDecl struct {
 	List []BindingElement
 }
 
-func (n VarDecl) String(c *VarCtx) string {
+func (n VarDecl) String(ctx *VarCtx) string {
 	s := "Decl(" + n.TokenType.String()
 	for _, item := range n.List {
-		s += " " + item.String(c)
+		s += " " + item.String(ctx)
 	}
 	return s + ")"
 }
@@ -819,7 +785,7 @@ type FuncDecl struct {
 	Scope
 }
 
-func (n FuncDecl) String(c *VarCtx) string {
+func (n FuncDecl) String(ctx *VarCtx) string {
 	s := "Decl("
 	if n.Async {
 		s += "async function"
@@ -830,9 +796,9 @@ func (n FuncDecl) String(c *VarCtx) string {
 		s += "*"
 	}
 	if n.Name != nil {
-		s += " " + n.Name.String(c)
+		s += " " + n.Name.String(ctx)
 	}
-	return s + " " + n.Params.String(c) + " " + n.Body.String(c) + ")"
+	return s + " " + n.Params.String(ctx) + " " + n.Body.String(ctx) + ")"
 }
 
 type MethodDecl struct {
@@ -847,7 +813,7 @@ type MethodDecl struct {
 	Scope
 }
 
-func (n MethodDecl) String(c *VarCtx) string {
+func (n MethodDecl) String(ctx *VarCtx) string {
 	s := ""
 	if n.Static {
 		s += " static"
@@ -864,7 +830,7 @@ func (n MethodDecl) String(c *VarCtx) string {
 	if n.Set {
 		s += " set"
 	}
-	s += " " + n.Name.String(c) + " " + n.Params.String(c) + " " + n.Body.String(c)
+	s += " " + n.Name.String(ctx) + " " + n.Params.String(ctx) + " " + n.Body.String(ctx)
 	return "Method(" + s[1:] + ")"
 }
 
@@ -874,16 +840,16 @@ type ClassDecl struct {
 	Methods []MethodDecl
 }
 
-func (n ClassDecl) String(c *VarCtx) string {
+func (n ClassDecl) String(ctx *VarCtx) string {
 	s := "Decl(class"
 	if n.Name != nil {
-		s += " " + n.Name.String(c)
+		s += " " + n.Name.String(ctx)
 	}
 	if n.Extends != nil {
-		s += " extends " + n.Extends.String(c)
+		s += " extends " + n.Extends.String(ctx)
 	}
 	for _, item := range n.Methods {
-		s += " " + item.String(c)
+		s += " " + item.String(ctx)
 	}
 	return s + ")"
 }
@@ -903,8 +869,8 @@ type GroupExpr struct {
 	X IExpr
 }
 
-func (n GroupExpr) String(c *VarCtx) string {
-	return "(" + n.X.String(c) + ")"
+func (n GroupExpr) String(ctx *VarCtx) string {
+	return "(" + n.X.String(ctx) + ")"
 }
 
 type Element struct {
@@ -916,7 +882,7 @@ type ArrayExpr struct {
 	List []Element
 }
 
-func (n ArrayExpr) String(c *VarCtx) string {
+func (n ArrayExpr) String(ctx *VarCtx) string {
 	s := "["
 	for i, item := range n.List {
 		if i != 0 {
@@ -926,7 +892,7 @@ func (n ArrayExpr) String(c *VarCtx) string {
 			if item.Spread {
 				s += "..."
 			}
-			s += item.Value.String(c)
+			s += item.Value.String(ctx)
 		}
 	}
 	if 0 < len(n.List) && n.List[len(n.List)-1].Value == nil {
@@ -944,18 +910,18 @@ type Property struct {
 	Init   IExpr // can be nil
 }
 
-func (n Property) String(c *VarCtx) string {
+func (n Property) String(ctx *VarCtx) string {
 	s := ""
 	if n.Name.IsSet() {
-		if ref, ok := n.Value.(*VarRef); !ok || !n.Name.IsIdent(ref.Get(c).Name) {
-			s += n.Name.String(c) + ": "
+		if ref, ok := n.Value.(*VarRef); !ok || !n.Name.IsIdent(ref.Get(ctx).Name) {
+			s += n.Name.String(ctx) + ": "
 		}
 	} else if n.Spread {
 		s += "..."
 	}
-	s += n.Value.String(c)
+	s += n.Value.String(ctx)
 	if n.Init != nil {
-		s += " = " + n.Init.String(c)
+		s += " = " + n.Init.String(ctx)
 	}
 	return s
 }
@@ -964,13 +930,13 @@ type ObjectExpr struct {
 	List []Property
 }
 
-func (n ObjectExpr) String(c *VarCtx) string {
+func (n ObjectExpr) String(ctx *VarCtx) string {
 	s := "{"
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String(c)
+		s += item.String(ctx)
 	}
 	return s + "}"
 }
@@ -986,13 +952,13 @@ type TemplateExpr struct {
 	Tail []byte
 }
 
-func (n TemplateExpr) String(c *VarCtx) string {
+func (n TemplateExpr) String(ctx *VarCtx) string {
 	s := ""
 	if n.Tag != nil {
-		s += n.Tag.String(c)
+		s += n.Tag.String(ctx)
 	}
 	for _, item := range n.List {
-		s += string(item.Value) + item.Expr.String(c)
+		s += string(item.Value) + item.Expr.String(ctx)
 	}
 	return s + string(n.Tail)
 }
@@ -1002,24 +968,24 @@ type NewExpr struct {
 	Args *Arguments // can be nil
 }
 
-func (n NewExpr) String(c *VarCtx) string {
+func (n NewExpr) String(ctx *VarCtx) string {
 	if n.Args != nil {
-		return "(new " + n.X.String(c) + n.Args.String(c) + ")"
+		return "(new " + n.X.String(ctx) + n.Args.String(ctx) + ")"
 	}
-	return "(new " + n.X.String(c) + ")"
+	return "(new " + n.X.String(ctx) + ")"
 }
 
 type NewTargetExpr struct {
 }
 
-func (n NewTargetExpr) String(c *VarCtx) string {
+func (n NewTargetExpr) String(ctx *VarCtx) string {
 	return "(new.target)"
 }
 
 type ImportMetaExpr struct {
 }
 
-func (n ImportMetaExpr) String(c *VarCtx) string {
+func (n ImportMetaExpr) String(ctx *VarCtx) string {
 	return "(import.meta)"
 }
 
@@ -1028,7 +994,7 @@ type YieldExpr struct {
 	X         IExpr // can be nil
 }
 
-func (n YieldExpr) String(c *VarCtx) string {
+func (n YieldExpr) String(ctx *VarCtx) string {
 	if n.X == nil {
 		return "(yield)"
 	}
@@ -1036,15 +1002,15 @@ func (n YieldExpr) String(c *VarCtx) string {
 	if n.Generator {
 		s += "*"
 	}
-	return s + " " + n.X.String(c) + ")"
+	return s + " " + n.X.String(ctx) + ")"
 }
 
 type CondExpr struct {
 	Cond, X, Y IExpr
 }
 
-func (n CondExpr) String(c *VarCtx) string {
-	return "(" + n.Cond.String(c) + " ? " + n.X.String(c) + " : " + n.Y.String(c) + ")"
+func (n CondExpr) String(ctx *VarCtx) string {
+	return "(" + n.Cond.String(ctx) + " ? " + n.X.String(ctx) + " : " + n.Y.String(ctx) + ")"
 }
 
 type DotExpr struct {
@@ -1052,8 +1018,8 @@ type DotExpr struct {
 	Y LiteralExpr
 }
 
-func (n DotExpr) String(c *VarCtx) string {
-	return "(" + n.X.String(c) + "." + n.Y.String(c) + ")"
+func (n DotExpr) String(ctx *VarCtx) string {
+	return "(" + n.X.String(ctx) + "." + n.Y.String(ctx) + ")"
 }
 
 type CallExpr struct {
@@ -1061,8 +1027,8 @@ type CallExpr struct {
 	Args Arguments
 }
 
-func (n CallExpr) String(c *VarCtx) string {
-	return "(" + n.X.String(c) + n.Args.String(c) + ")"
+func (n CallExpr) String(ctx *VarCtx) string {
+	return "(" + n.X.String(ctx) + n.Args.String(ctx) + ")"
 }
 
 type IndexExpr struct {
@@ -1070,8 +1036,8 @@ type IndexExpr struct {
 	Index IExpr
 }
 
-func (n IndexExpr) String(c *VarCtx) string {
-	return "(" + n.X.String(c) + "[" + n.Index.String(c) + "])"
+func (n IndexExpr) String(ctx *VarCtx) string {
+	return "(" + n.X.String(ctx) + "[" + n.Index.String(ctx) + "])"
 }
 
 type OptChainExpr struct {
@@ -1079,15 +1045,15 @@ type OptChainExpr struct {
 	Y IExpr // can be CallExpr, IndexExpr, LiteralExpr, or TemplateExpr
 }
 
-func (n OptChainExpr) String(c *VarCtx) string {
-	s := "(" + n.X.String(c) + "?."
+func (n OptChainExpr) String(ctx *VarCtx) string {
+	s := "(" + n.X.String(ctx) + "?."
 	switch y := n.Y.(type) {
 	case *CallExpr:
-		return s + y.Args.String(c) + ")"
+		return s + y.Args.String(ctx) + ")"
 	case *IndexExpr:
-		return s + "[" + y.Index.String(c) + "])"
+		return s + "[" + y.Index.String(ctx) + "])"
 	default:
-		return s + y.String(c) + ")"
+		return s + y.String(ctx) + ")"
 	}
 }
 
@@ -1096,13 +1062,13 @@ type UnaryExpr struct {
 	X  IExpr
 }
 
-func (n UnaryExpr) String(c *VarCtx) string {
+func (n UnaryExpr) String(ctx *VarCtx) string {
 	if n.Op == PostIncrToken || n.Op == PostDecrToken {
-		return "(" + n.X.String(c) + n.Op.String() + ")"
+		return "(" + n.X.String(ctx) + n.Op.String() + ")"
 	} else if IsIdentifierName(n.Op) {
-		return "(" + n.Op.String() + " " + n.X.String(c) + ")"
+		return "(" + n.Op.String() + " " + n.X.String(ctx) + ")"
 	}
-	return "(" + n.Op.String() + n.X.String(c) + ")"
+	return "(" + n.Op.String() + n.X.String(ctx) + ")"
 }
 
 type BinaryExpr struct {
@@ -1110,11 +1076,11 @@ type BinaryExpr struct {
 	X, Y IExpr
 }
 
-func (n BinaryExpr) String(c *VarCtx) string {
+func (n BinaryExpr) String(ctx *VarCtx) string {
 	if IsIdentifierName(n.Op) {
-		return "(" + n.X.String(c) + " " + n.Op.String() + " " + n.Y.String(c) + ")"
+		return "(" + n.X.String(ctx) + " " + n.Op.String() + " " + n.Y.String(ctx) + ")"
 	}
-	return "(" + n.X.String(c) + n.Op.String() + n.Y.String(c) + ")"
+	return "(" + n.X.String(ctx) + n.Op.String() + n.Y.String(ctx) + ")"
 }
 
 type LiteralExpr struct {
@@ -1122,7 +1088,7 @@ type LiteralExpr struct {
 	Data []byte
 }
 
-func (n LiteralExpr) String(c *VarCtx) string {
+func (n LiteralExpr) String(ctx *VarCtx) string {
 	return string(n.Data)
 }
 
@@ -1133,12 +1099,12 @@ type ArrowFunc struct {
 	Scope
 }
 
-func (n ArrowFunc) String(c *VarCtx) string {
+func (n ArrowFunc) String(ctx *VarCtx) string {
 	s := "("
 	if n.Async {
 		s += "async "
 	}
-	return s + n.Params.String(c) + " => " + n.Body.String(c) + ")"
+	return s + n.Params.String(ctx) + " => " + n.Body.String(ctx) + ")"
 }
 
 func (n GroupExpr) exprNode()      {}
