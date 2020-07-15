@@ -1,17 +1,13 @@
 package js
 
 import (
-	"bytes"
 	"fmt"
-	"hash/maphash"
 	"io"
-	"math/rand"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
-	"github.com/tdewolff/parse/v2/css"
 	"github.com/tdewolff/test"
 )
 
@@ -548,12 +544,11 @@ func TestParseError(t *testing.T) {
 }
 
 type ScopeVars struct {
-	ctx                  *VarCtx
 	bound, uses, unbound string
 	scopes               int
 }
 
-func NewScopeVars(ctx *VarCtx, unbounds VarArray) *ScopeVars {
+func NewScopeVars(unbounds VarArray) *ScopeVars {
 	unboundsArray := []string{}
 	for _, v := range unbounds {
 		if 0 < v.Uses && v.Decl == NoDecl {
@@ -562,7 +557,6 @@ func NewScopeVars(ctx *VarCtx, unbounds VarArray) *ScopeVars {
 	}
 	sort.Strings(unboundsArray)
 	return &ScopeVars{
-		ctx:     ctx,
 		unbound: strings.Join(unboundsArray, ","),
 	}
 }
@@ -797,7 +791,7 @@ func TestParseScope(t *testing.T) {
 				test.Error(t, err)
 			}
 
-			vars := NewScopeVars(ast.Ctx, ast.Undeclared)
+			vars := NewScopeVars(ast.Undeclared)
 			vars.AddScope(ast.Scope)
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
@@ -812,27 +806,27 @@ func TestParseRef(t *testing.T) {
 		js   string
 		refs string
 	}{
-		{"a; a", "a=0"},
-		{"var a; {var a}", "a=0"},
-		{"var a; {let a}", "a=0,a=1"},
-		{"function a(b,c=b){}", "a=0,b=1,c=2"},
-		{"function a(b=c,c){}", "a=0,b=1,c=2,c=3"},
-		{"function a(b=c){var c}", "a=0,b=1,c=2,c=3"},
-		{"function a(b){var b}", "a=0,b=1"},
-		{"function a(b,b){}", "a=0,b=1"},
-		{"a=function(b,c=b){}", "a=0,b=1,c=2"},
-		{"a=function(b=c,c){}", "a=0,b=1,c=2,c=3"},
-		{"a=function(b=c){var c}", "a=0,b=1,c=2,c=3"},
-		{"a=function(b){var b}", "a=0,b=1"},
-		{"a=function(b,b){}", "a=0,b=1"},
-		{"(a) + (a)", "a=0"},
-		{"(b,c=b)=>{}", "b=0,c=1"},
-		{"(b=c,c)=>{}", "b=0,c=1,c=2"},
-		{"(b=c)=>{var c}", "b=0,c=1,c=2"},
-		{"a=>{var a}", "a=0"},
-		{"(b,b)=>{}", "b=0"},
-		{"try{}catch(a){var a}", "a=0,a=1"},
-		{"var a;try{}catch(a){a}", "a=0,a=1"},
+		{"a; a", "a=1"},
+		{"var a; {var a}", "a=1"},
+		{"var a; {let a}", "a=1,a=2"},
+		{"function a(b,c=b){}", "a=1,b=2,c=3"},
+		{"function a(b=c,c){}", "a=1,b=2,c=3,c=4"},
+		{"function a(b=c){var c}", "a=1,b=2,c=3,c=4"},
+		{"function a(b){var b}", "a=1,b=2"},
+		{"function a(b,b){}", "a=1,b=2"},
+		{"a=function(b,c=b){}", "a=1,b=2,c=3"},
+		{"a=function(b=c,c){}", "a=1,b=2,c=3,c=4"},
+		{"a=function(b=c){var c}", "a=1,b=2,c=3,c=4"},
+		{"a=function(b){var b}", "a=1,b=2"},
+		{"a=function(b,b){}", "a=1,b=2"},
+		{"(a) + (a)", "a=1"},
+		{"(b,c=b)=>{}", "b=1,c=2"},
+		{"(b=c,c)=>{}", "b=1,c=2,c=3"},
+		{"(b=c)=>{var c}", "b=1,c=2,c=3"},
+		{"a=>{var a}", "a=1"},
+		{"(b,b)=>{}", "b=1"},
+		{"try{}catch(a){var a}", "a=1,a=2"},
+		{"var a;try{}catch(a){a}", "a=1,a=2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -842,7 +836,7 @@ func TestParseRef(t *testing.T) {
 			}
 
 			s := ""
-			for _, v := range ast.Ctx.Vars {
+			for _, v := range ast.Vars[1:] {
 				if 0 < v.Uses {
 					if len(s) != 0 {
 						s += ","
@@ -851,294 +845,6 @@ func TestParseRef(t *testing.T) {
 				}
 			}
 			test.String(t, s, tt.refs)
-		})
-	}
-}
-
-var n = []int{4, 12, 20, 30, 40, 50, 150}
-var randStrings [][]byte
-var mapStrings []map[string]bool
-var mapInts []map[int]bool
-var arrayStrings [][]string
-var arrayBytes [][][]byte
-var arrayInts [][]int
-
-func helperRandString() string {
-	cs := []byte("abcdefghijklmnopqrstuvwxyz")
-	b := make([]byte, rand.Intn(10))
-	for i := range b {
-		b[i] = cs[rand.Intn(len(cs))]
-	}
-	return string(b)
-}
-
-func init() {
-	for j := 0; j < len(n); j++ {
-		ms := map[string]bool{}
-		mi := map[int]bool{}
-		as := []string{}
-		ab := [][]byte{}
-		ai := []int{}
-		for i := 0; i < n[j]; i++ {
-			s := helperRandString()
-			ms[s] = true
-			mi[i] = true
-			as = append(as, s)
-			ab = append(ab, []byte(s))
-			ai = append(ai, i)
-		}
-		mapStrings = append(mapStrings, ms)
-		mapInts = append(mapInts, mi)
-		arrayStrings = append(arrayStrings, as)
-		arrayBytes = append(arrayBytes, ab)
-		arrayInts = append(arrayInts, ai)
-	}
-	for j := 0; j < 1000; j++ {
-		randStrings = append(randStrings, []byte(helperRandString()))
-	}
-}
-
-func BenchmarkAddMapStrings(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				m := map[string]bool{}
-				for i := 0; i < n[j]; i++ {
-					m[arrayStrings[j][i]] = true
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkAddMapInts(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				m := map[int]bool{}
-				for i := 0; i < n[j]; i++ {
-					m[arrayInts[j][i]] = true
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkAddArrayStrings(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				a := []string{}
-				for i := 0; i < n[j]; i++ {
-					a = append(a, arrayStrings[j][i])
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkAddArrayBytes(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				a := [][]byte{}
-				for i := 0; i < n[j]; i++ {
-					a = append(a, arrayBytes[j][i])
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkAddArrayInts(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				a := []int{}
-				for i := 0; i < n[j]; i++ {
-					a = append(a, arrayInts[j][i])
-				}
-			}
-		})
-	}
-}
-
-var z = 0
-
-func BenchmarkLookupMapStrings(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					if mapStrings[j][arrayStrings[j][i]] == true {
-						z++
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkLookupMapBytes(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					if mapStrings[j][string(arrayBytes[j][i])] == true {
-						z++
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkLookupMapInts(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					if mapInts[j][arrayInts[j][i]] == true {
-						z++
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkLookupArrayStrings(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					s := arrayStrings[j][i]
-					for _, ss := range arrayStrings[j] {
-						if s == ss {
-							z++
-							break
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkLookupArrayBytes(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					s := arrayBytes[j][i]
-					for _, ss := range arrayBytes[j] {
-						if bytes.Equal(s, ss) {
-							z++
-							break
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkLookupArrayInts(b *testing.B) {
-	for j := 0; j < len(n); j++ {
-		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				for i := 0; i < n[j]; i++ {
-					q := arrayInts[j][i]
-					for _, qq := range arrayInts[j] {
-						if q == qq {
-							z++
-							break
-						}
-					}
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkMapHash(b *testing.B) {
-	h := &maphash.Hash{}
-	s := []byte(helperRandString())
-	for k := 0; k < b.N; k++ {
-		h.Write(s)
-		_ = h.Sum64()
-		h.Reset()
-	}
-}
-
-func BenchmarkHash(b *testing.B) {
-	s := []byte(helperRandString())
-	for k := 0; k < b.N; k++ {
-		_ = css.ToHash(s)
-	}
-}
-
-type benchRef uint
-
-type benchPtr struct {
-	data []byte
-}
-
-type benchVar struct {
-	ptr  *benchVar
-	data []byte
-}
-
-var listAST []interface{}
-var listPtr []*benchPtr
-var listVar []benchVar
-
-func BenchmarkASTPtr(b *testing.B) {
-	for j := 0; j < 3; j++ {
-		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				listAST = listAST[:0:0]
-				listPtr = listPtr[:0:0]
-				for _, b := range randStrings {
-					v := &benchPtr{b}
-					listAST = append(listAST, &v)
-					listPtr = append(listPtr, v)
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkASTIdx(b *testing.B) {
-	for j := 0; j < 3; j++ {
-		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				listAST = listAST[:0:0]
-				listPtr = listPtr[:0:0]
-				for _, b := range randStrings {
-					v := &benchPtr{b}
-					ref := benchRef(len(listPtr))
-					listAST = append(listAST, &ref)
-					listPtr = append(listPtr, v)
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkASTVar(b *testing.B) {
-	for j := 0; j < 3; j++ {
-		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				listAST = listAST[:0:0]
-				listVar = listVar[:0:0]
-				for _, b := range randStrings {
-					v := benchVar{data: b}
-					v.ptr = &v
-					listAST = append(listAST, len(listPtr))
-					listVar = append(listVar, v)
-				}
-			}
 		})
 	}
 }
