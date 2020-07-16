@@ -32,8 +32,40 @@ func Parse(r *parse.Input) (*AST, error) {
 		ast: newAST(),
 	}
 
+	//counts = [256]int{}
+
 	p.next()
 	p.ast.Module = p.parseModule()
+
+	//for c := 0; c < 256; c++ {
+	//	if c > 32 && c < 127 {
+	//		fmt.Printf("%c: %d\n", byte(c), counts[c])
+	//	} else {
+	//		fmt.Printf("%X: %d\n", c, counts[c])
+	//	}
+	//}
+
+	//alpha := 0
+	//for c := 65; c < 91; c++ {
+	//	alpha += counts[c] + counts[c+32]
+	//}
+	//number := counts[46]
+	//for c := 48; c < 58; c++ {
+	//	number += counts[c]
+	//}
+	//op := counts[62]
+	//op += counts[61]
+	//op += counts[33]
+	//op += counts[43]
+	//op += counts[42]
+	//op += counts[37]
+	//op += counts[38]
+	//op += counts[124]
+	//op += counts[94]
+	//op += counts[63]
+	//fmt.Println("alpha:", alpha)
+	//fmt.Println("number:", number)
+	//fmt.Println("op:", op)
 
 	if p.err == nil {
 		p.err = p.l.Err()

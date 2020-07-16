@@ -221,8 +221,63 @@ func (tt TokenType) String() string {
 	return string(s)
 }
 
+var opBytes = [][]byte{
+	[]byte("Operator"),
+	[]byte("="),
+	[]byte("=="),
+	[]byte("==="),
+	[]byte("!"),
+	[]byte("!="),
+	[]byte("!=="),
+	[]byte("<"),
+	[]byte("<="),
+	[]byte("<<"),
+	[]byte("<<="),
+	[]byte(">"),
+	[]byte(">="),
+	[]byte(">>"),
+	[]byte(">>="),
+	[]byte(">>>"),
+	[]byte(">>>="),
+	[]byte("+"),
+	[]byte("+="),
+	[]byte("++"),
+	[]byte("-"),
+	[]byte("-="),
+	[]byte("--"),
+	[]byte("*"),
+	[]byte("*="),
+	[]byte("**"),
+	[]byte("**="),
+	[]byte("/"),
+	[]byte("/="),
+	[]byte("%"),
+	[]byte("%="),
+	[]byte("&"),
+	[]byte("|"),
+	[]byte("^"),
+	[]byte("~"),
+	[]byte("&="),
+	[]byte("|="),
+	[]byte("^="),
+	[]byte("&&"),
+	[]byte("||"),
+	[]byte("??"),
+	[]byte("?."),
+	[]byte("+"),
+	[]byte("-"),
+	[]byte("++"),
+	[]byte("--"),
+	[]byte("++"),
+	[]byte("--"),
+}
+
 // Bytes returns the string representation of a TokenType.
 func (tt TokenType) Bytes() []byte {
+	if IsOperator(tt) && tt <= PostDecrToken {
+		return opBytes[tt-OperatorToken]
+	}
+
 	switch tt {
 	case ErrorToken:
 		return []byte("Error")
@@ -286,90 +341,6 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("=>")
 	case EllipsisToken:
 		return []byte("...")
-	case OperatorToken:
-		return []byte("Operator")
-	case EqToken:
-		return []byte("=")
-	case EqEqToken:
-		return []byte("==")
-	case EqEqEqToken:
-		return []byte("===")
-	case NotToken:
-		return []byte("!")
-	case NotEqToken:
-		return []byte("!=")
-	case NotEqEqToken:
-		return []byte("!==")
-	case LtToken:
-		return []byte("<")
-	case LtEqToken:
-		return []byte("<=")
-	case LtLtToken:
-		return []byte("<<")
-	case LtLtEqToken:
-		return []byte("<<=")
-	case GtToken:
-		return []byte(">")
-	case GtEqToken:
-		return []byte(">=")
-	case GtGtToken:
-		return []byte(">>")
-	case GtGtEqToken:
-		return []byte(">>=")
-	case GtGtGtToken:
-		return []byte(">>>")
-	case GtGtGtEqToken:
-		return []byte(">>>=")
-	case AddToken:
-		return []byte("+")
-	case AddEqToken:
-		return []byte("+=")
-	case IncrToken:
-		return []byte("++")
-	case SubToken:
-		return []byte("-")
-	case SubEqToken:
-		return []byte("-=")
-	case DecrToken:
-		return []byte("--")
-	case MulToken:
-		return []byte("*")
-	case MulEqToken:
-		return []byte("*=")
-	case ExpToken:
-		return []byte("**")
-	case ExpEqToken:
-		return []byte("**=")
-	case DivToken:
-		return []byte("/")
-	case DivEqToken:
-		return []byte("/=")
-	case ModToken:
-		return []byte("%")
-	case ModEqToken:
-		return []byte("%=")
-	case BitAndToken:
-		return []byte("&")
-	case BitOrToken:
-		return []byte("|")
-	case BitXorToken:
-		return []byte("^")
-	case BitNotToken:
-		return []byte("~")
-	case BitAndEqToken:
-		return []byte("&=")
-	case BitOrEqToken:
-		return []byte("|=")
-	case BitXorEqToken:
-		return []byte("^=")
-	case AndToken:
-		return []byte("&&")
-	case OrToken:
-		return []byte("||")
-	case NullishToken:
-		return []byte("??")
-	case OptChainToken:
-		return []byte("?.")
 	case IdentifierToken:
 		return []byte("Identifier")
 	case AwaitToken:
@@ -480,18 +451,6 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("set")
 	case TargetToken:
 		return []byte("target")
-	case PosToken:
-		return []byte("+")
-	case NegToken:
-		return []byte("-")
-	case PreIncrToken:
-		return []byte("++")
-	case PreDecrToken:
-		return []byte("--")
-	case PostIncrToken:
-		return []byte("++")
-	case PostDecrToken:
-		return []byte("--")
 	}
 	return nil
 }
@@ -544,64 +503,33 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	return ErrorToken, nil
 }
 
+var counts [256]int
+
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	prevLineTerminator := l.prevLineTerminator
 	l.prevLineTerminator = false
 
 	c := l.r.Peek(0)
+	//if identifierStartTable[c] {
+	//	tt := l.consumeIdentifierToken()
+	//	return tt, l.r.Shift()
+	//}
 	switch c {
-	case '(':
-		l.level++
+	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
-		return OpenParenToken, l.r.Shift()
-	case ')':
-		l.level--
-		l.r.Move(1)
-		return CloseParenToken, l.r.Shift()
-	case '{':
-		l.level++
-		l.r.Move(1)
-		return OpenBraceToken, l.r.Shift()
-	case '}':
-		l.level--
-		if len(l.templateLevels) != 0 && l.level == l.templateLevels[len(l.templateLevels)-1] {
-			return l.consumeTemplateToken(), l.r.Shift()
+		for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
 		}
+		l.prevLineTerminator = prevLineTerminator
+		return WhitespaceToken, l.r.Shift()
+	case '\n', '\r':
 		l.r.Move(1)
-		return CloseBraceToken, l.r.Shift()
-	case ']':
-		l.r.Move(1)
-		return CloseBracketToken, l.r.Shift()
-	case '[':
-		l.r.Move(1)
-		return OpenBracketToken, l.r.Shift()
-	case ';':
-		l.r.Move(1)
-		return SemicolonToken, l.r.Shift()
-	case ',':
-		l.r.Move(1)
-		return CommaToken, l.r.Shift()
-	case ':':
-		l.r.Move(1)
-		return ColonToken, l.r.Shift()
-	case '~':
-		l.r.Move(1)
-		return BitNotToken, l.r.Shift()
-	case '<', '-':
-		if l.consumeHTMLLikeCommentToken(prevLineTerminator) {
-			return CommentToken, l.r.Shift()
-		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
-			return tt, l.r.Shift()
+		for l.consumeLineTerminator() {
 		}
+		l.prevLineTerminator = true
+		return LineTerminatorToken, l.r.Shift()
 	case '>', '=', '!', '+', '*', '%', '&', '|', '^', '?':
 		if tt := l.consumeOperatorToken(); tt != ErrorToken {
-			return tt, l.r.Shift()
-		}
-	case '/':
-		if tt := l.consumeCommentToken(); tt != ErrorToken {
-			return tt, l.r.Shift()
-		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
@@ -615,22 +543,59 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			}
 			return DotToken, l.r.Shift()
 		}
+	case ',':
+		l.r.Move(1)
+		return CommaToken, l.r.Shift()
+	case ';':
+		l.r.Move(1)
+		return SemicolonToken, l.r.Shift()
+	case '(':
+		l.level++
+		l.r.Move(1)
+		return OpenParenToken, l.r.Shift()
+	case ')':
+		l.level--
+		l.r.Move(1)
+		return CloseParenToken, l.r.Shift()
+	case '/':
+		if tt := l.consumeCommentToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
+		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
+		}
+	case '{':
+		l.level++
+		l.r.Move(1)
+		return OpenBraceToken, l.r.Shift()
+	case '}':
+		l.level--
+		if len(l.templateLevels) != 0 && l.level == l.templateLevels[len(l.templateLevels)-1] {
+			return l.consumeTemplateToken(), l.r.Shift()
+		}
+		l.r.Move(1)
+		return CloseBraceToken, l.r.Shift()
+	case ':':
+		l.r.Move(1)
+		return ColonToken, l.r.Shift()
 	case '\'', '"':
 		if l.consumeStringToken() {
 			return StringToken, l.r.Shift()
 		}
-	case ' ', '\t', '\v', '\f':
+	case ']':
 		l.r.Move(1)
-		for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
-		}
-		l.prevLineTerminator = prevLineTerminator
-		return WhitespaceToken, l.r.Shift()
-	case '\n', '\r':
+		return CloseBracketToken, l.r.Shift()
+	case '[':
 		l.r.Move(1)
-		for l.consumeLineTerminator() {
+		return OpenBracketToken, l.r.Shift()
+	case '<', '-':
+		if l.consumeHTMLLikeCommentToken(prevLineTerminator) {
+			return CommentToken, l.r.Shift()
+		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
+			return tt, l.r.Shift()
 		}
-		l.prevLineTerminator = true
-		return LineTerminatorToken, l.r.Shift()
+	case '~':
+		l.r.Move(1)
+		return BitNotToken, l.r.Shift()
 	case '`':
 		l.templateLevels = append(l.templateLevels, l.level)
 		return l.consumeTemplateToken(), l.r.Shift()
@@ -931,9 +896,24 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 	return opTokens[c]
 }
 
-func (l *Lexer) consumeIdentifierToken() TokenType {
+func (l *Lexer) consumeUnicodeIdentifierToken() TokenType {
 	c := l.r.Peek(0)
-	if identifierTable[c] && (c < '0' || c > '9') {
+	if c >= 0xC0 {
+		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
+			l.r.Move(n)
+		} else {
+			return ErrorToken
+		}
+	} else if !l.consumeUnicodeEscape() {
+		return ErrorToken
+	}
+	return l.consumeIdentifierToken()
+}
+
+func (l *Lexer) consumeIdentifierToken() TokenType {
+	// assume to be passed identifierStart character
+	c := l.r.Peek(0)
+	if identifierStartTable[c] {
 		if c >= 0xC0 {
 			if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
 				l.r.Move(n)
@@ -949,14 +929,12 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 	for {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
-			if c >= 0xC0 {
-				if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
-					l.r.Move(n)
-				} else {
-					break
-				}
+			l.r.Move(1)
+		} else if c >= 0xC0 {
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
+				l.r.Move(n)
 			} else {
-				l.r.Move(1)
+				break
 			}
 		} else {
 			break
@@ -1151,6 +1129,50 @@ func (l *Lexer) consumeTemplateToken() TokenType {
 	}
 }
 
+var identifierStartTable = [256]bool{
+	// ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, true, false, false, false, // $
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, true, true, true, true, true, true, true, // A, B, C, D, E, F, G
+	true, true, true, true, true, true, true, true, // H, I, J, K, L, M, N, O
+	true, true, true, true, true, true, true, true, // P, Q, R, S, T, U, V, W
+	true, true, true, false, false, false, false, true, // X, Y, Z, _
+
+	false, true, true, true, true, true, true, true, // a, b, c, d, e, f, g
+	true, true, true, true, true, true, true, true, // h, i, j, k, l, m, n, o
+	true, true, true, true, true, true, true, true, // p, q, r, s, t, u, v, w
+	true, true, true, false, false, false, false, false, // x, y, z
+
+	// non-ASCII
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+}
+
 var identifierTable = [256]bool{
 	// ASCII
 	false, false, false, false, false, false, false, false,
@@ -1184,13 +1206,13 @@ var identifierTable = [256]bool{
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
 
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
 
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
-	true, true, true, true, true, true, true, true,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
 }
