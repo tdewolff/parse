@@ -511,10 +511,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	l.prevLineTerminator = false
 
 	c := l.r.Peek(0)
-	//if identifierStartTable[c] {
-	//	tt := l.consumeIdentifierToken()
-	//	return tt, l.r.Shift()
-	//}
 	switch c {
 	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
@@ -896,32 +892,15 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 	return opTokens[c]
 }
 
-func (l *Lexer) consumeUnicodeIdentifierToken() TokenType {
+func (l *Lexer) consumeIdentifierToken() TokenType {
 	c := l.r.Peek(0)
-	if c >= 0xC0 {
+	if identifierStartTable[c] {
+		l.r.Move(1)
+	} else if c >= 0xC0 {
 		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
 			l.r.Move(n)
 		} else {
 			return ErrorToken
-		}
-	} else if !l.consumeUnicodeEscape() {
-		return ErrorToken
-	}
-	return l.consumeIdentifierToken()
-}
-
-func (l *Lexer) consumeIdentifierToken() TokenType {
-	// assume to be passed identifierStart character
-	c := l.r.Peek(0)
-	if identifierStartTable[c] {
-		if c >= 0xC0 {
-			if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
-				l.r.Move(n)
-			} else {
-				return ErrorToken
-			}
-		} else {
-			l.r.Move(1)
 		}
 	} else if !l.consumeUnicodeEscape() {
 		return ErrorToken

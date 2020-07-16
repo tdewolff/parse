@@ -3,7 +3,7 @@ package js
 import "github.com/tdewolff/parse/v2"
 
 func ParseIdentifierName(b []byte) (TokenType, bool) {
-	// TODO: optimize
+	// TODO: optimize: check for first character first? don't use NewLexer?
 	l := NewLexer(parse.NewInputBytes(b))
 	tt := l.consumeIdentifierToken()
 	l.r.Restore()
