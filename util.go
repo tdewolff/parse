@@ -346,20 +346,20 @@ var URLEncodingTable = [256]bool{
 	true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true,
 
-	true, false, true, true, true, true, true, false, // !, '
-	false, false, false, true, true, false, false, true, // (, ), *, -, .
-	false, false, false, false, false, false, false, false, // 0, 1, 2, 3, 4, 5, 6, 7
-	false, false, true, true, true, true, true, true, // 8, 9
+	true, false, true, true, true, true, true, false, // space, ", #, $, %, &
+	false, false, false, true, true, false, false, true, // +, comma, /
+	false, false, false, false, false, false, false, false,
+	false, false, true, true, true, true, true, true, // :, ;, <, =, >, ?
 
-	true, false, false, false, false, false, false, false, // A, B, C, D, E, F, G
-	false, false, false, false, false, false, false, false, // H, I, J, K, L, M, N, O
-	false, false, false, false, false, false, false, false, // P, Q, R, S, T, U, V, W
-	false, false, false, true, true, true, true, false, // X, Y, Z, _
+	true, false, false, false, false, false, false, false, // @
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, true, false, // [, \, ], ^
 
-	true, false, false, false, false, false, false, false, // a, b, c, d, e, f, g
-	false, false, false, false, false, false, false, false, // h, i, j, k, l, m, n, o
-	false, false, false, false, false, false, false, false, // p, q, r, s, t, u, v, w
-	false, false, false, true, true, true, false, true, // x, y, z, ~
+	true, false, false, false, false, false, false, false, // `
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, false, true, // {, |, }, DEL
 
 	// non-ASCII
 	true, true, true, true, true, true, true, true,
