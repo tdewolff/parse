@@ -7,6 +7,7 @@ import (
 )
 
 type AST struct {
+	Comment []byte // first comment in file
 	Module
 
 	// Vars holds a list of all variables to which VarRef is indexing
@@ -67,6 +68,10 @@ func (decl DeclType) String() string {
 // VarRef is an index into AST.Vars and is used by the AST to refer to a variable
 // The chain of pointers: VarRef --(idx in Vars)--> *Var --(ptr)--> Var
 type VarRef uint32 // fits as value in interface
+
+func (ref VarRef) Var(ast *AST) *Var {
+	return ast.Vars[ref]
+}
 
 func (ref VarRef) Name(ast *AST) []byte {
 	return ast.Vars[ref].Name
