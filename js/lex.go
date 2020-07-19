@@ -71,12 +71,26 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	return ErrorToken, nil
 }
 
-var counts [256]int
-
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	prevLineTerminator := l.prevLineTerminator
 	l.prevLineTerminator = false
+
+	// study on 50x jQuery shows:
+	// spaces: 20k
+	// alpha: 16k
+	// newlines: 14.4k
+	// operators: 4k
+	// numbers and dot: 3.6k
+	// (): 3.4k
+	// {}: 1.8k
+	// []: 0.9k
+	// "': 1k
+	// semicolon: 2.4k
+	// colon: 0.8k
+	// comma: 2.4k
+	// slash: 1.4k
+	// `~: almost 0
 
 	c := l.r.Peek(0)
 	switch c {

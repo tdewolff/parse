@@ -154,24 +154,28 @@ func (p *Parser) parseModule() (module Module) {
 			exportStmt := p.parseExportStmt()
 			module.List = append(module.List, &exportStmt)
 		default:
-			module.List = append(module.List, p.parseStmt())
+			module.List = append(module.List, p.parseStmt(true))
 		}
 	}
 }
 
-func (p *Parser) parseStmt() (stmt IStmt) {
+func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 	switch tt := p.tt; tt {
 	case OpenBraceToken:
-		blockStmt := p.parseBlockStmt("block statement", true)
+		blockStmt := p.parseBlockStmt("block statement")
 		stmt = &blockStmt
 	case ConstToken, VarToken:
+		if !allowDeclaration && tt == ConstToken {
+			p.fail("statement")
+			return
+		}
 		p.next()
 		varDecl := p.parseVarDecl(tt)
 		stmt = &varDecl
 	case LetToken:
 		let := p.data
 		p.next()
-		if IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken || p.tt == OpenBracketToken || p.tt == OpenBraceToken {
+		if allowDeclaration && (IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken || p.tt == OpenBracketToken || p.tt == OpenBraceToken) {
 			varDecl := p.parseVarDecl(tt)
 			stmt = &varDecl
 		} else {
@@ -179,6 +183,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			stmt = &ExprStmt{p.parseIdentifierExpression(OpExpr, let)}
 			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				p.fail("expression")
+				return
 			}
 		}
 	case IfToken:
@@ -190,12 +195,12 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("if statement", CloseParenToken) {
 			return
 		}
-		body := p.parseStmt()
+		body := p.parseStmt(false)
 
 		var elseBody IStmt
 		if p.tt == ElseToken {
 			p.next()
-			elseBody = p.parseStmt()
+			elseBody = p.parseStmt(false)
 		}
 		stmt = &IfStmt{cond, body, elseBody}
 	case ContinueToken, BreakToken:
@@ -223,11 +228,11 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("with statement", CloseParenToken) {
 			return
 		}
-		stmt = &WithStmt{cond, p.parseStmt()}
+		stmt = &WithStmt{cond, p.parseStmt(false)}
 	case DoToken:
 		stmt = &DoWhileStmt{}
 		p.next()
-		body := p.parseStmt()
+		body := p.parseStmt(false)
 		if p.tt != WhileToken {
 			p.fail("do-while statement", WhileToken)
 			return
@@ -249,7 +254,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		if !p.consume("while statement", CloseParenToken) {
 			return
 		}
-		stmt = &WhileStmt{cond, p.parseStmt()}
+		stmt = &WhileStmt{cond, p.parseStmt(false)}
 	case ForToken:
 		p.next()
 		await := p.async && p.tt == AwaitToken
@@ -291,7 +296,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForStmt{init, cond, post, p.parseStmt()}
+			stmt = &ForStmt{init, cond, post, p.parseStmt(false)}
 		} else if p.tt == InToken {
 			if await {
 				p.fail("for statement", OfToken)
@@ -302,14 +307,14 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForInStmt{init, value, p.parseStmt()}
+			stmt = &ForInStmt{init, value, p.parseStmt(false)}
 		} else if p.tt == OfToken {
 			p.next()
 			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForOfStmt{await, init, value, p.parseStmt()}
+			stmt = &ForOfStmt{await, init, value, p.parseStmt(false)}
 		} else {
 			p.fail("for statement", InToken, OfToken, SemicolonToken)
 			return
@@ -356,15 +361,23 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 
 			var stmts []IStmt
 			for p.tt != CaseToken && p.tt != DefaultToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
-				stmts = append(stmts, p.parseStmt())
+				stmts = append(stmts, p.parseStmt(true))
 			}
 			clauses = append(clauses, CaseClause{clause, list, stmts})
 		}
 		stmt = &SwitchStmt{init, clauses}
 	case FunctionToken:
+		if !allowDeclaration {
+			p.fail("statement")
+			return
+		}
 		funcDecl := p.parseFuncDecl()
 		stmt = &funcDecl
 	case AsyncToken: // async function
+		if !allowDeclaration {
+			p.fail("statement")
+			return
+		}
 		async := p.data
 		p.next()
 		if p.tt == FunctionToken && !p.prevLT {
@@ -375,9 +388,14 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			stmt = &ExprStmt{p.parseAsyncExpression(OpExpr, async)}
 			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				p.fail("expression")
+				return
 			}
 		}
 	case ClassToken:
+		if !allowDeclaration {
+			p.fail("statement")
+			return
+		}
 		classDecl := p.parseClassDecl()
 		stmt = &classDecl
 	case ThrowToken:
@@ -389,7 +407,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 		stmt = &ThrowStmt{value}
 	case TryToken:
 		p.next()
-		body := p.parseBlockStmt("try statement", true)
+		body := p.parseBlockStmt("try statement")
 		var binding IBinding
 		var catch, finally BlockStmt
 		if p.tt == CatchToken {
@@ -405,13 +423,12 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 				}
 				p.next()
 			}
-			block := p.parseBlockStmt("try-catch statement", false)
-			catch.List = block.List
+			catch.List = p.parseStmtList("try-catch statement")
 			p.exitScope(parent)
 		}
 		if p.tt == FinallyToken {
 			p.next()
-			finally = p.parseBlockStmt("try-finally statement", true)
+			finally = p.parseBlockStmt("try-finally statement")
 		}
 		stmt = &TryStmt{body, binding, catch, finally}
 	case DebuggerToken:
@@ -426,12 +443,13 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			p.next()
 			if p.tt == ColonToken {
 				p.next()
-				stmt = &LabelledStmt{label, p.parseStmt()}
+				stmt = &LabelledStmt{label, p.parseStmt(true)} // allows illegal async function, generator function, let, const, or class declarations
 			} else {
 				// expression
 				stmt = &ExprStmt{p.parseIdentifierExpression(OpExpr, label)}
 				if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 					p.fail("expression")
+					return
 				}
 			}
 		} else {
@@ -439,6 +457,7 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 			stmt = &ExprStmt{p.parseExpression(OpExpr)}
 			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				p.fail("expression")
+				return
 			}
 		}
 	}
@@ -448,16 +467,12 @@ func (p *Parser) parseStmt() (stmt IStmt) {
 	return
 }
 
-func (p *Parser) parseBlockStmt(in string, enterScope bool) (blockStmt BlockStmt) {
+func (p *Parser) parseStmtList(in string) (list []IStmt) {
 	if p.tt != OpenBraceToken {
 		p.fail(in, OpenBraceToken)
 		return
 	}
 	p.next()
-	var parent *Scope
-	if enterScope {
-		parent = p.enterScope(&blockStmt.Scope, false)
-	}
 	for {
 		if p.tt == ErrorToken {
 			p.fail("")
@@ -465,12 +480,16 @@ func (p *Parser) parseBlockStmt(in string, enterScope bool) (blockStmt BlockStmt
 		} else if p.tt == CloseBraceToken {
 			break
 		}
-		blockStmt.List = append(blockStmt.List, p.parseStmt())
-	}
-	if enterScope {
-		p.exitScope(parent)
+		list = append(list, p.parseStmt(true))
 	}
 	p.next()
+	return
+}
+
+func (p *Parser) parseBlockStmt(in string) (blockStmt BlockStmt) {
+	parent := p.enterScope(&blockStmt.Scope, false)
+	blockStmt.List = p.parseStmtList(in)
+	p.exitScope(parent)
 	return
 }
 
@@ -744,7 +763,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 	if inExpr && (IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
 		name = p.data
 		if !inExpr {
-			funcDecl.Name, ok = p.scope.Declare(p.ast, VariableDecl, p.data)
+			funcDecl.Name, ok = p.scope.Declare(p.ast, FunctionDecl, p.data)
 			if !ok {
 				p.failMessage("identifier '%s' has already been declared", string(p.data))
 				return
@@ -755,7 +774,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 		p.fail("function declaration", IdentifierToken, OpenParenToken)
 		return
 	}
-	parent := p.enterScope(&funcDecl.Scope, true)
+	parent := p.enterScope(&funcDecl.Body.Scope, true)
 	parentAsync, parentGenerator := p.async, p.generator
 	p.async, p.generator = funcDecl.Async, funcDecl.Generator
 
@@ -767,7 +786,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 		}
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
-	funcDecl.Body = p.parseBlockStmt("function declaration", false)
+	funcDecl.Body.List = p.parseStmtList("function declaration")
 
 	p.async, p.generator = parentAsync, parentGenerator
 	p.exitScope(parent)
@@ -868,12 +887,12 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 		method.Name = p.parsePropertyName("method definition")
 	}
 
-	parent := p.enterScope(&method.Scope, true)
+	parent := p.enterScope(&method.Body.Scope, true)
 	parentAsync, parentGenerator := p.async, p.generator
 	p.async, p.generator = method.Async, method.Generator
 
 	method.Params = p.parseFuncParams("method definition")
-	method.Body = p.parseBlockStmt("method definition", false)
+	method.Body.List = p.parseStmtList("method definition")
 
 	p.async, p.generator = parentAsync, parentGenerator
 	p.exitScope(parent)
@@ -1141,12 +1160,12 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 
 			if p.tt == OpenParenToken {
 				// MethodDefinition
-				parent := p.enterScope(&method.Scope, true)
+				parent := p.enterScope(&method.Body.Scope, true)
 				parentAsync, parentGenerator := p.async, p.generator
 				p.async, p.generator = method.Async, method.Generator
 
 				method.Params = p.parseFuncParams("method definition")
-				method.Body = p.parseBlockStmt("method definition", false)
+				method.Body.List = p.parseStmtList("method definition")
 
 				p.async, p.generator = parentAsync, parentGenerator
 				p.exitScope(parent)
@@ -1233,7 +1252,7 @@ func (p *Parser) parseArgs() (args Arguments) {
 
 func (p *Parser) parseAsyncArrowFunc() (arrowFunc ArrowFunc) {
 	// expect we're at Identifier or Yield or (
-	parent := p.enterScope(&arrowFunc.Scope, true)
+	parent := p.enterScope(&arrowFunc.Body.Scope, true)
 	parentAsync, parentGenerator := p.async, p.generator
 	p.async, p.generator = true, false
 
@@ -1248,7 +1267,7 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc ArrowFunc) {
 	}
 
 	arrowFunc.Async = true
-	arrowFunc.Body = p.parseArrowFuncBody()
+	arrowFunc.Body.List = p.parseArrowFuncBody()
 
 	p.async, p.generator = parentAsync, parentGenerator
 	p.exitScope(parent)
@@ -1257,7 +1276,7 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc ArrowFunc) {
 
 func (p *Parser) parseIdentifierArrowFunc(ref VarRef) (arrowFunc ArrowFunc) {
 	// expect we're at =>
-	parent := p.enterScope(&arrowFunc.Scope, true)
+	parent := p.enterScope(&arrowFunc.Body.Scope, true)
 	parentAsync, parentGenerator := p.async, p.generator
 	p.async, p.generator = false, false
 
@@ -1273,14 +1292,14 @@ func (p *Parser) parseIdentifierArrowFunc(ref VarRef) (arrowFunc ArrowFunc) {
 	}
 
 	arrowFunc.Params.List = []BindingElement{{ref, nil}}
-	arrowFunc.Body = p.parseArrowFuncBody()
+	arrowFunc.Body.List = p.parseArrowFuncBody()
 
 	p.async, p.generator = parentAsync, parentGenerator
 	p.exitScope(parent)
 	return
 }
 
-func (p *Parser) parseArrowFuncBody() (body BlockStmt) {
+func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	// expect we're at arrow
 	if p.tt != ArrowToken {
 		p.fail("arrow function", ArrowToken)
@@ -1295,9 +1314,9 @@ func (p *Parser) parseArrowFuncBody() (body BlockStmt) {
 
 	p.next()
 	if p.tt == OpenBraceToken {
-		body = p.parseBlockStmt("arrow function", false)
+		list = p.parseStmtList("arrow function")
 	} else {
-		body = BlockStmt{[]IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}, Scope{}}
+		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
 	}
 	return
 }
@@ -1845,7 +1864,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc() (left IExpr, precLeft
 	p.next()
 
 	arrowFunc := ArrowFunc{}
-	parent := p.enterScope(&arrowFunc.Scope, true)
+	parent := p.enterScope(&arrowFunc.Body.Scope, true)
 	parentAssumeArrowFunc := p.assumeArrowFunc
 	p.assumeArrowFunc = true
 
@@ -1888,7 +1907,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc() (left IExpr, precLeft
 				return
 			}
 		}
-		arrowFunc.Body = p.parseArrowFuncBody()
+		arrowFunc.Body.List = p.parseArrowFuncBody()
 
 		p.async, p.generator, p.assumeArrowFunc = parentAsync, parentGenerator, parentAssumeArrowFunc
 		p.exitScope(parent)
@@ -1902,7 +1921,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc() (left IExpr, precLeft
 		p.assumeArrowFunc = parentAssumeArrowFunc
 		p.exitScope(parent)
 
-		arrowFunc.Scope.UndeclareScope(p.ast)
+		arrowFunc.Body.Scope.UndeclareScope(p.ast)
 		// TODO: Parent and Func pointers are bad for any nested FuncDecl/ArrowFunc inside, maybe not a problem?
 
 		// parenthesized expression

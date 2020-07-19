@@ -43,7 +43,8 @@ type DeclType uint16
 
 const (
 	NoDecl       DeclType = iota // undeclared variables
-	VariableDecl                 // var and function
+	VariableDecl                 // var
+	FunctionDecl                 // function
 	LexicalDecl                  // let, const, class
 	ArgumentDecl                 // function, method, and catch statement arguments
 	ExprDecl                     // function expression name or class expression name
@@ -55,6 +56,8 @@ func (decl DeclType) String() string {
 		return "NoDecl"
 	case VariableDecl:
 		return "VariableDecl"
+	case FunctionDecl:
+		return "FunctionDecl"
 	case LexicalDecl:
 		return "LexicalDecl"
 	case ArgumentDecl:
@@ -93,7 +96,7 @@ func (v *Var) String() string {
 	return fmt.Sprintf("Var{%v %v %v %s}", v.Ref, v.Uses, v.Decl, string(v.Name))
 }
 
-// VarArray is sortable by uses
+// VarArray is sortable by uses in descending order
 type VarArray []*Var
 
 func (vs VarArray) Len() int {
@@ -105,7 +108,7 @@ func (vs VarArray) Swap(i, j int) {
 }
 
 func (vs VarArray) Less(i, j int) bool {
-	return vs[i].Uses < vs[j].Uses
+	return vs[i].Uses > vs[j].Uses
 }
 
 func (vs VarArray) String() string {
@@ -130,7 +133,7 @@ type Scope struct {
 	argumentsOffset int // offset into Undeclared to mark variables used in arguments initializers
 }
 
-func (s Scope) String() string {
+func (s *Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
 }
 
@@ -139,7 +142,7 @@ func (s *Scope) Declare(ast *AST, decl DeclType, name []byte) (VarRef, bool) {
 	// refer to new variable for previously undeclared symbols in the current and lower scopes
 	// this happens in `{ a = 5; } var a` where both a's refer to the same variable
 	curScope := s
-	if decl == VariableDecl {
+	if decl == VariableDecl || decl == FunctionDecl {
 		// find function scope for var and function declarations
 		s = s.Func
 	}
@@ -272,6 +275,15 @@ func (s *Scope) UndeclareScope(ast *AST) {
 			s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
 		}
 	}
+}
+
+func (s *Scope) Count(decl DeclType) (n int) {
+	for _, v := range s.Declared {
+		if v.Decl == decl {
+			n++
+		}
+	}
+	return
 }
 
 ////////////////////////////////////////////////////////////////
@@ -713,7 +725,7 @@ func (n BindingObject) String(ast *AST) string {
 }
 
 type BindingElement struct {
-	Binding IBinding // can be nil
+	Binding IBinding // can be nil (in case of ellision)
 	Default IExpr    // can be nil
 }
 
@@ -797,7 +809,6 @@ type FuncDecl struct {
 	Name      VarRef // can be nil
 	Params    Params
 	Body      BlockStmt
-	Scope
 }
 
 func (n FuncDecl) String(ast *AST) string {
@@ -825,7 +836,6 @@ type MethodDecl struct {
 	Name      PropertyName
 	Params    Params
 	Body      BlockStmt
-	Scope
 }
 
 func (n MethodDecl) String(ast *AST) string {
@@ -1111,7 +1121,6 @@ type ArrowFunc struct {
 	Async  bool
 	Params Params
 	Body   BlockStmt
-	Scope
 }
 
 func (n ArrowFunc) String(ast *AST) string {

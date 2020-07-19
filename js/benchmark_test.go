@@ -346,11 +346,3 @@ func BenchmarkMap(b *testing.B) {
 		}
 	}
 }
-
-func BenchmarkMapHash(b *testing.B) {
-	for k := 0; k < b.N; k++ {
-		for _, ident := range identifiers {
-			_ = ToHash(ident)
-		}
-	}
-}
