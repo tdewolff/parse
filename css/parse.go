@@ -85,8 +85,8 @@ type Parser struct {
 	buf   []Token
 	level int
 
-	tt          TokenType
 	data        []byte
+	tt          TokenType
 	keepWS      bool
 	prevWS      bool
 	prevEnd     bool

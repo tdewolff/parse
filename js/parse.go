@@ -13,8 +13,8 @@ type Parser struct {
 	l   *Lexer
 	err error
 
-	tt               TokenType
 	data             []byte
+	tt               TokenType
 	prevLT           bool
 	inFor            bool
 	async, generator bool
