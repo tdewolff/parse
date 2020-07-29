@@ -8,19 +8,19 @@ import (
 )
 
 func printSize(name string, size uintptr) {
-	fmt.Println(name, size, float64(size)/8, float64(size)/64)
+	fmt.Println(name, "\t", size, float64(size)/8)
 }
 
 func init() {
-	printSize("AST", unsafe.Sizeof(AST{}))
-	printSize("Module", unsafe.Sizeof(Module{}))
-	printSize("Scope", unsafe.Sizeof(Scope{}))
+	printSize("AST      ", unsafe.Sizeof(AST{}))
+	printSize("Module   ", unsafe.Sizeof(Module{}))
+	printSize("Scope    ", unsafe.Sizeof(Scope{}))
 
 	printSize("BlockStmt", unsafe.Sizeof(BlockStmt{}))
 	printSize("BranchStmt", unsafe.Sizeof(BranchStmt{}))
 	printSize("LabelledStmt", unsafe.Sizeof(LabelledStmt{}))
 	printSize("ReturnStmt", unsafe.Sizeof(ReturnStmt{}))
-	printSize("IfStmt", unsafe.Sizeof(IfStmt{}))
+	printSize("IfStmt    ", unsafe.Sizeof(IfStmt{}))
 	printSize("WithStmt", unsafe.Sizeof(WithStmt{}))
 	printSize("DoWhileStmt", unsafe.Sizeof(DoWhileStmt{}))
 	printSize("WhileStmt", unsafe.Sizeof(WhileStmt{}))
