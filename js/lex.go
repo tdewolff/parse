@@ -11,8 +11,14 @@ import (
 var identifierStart = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Other_ID_Start}
 var identifierContinue = []*unicode.RangeTable{unicode.Lu, unicode.Ll, unicode.Lt, unicode.Lm, unicode.Lo, unicode.Nl, unicode.Mn, unicode.Mc, unicode.Nd, unicode.Pc, unicode.Other_ID_Continue}
 
-// IsIdentifierStart returns true if the byte-slice start is a continuation of an identifier
+// IsIdentifierStart returns true if the byte-slice start is the start of an identifier
 func IsIdentifierStart(b []byte) bool {
+	r, _ := utf8.DecodeRune(b)
+	return r == '$' || r == '\\' || r == '_' || unicode.IsOneOf(identifierStart, r)
+}
+
+// IsIdentifierContinue returns true if the byte-slice start is a continuation of an identifier
+func IsIdentifierContinue(b []byte) bool {
 	r, _ := utf8.DecodeRune(b)
 	return r == '$' || r == '\\' || r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r)
 }
@@ -255,11 +261,9 @@ func (l *Lexer) consumeLineTerminator() bool {
 			l.r.Move(1)
 		}
 		return true
-	} else if c >= 0xC0 {
-		if r, n := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
-			l.r.Move(n)
-			return true
-		}
+	} else if c == 0xE2 && l.r.Peek(1) == 0x80 && (l.r.Peek(2) == 0xA8 || l.r.Peek(2) == 0xA9) {
+		l.r.Move(3)
+		return true
 	}
 	return false
 }
@@ -638,14 +642,12 @@ func (l *Lexer) consumeRegExpToken() bool {
 	for {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
-			if c >= 0xC0 {
-				if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
-					l.r.Move(n)
-				} else {
-					break
-				}
+			l.r.Move(1)
+		} else if c >= 0xC0 {
+			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
+				l.r.Move(n)
 			} else {
-				l.r.Move(1)
+				break
 			}
 		} else {
 			break

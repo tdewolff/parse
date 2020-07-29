@@ -126,6 +126,15 @@ func TestTokens(t *testing.T) {
 		})
 	}
 
+	// coverage
+	for _, start := range []int{0, 0x0100, 0x0200, 0x0600, 0x0800} {
+		for i := start; ; i++ {
+			if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+				break
+			}
+		}
+	}
+
 	test.That(t, IsPunctuator(CommaToken))
 	test.That(t, IsPunctuator(GtGtEqToken))
 	test.That(t, !IsPunctuator(WhileToken))
@@ -139,16 +148,15 @@ func TestTokens(t *testing.T) {
 	test.That(t, IsIdentifierName(WhileToken))
 	test.That(t, IsIdentifierName(AsToken))
 
-	// coverage
-	for _, start := range []int{0, 0x0100, 0x0200, 0x0600, 0x0800} {
-		for i := start; ; i++ {
-			if TokenType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
-				break
-			}
-		}
-	}
 	test.That(t, IsIdentifierStart([]byte("a")))
+	test.That(t, !IsIdentifierStart([]byte("6")))
 	test.That(t, !IsIdentifierStart([]byte("[")))
+	test.That(t, IsIdentifierContinue([]byte("a")))
+	test.That(t, IsIdentifierContinue([]byte("6")))
+	test.That(t, !IsIdentifierContinue([]byte("[")))
+	test.That(t, IsIdentifierEnd([]byte(".a")))
+	test.That(t, IsIdentifierEnd([]byte(".6")))
+	test.That(t, !IsIdentifierEnd([]byte(".[")))
 }
 
 func TestRegExp(t *testing.T) {
@@ -166,6 +174,8 @@ func TestRegExp(t *testing.T) {
 		{"a=/x/\u200C\u3009", TTs{IdentifierToken, EqToken, RegExpToken, ErrorToken}},
 		{"a=/end", TTs{IdentifierToken, EqToken, ErrorToken}},
 		{"a=/\\\nend", TTs{IdentifierToken, EqToken, ErrorToken}},
+		{"a=/\\\u2028", TTs{IdentifierToken, EqToken, ErrorToken}},
+		{"a=/regexp/Ø", TTs{IdentifierToken, EqToken, RegExpToken}},
 	}
 
 	for _, tt := range tokenTests {

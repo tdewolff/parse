@@ -27,14 +27,7 @@ func (ast *AST) AddVar(decl DeclType, name []byte) *Var {
 }
 
 func (ast *AST) String() string {
-	s := ""
-	for i, item := range ast.List {
-		if i != 0 {
-			s += " "
-		}
-		s += item.String(ast)
-	}
-	return s
+	return ast.Module.String(ast)
 }
 
 ////////////////////////////////////////////////////////////////

@@ -91,6 +91,7 @@ func TestParse(t *testing.T) {
 		{"class { 5(b) {} }", "Decl(class Method(5 Params(Binding(b)) Stmt({ })))"},
 		{"class { 'a'(b) {} }", "Decl(class Method(a Params(Binding(b)) Stmt({ })))"},
 		{"class { '5'(b) {} }", "Decl(class Method(5 Params(Binding(b)) Stmt({ })))"},
+		{"class { '%'(b) {} }", "Decl(class Method('%' Params(Binding(b)) Stmt({ })))"},
 		{"class { get() {} }", "Decl(class Method(get Params() Stmt({ })))"},
 		{"class { get a() {} }", "Decl(class Method(get a Params() Stmt({ })))"},
 		{"class { set a(b) {} }", "Decl(class Method(set a Params(Binding(b)) Stmt({ })))"},
@@ -131,6 +132,10 @@ func TestParse(t *testing.T) {
 		{"async\n= a", "Stmt(async=a)"},
 		{"async a => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
 		{"async (a) => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
+		{"async\nawait => b", "Stmt(async) Stmt(Params(Binding(await)) => Stmt({ Stmt(return b) }))"},
+		{"a + async\nb", "Stmt(a+async) Stmt(b)"},
+		{"a + async\nfunction(){}", "Stmt(a+async) Decl(function Params() Stmt({ }))"},
+		{"class a extends async {}", "Decl(class a extends async)"},
 		{"function*a(){ yield a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield (a=5)) }))"},
 		{"function*a(){ yield * a = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield* (a=5)) }))"},
 		{"function*a(){ yield\na = 5 }", "Decl(function* a Params() Stmt({ Stmt(yield) Stmt(a=5) }))"},
@@ -140,7 +145,7 @@ func TestParse(t *testing.T) {
 		{"function*a(){ x = function yield(){} }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function yield Params() Stmt({ }))) }))"},
 		{"function*a(){ x = function b(){ x = yield } }", "Decl(function* a Params() Stmt({ Stmt(x=Decl(function b Params() Stmt({ Stmt(x=yield) }))) }))"},
 		{"function*a(){ (yield a) }", "Decl(function* a Params() Stmt({ Stmt((yield a)) }))"},
-		{"let\nawait 0", "Decl(let Binding(await)) Stmt(0)"},
+		{"let\nawait", "Decl(let Binding(await))"},
 		{"x = {await}", "Stmt(x={await})"},
 		{"async function a(){ x = {await: 5} }", "Decl(async function a Params() Stmt({ Stmt(x={await: 5}) }))"},
 		{"async function a(){ x = await a }", "Decl(async function a Params() Stmt({ Stmt(x=(await a)) }))"},
@@ -289,6 +294,14 @@ func TestParse(t *testing.T) {
 		{"new import.meta(a)", "Stmt(new (import.meta)(a))"},
 		{"a||b?c:d", "Stmt((a||b) ? c : d)"},
 		{"a??b?c:d", "Stmt((a??b) ? c : d)"},
+		{"a==b==c", "Stmt((a==b)==c)"},
+		{"new a?.b", "Stmt((new a)?.b)"},
+		{"new a++", "Stmt((new a)++)"},
+		{"new a--", "Stmt((new a)--)"},
+		{"a<<b<<c", "Stmt((a<<b)<<c)"},
+		{"a&b&c", "Stmt((a&b)&c)"},
+		{"a|b|c", "Stmt((a|b)|c)"},
+		{"a^b^c", "Stmt((a^b)^c)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},
@@ -344,6 +357,18 @@ func TestParse(t *testing.T) {
 			test.String(t, ast.String(), tt.expected)
 		})
 	}
+
+	// coverage
+	for i := 0; ; i++ {
+		if OpPrec(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
+	for i := 0; ; i++ {
+		if DeclType(i).String() == fmt.Sprintf("Invalid(%d)", i) {
+			break
+		}
+	}
 }
 
 func TestParseError(t *testing.T) {
@@ -390,9 +415,9 @@ func TestParseError(t *testing.T) {
 		{"function a(b,", "unexpected EOF in function declaration"},
 		{"function a(...b", "expected ')' instead of EOF in function declaration"},
 		{"function a()", "expected '{' instead of EOF in function declaration"},
-		{"class A", "expected '{' instead of EOF in class statement"},
-		{"class A{", "unexpected EOF in class statement"},
-		{"class A extends a b {}", "expected '{' instead of 'b' in class statement"},
+		{"class A", "expected '{' instead of EOF in class declaration"},
+		{"class A{", "unexpected EOF in class declaration"},
+		{"class A extends a b {}", "expected '{' instead of 'b' in class declaration"},
 		{"class A{+", "expected 'Identifier', 'String', 'Numeric', or '[' instead of '+' in method definition"},
 		{"class A{[a", "expected ']' instead of EOF in method definition"},
 		{"var [...a", "expected ']' instead of EOF in array binding pattern"},
@@ -402,6 +427,7 @@ func TestParseError(t *testing.T) {
 		{"var {a", "expected ',' or '}' instead of EOF in object binding pattern"},
 		{"var {...a", "expected '}' instead of EOF in object binding pattern"},
 		{"var 0", "unexpected '0' in binding"},
+		{"x={", "expected '}' instead of EOF in object literal"},
 		{"x={[a", "expected ']' instead of EOF in object literal"},
 		{"x={[a]", "expected ':' or '(' instead of EOF in object literal"},
 		{"x={+", "expected 'Identifier', 'String', 'Numeric', or '[' instead of '+' in object literal"},
@@ -410,9 +436,9 @@ func TestParseError(t *testing.T) {
 		{"class a extends =", "unexpected '=' in expression"},
 		{"class a extends ?", "unexpected '?' in expression"},
 		{"class a extends =>", "unexpected '=>' in expression"},
-		{"class a extends async", "expected 'function' instead of EOF in function declaration"},
 		{"x=a?b", "expected ':' instead of EOF in conditional expression"},
 		{"x=(a", "unexpected EOF in expression"},
+		{"x+(a", "expected ')' instead of EOF in expression"},
 		{"x={a", "unexpected EOF in object literal"},
 		{"x=a[b", "expected ']' instead of EOF in index expression"},
 		{"x=async a", "expected '=>' instead of EOF in arrow function"},
@@ -460,6 +486,11 @@ func TestParseError(t *testing.T) {
 		{"export {} from", "expected 'String' instead of EOF in export statement"},
 		{"export async", "expected 'function' instead of EOF in export statement"},
 
+		// no declarations
+		{"if(a) function f(){}", "unexpected 'function' in statement"},
+		{"if(a) async function f(){}", "unexpected 'async' in statement"},
+		{"if(a) class c{}", "unexpected 'class' in statement"},
+
 		// yield, async, await
 		{"yield a = 5", "unexpected 'a' in expression"},
 		{"function*a() { yield: var a", "unexpected ':' in expression"},
@@ -469,9 +500,15 @@ func TestParseError(t *testing.T) {
 		{"x = await\n=> a++", "unexpected '=>' in expression"},
 		{"async function a() { class a extends await", "unexpected 'await' in expression"},
 		{"async function a() { await: var a", "unexpected ':' in expression"},
+		{"async function a() { let await", "unexpected 'await' in binding"},
+		{"async function a() { let\nawait", "unexpected 'await' in binding"},
 		{"async function a() { x = new await c", "unexpected 'await' in expression"},
 		{"async function a() { x = await =>", "unexpected '=>' in expression"},
 		{"async function a(){ (await) => await }", "unexpected ')' in expression"},
+		{"async+a b", "unexpected 'b' in expression"},
+		{"(async\nfunction(){})", "unexpected 'function' in expression"},
+		{"a + async b", "unexpected 'b' in expression"},
+		{"async await => 5", "unexpected 'await' in arrow function"},
 
 		// specific cases
 		{"{a, if: b, do(){}, ...d}", "unexpected 'if' in expression"}, // block stmt
@@ -486,6 +523,9 @@ func TestParseError(t *testing.T) {
 		{"if (a) 1 else 3", "unexpected 'else' in expression"},
 		{"x = [...]", "unexpected ']' in expression"},
 		{"x = {...}", "unexpected '}' in expression"},
+		{"let\nawait 0", "unexpected '0' in let declaration"},
+		{"const\nawait 0", "unexpected '0' in const declaration"},
+		{"var\nawait 0", "unexpected '0' in var statement"},
 
 		// expression to arrow function parameters
 		{"x = ()", "expected '=>' instead of EOF in arrow function"},
@@ -495,15 +535,48 @@ func TestParseError(t *testing.T) {
 		{"x = ({...x, y}) => a", "unexpected '=>' in expression"},
 		{"x = ({b(){}}) => a", "unexpected '=>' in expression"},
 		{"x = (a, b, ...c)", "expected '=>' instead of EOF in arrow function"},
+		{"x = (a+b) =>", "unexpected '=>' in expression"},
+		{"x = ([...a, b]) =>", "unexpected '=>' in expression"},
+		{"x = ([...5]) =>", "unexpected '=>' in expression"},
+		{"x = ([5]) =>", "unexpected '=>' in expression"},
+		{"x = ({...a, b}) =>", "unexpected '=>' in expression"},
+		{"x = ({...5}) =>", "unexpected '=>' in expression"},
+		{"x = ({5: 5}) =>", "unexpected '=>' in expression"},
+		{"x = ({[4+5]: 5}) =>", "unexpected '=>' in expression"},
 
 		// expression precedence
 		{"x = a + yield b", "unexpected 'b' in expression"},
 		{"a??b||c", "unexpected '||' in expression"},
+		{"a??b&&c", "unexpected '&&' in expression"},
 		{"a||b??c", "unexpected '??' in expression"},
+		{"a&&b??c", "unexpected '??' in expression"},
 		{"x = a++--", "unexpected '--' in expression"},
 		{"x = a\n++", "unexpected EOF in expression"},
 		{"x = a++?", "unexpected EOF in expression"},
 		{"a+b =", "unexpected '=' in expression"},
+		{"!a**b", "unexpected '**' in expression"},
+		{"new !a", "unexpected '!' in expression"},
+		{"new +a", "unexpected '+' in expression"},
+		{"new -a", "unexpected '-' in expression"},
+		{"new ++a", "unexpected '++' in expression"},
+		{"new --a", "unexpected '--' in expression"},
+		{"a=>{return a} < b", "unexpected '<' in expression"},
+		{"a=>{return a} == b", "unexpected '==' in expression"},
+		{"a=>{return a} . b", "unexpected '.' in expression"},
+		{"a=>{return a} (", "unexpected '(' in expression"},
+		{"a=>{return a} [", "unexpected '[' in expression"},
+		{"a=>{return a} `", "unexpected '`' in expression"},
+		{"a=>{return a} ++", "unexpected '++' in expression"},
+		{"a=>{return a} --", "unexpected '--' in expression"},
+		{"a=>{return a} * b", "unexpected '*' in expression"},
+		{"a=>{return a} + b", "unexpected '+' in expression"},
+		{"a=>{return a} << b", "unexpected '<<' in expression"},
+		{"a=>{return a} & b", "unexpected '&' in expression"},
+		{"a=>{return a} | b", "unexpected '|' in expression"},
+		{"a=>{return a} ^ b", "unexpected '^' in expression"},
+		{"a=>{return a} ? b", "unexpected '?' in expression"},
+		{"a=>{return a} => b=>b", "unexpected '=>' in expression"},
+		{"class a extends b=>b", "expected '{' instead of '=>' in class declaration"},
 
 		// regular expressions
 		{"x = x / foo /", "unexpected EOF in expression"},
@@ -522,6 +595,8 @@ func TestParseError(t *testing.T) {
 		{"a=>{let a}", "identifier 'a' has already been declared"},
 		{"let a;function a(){}", "identifier 'a' has already been declared"},
 		{"try{}catch(a){let a}", "identifier 'a' has already been declared"},
+		{"let {a, a}", "identifier 'a' has already been declared"},
+		{"let {a, ...a}", "identifier 'a' has already been declared"},
 
 		// other
 		{"\x00", "unexpected 0x00"},
@@ -854,4 +929,37 @@ func TestParseRef(t *testing.T) {
 			test.String(t, s, tt.refs)
 		})
 	}
+}
+
+func TestScope(t *testing.T) {
+	js := "let a,b; b = 5; var c;"
+	ast, err := Parse(parse.NewInputString(js))
+	if err != io.EOF {
+		test.Error(t, err)
+	}
+	scope := ast.Scope
+
+	// test count
+	test.T(t, scope.Count(LexicalDecl), 2)
+
+	// test VarRef
+	a := scope.Declared[0]
+	test.T(t, a, a.Ref.Var(ast))
+	test.T(t, a.Name, a.Ref.Name(ast))
+	test.T(t, string(a.Name), a.Ref.String(ast))
+
+	// test output
+	test.T(t, scope.String(), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
+
+	// test sort
+	sort.Sort(scope.Declared)
+	test.T(t, scope.String(), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
+}
+
+func TestParseInputError(t *testing.T) {
+	_, err := Parse(parse.NewInput(test.NewErrorReader(0)))
+	test.T(t, err, test.ErrPlain)
+
+	_, err = Parse(parse.NewInput(test.NewErrorReader(1)))
+	test.T(t, err, test.ErrPlain)
 }

@@ -21,7 +21,7 @@ const (
 	OpExp                    // a**b
 	OpUnary                  // ++x, --x, delete x, void x, typeof x, +x, -x, ~x, !x, await x
 	OpUpdate                 // x++, x--
-	OpLHS                    // new x, a(b), super(x), import(x), a?.(b), a?.[b], a?.b, a?.`b`
+	OpLHS                    // new a, a(b), super(a), import(a), a?.b
 	OpMember                 // a[b], a.b, a`b`, super[x], super.x, new.target, import.meta, new a(b)
 	OpPrimary                // literal, function, class, parenthesized
 )
