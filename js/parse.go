@@ -1446,8 +1446,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			precLeft = OpMember
 		} else {
 			newExpr := &NewExpr{p.parseExpression(OpMember), nil}
-			_, isNew := newExpr.X.(*NewExpr)
-			if !isNew && p.tt == OpenParenToken {
+			if p.tt == OpenParenToken {
 				args := p.parseArgs()
 				if len(args.List) != 0 || args.Rest != nil {
 					newExpr.Args = &args
