@@ -4,7 +4,64 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"unsafe"
 )
+
+func printSize(name string, size uintptr) {
+	fmt.Println(name, size, float64(size)/8, float64(size)/64)
+}
+
+func init() {
+	printSize("AST", unsafe.Sizeof(AST{}))
+	printSize("Module", unsafe.Sizeof(Module{}))
+	printSize("Scope", unsafe.Sizeof(Scope{}))
+
+	printSize("BlockStmt", unsafe.Sizeof(BlockStmt{}))
+	printSize("BranchStmt", unsafe.Sizeof(BranchStmt{}))
+	printSize("LabelledStmt", unsafe.Sizeof(LabelledStmt{}))
+	printSize("ReturnStmt", unsafe.Sizeof(ReturnStmt{}))
+	printSize("IfStmt", unsafe.Sizeof(IfStmt{}))
+	printSize("WithStmt", unsafe.Sizeof(WithStmt{}))
+	printSize("DoWhileStmt", unsafe.Sizeof(DoWhileStmt{}))
+	printSize("WhileStmt", unsafe.Sizeof(WhileStmt{}))
+	printSize("ForStmt", unsafe.Sizeof(ForStmt{}))
+	printSize("ForInStmt", unsafe.Sizeof(ForInStmt{}))
+	printSize("ForOfStmt", unsafe.Sizeof(ForOfStmt{}))
+	printSize("SwitchStmt", unsafe.Sizeof(SwitchStmt{}))
+	printSize("ThrowStmt", unsafe.Sizeof(ThrowStmt{}))
+	printSize("TryStmt", unsafe.Sizeof(TryStmt{}))
+	printSize("DebuggerStmt", unsafe.Sizeof(DebuggerStmt{}))
+	printSize("EmptyStmt", unsafe.Sizeof(EmptyStmt{}))
+	printSize("ImportStmt", unsafe.Sizeof(ImportStmt{}))
+	printSize("ExportStmt", unsafe.Sizeof(ExportStmt{}))
+	printSize("ExprStmt", unsafe.Sizeof(ExprStmt{}))
+
+	printSize("BindingArray", unsafe.Sizeof(BindingArray{}))
+	printSize("BindingObject", unsafe.Sizeof(BindingObject{}))
+
+	printSize("VarDecl", unsafe.Sizeof(VarDecl{}))
+	printSize("FuncDecl", unsafe.Sizeof(FuncDecl{}))
+	printSize("ClassDecl", unsafe.Sizeof(ClassDecl{}))
+	printSize("MethodDecl", unsafe.Sizeof(MethodDecl{}))
+
+	printSize("GroupExpr", unsafe.Sizeof(GroupExpr{}))
+	printSize("ArrayExpr", unsafe.Sizeof(ArrayExpr{}))
+	printSize("ObjectExpr", unsafe.Sizeof(ObjectExpr{}))
+	printSize("TemplateExpr", unsafe.Sizeof(TemplateExpr{}))
+	printSize("NewExpr", unsafe.Sizeof(NewExpr{}))
+	printSize("NewTargetExpr", unsafe.Sizeof(NewTargetExpr{}))
+	printSize("ImportMetaExpr", unsafe.Sizeof(ImportMetaExpr{}))
+	printSize("YieldExpr", unsafe.Sizeof(YieldExpr{}))
+	printSize("CondExpr", unsafe.Sizeof(CondExpr{}))
+	printSize("DotExpr", unsafe.Sizeof(DotExpr{}))
+	printSize("CallExpr", unsafe.Sizeof(CallExpr{}))
+	printSize("IndexExpr", unsafe.Sizeof(IndexExpr{}))
+	printSize("OptChainExpr", unsafe.Sizeof(OptChainExpr{}))
+	printSize("UnaryExpr", unsafe.Sizeof(UnaryExpr{}))
+	printSize("BinaryExpr", unsafe.Sizeof(BinaryExpr{}))
+	printSize("LiteralExpr", unsafe.Sizeof(LiteralExpr{}))
+	printSize("ArrowFunc", unsafe.Sizeof(ArrowFunc{}))
+}
 
 type AST struct {
 	Comment []byte // first comment in file
@@ -802,7 +859,7 @@ type FuncDecl struct {
 	Name      VarRef // can be nil
 	Params    Params
 	Body      BlockStmt
-	Scope
+	_         [112]byte
 }
 
 func (n FuncDecl) String(ast *AST) string {
@@ -830,7 +887,7 @@ type MethodDecl struct {
 	Name      PropertyName
 	Params    Params
 	Body      BlockStmt
-	Scope
+	_         [64]byte
 }
 
 func (n MethodDecl) String(ast *AST) string {
@@ -1116,7 +1173,7 @@ type ArrowFunc struct {
 	Async  bool
 	Params Params
 	Body   BlockStmt
-	Scope
+	_      [112]byte
 }
 
 func (n ArrowFunc) String(ast *AST) string {

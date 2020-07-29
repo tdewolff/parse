@@ -667,7 +667,7 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 	switch expr := iexpr.(type) {
 	case *FuncDecl:
-		sv.AddScope(expr.Scope)
+		sv.AddScope(expr.Body.Scope)
 		for _, item := range expr.Params.List {
 			if item.Binding != nil {
 				sv.AddBinding(item.Binding)
@@ -684,10 +684,10 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 		}
 	case *ClassDecl:
 		for _, method := range expr.Methods {
-			sv.AddScope(method.Scope)
+			sv.AddScope(method.Body.Scope)
 		}
 	case *ArrowFunc:
-		sv.AddScope(expr.Scope)
+		sv.AddScope(expr.Body.Scope)
 		for _, item := range expr.Params.List {
 			if item.Binding != nil {
 				sv.AddBinding(item.Binding)
@@ -749,7 +749,7 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 			sv.AddStmt(item)
 		}
 	case *FuncDecl:
-		sv.AddScope(stmt.Scope)
+		sv.AddScope(stmt.Body.Scope)
 		for _, item := range stmt.Params.List {
 			if item.Binding != nil {
 				sv.AddBinding(item.Binding)
@@ -766,7 +766,7 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		}
 	case *ClassDecl:
 		for _, method := range stmt.Methods {
-			sv.AddScope(method.Scope)
+			sv.AddScope(method.Body.Scope)
 		}
 	case *ReturnStmt:
 		sv.AddExpr(stmt.Value)
