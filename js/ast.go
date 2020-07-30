@@ -859,7 +859,6 @@ type FuncDecl struct {
 	Name      VarRef // can be nil
 	Params    Params
 	Body      BlockStmt
-	_         [112]byte
 }
 
 func (n FuncDecl) String(ast *AST) string {
@@ -887,7 +886,6 @@ type MethodDecl struct {
 	Name      PropertyName
 	Params    Params
 	Body      BlockStmt
-	_         [64]byte
 }
 
 func (n MethodDecl) String(ast *AST) string {
@@ -1173,7 +1171,6 @@ type ArrowFunc struct {
 	Async  bool
 	Params Params
 	Body   BlockStmt
-	_      [112]byte
 }
 
 func (n ArrowFunc) String(ast *AST) string {
