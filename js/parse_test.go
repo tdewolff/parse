@@ -406,8 +406,11 @@ func TestParseError(t *testing.T) {
 		{"switch(a){case a:", "unexpected EOF in switch statement"},
 		{"try", "expected '{' instead of EOF in try statement"},
 		{"try{", "unexpected EOF"},
+		{"try{}", "expected 'catch' or 'finally' instead of EOF in try statement"},
 		{"try{}catch(a", "expected ')' instead of EOF in try-catch statement"},
 		{"try{}catch(a,", "expected ')' instead of ',' in try-catch statement"},
+		{"try{}catch", "expected '{' instead of EOF in try-catch statement"},
+		{"try{}finally", "expected '{' instead of EOF in try-finally statement"},
 		{"function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"async function", "expected 'Identifier' or '(' instead of EOF in function declaration"},
 		{"function a", "expected '(' instead of EOF in function declaration"},
@@ -781,11 +784,11 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		if 0 < len(stmt.Body.List) {
 			sv.AddStmt(&stmt.Body)
 		}
-		if 0 < len(stmt.Catch.List) {
-			sv.AddStmt(&stmt.Catch)
+		if stmt.Catch != nil {
+			sv.AddStmt(stmt.Catch)
 		}
-		if 0 < len(stmt.Finally.List) {
-			sv.AddStmt(&stmt.Finally)
+		if stmt.Finally != nil {
+			sv.AddStmt(stmt.Finally)
 		}
 	case *VarDecl:
 		for _, item := range stmt.List {

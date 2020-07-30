@@ -429,6 +429,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 			catch.List = p.parseStmtList("try-catch statement")
 			p.exitScope(parent)
+		} else if p.tt != FinallyToken {
+			p.fail("try statement", CatchToken, FinallyToken)
+			return
 		}
 		if p.tt == FinallyToken {
 			p.next()
@@ -1445,7 +1448,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			left = &NewTargetExpr{}
 			precLeft = OpMember
 		} else {
-			newExpr := &NewExpr{p.parseExpression(OpMember), nil}
+			newExpr := &NewExpr{p.parseExpression(OpNew), nil}
 			if p.tt == OpenParenToken {
 				args := p.parseArgs()
 				if len(args.List) != 0 || args.Rest != nil {
@@ -1471,27 +1474,27 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		} else if p.tt != OpenParenToken {
 			p.fail("import expression", OpenParenToken)
 			return nil
-		} else if OpLHS < prec {
+		} else if OpCall < prec {
 			p.fail("expression")
 			return nil
 		} else {
-			precLeft = OpLHS
+			precLeft = OpCall
 		}
 	case SuperToken:
 		// OpMember < prec does never happen
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
-		if OpLHS < prec && p.tt != DotToken && p.tt != OpenBracketToken {
+		if OpCall < prec && p.tt != DotToken && p.tt != OpenBracketToken {
 			p.fail("super expression", OpenBracketToken, DotToken)
 			return nil
 		} else if p.tt != DotToken && p.tt != OpenBracketToken && p.tt != OpenParenToken {
 			p.fail("super expression", OpenBracketToken, OpenParenToken, DotToken)
 			return nil
 		}
-		if OpLHS < prec {
+		if OpCall < prec {
 			precLeft = OpMember
 		} else {
-			precLeft = OpLHS
+			precLeft = OpCall
 		}
 	case YieldToken:
 		// either accepted as IdentifierReference or as YieldExpression
@@ -1627,14 +1630,14 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 			precLeft = OpMember
 		case OpenParenToken:
-			if OpLHS < prec {
+			if OpCall < prec {
 				return left
-			} else if precLeft < OpLHS {
+			} else if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
 			left = &CallExpr{left, p.parseArgs()}
-			precLeft = OpLHS
+			precLeft = OpCall
 		case TemplateToken, TemplateStartToken:
 			// OpMember < prec does never happen
 			if precLeft < OpLHS {
