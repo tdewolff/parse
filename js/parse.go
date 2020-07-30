@@ -415,10 +415,10 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		p.next()
 		body := p.parseBlockStmt("try statement", true)
 		var binding IBinding
-		var catch, finally BlockStmt
+		var catch, finally *BlockStmt
 		if p.tt == CatchToken {
 			p.next()
-
+			catch = &BlockStmt{}
 			parent := p.enterScope(&catch.Scope, false)
 			if p.tt == OpenParenToken {
 				p.next()
@@ -432,7 +432,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		}
 		if p.tt == FinallyToken {
 			p.next()
-			finally = p.parseBlockStmt("try-finally statement", true)
+			blockStmt := p.parseBlockStmt("try-finally statement", true)
+			finally = &blockStmt
 		}
 		stmt = &TryStmt{body, binding, catch, finally}
 	case DebuggerToken:
@@ -1002,7 +1003,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 			item := BindingObjectItem{}
 			if p.isIdentifierReference(p.tt) {
 				name := p.data
-				item.Key = PropertyName{LiteralExpr{IdentifierToken, p.data}, nil}
+				item.Key = &PropertyName{LiteralExpr{IdentifierToken, p.data}, nil}
 				p.next()
 				if p.tt == ColonToken {
 					// property name + : + binding element
@@ -1024,7 +1025,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 				}
 			} else {
 				propertyName := p.parsePropertyName("object binding pattern")
-				item.Key = propertyName
+				item.Key = &propertyName
 				if !p.consume("object binding pattern", ColonToken) {
 					return
 				}
@@ -1160,7 +1161,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			} else if p.tt == ColonToken {
 				// PropertyName : AssignmentExpression
 				p.next()
-				property.Name = method.Name
+				property.Name = &method.Name
 				property.Value = p.parseAssignmentExpression()
 			} else if method.Name.IsComputed() || !p.isIdentifierReference(method.Name.Literal.TokenType) {
 				p.fail("object literal", ColonToken, OpenParenToken)
@@ -1169,7 +1170,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				// IdentifierReference (= AssignmentExpression)?
 				name := method.Name.Literal.Data
 				method.Name.Literal.Data = parse.Copy(method.Name.Literal.Data) // copy so that renaming doesn't rename the key
-				property.Name = method.Name                                     // set key explicitly so after renaming the original is still known
+				property.Name = &method.Name                                    // set key explicitly so after renaming the original is still known
 				if p.assumeArrowFunc {
 					property.Value, _ = p.scope.Declare(p.ast, ArgumentDecl, name) // cannot fail
 				} else {

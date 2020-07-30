@@ -4,64 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
-	"unsafe"
 )
-
-func printSize(name string, size uintptr) {
-	fmt.Println(name, "\t", size, float64(size)/8)
-}
-
-func init() {
-	printSize("AST      ", unsafe.Sizeof(AST{}))
-	printSize("Module   ", unsafe.Sizeof(Module{}))
-	printSize("Scope    ", unsafe.Sizeof(Scope{}))
-
-	printSize("BlockStmt", unsafe.Sizeof(BlockStmt{}))
-	printSize("BranchStmt", unsafe.Sizeof(BranchStmt{}))
-	printSize("LabelledStmt", unsafe.Sizeof(LabelledStmt{}))
-	printSize("ReturnStmt", unsafe.Sizeof(ReturnStmt{}))
-	printSize("IfStmt    ", unsafe.Sizeof(IfStmt{}))
-	printSize("WithStmt", unsafe.Sizeof(WithStmt{}))
-	printSize("DoWhileStmt", unsafe.Sizeof(DoWhileStmt{}))
-	printSize("WhileStmt", unsafe.Sizeof(WhileStmt{}))
-	printSize("ForStmt", unsafe.Sizeof(ForStmt{}))
-	printSize("ForInStmt", unsafe.Sizeof(ForInStmt{}))
-	printSize("ForOfStmt", unsafe.Sizeof(ForOfStmt{}))
-	printSize("SwitchStmt", unsafe.Sizeof(SwitchStmt{}))
-	printSize("ThrowStmt", unsafe.Sizeof(ThrowStmt{}))
-	printSize("TryStmt", unsafe.Sizeof(TryStmt{}))
-	printSize("DebuggerStmt", unsafe.Sizeof(DebuggerStmt{}))
-	printSize("EmptyStmt", unsafe.Sizeof(EmptyStmt{}))
-	printSize("ImportStmt", unsafe.Sizeof(ImportStmt{}))
-	printSize("ExportStmt", unsafe.Sizeof(ExportStmt{}))
-	printSize("ExprStmt", unsafe.Sizeof(ExprStmt{}))
-
-	printSize("BindingArray", unsafe.Sizeof(BindingArray{}))
-	printSize("BindingObject", unsafe.Sizeof(BindingObject{}))
-
-	printSize("VarDecl", unsafe.Sizeof(VarDecl{}))
-	printSize("FuncDecl", unsafe.Sizeof(FuncDecl{}))
-	printSize("ClassDecl", unsafe.Sizeof(ClassDecl{}))
-	printSize("MethodDecl", unsafe.Sizeof(MethodDecl{}))
-
-	printSize("GroupExpr", unsafe.Sizeof(GroupExpr{}))
-	printSize("ArrayExpr", unsafe.Sizeof(ArrayExpr{}))
-	printSize("ObjectExpr", unsafe.Sizeof(ObjectExpr{}))
-	printSize("TemplateExpr", unsafe.Sizeof(TemplateExpr{}))
-	printSize("NewExpr", unsafe.Sizeof(NewExpr{}))
-	printSize("NewTargetExpr", unsafe.Sizeof(NewTargetExpr{}))
-	printSize("ImportMetaExpr", unsafe.Sizeof(ImportMetaExpr{}))
-	printSize("YieldExpr", unsafe.Sizeof(YieldExpr{}))
-	printSize("CondExpr", unsafe.Sizeof(CondExpr{}))
-	printSize("DotExpr", unsafe.Sizeof(DotExpr{}))
-	printSize("CallExpr", unsafe.Sizeof(CallExpr{}))
-	printSize("IndexExpr", unsafe.Sizeof(IndexExpr{}))
-	printSize("OptChainExpr", unsafe.Sizeof(OptChainExpr{}))
-	printSize("UnaryExpr", unsafe.Sizeof(UnaryExpr{}))
-	printSize("BinaryExpr", unsafe.Sizeof(BinaryExpr{}))
-	printSize("LiteralExpr", unsafe.Sizeof(LiteralExpr{}))
-	printSize("ArrowFunc", unsafe.Sizeof(ArrowFunc{}))
-}
 
 type AST struct {
 	Comment []byte // first comment in file
@@ -543,21 +486,21 @@ func (n ThrowStmt) String(ast *AST) string {
 
 type TryStmt struct {
 	Body    BlockStmt
-	Binding IBinding // can be nil
-	Catch   BlockStmt
-	Finally BlockStmt
+	Binding IBinding   // can be nil
+	Catch   *BlockStmt // can be nil
+	Finally *BlockStmt // can be nil
 }
 
 func (n TryStmt) String(ast *AST) string {
 	s := "Stmt(try " + n.Body.String(ast)
-	if len(n.Catch.List) != 0 || n.Binding != nil {
+	if n.Catch != nil {
 		s += " catch"
 		if n.Binding != nil {
 			s += " Binding(" + n.Binding.String(ast) + ")"
 		}
 		s += " " + n.Catch.String(ast)
 	}
-	if len(n.Finally.List) != 0 {
+	if n.Finally != nil {
 		s += " finally " + n.Finally.String(ast)
 	}
 	return s + ")"
@@ -743,7 +686,7 @@ func (n BindingArray) String(ast *AST) string {
 }
 
 type BindingObjectItem struct {
-	Key   PropertyName // can be unset
+	Key   *PropertyName // can be nil
 	Value BindingElement
 }
 
@@ -758,7 +701,7 @@ func (n BindingObject) String(ast *AST) string {
 		if i != 0 {
 			s += ","
 		}
-		if item.Key.IsSet() {
+		if item.Key != nil {
 			if ref, ok := item.Value.Binding.(VarRef); !ok || !item.Key.IsIdent(ref.Name(ast)) {
 				s += " " + item.Key.String(ast) + ":"
 			}
@@ -979,7 +922,7 @@ func (n ArrayExpr) String(ast *AST) string {
 type Property struct {
 	// either Name or Spread are set. When Spread is set then Value is AssignmentExpression
 	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
-	Name   PropertyName // can be unset
+	Name   *PropertyName // can be nil
 	Spread bool
 	Value  IExpr
 	Init   IExpr // can be nil
@@ -987,7 +930,7 @@ type Property struct {
 
 func (n Property) String(ast *AST) string {
 	s := ""
-	if n.Name.IsSet() {
+	if n.Name != nil {
 		if ref, ok := n.Value.(VarRef); !ok || !n.Name.IsIdent(ref.Name(ast)) {
 			s += n.Name.String(ast) + ": "
 		}
