@@ -302,6 +302,7 @@ func TestParse(t *testing.T) {
 		{"a&b&c", "Stmt((a&b)&c)"},
 		{"a|b|c", "Stmt((a|b)|c)"},
 		{"a^b^c", "Stmt((a^b)^c)"},
+		{"a,b,c", "Stmt((a,b),c)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},
