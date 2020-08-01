@@ -866,6 +866,7 @@ func TestParseScope(t *testing.T) {
 		{"try{}catch(a){let b; c}", "/a,b", "c/c", "c"},
 		{"try{}catch(a){var b; c}", "b/a", "c/b,c", "c"},
 		{"var a;try{}catch(a){var a}", "a/a", "/a", ""},
+		{"var a;try{}catch(b){var a}", "a/b", "/a", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

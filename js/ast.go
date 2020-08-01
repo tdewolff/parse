@@ -7,8 +7,8 @@ import (
 )
 
 type AST struct {
-	Comment []byte // first comment in file
-	Module
+	Comment   []byte // first comment in file
+	BlockStmt        // module
 
 	// Vars holds a list of all variables to which VarRef is indexing
 	Vars VarArray
@@ -27,7 +27,14 @@ func (ast *AST) AddVar(decl DeclType, name []byte) *Var {
 }
 
 func (ast *AST) String() string {
-	return ast.Module.String(ast)
+	s := ""
+	for i, item := range ast.BlockStmt.List {
+		if i != 0 {
+			s += " "
+		}
+		s += item.String(ast)
+	}
+	return s
 }
 
 ////////////////////////////////////////////////////////////////
@@ -297,22 +304,6 @@ type IExpr interface {
 }
 
 ////////////////////////////////////////////////////////////////
-
-type Module struct {
-	List []IStmt
-	Scope
-}
-
-func (n Module) String(ast *AST) string {
-	s := ""
-	for i, item := range n.List {
-		if i != 0 {
-			s += " "
-		}
-		s += item.String(ast)
-	}
-	return s
-}
 
 type BlockStmt struct {
 	List []IStmt

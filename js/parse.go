@@ -37,7 +37,7 @@ func Parse(r *parse.Input) (*AST, error) {
 		p.ast.Comment = p.data
 		p.next()
 	}
-	p.ast.Module = p.parseModule()
+	p.ast.BlockStmt = p.parseModule()
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -137,7 +137,7 @@ func (p *Parser) exitScope(parent *Scope) {
 	p.scope = parent
 }
 
-func (p *Parser) parseModule() (module Module) {
+func (p *Parser) parseModule() (module BlockStmt) {
 	p.enterScope(&module.Scope, true)
 	for {
 		switch p.tt {
@@ -898,9 +898,10 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 		propertyName.Literal = LiteralExpr{IdentifierToken, p.data}
 		p.next()
 	} else if p.tt == StringToken {
-		if _, ok := ParseIdentifierName(p.data[1 : len(p.data)-1]); ok {
+		// reinterpret string as identifier or number if we can, except for empty strings
+		if _, ok := ParseIdentifierName(p.data[1 : len(p.data)-1]); ok && 2 < len(p.data) {
 			propertyName.Literal = LiteralExpr{IdentifierToken, p.data[1 : len(p.data)-1]}
-		} else if tt, ok := ParseNumericLiteral(p.data[1 : len(p.data)-1]); ok {
+		} else if tt, ok := ParseNumericLiteral(p.data[1 : len(p.data)-1]); ok && 2 < len(p.data) {
 			propertyName.Literal = LiteralExpr{tt, p.data[1 : len(p.data)-1]}
 		} else {
 			propertyName.Literal = LiteralExpr{p.tt, p.data}
