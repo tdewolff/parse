@@ -1102,7 +1102,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			p.next()
 			property.Spread = true
 			property.Value = p.parseAssignmentExpression()
-			if p.tt != CloseBraceToken {
+			if _, isIdent := property.Value.(VarRef); !isIdent || p.tt != CloseBraceToken {
 				p.assumeArrowFunc = false
 			}
 		} else {
