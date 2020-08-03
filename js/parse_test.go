@@ -20,6 +20,7 @@ func TestParse(t *testing.T) {
 	}{
 		// grammar
 		{"", ""},
+		{"\n", ""},
 		{"/* comment */", ""},
 		{"{}", "Stmt({ })"},
 		{"var a = b;", "Decl(var Binding(a = b))"},
@@ -236,6 +237,7 @@ func TestParse(t *testing.T) {
 		{"x = new a", "Stmt(x=(new a))"},
 		{"x = new a()", "Stmt(x=(new a))"},
 		{"x = new a(b)", "Stmt(x=(new a(b)))"},
+		{"x = new a().b(c)", "Stmt(x=(((new a).b)(c)))"},
 		{"x = new new.target", "Stmt(x=(new (new.target)))"},
 		{"x = new import.meta", "Stmt(x=(new (import.meta)))"},
 		{"x = import(a)", "Stmt(x=(import(a)))"},
@@ -868,6 +870,11 @@ func TestParseScope(t *testing.T) {
 		{"try{}catch(a){var b; c}", "b/a", "c/b,c", "c"},
 		{"var a;try{}catch(a){var a}", "a/a", "/a", ""},
 		{"var a;try{}catch(b){var a}", "a/b", "/a", ""},
+		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r/l,o/t/", "z/z/o,z/o,t", "z"},
+		//{"function a(){var name;{var name}}", "a/name/", "//", ""},
+		//{"function a(){var name;{function name(){}}}", "a/name//", "///", ""},
+		//{"function a(){var name;{var name=7}}", "a/name/", "//name", ""},
+		{"!function(){a};!function(){a};var a", "a//", "/a/a", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -915,6 +922,7 @@ func TestParseRef(t *testing.T) {
 		{"{a} {a} var a", "a=1,a=1"},                // second block must add a new var in case the block contains a var decl
 		{"(a),(a)", "a=1,a=1"},                      // second parens could have been arrow function, so must have added new var
 		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3,a=1"}, // parens could have been arrow function, so must have added new var
+		{"!function(){a};!function(){a};var a", "a=1,a=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -944,9 +952,6 @@ func TestScope(t *testing.T) {
 		test.Error(t, err)
 	}
 	scope := ast.Scope
-
-	// test count
-	test.T(t, scope.Count(LexicalDecl), 2)
 
 	// test VarRef
 	a := scope.Declared[0]

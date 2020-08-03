@@ -36,7 +36,10 @@ func Parse(r *parse.Input) (*AST, error) {
 	if p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
 		p.ast.Comment = p.data
 		p.next()
+	} else if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
+		p.next()
 	}
+	// prevLT may be wrong but that is not a problem
 	p.ast.BlockStmt = p.parseModule()
 
 	if p.err == nil {
@@ -99,6 +102,7 @@ func (p *Parser) fail(in string, expected ...TokenType) {
 				// does not happen
 			}
 		} else {
+			// TODO: non-printable character like \r \n
 			msg += " '" + string(p.data) + "'"
 		}
 		if in != "" {
@@ -123,7 +127,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	// create a new scope object and add it to the parent
 	parent := p.scope
 	p.scope = scope
-	*scope = Scope{parent, nil, VarArray{}, VarArray{}, 0}
+	*scope = Scope{parent, nil, VarArray{}, VarArray{}, 0, 0}
 	if isFunc {
 		scope.Func = scope
 	} else if parent != nil {
@@ -690,6 +694,7 @@ func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
 	declType := LexicalDecl
 	if tt == VarToken {
 		declType = VariableDecl
+		p.scope.Func.NVarDecls++
 	}
 	for {
 		varDecl.List = append(varDecl.List, p.parseBindingElement(declType))
@@ -758,6 +763,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 	}
 	var ok bool
 	var name []byte
+	// TODO: must have name for function statement? Check +Default in spec
 	if inExpr && (IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
 		name = p.data
 		if !inExpr {
@@ -1457,7 +1463,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				}
 				precLeft = OpMember
 			} else {
-				precLeft = OpLHS
+				precLeft = OpNew
 			}
 			left = newExpr
 		}
@@ -1616,8 +1622,12 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				return nil
 			}
 			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}}
-			precLeft = OpMember
 			p.next()
+			if precLeft < OpMember {
+				precLeft = OpCall
+			} else {
+				precLeft = OpMember
+			}
 		case OpenBracketToken:
 			// OpMember < prec does never happen
 			if precLeft < OpLHS {
@@ -1629,7 +1639,11 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
 			}
-			precLeft = OpMember
+			if precLeft < OpMember {
+				precLeft = OpCall
+			} else {
+				precLeft = OpMember
+			}
 		case OpenParenToken:
 			if OpCall < prec {
 				return left
@@ -1648,9 +1662,13 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			template := p.parseTemplateLiteral()
 			template.Tag = left
 			left = &template
-			precLeft = OpMember
+			if precLeft < OpMember {
+				precLeft = OpCall
+			} else {
+				precLeft = OpMember
+			}
 		case OptChainToken:
-			if OpLHS < prec {
+			if OpCall < prec {
 				return left
 			}
 			p.next()
@@ -1672,7 +1690,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
 				return nil
 			}
-			precLeft = OpLHS
+			precLeft = OpCall
 		case IncrToken:
 			if p.prevLT || OpUpdate < prec {
 				return left

@@ -11,7 +11,7 @@ type AST struct {
 	BlockStmt        // module
 
 	// Vars holds a list of all variables to which VarRef is indexing
-	Vars VarArray
+	Vars VarArray // TODO: instead of pointer hold values
 }
 
 func newAST() *AST {
@@ -126,14 +126,16 @@ func (vs VarArray) String() string {
 
 // Scope is a function or block scope with a list of variables declared and used
 // TODO: handle with statement and eval function calls in scope?
+// TODO: don't add used statement to scope when defining a function or var (without define) in a block
 type Scope struct {
 	Parent, Func    *Scope
 	Declared        VarArray
 	Undeclared      VarArray
+	NVarDecls       int // number of variable declaration statements in a function scope
 	argumentsOffset int // offset into Undeclared to mark variables used in arguments initializers
 }
 
-func (s *Scope) String() string {
+func (s Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
 }
 
@@ -147,7 +149,7 @@ func (s *Scope) Declare(ast *AST, decl DeclType, name []byte) (VarRef, bool) {
 		s = s.Func
 	}
 
-	if v := s.findScopeVar(name); v != nil {
+	if v := s.findDeclared(name); v != nil {
 		// variable already declared, might be an error or a duplicate declaration
 		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != ExprDecl {
 			// redeclaration of let, const, class on an already declared name is an error, except if the declared name is a function expression name
@@ -190,7 +192,7 @@ func (s *Scope) Declare(ast *AST, decl DeclType, name []byte) (VarRef, bool) {
 // Use a variable
 func (s *Scope) Use(ast *AST, name []byte) VarRef {
 	// check if variable is declared in the current or upper scopes
-	v, declaredScope := s.findDeclared(name)
+	v, declaredScope := s.findVarDeclaration(name)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
 		v = s.findUndeclared(name)
@@ -207,7 +209,7 @@ func (s *Scope) Use(ast *AST, name []byte) VarRef {
 }
 
 // find declared variable in the current scope
-func (s *Scope) findScopeVar(name []byte) *Var {
+func (s *Scope) findDeclared(name []byte) *Var {
 	for _, v := range s.Declared {
 		if bytes.Equal(name, v.Name) {
 			return v
@@ -217,11 +219,11 @@ func (s *Scope) findScopeVar(name []byte) *Var {
 }
 
 // find declared variable in the current and upper scopes
-func (s *Scope) findDeclared(name []byte) (*Var, *Scope) {
-	if v := s.findScopeVar(name); v != nil {
+func (s *Scope) findVarDeclaration(name []byte) (*Var, *Scope) {
+	if v := s.findDeclared(name); v != nil {
 		return v, s
 	} else if s.Parent != nil {
-		return s.Parent.findDeclared(name)
+		return s.Parent.findVarDeclaration(name)
 	}
 	return nil, nil
 }
@@ -243,12 +245,19 @@ func (s *Scope) MarkArguments() {
 
 func (s *Scope) HoistUndeclared(ast *AST) {
 	// copy all undeclared variables to the parent scope
-	for _, vorig := range s.Undeclared {
-		if 0 < vorig.Uses && vorig.Decl == NoDecl {
+	for i, vorig := range s.Undeclared {
+		hoist := vorig.Decl == NoDecl
+		if !hoist {
+			// in case of: var a;if(b){if(c){a}} the undeclared variable a must be present in both blocks
+			// so that the outer if statement block will not rename variables to 'a'
+			hoist = s.Parent.findDeclared(vorig.Name) == nil
+		}
+		if 0 < vorig.Uses && hoist {
 			if v := s.Parent.findUndeclared(vorig.Name); v != nil {
 				// check if variable is already used before in the current or lower scopes
 				v.Uses++
 				ast.Vars[vorig.Ref] = v // point reference to existing var
+				s.Undeclared[i] = v     // point reference to existing var
 			} else {
 				// add variable to the context list and to the scope's undeclared
 				s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
@@ -258,10 +267,11 @@ func (s *Scope) HoistUndeclared(ast *AST) {
 }
 
 func (s *Scope) UndeclareScope(ast *AST) {
+	// called when possibly arrow func ends up being a parenthesized expression, scope not futher used
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
 	// TODO; remove new vars, pass difference to this function?
 	for _, vorig := range s.Declared {
-		if v, _ := s.Parent.findDeclared(vorig.Name); v != nil {
+		if v, _ := s.Parent.findVarDeclaration(vorig.Name); v != nil {
 			// check if variable has been declared in this scope
 			v.Uses++
 			ast.Vars[vorig.Ref] = v // point reference to existing var
@@ -275,15 +285,6 @@ func (s *Scope) UndeclareScope(ast *AST) {
 			s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
 		}
 	}
-}
-
-func (s *Scope) Count(decl DeclType) (n int) {
-	for _, v := range s.Declared {
-		if v.Decl == decl {
-			n++
-		}
-	}
-	return
 }
 
 ////////////////////////////////////////////////////////////////
