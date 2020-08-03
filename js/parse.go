@@ -1203,8 +1203,12 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 	return
 }
 
-func (p *Parser) parseTemplateLiteral() (template TemplateExpr) {
+func (p *Parser) parseTemplateLiteral(precLeft OpPrec) (template TemplateExpr) {
 	// assume we're on 'Template' or 'TemplateStart'
+	template.Prec = OpMember
+	if precLeft < OpMember {
+		template.Prec = OpCall
+	}
 	for p.tt == TemplateStartToken || p.tt == TemplateMiddleToken {
 		tpl := p.data
 		p.next()
@@ -1536,7 +1540,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		funcDecl := p.parseFuncExpr()
 		left = &funcDecl
 	case TemplateToken, TemplateStartToken:
-		template := p.parseTemplateLiteral()
+		template := p.parseTemplateLiteral(precLeft)
 		left = &template
 	default:
 		p.fail("expression")
@@ -1612,7 +1616,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			precLeft = OpCoalesce
 		case DotToken:
 			// OpMember < prec does never happen
-			if precLeft < OpLHS {
+			if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
@@ -1621,7 +1625,11 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				p.fail("dot expression", IdentifierToken)
 				return nil
 			}
-			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}}
+			exprPrec := OpMember
+			if precLeft < OpMember {
+				exprPrec = OpCall
+			}
+			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}, exprPrec}
 			p.next()
 			if precLeft < OpMember {
 				precLeft = OpCall
@@ -1630,12 +1638,16 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 		case OpenBracketToken:
 			// OpMember < prec does never happen
-			if precLeft < OpLHS {
+			if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
 			p.next()
-			left = &IndexExpr{left, p.parseExpression(OpExpr)}
+			exprPrec := OpMember
+			if precLeft < OpMember {
+				exprPrec = OpCall
+			}
+			left = &IndexExpr{left, p.parseExpression(OpExpr), exprPrec}
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
 			}
@@ -1655,11 +1667,11 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			precLeft = OpCall
 		case TemplateToken, TemplateStartToken:
 			// OpMember < prec does never happen
-			if precLeft < OpLHS {
+			if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
-			template := p.parseTemplateLiteral()
+			template := p.parseTemplateLiteral(precLeft)
 			template.Tag = left
 			left = &template
 			if precLeft < OpMember {
@@ -1676,12 +1688,12 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				left = &OptChainExpr{left, &CallExpr{nil, p.parseArgs()}}
 			} else if p.tt == OpenBracketToken {
 				p.next()
-				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpression(OpExpr)}}
+				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpression(OpExpr), OpCall}}
 				if !p.consume("optional chaining expression", CloseBracketToken) {
 					return nil
 				}
 			} else if p.tt == TemplateToken || p.tt == TemplateStartToken {
-				template := p.parseTemplateLiteral()
+				template := p.parseTemplateLiteral(precLeft)
 				left = &OptChainExpr{left, &template}
 			} else if IsIdentifierName(p.tt) {
 				left = &OptChainExpr{left, &LiteralExpr{IdentifierToken, p.data}}

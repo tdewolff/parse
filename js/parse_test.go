@@ -650,6 +650,7 @@ func (sv *ScopeVars) String() string {
 }
 
 func (sv *ScopeVars) AddScope(scope Scope) {
+	fmt.Println(scope)
 	if sv.scopes != 0 {
 		sv.bound += "/"
 		sv.uses += "/"
@@ -875,6 +876,8 @@ func TestParseScope(t *testing.T) {
 		//{"function a(){var name;{function name(){}}}", "a/name//", "///", ""},
 		//{"function a(){var name;{var name=7}}", "a/name/", "//name", ""},
 		{"!function(){a};!function(){a};var a", "a//", "/a/a", ""},
+		{"!function(){var a;!function(){a;var a}}", "/a/a", "//", ""},
+		{"!function(){var a;!function(){!function(){a}}}", "", "", ""},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -919,10 +922,12 @@ func TestParseRef(t *testing.T) {
 		{"(b,b)=>{}", "b=1"},
 		{"try{}catch(a){var a}", "a=1,a=2"},
 		{"var a;try{}catch(a){a}", "a=1,a=2"},
-		{"{a} {a} var a", "a=1,a=1"},                // second block must add a new var in case the block contains a var decl
-		{"(a),(a)", "a=1,a=1"},                      // second parens could have been arrow function, so must have added new var
-		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3,a=1"}, // parens could have been arrow function, so must have added new var
+		{"{a} {a} var a", "a=1,a=1"},                        // second block must add a new var in case the block contains a var decl
+		{"(a),(a)", "a=1,a=1"},                              // second parens could have been arrow function, so must have added new var
+		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3,a=1,b=2,c=3"}, // parens could have been arrow function, so must have added new var
 		{"!function(){a};!function(){a};var a", "a=1,a=1"},
+		{"!function(){var a;!function(){a;var a}}", "a=1,a=2"},
+		{"!function(){var a;!function(){!function(){a}}}", "a=1,a=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -932,6 +937,7 @@ func TestParseRef(t *testing.T) {
 			}
 
 			s := ""
+			fmt.Println(ast.Vars[1:])
 			for _, v := range ast.Vars[1:] {
 				if 0 < v.Uses {
 					if len(s) != 0 {

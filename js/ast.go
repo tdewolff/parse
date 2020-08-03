@@ -11,7 +11,7 @@ type AST struct {
 	BlockStmt        // module
 
 	// Vars holds a list of all variables to which VarRef is indexing
-	Vars VarArray // TODO: instead of pointer hold values
+	Vars VarArray
 }
 
 func newAST() *AST {
@@ -191,8 +191,8 @@ func (s *Scope) Declare(ast *AST, decl DeclType, name []byte) (VarRef, bool) {
 
 // Use a variable
 func (s *Scope) Use(ast *AST, name []byte) VarRef {
-	// check if variable is declared in the current or upper scopes
-	v, declaredScope := s.findVarDeclaration(name)
+	// check if variable is declared in the current scope
+	v := s.findDeclared(name)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
 		v = s.findUndeclared(name)
@@ -201,8 +201,8 @@ func (s *Scope) Use(ast *AST, name []byte) VarRef {
 			v = ast.AddVar(NoDecl, name)
 			s.Undeclared = append(s.Undeclared, v)
 		}
-	} else if declaredScope != s {
-		s.Undeclared = append(s.Undeclared, v)
+		//} else if declaredScope != s {
+		//		s.Undeclared = append(s.Undeclared, v)
 	}
 	v.Uses++
 	return v.Ref
@@ -247,14 +247,19 @@ func (s *Scope) HoistUndeclared(ast *AST) {
 	// copy all undeclared variables to the parent scope
 	for i, vorig := range s.Undeclared {
 		hoist := vorig.Decl == NoDecl
-		if !hoist {
-			// in case of: var a;if(b){if(c){a}} the undeclared variable a must be present in both blocks
-			// so that the outer if statement block will not rename variables to 'a'
-			hoist = s.Parent.findDeclared(vorig.Name) == nil
-		}
+		//if !hoist {
+		// in case of: var a;if(b){if(c){a}} the undeclared variable a must be present in both blocks
+		// so that the outer if statement block will not rename variables to 'a'
+		//hoist = s.Parent.findDeclared(vorig.Name) == nil
+		//}
 		if 0 < vorig.Uses && hoist {
-			if v := s.Parent.findUndeclared(vorig.Name); v != nil {
-				// check if variable is already used before in the current or lower scopes
+			if v := s.Parent.findDeclared(vorig.Name); v != nil {
+				// check if variable is declared in parent scope
+				v.Uses++
+				ast.Vars[vorig.Ref] = v // point reference to existing var
+				s.Undeclared[i] = v     // point reference to existing var
+			} else if v := s.Parent.findUndeclared(vorig.Name); v != nil {
+				// check if variable is already used before in parent scope
 				v.Uses++
 				ast.Vars[vorig.Ref] = v // point reference to existing var
 				s.Undeclared[i] = v     // point reference to existing var
@@ -960,6 +965,7 @@ type TemplateExpr struct {
 	Tag  IExpr // can be nil
 	List []TemplatePart
 	Tail []byte
+	Prec OpPrec
 }
 
 func (n TemplateExpr) String(ast *AST) string {
@@ -1024,8 +1030,9 @@ func (n CondExpr) String(ast *AST) string {
 }
 
 type DotExpr struct {
-	X IExpr
-	Y LiteralExpr
+	X    IExpr
+	Y    LiteralExpr
+	Prec OpPrec
 }
 
 func (n DotExpr) String(ast *AST) string {
@@ -1044,6 +1051,7 @@ func (n CallExpr) String(ast *AST) string {
 type IndexExpr struct {
 	X     IExpr
 	Index IExpr
+	Prec  OpPrec
 }
 
 func (n IndexExpr) String(ast *AST) string {
