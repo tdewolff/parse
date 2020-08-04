@@ -628,29 +628,22 @@ func TestParseError(t *testing.T) {
 }
 
 type ScopeVars struct {
+	ast                  *AST
 	bound, uses, unbound string
 	scopes               int
 }
 
-func NewScopeVars(unbounds VarArray) *ScopeVars {
-	unboundsArray := []string{}
-	for _, v := range unbounds {
-		if 0 < v.Uses && v.Decl == NoDecl {
-			unboundsArray = append(unboundsArray, string(v.Name))
-		}
-	}
-	sort.Strings(unboundsArray)
+func NewScopeVars(ast *AST, unbounds VarArray) *ScopeVars {
 	return &ScopeVars{
-		unbound: strings.Join(unboundsArray, ","),
+		ast: ast,
 	}
 }
 
 func (sv *ScopeVars) String() string {
-	return "bound:" + sv.bound + " uses:" + sv.uses + " unbound:" + sv.unbound
+	return "bound:" + sv.bound + " uses:" + sv.uses
 }
 
 func (sv *ScopeVars) AddScope(scope Scope) {
-	fmt.Println(scope)
 	if sv.scopes != 0 {
 		sv.bound += "/"
 		sv.uses += "/"
@@ -658,15 +651,15 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 	sv.scopes++
 
 	bounds := []string{}
-	for _, v := range scope.Declared {
-		bounds = append(bounds, string(v.Name))
+	for _, ref := range scope.Declared {
+		bounds = append(bounds, fmt.Sprintf("%s=%d", ref.Name(sv.ast), ref))
 	}
 	sort.Strings(bounds)
 	sv.bound += strings.Join(bounds, ",")
 
 	uses := []string{}
-	for _, v := range scope.Undeclared {
-		uses = append(uses, string(v.Name))
+	for _, ref := range scope.Undeclared {
+		uses = append(uses, fmt.Sprintf("%s=%d", ref.Name(sv.ast), ref))
 	}
 	sort.Strings(uses)
 	sv.uses += strings.Join(uses, ",")
@@ -812,72 +805,74 @@ func TestParseScope(t *testing.T) {
 	// const, let, and class declarations are block-scoped
 	// unbound variables are registered at function-scope, not for every block-scope!
 	var tests = []struct {
-		js                   string
-		bound, uses, unbound string
+		js          string
+		bound, uses string
 	}{
-		{"var a; b;", "a", "b", "b"},
-		{"var {a:b, c=d, ...e};", "b,c,e", "d", "d"},
-		{"var [a, b=c, ...d];", "a,b,d", "c", "c"},
-		{"x={a:b, c=d, ...e};", "", "b,c,d,e,x", "b,c,d,e,x"},
-		{"x=[a, b=c, ...d];", "", "a,b,c,d,x", "a,b,c,d,x"},
-		{"yield = 5", "", "yield", "yield"},
-		{"await = 5", "", "await", "await"},
-		{"function a(b,c){var d; e = 5; a}", "a/b,c,d", "e/a,e", "e"},
-		{"!function a(b,c){var d; e = 5; a}", "/a,b,c,d", "e/e", "e"},
-		{"function a(b=c){var c}", "a/b,c", "c/c", "c"},
-		{"class a{b(){}}", "a/", "/", ""}, // classes are not tracked
-		{"!class a{b(){}}", "/", "/", ""},
-		{"a => a%5", "/a", "/", ""},
-		{"a => a%b", "/a", "b/b", "b"},
-		{"(a) + (a)", "", "a", "a"},
-		{"(a,b)", "", "a,b", "a,b"},
-		{"(a,b) + (a,b)", "", "a,b", "a,b"},
-		{"(a) + (a => a%5)", "/a", "a/", "a"},
-		{"(a=b) => {var c; d = 5}", "/a,c", "b,d/b,d", "b,d"},
-		{"(a,b=a) => {}", "/a,b", "/", ""},
-		{"(a=b) => {var b}", "/a,b", "b/b", "b"},
-		{"({[a+b]:c}) => {}", "/c", "a,b/a,b", "a,b"},
-		{"({a:b, c=d, ...e}=f) => 5", "/b,c,e", "d,f/d,f", "d,f"},
-		{"([a, b=c, ...d]=e) => 5", "/a,b,d", "c,e/c,e", "c,e"},
-		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b,c,d", "a,e/e", "a,e"},
-		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a,b,c", "a,d/d", "a,d"},
-		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a,b,c", "a,d/a,d/d", "a,d"},
-		{"(a=(b=>b/a)) => a", "/a/b", "//a", ""},
-		{"(a=(b=>b/c)) => a", "/a/b", "c/c/c", "c"},
-		{"(a=(function b(){})) => a", "/a/b", "//", ""},
-		{"label: a", "", "a", "a"},
-		{"yield => yield%5", "/yield", "/", ""},
-		{"await => await%5", "/await", "/", ""},
-		{"function*a(){b => yield%5}", "a//b", "yield/yield/yield", "yield"},
-		{"async function a(){b => await%5}", "a//b", "await/await/await", "await"},
-		{"let a; {let b = a}", "a/b", "/a", ""},
-		{"let a; {var b = a}", "a,b/", "/a,b", ""},
-		{"let a; {class b{}}", "a/b", "/", ""},
-		{"a = 5; var a;", "a", "", ""},
-		{"a = 5; let a;", "a", "", ""},
-		{"a = 5; {var a}", "a/", "/a", ""},
-		{"a = 5; {let a}", "/a", "a/", "a"},
-		{"{a = 5} var a", "a/", "/a", ""},
-		{"{a = 5} let a", "a/", "/a", ""},
-		{"var a; {a = 5}", "a/", "/a", ""},
-		{"let a; {a = 5}", "a/", "/a", ""},
-		{"{var a} a = 5", "a/", "/a", ""},
-		{"{let a} a = 5", "/a", "a/", "a"},
-		{"!function(){throw new Error()}", "/", "Error/Error", "Error"},
-		{"function(){return a}", "/", "a/a", "a"},
-		{"function(){return a} var a;", "a/", "/a", ""},
-		{"function(){return a} if(5){var a}", "a//", "/a/a", ""},
-		{"try{}catch(a){let b; c}", "/a,b", "c/c", "c"},
-		{"try{}catch(a){var b; c}", "b/a", "c/b,c", "c"},
-		{"var a;try{}catch(a){var a}", "a/a", "/a", ""},
-		{"var a;try{}catch(b){var a}", "a/b", "/a", ""},
-		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r/l,o/t/", "z/z/o,z/o,t", "z"},
-		//{"function a(){var name;{var name}}", "a/name/", "//", ""},
-		//{"function a(){var name;{function name(){}}}", "a/name//", "///", ""},
-		//{"function a(){var name;{var name=7}}", "a/name/", "//name", ""},
-		{"!function(){a};!function(){a};var a", "a//", "/a/a", ""},
-		{"!function(){var a;!function(){a;var a}}", "/a/a", "//", ""},
-		{"!function(){var a;!function(){!function(){a}}}", "", "", ""},
+		{"var a; b;", "a=1", "b=2"},
+		{"var {a:b, c=d, ...e};", "b=1,c=2,e=4", "d=3"},
+		{"var [a, b=c, ...d];", "a=1,b=2,d=4", "c=3"},
+		{"x={a:b, c=d, ...e};", "", "b=2,c=3,d=4,e=5,x=1"},
+		{"x=[a, b=c, ...d];", "", "a=2,b=3,c=4,d=5,x=1"},
+		{"yield = 5", "", "yield=1"},
+		{"await = 5", "", "await=1"},
+		{"function a(b,c){var d; e = 5; a}", "a=1/b=2,c=3,d=4", "e=5/a=1,e=5"},
+		{"!function a(b,c){var d; e = 5; a}", "/a=1,b=2,c=3,d=4", "e=5/e=5"},
+		{"function a(b=c){var c}", "a=1/b=2,c=4", "c=3/c=3"},
+		{"class a{b(){}}", "a=1/", "/"}, // classes are not tracked
+		{"!class a{b(){}}", "/", "/"},
+		{"a => a%5", "/a=1", "/"},
+		{"a => a%b", "/a=1", "b=2/b=2"},
+		{"(a) + (a)", "", "a=1"},
+		{"(a,b)", "", "a=1,b=2"},
+		{"(a,b) + (a,b)", "", "a=1,b=2"},
+		{"(a) + (a => a%5)", "/a=2", "a=1/"},
+		{"(a=b) => {var c; d = 5}", "/a=1,c=3", "b=2,d=4/b=2,d=4"},
+		{"(a,b=a) => {}", "/a=1,b=2", "/"},
+		{"(a=b) => {var b}", "/a=1,b=3", "b=2/b=2"},
+		{"({[a+b]:c}) => {}", "/c=3", "a=1,b=2/a=1,b=2"},
+		{"({a:b, c=d, ...e}=f) => 5", "/b=1,c=2,e=4", "d=3,f=5/d=3,f=5"},
+		{"([a, b=c, ...d]=e) => 5", "/a=1,b=2,d=4", "c=3,e=5/c=3,e=5"},
+		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b=2,c=3,d=4", "a=1,e=5/e=5"},
+		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a=2,b=3,c=4", "a=1,d=5/d=5"},
+		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a=2,b=3,c=4", "a=1,d=5/a=1,d=5/d=5"},
+		{"(a=(b=>b/a)) => a", "/a=1/b=2", "//a=1"},
+		{"(a=(b=>b/c)) => a", "/a=1/b=2", "c=3/c=3/c=3"},
+		{"(a=(function b(){})) => a", "/a=1/b=2", "//"},
+		{"label: a", "", "a=1"},
+		{"yield => yield%5", "/yield=1", "/"},
+		{"await => await%5", "/await=1", "/"},
+		{"function*a(){b => yield%5}", "a=1//b=2", "yield=3/yield=3/yield=3"},
+		{"async function a(){b => await%5}", "a=1//b=2", "await=3/await=3/await=3"},
+		{"let a; {let b = a}", "a=1/b=2", "/a=1"},
+		{"let a; {var b}", "a=1,b=2/", "/"},
+		{"let a; {var b = a}", "a=1,b=2/", "/a=1,b=2"},
+		{"let a; {class b{}}", "a=1/b=2", "/"},
+		{"a = 5; var a;", "a=1", ""},
+		{"a = 5; let a;", "a=1", ""},
+		{"a = 5; {var a}", "a=1/", "/a=1"},
+		{"a = 5; {let a}", "/a=2", "a=1/"},
+		{"{a = 5} var a", "a=1/", "/a=1"},
+		{"{a = 5} let a", "a=1/", "/a=1"},
+		{"var a; {a = 5}", "a=1/", "/a=1"},
+		{"let a; {a = 5}", "a=1/", "/a=1"},
+		{"{var a} a = 5", "a=1/", "/a=1"},
+		{"{let a} a = 5", "/a=1", "a=2/"},
+		{"!function(){throw new Error()}", "/", "Error=1/Error=1"},
+		{"function(){return a}", "/", "a=1/a=1"},
+		{"function(){return a} var a;", "a=1/", "/a=1"},
+		{"function(){return a} if(5){var a}", "a=1//", "/a=1/a=1"},
+		{"try{}catch(a){let b; c}", "/a=1,b=2", "c=3/c=3"},
+		{"try{}catch(a){var b; c}", "b=2/a=1", "c=3/b=2,c=3"},
+		{"var a;try{}catch(a){var a}", "a=1/a=2", "/a=1"},
+		{"var a;try{}catch(b){var a}", "a=1/b=2", "/a=1"},
+		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r=1/l=3,o=2/t=4/", "z=5/z=5/o=2,z=5/o=2,t=4"},
+		{"function a(){var name;{var name}}", "a=1/name=2/", "//"},
+		{"function a(){var name;{function name(){}}}", "a=1/name=2//", "///"},
+		{"function a(){var name;{var name=7}}", "a=1/name=2/", "//name=2"},
+		{"!function(){a};!function(){a};var a", "a=1//", "/a=1/a=1"},
+		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//a=2"},
+		{"!function(){var a;!function(){!function(){a}}}", "/a=1//", "///a=1"},
+		{"!function(){var a;!function(){a;!function(){a}}}", "/a=1//", "//a=1/a=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -886,12 +881,12 @@ func TestParseScope(t *testing.T) {
 				test.Error(t, err)
 			}
 
-			vars := NewScopeVars(ast.Undeclared)
+			vars := NewScopeVars(ast, ast.Undeclared)
 			vars.AddScope(ast.Scope)
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
 			}
-			test.String(t, vars.String(), "bound:"+tt.bound+" uses:"+tt.uses+" unbound:"+tt.unbound)
+			test.String(t, vars.String(), "bound:"+tt.bound+" uses:"+tt.uses)
 		})
 	}
 }
@@ -928,6 +923,7 @@ func TestParseRef(t *testing.T) {
 		{"!function(){a};!function(){a};var a", "a=1,a=1"},
 		{"!function(){var a;!function(){a;var a}}", "a=1,a=2"},
 		{"!function(){var a;!function(){!function(){a}}}", "a=1,a=1"},
+		{"!function(){var a;!function(){a;!function(){a}}}", "a=1,a=1,a=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -937,7 +933,6 @@ func TestParseRef(t *testing.T) {
 			}
 
 			s := ""
-			fmt.Println(ast.Vars[1:])
 			for _, v := range ast.Vars[1:] {
 				if 0 < v.Uses {
 					if len(s) != 0 {
@@ -960,17 +955,15 @@ func TestScope(t *testing.T) {
 	scope := ast.Scope
 
 	// test VarRef
-	a := scope.Declared[0]
-	test.T(t, a, a.Ref.Var(ast))
-	test.T(t, a.Name, a.Ref.Name(ast))
-	test.T(t, string(a.Name), a.Ref.String(ast))
+	ref := scope.Declared[0]
+	test.T(t, ref, ref.Var(ast).Ref)
 
 	// test output
-	test.T(t, scope.String(), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	test.T(t, scope.String(ast), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
 
 	// test sort
-	sort.Sort(scope.Declared)
-	test.T(t, scope.String(), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	sort.Sort(VarsByUses{ast, scope.Declared})
+	test.T(t, scope.String(ast), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
 }
 
 func TestParseInputError(t *testing.T) {

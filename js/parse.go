@@ -1287,7 +1287,7 @@ func (p *Parser) parseIdentifierArrowFunc(ref VarRef) (arrowFunc ArrowFunc) {
 		// must be undeclared
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
 		v.Decl = ArgumentDecl
-		p.scope.Declared = append(p.scope.Declared, v)
+		p.scope.Declared = append(p.scope.Declared, v.Ref)
 	}
 
 	arrowFunc.Params.List = []BindingElement{{ref, nil}}
