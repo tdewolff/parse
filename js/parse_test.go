@@ -54,7 +54,7 @@ func TestParse(t *testing.T) {
 		{"do a++; while (a < 4)", "Stmt(do Stmt(a++) while (a<4))"},
 		{"do {a++} while (a < 4)", "Stmt(do Stmt({ Stmt(a++) }) while (a<4))"},
 		{"while (a < 4) a++", "Stmt(while (a<4) Stmt(a++))"},
-		{"for (var a = 0; a < 4; a++) b = a", "Stmt(for Decl(var Binding(a = 0)) ; (a<4) ; (a++) Stmt(b=a))"},
+		{"for (var a = 0; a < 4; a++) b = a", "Stmt(for Decl(var Binding(a = 0)) ; (a<4) ; (a++) Stmt({ Stmt(b=a) }))"},
 		{"for (5; a < 4; a++) {}", "Stmt(for 5 ; (a<4) ; (a++) Stmt({ }))"},
 		{"for (;;) {}", "Stmt(for ; ; Stmt({ }))"},
 		{"for (a,b=5;;) {}", "Stmt(for (a,(b=5)) ; ; Stmt({ }))"},
@@ -182,6 +182,9 @@ func TestParse(t *testing.T) {
 		{"let {if: {name} = 5}", "Decl(let Binding({ if: Binding({ Binding(name) } = 5) }))"},
 		{"let {...yield}", "Decl(let Binding({ ...Binding(yield) }))"},
 		{"let {if: name, ...yield}", "Decl(let Binding({ if: Binding(name), ...Binding(yield) }))"},
+		{"let i;for(let i;;);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) ; ; Stmt({ }))"},
+		{"let i;for(let i in x);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) in x Stmt({ }))"},
+		{"let i;for(let i of x);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) of x Stmt({ }))"},
 
 		// expressions
 		{"x = [a, ...b]", "Stmt(x=[a, ...b])"},

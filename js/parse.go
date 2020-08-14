@@ -274,6 +274,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			return
 		}
 
+		body := BlockStmt{}
+		parent := p.enterScope(&body.Scope, false)
+
 		var init IExpr
 		p.inFor = true
 		if p.tt == VarToken || p.tt == LetToken || p.tt == ConstToken {
@@ -305,7 +308,12 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForStmt{init, cond, post, p.parseStmt(false)}
+			if p.tt == OpenBraceToken {
+				body.List = p.parseStmtList("")
+			} else if p.tt != SemicolonToken {
+				body.List = []IStmt{p.parseStmt(false)}
+			}
+			stmt = &ForStmt{init, cond, post, body}
 		} else if p.tt == InToken {
 			if await {
 				p.fail("for statement", OfToken)
@@ -316,18 +324,29 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForInStmt{init, value, p.parseStmt(false)}
+			if p.tt == OpenBraceToken {
+				body.List = p.parseStmtList("")
+			} else if p.tt != SemicolonToken {
+				body.List = []IStmt{p.parseStmt(false)}
+			}
+			stmt = &ForInStmt{init, value, body}
 		} else if p.tt == OfToken {
 			p.next()
 			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			stmt = &ForOfStmt{await, init, value, p.parseStmt(false)}
+			if p.tt == OpenBraceToken {
+				body.List = p.parseStmtList("")
+			} else if p.tt != SemicolonToken {
+				body.List = []IStmt{p.parseStmt(false)}
+			}
+			stmt = &ForOfStmt{await, init, value, body}
 		} else {
 			p.fail("for statement", InToken, OfToken, SemicolonToken)
 			return
 		}
+		p.exitScope(parent)
 	case SwitchToken:
 		p.next()
 		if !p.consume("switch statement", OpenParenToken) {

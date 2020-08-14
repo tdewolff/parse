@@ -385,7 +385,7 @@ type ForStmt struct {
 	Init IExpr // can be nil
 	Cond IExpr // can be nil
 	Post IExpr // can be nil
-	Body IStmt
+	Body BlockStmt
 }
 
 func (n ForStmt) String() string {
@@ -407,7 +407,7 @@ func (n ForStmt) String() string {
 type ForInStmt struct {
 	Init  IExpr
 	Value IExpr
-	Body  IStmt
+	Body  BlockStmt
 }
 
 func (n ForInStmt) String() string {
@@ -418,7 +418,7 @@ type ForOfStmt struct {
 	Await bool
 	Init  IExpr
 	Value IExpr
-	Body  IStmt
+	Body  BlockStmt
 }
 
 func (n ForOfStmt) String() string {
