@@ -1,22 +1,38 @@
 package js
 
-import "github.com/tdewolff/parse/v2"
+func AsIdentifierName(b []byte) bool {
+	if len(b) == 0 || !identifierStartTable[b[0]] {
+		return false
+	}
 
-func ParseIdentifierName(b []byte) (TokenType, bool) {
-	// TODO: optimize: check for first character first? don't use NewLexer?
-	l := NewLexer(parse.NewInputBytes(b))
-	tt := l.consumeIdentifierToken()
-	l.r.Restore()
-	return tt, l.r.Pos() == len(b)
+	i := 1
+	for i < len(b) {
+		if identifierTable[b[i]] {
+			i++
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
-func ParseNumericLiteral(b []byte) (TokenType, bool) {
+func AsDecimalLiteral(b []byte) bool {
 	if len(b) == 0 || (b[0] < '0' || '9' < b[0]) && b[0] != '.' {
-		return 0, false
+		return false
 	}
-	// TODO: optimize
-	l := NewLexer(parse.NewInputBytes(b))
-	tt := l.consumeNumericToken()
-	l.r.Restore()
-	return tt, l.r.Pos() == len(b)
+	i := 1
+	if b[0] != '.' {
+		for i < len(b) && '0' <= b[i] && b[i] <= '9' {
+			i++
+		}
+	}
+	if i < len(b) && b[i] == '.' {
+		i++
+		if i < len(b) && '0' <= b[i] && b[i] <= '9' {
+			for i < len(b) && '0' <= b[i] && b[i] <= '9' {
+				i++
+			}
+		}
+	}
+	return i == len(b)
 }

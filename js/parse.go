@@ -903,10 +903,10 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 		p.next()
 	} else if p.tt == StringToken {
 		// reinterpret string as identifier or number if we can, except for empty strings
-		if _, ok := ParseIdentifierName(p.data[1 : len(p.data)-1]); ok && 2 < len(p.data) {
+		if isIdent := AsIdentifierName(p.data[1 : len(p.data)-1]); isIdent {
 			propertyName.Literal = LiteralExpr{IdentifierToken, p.data[1 : len(p.data)-1]}
-		} else if tt, ok := ParseNumericLiteral(p.data[1 : len(p.data)-1]); ok && 2 < len(p.data) {
-			propertyName.Literal = LiteralExpr{tt, p.data[1 : len(p.data)-1]}
+		} else if isNum := AsDecimalLiteral(p.data[1 : len(p.data)-1]); isNum {
+			propertyName.Literal = LiteralExpr{DecimalToken, p.data[1 : len(p.data)-1]}
 		} else {
 			propertyName.Literal = LiteralExpr{p.tt, p.data}
 		}
