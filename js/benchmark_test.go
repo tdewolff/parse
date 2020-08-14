@@ -272,29 +272,29 @@ var listVars []*Var
 func BenchmarkInterfaceAddPtr(b *testing.B) {
 	listInterface = listInterface[:0:0]
 	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(300), nil, 0, 0, nil}
+		v := &Var{0, nil, nil, 0}
 		listInterface = append(listInterface, v)
 	}
 }
 
-func BenchmarkInterfaceAddVal32(b *testing.B) {
-	listInterface = listInterface[:0:0]
-	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(300), nil, 0, 0, nil}
-		listInterface = append(listInterface, v.Ref)
-	}
-}
-
-func BenchmarkInterfaceAddVal64(b *testing.B) {
-	listInterface = listInterface[:0:0]
-	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(300), nil, 0, 0, nil}
-		listInterface = append(listInterface, uint64(v.Ref))
-	}
-}
+//func BenchmarkInterfaceAddVal32(b *testing.B) {
+//	listInterface = listInterface[:0:0]
+//	for k := 0; k < b.N; k++ {
+//		v := &Var{0, nil, nil, 0}
+//		listInterface = append(listInterface, v.Ref)
+//	}
+//}
+//
+//func BenchmarkInterfaceAddVal64(b *testing.B) {
+//	listInterface = listInterface[:0:0]
+//	for k := 0; k < b.N; k++ {
+//		v := &Var{0, nil, nil, 0}
+//		listInterface = append(listInterface, uint64(v.Ref))
+//	}
+//}
 
 func BenchmarkInterfaceCheckPtr(b *testing.B) {
-	v := &Var{VarRef(300), nil, 0, 0, nil}
+	v := &Var{0, nil, nil, 0}
 	i := interface{}(v)
 	for k := 0; k < b.N; k++ {
 		if r, ok := i.(*Var); ok {
@@ -304,16 +304,16 @@ func BenchmarkInterfaceCheckPtr(b *testing.B) {
 	}
 }
 
-func BenchmarkInterfaceCheckVal(b *testing.B) {
-	ref := VarRef(300)
-	i := interface{}(ref)
-	for k := 0; k < b.N; k++ {
-		if r, ok := i.(VarRef); ok {
-			_ = r
-			z++
-		}
-	}
-}
+//func BenchmarkInterfaceCheckVal(b *testing.B) {
+//	ref := VarRef(300)
+//	i := interface{}(ref)
+//	for k := 0; k < b.N; k++ {
+//		if r, ok := i.(VarRef); ok {
+//			_ = r
+//			z++
+//		}
+//	}
+//}
 
 ////////////////////////////////////////////////////////////////
 

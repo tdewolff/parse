@@ -630,10 +630,25 @@ func TestParseError(t *testing.T) {
 type ScopeVars struct {
 	bound, uses string
 	scopes      int
+	refs        map[*Var]int
+}
+
+func NewScopeVars() *ScopeVars {
+	return &ScopeVars{
+		refs: map[*Var]int{},
+	}
 }
 
 func (sv *ScopeVars) String() string {
 	return "bound:" + sv.bound + " uses:" + sv.uses
+}
+
+func (sv *ScopeVars) Ref(v *Var) int {
+	if ref, ok := sv.refs[v]; ok {
+		return ref
+	}
+	sv.refs[v] = len(sv.refs) + 1
+	return len(sv.refs)
 }
 
 func (sv *ScopeVars) AddScope(scope Scope) {
@@ -645,9 +660,8 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 
 	bounds := []string{}
 	for _, v := range scope.Declared {
-		bounds = append(bounds, fmt.Sprintf("%s=%d", string(v.Name), v.Ref))
+		bounds = append(bounds, fmt.Sprintf("%s=%d", string(v.Data), sv.Ref(v)))
 	}
-	sort.Strings(bounds)
 	sv.bound += strings.Join(bounds, ",")
 
 	uses := []string{}
@@ -655,9 +669,8 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 		for v.Link != nil {
 			v = v.Link
 		}
-		uses = append(uses, fmt.Sprintf("%s=%d", string(v.Name), v.Ref))
+		uses = append(uses, fmt.Sprintf("%s=%d", string(v.Data), sv.Ref(v)))
 	}
-	sort.Strings(uses)
 	sv.uses += strings.Join(uses, ",")
 }
 
@@ -796,52 +809,64 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 }
 
 func TestParseScope(t *testing.T) {
-	// vars registers all bound and unbound variables per scope. Unbound variables are not defined in the scope and are either defined in a parent scope or in global. Bound variables are variables that are defined in this scope. Divided by | on the left are bound vars and on the right unbound. Each scope is separated by /, and the variables are separated by a comma.
+	// vars registers all bound and unbound variables per scope. Unbound variables are not defined in that particular scope and are defined in another scope (parent, global, child of a parent, ...). Bound variables are variables that are defined in this scope. Each scope is separated by /, and the variables are separated by commas. Each variable is assigned a unique ID (sort by first bounded than unbounded per scope) in order to make sure which identifiers refer to the same variable.
 	// var and function declarations are function-scoped
 	// const, let, and class declarations are block-scoped
-	// unbound variables are registered at function-scope, not for every block-scope!
 	var tests = []struct {
 		js          string
 		bound, uses string
 	}{
-		{"var a; b;", "a=1", "b=2"},
-		{"var {a:b, c=d, ...e};", "b=1,c=2,e=4", "d=3"},
-		{"var [a, b=c, ...d];", "a=1,b=2,d=4", "c=3"},
-		{"x={a:b, c=d, ...e};", "", "b=2,c=3,d=4,e=5,x=1"},
-		{"x=[a, b=c, ...d];", "", "a=2,b=3,c=4,d=5,x=1"},
+		{"a; a", "", "a=1"},
+		{"var a; b", "a=1", "b=2"},
+		{"var {a:b, c=d, ...e};", "b=1,c=2,e=3", "d=4"},
+		{"var [a, b=c, ...d];", "a=1,b=2,d=3", "c=4"},
+		{"x={a:b, c=d, ...e};", "", "x=1,b=2,c=3,d=4,e=5"},
+		{"x=[a, b=c, ...d];", "", "x=1,a=2,b=3,c=4,d=5"},
 		{"yield = 5", "", "yield=1"},
 		{"await = 5", "", "await=1"},
-		{"function a(b,c){var d; e = 5; a}", "a=1/b=2,c=3,d=4", "e=5/a=1,e=5"},
-		{"!function a(b,c){var d; e = 5; a}", "/a=1,b=2,c=3,d=4", "e=5/e=5"},
-		{"function a(b=c){var c}", "a=1/b=2,c=4", "c=3/c=3"},
+		{"function a(b,c){var d; e = 5; a}", "a=1/b=3,c=4,d=5", "e=2/e=2,a=1"},
+		{"function a(b,c=b){}", "a=1/b=2,c=3", "/"},
+		{"function a(b=c,c){}", "a=1/b=3,c=4", "c=2/c=2"},
+		{"function a(b=c){var c}", "a=1/b=3,c=4", "c=2/c=2"},
+		{"function a(b){var b}", "a=1/b=2", "/"},
+		{"function a(b,b){}", "a=1/b=2", "/"},
+		{"!function a(b,c){var d; e = 5; a}", "/a=2,b=3,c=4,d=5", "e=1/e=1"},
+		{"a=function(b,c=b){}", "/b=2,c=3", "a=1/"},
+		{"a=function(b=c,c){}", "/b=3,c=4", "a=1,c=2/c=2"},
+		{"a=function(b=c){var c}", "/b=3,c=4", "a=1,c=2/c=2"},
+		{"a=function(b){var b}", "/b=2", "a=1/"},
+		{"a=function(b,b){}", "/b=2", "a=1/"},
 		{"class a{b(){}}", "a=1/", "/"}, // classes are not tracked
 		{"!class a{b(){}}", "/", "/"},
 		{"a => a%5", "/a=1", "/"},
-		{"a => a%b", "/a=1", "b=2/b=2"},
+		{"a => a%b", "/a=2", "b=1/b=1"},
 		{"(a) + (a)", "", "a=1"},
 		{"(a,b)", "", "a=1,b=2"},
 		{"(a,b) + (a,b)", "", "a=1,b=2"},
 		{"(a) + (a => a%5)", "/a=2", "a=1/"},
-		{"(a=b) => {var c; d = 5}", "/a=1,c=3", "b=2,d=4/b=2,d=4"},
+		{"(a=b) => {var c; d = 5}", "/a=3,c=4", "b=1,d=2/b=1,d=2"},
 		{"(a,b=a) => {}", "/a=1,b=2", "/"},
-		{"(a=b) => {var b}", "/a=1,b=3", "b=2/b=2"},
+		{"(a=b,b)=>{}", "/a=2,b=3", "b=1/b=1"},
+		{"a=>{var a}", "/a=1", "/"},
+		{"(a,a)=>{}", "/a=1", "/"},
+		{"(a=b) => {var b}", "/a=2,b=3", "b=1/b=1"},
 		{"({[a+b]:c}) => {}", "/c=3", "a=1,b=2/a=1,b=2"},
-		{"({a:b, c=d, ...e}=f) => 5", "/b=1,c=2,e=4", "d=3,f=5/d=3,f=5"},
-		{"([a, b=c, ...d]=e) => 5", "/a=1,b=2,d=4", "c=3,e=5/c=3,e=5"},
-		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b=2,c=3,d=4", "a=1,e=5/e=5"},
-		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a=2,b=3,c=4", "a=1,d=5/d=5"},
-		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a=2,b=3,c=4", "a=1,d=5/a=1,d=5/d=5"},
+		{"({a:b, c=d, ...e}=f) => 5", "/b=3,c=4,e=5", "d=1,f=2/d=1,f=2"},
+		{"([a, b=c, ...d]=e) => 5", "/a=3,b=4,d=5", "c=1,e=2/c=1,e=2"},
+		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b=3,c=4,d=5", "a=1,e=2/e=2"},
+		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a=3,b=4,c=5", "a=1,d=2/d=2"},
+		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a=3,b=4,c=5", "a=1,d=2/a=1,d=2/d=2"},
 		{"(a=(b=>b/a)) => a", "/a=1/b=2", "//a=1"},
-		{"(a=(b=>b/c)) => a", "/a=1/b=2", "c=3/c=3/c=3"},
+		{"(a=(b=>b/c)) => a", "/a=2/b=3", "c=1/c=1/c=1"},
 		{"(a=(function b(){})) => a", "/a=1/b=2", "//"},
 		{"label: a", "", "a=1"},
 		{"yield => yield%5", "/yield=1", "/"},
 		{"await => await%5", "/await=1", "/"},
-		{"function*a(){b => yield%5}", "a=1//b=2", "yield=3/yield=3/yield=3"},
-		{"async function a(){b => await%5}", "a=1//b=2", "await=3/await=3/await=3"},
+		{"function*a(){b => yield%5}", "a=1//b=3", "yield=2/yield=2/yield=2"},
+		{"async function a(){b => await%5}", "a=1//b=3", "await=2/await=2/await=2"},
 		{"let a; {let b = a}", "a=1/b=2", "/a=1"},
 		{"let a; {var b}", "a=1,b=2/", "/b=2"}, // may remove b from uses
-		{"let a; {var b = a}", "a=1,b=2/", "/a=1,b=2"},
+		{"let a; {var b = a}", "a=1,b=2/", "/b=2,a=1"},
 		{"let a; {class b{}}", "a=1/b=2", "/"},
 		{"a = 5; var a;", "a=1", ""},
 		{"a = 5; let a;", "a=1", ""},
@@ -850,18 +875,22 @@ func TestParseScope(t *testing.T) {
 		{"{a = 5} var a", "a=1/", "/a=1"},
 		{"{a = 5} let a", "a=1/", "/a=1"},
 		{"var a; {a = 5}", "a=1/", "/a=1"},
+		{"var a; {var a}", "a=1/", "/a=1"},
+		{"var a; {let a}", "a=1/a=2", "/"},
 		{"let a; {a = 5}", "a=1/", "/a=1"},
 		{"{var a} a = 5", "a=1/", "/a=1"},
-		{"{let a} a = 5", "/a=1", "a=2/"},
+		{"{let a} a = 5", "/a=2", "a=1/"},
 		{"!function(){throw new Error()}", "/", "Error=1/Error=1"},
 		{"function(){return a}", "/", "a=1/a=1"},
 		{"function(){return a} var a;", "a=1/", "/a=1"},
 		{"function(){return a} if(5){var a}", "a=1//", "/a=1/a=1"},
-		{"try{}catch(a){let b; c}", "/a=1,b=2", "c=3/c=3"},
-		{"try{}catch(a){var b; c}", "b=2/a=1", "c=3/b=2,c=3"},
+		{"try{}catch(a){var a}", "a=1/a=2", "/a=1"},
+		{"try{}catch(a){let b; c}", "/a=2,b=3", "c=1/c=1"},
+		{"try{}catch(a){var b; c}", "b=1/a=3", "c=2/b=1,c=2"},
+		{"var a;try{}catch(a){a}", "a=1/a=2", "/"},
 		{"var a;try{}catch(a){var a}", "a=1/a=2", "/a=1"},
 		{"var a;try{}catch(b){var a}", "a=1/b=2", "/a=1"},
-		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r=1/l=3,o=2/t=4/", "z=5/z=5/o=2,z=5/o=2,t=4"},
+		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r=1/o=3,l=4/t=5/", "z=2/z=2/z=2,o=3/o=3,t=5"},
 		{"function a(){var name;{var name}}", "a=1/name=2/", "//name=2"},            // may remove name from uses
 		{"function a(){var name;{function name(){}}}", "a=1/name=2//", "//name=2/"}, // may remove name from uses
 		{"function a(){var name;{var name=7}}", "a=1/name=2/", "//name=2"},
@@ -869,6 +898,9 @@ func TestParseScope(t *testing.T) {
 		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//"},
 		{"!function(){var a;!function(){!function(){a}}}", "/a=1//", "//a=1/a=1"},
 		{"!function(){var a;!function(){a;!function(){a}}}", "/a=1//", "//a=1/a=1"},
+		{"{a} {a} var a", "a=1//", "/a=1/a=1"},      // second block must add a new var in case the block contains a var decl
+		{"(a),(a)", "", "a=1"},                      // second parens could have been arrow function, so must have added new var
+		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3", ""}, // parens could have been arrow function, so must have added new var
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
@@ -877,70 +909,12 @@ func TestParseScope(t *testing.T) {
 				test.Error(t, err)
 			}
 
-			vars := &ScopeVars{}
+			vars := NewScopeVars()
 			vars.AddScope(ast.Scope)
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
 			}
 			test.String(t, vars.String(), "bound:"+tt.bound+" uses:"+tt.uses)
-		})
-	}
-}
-
-func TestParseRef(t *testing.T) {
-	var tests = []struct {
-		js   string
-		refs string
-	}{
-		{"a; a", "a=1"},
-		{"var a; {var a}", "a=1"},
-		{"var a; {let a}", "a=1,a=2"},
-		{"function a(b,c=b){}", "a=1,b=2,c=3"},
-		{"function a(b=c,c){}", "a=1,b=2,c=3,c=4"},
-		{"function a(b=c){var c}", "a=1,b=2,c=3,c=4"},
-		{"function a(b){var b}", "a=1,b=2"},
-		{"function a(b,b){}", "a=1,b=2"},
-		{"a=function(b,c=b){}", "a=1,b=2,c=3"},
-		{"a=function(b=c,c){}", "a=1,b=2,c=3,c=4"},
-		{"a=function(b=c){var c}", "a=1,b=2,c=3,c=4"},
-		{"a=function(b){var b}", "a=1,b=2"},
-		{"a=function(b,b){}", "a=1,b=2"},
-		{"(a) + (a)", "a=1"},
-		{"(b,c=b)=>{}", "b=1,c=2"},
-		{"(b=c,c)=>{}", "b=1,c=2,c=3"},
-		{"(b=c)=>{var c}", "b=1,c=2,c=3"},
-		{"a=>{var a}", "a=1"},
-		{"(b,b)=>{}", "b=1"},
-		{"try{}catch(a){var a}", "a=1,a=2"},
-		{"var a;try{}catch(a){a}", "a=1,a=2"},
-		{"{a} {a} var a", "a=1,a=1"},                        // second block must add a new var in case the block contains a var decl
-		{"(a),(a)", "a=1,a=1"},                              // second parens could have been arrow function, so must have added new var
-		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3,a=1,b=2,c=3"}, // parens could have been arrow function, so must have added new var
-		{"!function(){a};!function(){a};var a", "a=1,a=1"},
-		{"!function(){var a;!function(){a;var a}}", "a=1,a=2"},
-		{"!function(){var a;!function(){!function(){a}}}", "a=1,a=1"},
-		{"!function(){var a;!function(){a;!function(){a}}}", "a=1,a=1,a=1"},
-	}
-	for _, tt := range tests {
-		t.Run(tt.js, func(t *testing.T) {
-			ast, err := Parse(parse.NewInputString(tt.js))
-			if err != io.EOF {
-				test.Error(t, err)
-			}
-
-			s := ""
-			for _, v := range ast.Vars[1:] {
-				for v.Link != nil {
-					v = v.Link
-				}
-				if 0 < v.Uses {
-					if len(s) != 0 {
-						s += ","
-					}
-					s += fmt.Sprintf("%s=%d", string(v.Name), v.Ref)
-				}
-			}
-			test.String(t, s, tt.refs)
 		})
 	}
 }
@@ -954,11 +928,11 @@ func TestScope(t *testing.T) {
 	scope := ast.Scope
 
 	// test output
-	test.T(t, scope.String(), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	test.T(t, scope.String(), "Scope{Declared: [Var{LexicalDecl a 0 1}, Var{LexicalDecl b 0 2}, Var{VariableDecl c 0 1}], Undeclared: []}")
 
 	// test sort
 	sort.Sort(VarsByUses(scope.Declared))
-	test.T(t, scope.String(), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	test.T(t, scope.String(), "Scope{Declared: [Var{LexicalDecl b 0 2}, Var{LexicalDecl a 0 1}, Var{VariableDecl c 0 1}], Undeclared: []}")
 }
 
 func TestParseInputError(t *testing.T) {
