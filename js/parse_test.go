@@ -628,15 +628,8 @@ func TestParseError(t *testing.T) {
 }
 
 type ScopeVars struct {
-	ast                  *AST
-	bound, uses, unbound string
-	scopes               int
-}
-
-func NewScopeVars(ast *AST, unbounds VarArray) *ScopeVars {
-	return &ScopeVars{
-		ast: ast,
-	}
+	bound, uses string
+	scopes      int
 }
 
 func (sv *ScopeVars) String() string {
@@ -651,15 +644,21 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 	sv.scopes++
 
 	bounds := []string{}
-	for _, ref := range scope.Declared {
-		bounds = append(bounds, fmt.Sprintf("%s=%d", ref.Name(sv.ast), ref))
+	for _, v := range scope.Declared {
+		for v.Link != nil {
+			v = v.Link
+		}
+		bounds = append(bounds, fmt.Sprintf("%s=%d", string(v.Name), v.Ref))
 	}
 	sort.Strings(bounds)
 	sv.bound += strings.Join(bounds, ",")
 
 	uses := []string{}
-	for _, ref := range scope.Undeclared {
-		uses = append(uses, fmt.Sprintf("%s=%d", ref.Name(sv.ast), ref))
+	for _, v := range scope.Undeclared {
+		for v.Link != nil {
+			v = v.Link
+		}
+		uses = append(uses, fmt.Sprintf("%s=%d", string(v.Name), v.Ref))
 	}
 	sort.Strings(uses)
 	sv.uses += strings.Join(uses, ",")
@@ -844,7 +843,7 @@ func TestParseScope(t *testing.T) {
 		{"function*a(){b => yield%5}", "a=1//b=2", "yield=3/yield=3/yield=3"},
 		{"async function a(){b => await%5}", "a=1//b=2", "await=3/await=3/await=3"},
 		{"let a; {let b = a}", "a=1/b=2", "/a=1"},
-		{"let a; {var b}", "a=1,b=2/", "/"},
+		{"let a; {var b}", "a=1,b=2/", "/b=2"}, // may remove b from uses
 		{"let a; {var b = a}", "a=1,b=2/", "/a=1,b=2"},
 		{"let a; {class b{}}", "a=1/b=2", "/"},
 		{"a = 5; var a;", "a=1", ""},
@@ -866,12 +865,12 @@ func TestParseScope(t *testing.T) {
 		{"var a;try{}catch(a){var a}", "a=1/a=2", "/a=1"},
 		{"var a;try{}catch(b){var a}", "a=1/b=2", "/a=1"},
 		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r=1/l=3,o=2/t=4/", "z=5/z=5/o=2,z=5/o=2,t=4"},
-		{"function a(){var name;{var name}}", "a=1/name=2/", "//"},
-		{"function a(){var name;{function name(){}}}", "a=1/name=2//", "///"},
+		{"function a(){var name;{var name}}", "a=1/name=2/", "//name=2"},            // may remove name from uses
+		{"function a(){var name;{function name(){}}}", "a=1/name=2//", "//name=2/"}, // may remove name from uses
 		{"function a(){var name;{var name=7}}", "a=1/name=2/", "//name=2"},
 		{"!function(){a};!function(){a};var a", "a=1//", "/a=1/a=1"},
-		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//a=2"},
-		{"!function(){var a;!function(){!function(){a}}}", "/a=1//", "///a=1"},
+		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//"},
+		{"!function(){var a;!function(){!function(){a}}}", "/a=1//", "//a=1/a=1"},
 		{"!function(){var a;!function(){a;!function(){a}}}", "/a=1//", "//a=1/a=1"},
 	}
 	for _, tt := range tests {
@@ -881,7 +880,7 @@ func TestParseScope(t *testing.T) {
 				test.Error(t, err)
 			}
 
-			vars := NewScopeVars(ast, ast.Undeclared)
+			vars := &ScopeVars{}
 			vars.AddScope(ast.Scope)
 			for _, istmt := range ast.List {
 				vars.AddStmt(istmt)
@@ -934,6 +933,9 @@ func TestParseRef(t *testing.T) {
 
 			s := ""
 			for _, v := range ast.Vars[1:] {
+				for v.Link != nil {
+					v = v.Link
+				}
 				if 0 < v.Uses {
 					if len(s) != 0 {
 						s += ","
@@ -954,16 +956,12 @@ func TestScope(t *testing.T) {
 	}
 	scope := ast.Scope
 
-	// test VarRef
-	ref := scope.Declared[0]
-	test.T(t, ref, ref.Var(ast).Ref)
-
 	// test output
-	test.T(t, scope.String(ast), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	test.T(t, scope.String(), "Scope{Declared: [Var{1 1 LexicalDecl a}, Var{2 2 LexicalDecl b}, Var{3 1 VariableDecl c}], Undeclared: []}")
 
 	// test sort
-	sort.Sort(VarsByUses{ast, scope.Declared})
-	test.T(t, scope.String(ast), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
+	sort.Sort(VarsByUses(scope.Declared))
+	test.T(t, scope.String(), "Scope{Declared: [Var{2 2 LexicalDecl b}, Var{1 1 LexicalDecl a}, Var{3 1 VariableDecl c}], Undeclared: []}")
 }
 
 func TestParseInputError(t *testing.T) {

@@ -137,7 +137,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 }
 
 func (p *Parser) exitScope(parent *Scope) {
-	p.scope.HoistUndeclared(p.ast)
+	p.scope.HoistUndeclared()
 	p.scope = parent
 }
 
@@ -1285,9 +1285,10 @@ func (p *Parser) parseIdentifierArrowFunc(ref VarRef) (arrowFunc ArrowFunc) {
 		ref, _ = p.scope.Declare(p.ast, ArgumentDecl, v.Name) // cannot fail
 	} else {
 		// must be undeclared
+		// TODO: what if var declared earlier?
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
 		v.Decl = ArgumentDecl
-		p.scope.Declared = append(p.scope.Declared, v.Ref)
+		p.scope.Declared = append(p.scope.Declared, v)
 	}
 
 	arrowFunc.Params.List = []BindingElement{{ref, nil}}
@@ -1919,7 +1920,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		p.assumeArrowFunc = parentAssumeArrowFunc
 		p.exitScope(parent)
 
-		arrowFunc.Body.Scope.UndeclareScope(p.ast)
+		arrowFunc.Body.Scope.UndeclareScope()
 		// TODO: Parent and Func pointers are bad for any nested FuncDecl/ArrowFunc inside, maybe not a problem?
 
 		// parenthesized expression

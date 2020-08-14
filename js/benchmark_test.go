@@ -222,17 +222,13 @@ func BenchmarkLookupArrayInts(b *testing.B) {
 
 type benchRef uint
 
-type benchPtr struct {
-	data []byte
-}
-
 type benchVar struct {
 	ptr  *benchVar
 	data []byte
 }
 
 var listAST []interface{}
-var listPtr []*benchPtr
+var listPtr []*benchVar
 var listVar []benchVar
 
 func BenchmarkASTPtr(b *testing.B) {
@@ -242,8 +238,8 @@ func BenchmarkASTPtr(b *testing.B) {
 				listAST = listAST[:0:0]
 				listPtr = listPtr[:0:0]
 				for _, b := range randStrings {
-					v := &benchPtr{b}
-					listAST = append(listAST, &v)
+					v := &benchVar{nil, b}
+					listAST = append(listAST, v)
 					listPtr = append(listPtr, v)
 				}
 			}
@@ -257,28 +253,13 @@ func BenchmarkASTIdx(b *testing.B) {
 			for k := 0; k < b.N; k++ {
 				listAST = listAST[:0:0]
 				listPtr = listPtr[:0:0]
-				for _, b := range randStrings {
-					v := &benchPtr{b}
-					ref := benchRef(len(listPtr))
-					listAST = append(listAST, &ref)
-					listPtr = append(listPtr, v)
-				}
-			}
-		})
-	}
-}
-
-func BenchmarkASTVar(b *testing.B) {
-	for j := 0; j < 3; j++ {
-		b.Run(fmt.Sprintf("%v", j), func(b *testing.B) {
-			for k := 0; k < b.N; k++ {
-				listAST = listAST[:0:0]
 				listVar = listVar[:0:0]
 				for _, b := range randStrings {
-					v := benchVar{data: b}
-					v.ptr = &v
-					listAST = append(listAST, len(listPtr))
-					listVar = append(listVar, v)
+					listVar = append(listVar, benchVar{nil, b})
+					v := &listVar[len(listVar)-1]
+					ref := benchRef(len(listVar) - 1)
+					listAST = append(listAST, ref)
+					listPtr = append(listPtr, v)
 				}
 			}
 		})
@@ -290,36 +271,33 @@ var listVars []*Var
 
 func BenchmarkInterfaceAddPtr(b *testing.B) {
 	listInterface = listInterface[:0:0]
-	listVars = listVars[:0:0]
 	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(len(listVars)), 0, 0, nil}
-		listInterface = append(listInterface, &v.Ref)
+		v := &Var{VarRef(300), nil, 0, 0, nil}
+		listInterface = append(listInterface, v)
 	}
 }
 
 func BenchmarkInterfaceAddVal32(b *testing.B) {
 	listInterface = listInterface[:0:0]
-	listVars = listVars[:0:0]
 	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(len(listVars)), 0, 0, nil}
+		v := &Var{VarRef(300), nil, 0, 0, nil}
 		listInterface = append(listInterface, v.Ref)
 	}
 }
 
 func BenchmarkInterfaceAddVal64(b *testing.B) {
 	listInterface = listInterface[:0:0]
-	listVars = listVars[:0:0]
 	for k := 0; k < b.N; k++ {
-		v := &Var{VarRef(len(listVars)), 0, 0, nil}
+		v := &Var{VarRef(300), nil, 0, 0, nil}
 		listInterface = append(listInterface, uint64(v.Ref))
 	}
 }
 
 func BenchmarkInterfaceCheckPtr(b *testing.B) {
-	ref := VarRef(0)
-	i := interface{}(&ref)
+	v := &Var{VarRef(300), nil, 0, 0, nil}
+	i := interface{}(v)
 	for k := 0; k < b.N; k++ {
-		if r, ok := i.(*VarRef); ok {
+		if r, ok := i.(*Var); ok {
 			_ = r
 			z++
 		}
@@ -327,7 +305,7 @@ func BenchmarkInterfaceCheckPtr(b *testing.B) {
 }
 
 func BenchmarkInterfaceCheckVal(b *testing.B) {
-	ref := VarRef(0)
+	ref := VarRef(300)
 	i := interface{}(ref)
 	for k := 0; k < b.N; k++ {
 		if r, ok := i.(VarRef); ok {
