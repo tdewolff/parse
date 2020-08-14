@@ -645,9 +645,6 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 
 	bounds := []string{}
 	for _, v := range scope.Declared {
-		for v.Link != nil {
-			v = v.Link
-		}
 		bounds = append(bounds, fmt.Sprintf("%s=%d", string(v.Name), v.Ref))
 	}
 	sort.Strings(bounds)

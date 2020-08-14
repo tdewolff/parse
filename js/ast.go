@@ -73,15 +73,15 @@ func (decl DeclType) String() string {
 type VarRef uint32 // fits as value in interface
 
 func (ref VarRef) Var(ast *AST) *Var {
+	return ast.Vars[ref]
+}
+
+func (ref VarRef) LinkedVar(ast *AST) *Var {
 	v := ast.Vars[ref]
 	for v.Link != nil {
 		v = v.Link
 	}
 	return v
-}
-
-func (ref VarRef) Name(ast *AST) []byte {
-	return ref.Var(ast).Name
 }
 
 func (ref VarRef) String(ast *AST) string {
@@ -139,7 +139,7 @@ func (vs VarArray) String() string {
 // TODO: don't add used statement to scope when defining a function or var (without define) in a block
 type Scope struct {
 	Parent, Func    *Scope
-	Declared        VarArray
+	Declared        VarArray // Link in Var are always nil
 	Undeclared      VarArray
 	NVarDecls       int // number of variable declaration statements in a function scope
 	argumentsOffset int // offset into Undeclared to mark variables used in arguments initializers
@@ -176,10 +176,14 @@ func (s *Scope) Declare(ast *AST, decl DeclType, name []byte) (VarRef, bool) {
 	}
 
 	var v *Var
+	// reuse variable if previously used, as in:  a;var a
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
 		for i, uv := range s.Undeclared[s.argumentsOffset:] {
 			if 0 < uv.Uses && bytes.Equal(name, uv.Name) {
 				v = uv
+				for v.Link != nil {
+					v = v.Link
+				}
 				s.Undeclared = append(s.Undeclared[:s.argumentsOffset+i], s.Undeclared[s.argumentsOffset+i+1:]...)
 				break
 			}
@@ -219,6 +223,7 @@ func (s *Scope) Use(ast *AST, name []byte) VarRef {
 // find declared variable in the current scope
 func (s *Scope) findDeclared(name []byte) *Var {
 	for _, v := range s.Declared {
+		// no need to evaluate v.Link as v.Name stays the same, and Link is always nil in Declared
 		if bytes.Equal(name, v.Name) {
 			return v
 		}
@@ -239,6 +244,7 @@ func (s *Scope) findVarDeclaration(name []byte) (*Var, *Scope) {
 // find undeclared variable in the current and lower scopes
 func (s *Scope) findUndeclared(name []byte) *Var {
 	for _, v := range s.Undeclared {
+		// no need to evaluate v.Link as v.Name stays the same
 		if 0 < v.Uses && bytes.Equal(name, v.Name) {
 			return v
 		}
@@ -251,20 +257,27 @@ func (s *Scope) MarkArguments() {
 	s.argumentsOffset = len(s.Undeclared)
 }
 
-func (s *Scope) HoistUndeclared() {
+func (s *Scope) HoistUndeclared(ast *AST) {
 	// copy all undeclared variables to the parent scope
-	for _, vorig := range s.Undeclared {
+	for i, vorig := range s.Undeclared {
+		// no need to evaluate vorig.Link as vorig.Name stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
 			if v := s.Parent.findDeclared(vorig.Name); v != nil {
 				// check if variable is declared in parent scope
 				v.Uses += vorig.Uses
 				vorig.Link = v
-				//ast.Vars[vorig.Ref] = v // point reference to existing var
+
+				// point reference to existing var (to avoid many Link chains)
+				s.Undeclared[i] = v
+				ast.Vars[vorig.Ref] = v
 			} else if v := s.Parent.findUndeclared(vorig.Name); v != nil {
 				// check if variable is already used before in parent scope
 				v.Uses += vorig.Uses
 				vorig.Link = v
-				//ast.Vars[vorig.Ref] = v // point reference to existing var
+
+				// point reference to existing var (to avoid many Link chains)
+				s.Undeclared[i] = v
+				ast.Vars[vorig.Ref] = v
 			} else {
 				// add variable to the context list and to the scope's undeclared
 				s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
@@ -273,21 +286,22 @@ func (s *Scope) HoistUndeclared() {
 	}
 }
 
-func (s *Scope) UndeclareScope() {
+func (s *Scope) UndeclareScope(ast *AST) {
 	// called when possibly arrow func ends up being a parenthesized expression, scope not futher used
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
-	// TODO; remove new vars, pass difference to this function?
 	for _, vorig := range s.Declared {
+		// no need to evaluate vorig.Link as vorig.Name stays the same, and Link is always nil in Declared
+		// vorig.Uses will be atleast 1
 		if v, _ := s.Parent.findVarDeclaration(vorig.Name); v != nil {
 			// check if variable has been declared in this scope
 			v.Uses += vorig.Uses
 			vorig.Link = v
-			//ast.Vars[vorig.Ref] = v // point reference to existing var
+			ast.Vars[vorig.Ref] = v // point reference to existing var (to avoid many Link chains)
 		} else if v := s.Parent.findUndeclared(vorig.Name); v != nil {
 			// check if variable is already used before in the current or lower scopes
 			v.Uses += vorig.Uses
 			vorig.Link = v
-			//ast.Vars[vorig.Ref] = v // point reference to existing var
+			ast.Vars[vorig.Ref] = v // point reference to existing var (to avoid many Link chains)
 		} else {
 			// add variable to the context list and to the scope's undeclared
 			vorig.Decl = NoDecl
@@ -703,7 +717,7 @@ func (n BindingObject) String(ast *AST) string {
 			s += ","
 		}
 		if item.Key != nil {
-			if ref, ok := item.Value.Binding.(VarRef); !ok || !item.Key.IsIdent(ref.Name(ast)) {
+			if ref, ok := item.Value.Binding.(VarRef); !ok || !item.Key.IsIdent(ref.Var(ast).Name) {
 				s += " " + item.Key.String(ast) + ":"
 			}
 		}
@@ -932,7 +946,7 @@ type Property struct {
 func (n Property) String(ast *AST) string {
 	s := ""
 	if n.Name != nil {
-		if ref, ok := n.Value.(VarRef); !ok || !n.Name.IsIdent(ref.Name(ast)) {
+		if ref, ok := n.Value.(VarRef); !ok || !n.Name.IsIdent(ref.LinkedVar(ast).Name) {
 			s += n.Name.String(ast) + ": "
 		}
 	} else if n.Spread {

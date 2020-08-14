@@ -137,7 +137,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 }
 
 func (p *Parser) exitScope(parent *Scope) {
-	p.scope.HoistUndeclared()
+	p.scope.HoistUndeclared(p.ast)
 	p.scope = parent
 }
 
@@ -1920,7 +1920,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		p.assumeArrowFunc = parentAssumeArrowFunc
 		p.exitScope(parent)
 
-		arrowFunc.Body.Scope.UndeclareScope()
+		arrowFunc.Body.Scope.UndeclareScope(p.ast)
 		// TODO: Parent and Func pointers are bad for any nested FuncDecl/ArrowFunc inside, maybe not a problem?
 
 		// parenthesized expression
