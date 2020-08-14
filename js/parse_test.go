@@ -898,6 +898,8 @@ func TestParseScope(t *testing.T) {
 		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//"},
 		{"!function(){var a;!function(){!function(){a}}}", "/a=1//", "//a=1/a=1"},
 		{"!function(){var a;!function(){a;!function(){a}}}", "/a=1//", "//a=1/a=1"},
+		{"function(){var b;{(T=x),T}{var T}}", "/b=2,T=3//", "x=1/x=1/x=1,T=3/T=3"},
+		{"var T;function(){var b;{(T=x),T}{var T}}", "T=1/b=3,T=4//", "x=2/x=2/x=2,T=4/T=4"},
 		{"{a} {a} var a", "a=1//", "/a=1/a=1"},      // second block must add a new var in case the block contains a var decl
 		{"(a),(a)", "", "a=1"},                      // second parens could have been arrow function, so must have added new var
 		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3", ""}, // parens could have been arrow function, so must have added new var

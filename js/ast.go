@@ -258,7 +258,7 @@ func (s *Scope) UndeclareScope() {
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Name stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
-		if v, _ := s.Parent.findVarDeclaration(vorig.Data); v != nil {
+		if v := s.Parent.findDeclared(vorig.Data); v != nil {
 			// check if variable has been declared in this scope
 			v.Uses += vorig.Uses
 			vorig.Link = v
