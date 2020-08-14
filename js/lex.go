@@ -102,7 +102,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	switch c {
 	case ' ', '\t', '\v', '\f':
 		l.r.Move(1)
-		for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
+		for l.consumeWhitespace() {
 		}
 		l.prevLineTerminator = prevLineTerminator
 		return WhitespaceToken, l.r.Shift()
@@ -112,7 +112,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 		l.prevLineTerminator = true
 		return LineTerminatorToken, l.r.Shift()
-	case '>', '=', '!', '+', '*', '%', '&', '|', '^', '?':
+	case '>', '=', '!', '+', '*', '%', '&', '|', '^', '~', '?':
 		if tt := l.consumeOperatorToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
 		}
@@ -177,18 +177,15 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
 		}
-	case '~':
-		l.r.Move(1)
-		return BitNotToken, l.r.Shift()
 	case '`':
 		l.templateLevels = append(l.templateLevels, l.level)
 		return l.consumeTemplateToken(), l.r.Shift()
 	default:
 		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
-		} else if c >= 0xC0 {
-			if l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
-				for l.consumeWhitespaceByte() || l.consumeWhitespaceRune() {
+		} else if 0xC0 <= c {
+			if l.consumeWhitespace() {
+				for l.consumeWhitespace() {
 				}
 				l.prevLineTerminator = prevLineTerminator
 				return WhitespaceToken, l.r.Shift()
@@ -219,18 +216,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 The following functions follow the specifications at http://www.ecma-international.org/ecma-262/5.1/
 */
 
-func (l *Lexer) consumeWhitespaceByte() bool {
+func (l *Lexer) consumeWhitespace() bool {
 	c := l.r.Peek(0)
 	if c == ' ' || c == '\t' || c == '\v' || c == '\f' {
 		l.r.Move(1)
 		return true
-	}
-	return false
-}
-
-func (l *Lexer) consumeWhitespaceRune() bool {
-	c := l.r.Peek(0)
-	if c >= 0xC0 {
+	} else if 0xC0 <= c {
 		if r, n := l.r.PeekRune(0); r == '\u00A0' || r == '\uFEFF' || unicode.Is(unicode.Zs, r) {
 			l.r.Move(n)
 			return true
@@ -330,7 +321,7 @@ func (l *Lexer) consumeSingleLineComment() {
 		c := l.r.Peek(0)
 		if c == '\r' || c == '\n' || c == 0 && l.r.Err() != nil {
 			break
-		} else if c >= 0xC0 {
+		} else if 0xC0 <= c {
 			if r, _ := l.r.PeekRune(0); r == '\u2028' || r == '\u2029' {
 				break
 			}
@@ -400,6 +391,7 @@ var opTokens = map[byte]TokenType{
 	'&': BitAndToken,
 	'|': BitOrToken,
 	'^': BitXorToken,
+	'~': BitNotToken,
 	'?': QuestionToken,
 }
 
@@ -482,7 +474,7 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 	c := l.r.Peek(0)
 	if identifierStartTable[c] {
 		l.r.Move(1)
-	} else if c >= 0xC0 {
+	} else if 0xC0 <= c {
 		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
 			l.r.Move(n)
 		} else {
@@ -495,7 +487,7 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
 			l.r.Move(1)
-		} else if c >= 0xC0 {
+		} else if 0xC0 <= c {
 			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
 				l.r.Move(n)
 			} else {
@@ -643,7 +635,7 @@ func (l *Lexer) consumeRegExpToken() bool {
 		c := l.r.Peek(0)
 		if identifierTable[c] {
 			l.r.Move(1)
-		} else if c >= 0xC0 {
+		} else if 0xC0 <= c {
 			if r, n := l.r.PeekRune(0); r == '\u200C' || r == '\u200D' || unicode.IsOneOf(identifierContinue, r) {
 				l.r.Move(n)
 			} else {
