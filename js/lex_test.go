@@ -228,7 +228,7 @@ func TestOffset(t *testing.T) {
 func TestLexerErrors(t *testing.T) {
 	l := NewLexer(parse.NewInputString("@"))
 	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected '@'")
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected @")
 
 	l = NewLexer(parse.NewInputString("\x00"))
 	l.Next()

@@ -200,13 +200,8 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	}
 
-	if r, _ := l.r.PeekRune(0); unicode.IsGraphic(r) {
-		l.err = parse.NewErrorLexer(l.r, "unexpected '%c'", r)
-	} else if r < 128 {
-		l.err = parse.NewErrorLexer(l.r, "unexpected 0x%02X", c)
-	} else {
-		l.err = parse.NewErrorLexer(l.r, "unexpected %U", r)
-	}
+	r, _ := l.r.PeekRune(0)
+	l.err = parse.NewErrorLexer(l.r, "unexpected %s", parse.Printable(r))
 	return ErrorToken, l.r.Shift()
 }
 

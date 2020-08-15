@@ -82,14 +82,14 @@ func (p *Parser) fail(in string, expected ...TokenType) {
 				if 0 < i {
 					msg += ","
 				}
-				msg += " '" + tt.String() + "'"
+				msg += " " + tt.String() + ""
 			}
 			if 2 < len(expected) {
 				msg += ", or"
 			} else if 1 < len(expected) {
 				msg += " or"
 			}
-			msg += " '" + expected[len(expected)-1].String() + "' instead of"
+			msg += " " + expected[len(expected)-1].String() + " instead of"
 		}
 
 		if p.tt == ErrorToken {
@@ -101,8 +101,7 @@ func (p *Parser) fail(in string, expected ...TokenType) {
 				// does not happen
 			}
 		} else {
-			// TODO: non-printable character like \r \n
-			msg += " '" + string(p.data) + "'"
+			msg += " " + string(p.data) + ""
 		}
 		if in != "" {
 			msg += " in " + in
@@ -787,7 +786,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 		if !inExpr {
 			funcDecl.Name, ok = p.scope.Declare(FunctionDecl, p.data)
 			if !ok {
-				p.failMessage("identifier '%s' has already been declared", string(p.data))
+				p.failMessage("identifier %s has already been declared", string(p.data))
 				return
 			}
 		}
@@ -827,7 +826,7 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 			var ok bool
 			classDecl.Name, ok = p.scope.Declare(LexicalDecl, p.data)
 			if !ok {
-				p.failMessage("identifier '%s' has already been declared", string(p.data))
+				p.failMessage("identifier %s has already been declared", string(p.data))
 				return
 			}
 		} else {
@@ -962,7 +961,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 		var ok bool
 		binding, ok = p.scope.Declare(decl, p.data)
 		if !ok {
-			p.failMessage("identifier '%s' has already been declared", string(p.data))
+			p.failMessage("identifier %s has already been declared", string(p.data))
 			return
 		}
 		p.next()
@@ -1016,7 +1015,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 				var ok bool
 				object.Rest, ok = p.scope.Declare(decl, p.data)
 				if !ok {
-					p.failMessage("identifier '%s' has already been declared", string(p.data))
+					p.failMessage("identifier %s has already been declared", string(p.data))
 					return
 				}
 				p.next()
@@ -1042,7 +1041,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 					item.Key.Literal.Data = parse.Copy(item.Key.Literal.Data) // copy so that renaming doesn't rename the key
 					item.Value.Binding, ok = p.scope.Declare(decl, name)
 					if !ok {
-						p.failMessage("identifier '%s' has already been declared", string(name))
+						p.failMessage("identifier %s has already been declared", string(name))
 						return
 					}
 					if p.tt == EqToken {
