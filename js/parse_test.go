@@ -785,6 +785,12 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		sv.AddExpr(stmt.Value)
 	case *ThrowStmt:
 		sv.AddExpr(stmt.Value)
+	case *ForStmt:
+		sv.AddStmt(&stmt.Body)
+	case *ForInStmt:
+		sv.AddStmt(&stmt.Body)
+	case *ForOfStmt:
+		sv.AddStmt(&stmt.Body)
 	case *IfStmt:
 		sv.AddStmt(stmt.Body)
 		if stmt.Else != nil {
@@ -903,6 +909,7 @@ func TestParseScope(t *testing.T) {
 		{"!function(){var a;!function(){a;!function(){a}}}", "/a=1//", "//a=1/a=1"},
 		{"function(){var b;{(T=x),T}{var T}}", "/b=2,T=3//", "x=1/x=1/x=1,T=3/T=3"},
 		{"var T;function(){var b;{(T=x),T}{var T}}", "T=1/b=3,T=4//", "x=2/x=2/x=2,T=4/T=4"},
+		{"function(){let a=b,b=c,c=d,d=e,e=f,f=g,g=h,h=a,j;for(let i=0;;)j=4;}", "/a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,j=9/i=10", "//j=9"},
 		{"{a} {a} var a", "a=1//", "/a=1/a=1"},      // second block must add a new var in case the block contains a var decl
 		{"(a),(a)", "", "a=1"},                      // second parens could have been arrow function, so must have added new var
 		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3", ""}, // parens could have been arrow function, so must have added new var
