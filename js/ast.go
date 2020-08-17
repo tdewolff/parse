@@ -108,13 +108,14 @@ func (vs VarArray) String() string {
 }
 
 // Scope is a function or block scope with a list of variables declared and used
-// TODO: handle with statement and eval function calls in scope?
 type Scope struct {
-	Parent, Func    *Scope
-	Declared        VarArray // Link in Var are always nil
-	Undeclared      VarArray
-	NVarDecls       int // number of variable declaration statements in a function scope
-	argumentsOffset int // offset into Undeclared to mark variables used in arguments initializers
+	Parent, Func   *Scope
+	Declared       VarArray // Link in Var are always nil
+	Undeclared     VarArray
+	NumVarDecls    uint16 // number of variable declaration statements in a function scope
+	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
+	IsGlobalOrFunc bool
+	HasWithOrEval  bool
 }
 
 func (s Scope) String() string {
@@ -150,13 +151,13 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	var v *Var
 	// reuse variable if previously used, as in:  a;var a
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
-		for i, uv := range s.Undeclared[s.argumentsOffset:] {
+		for i, uv := range s.Undeclared[s.NumArguments:] {
 			if 0 < uv.Uses && bytes.Equal(name, uv.Data) {
 				v = uv
 				for v.Link != nil {
 					v = v.Link
 				}
-				s.Undeclared = append(s.Undeclared[:s.argumentsOffset+i], s.Undeclared[s.argumentsOffset+i+1:]...)
+				s.Undeclared = append(s.Undeclared[:int(s.NumArguments)+i], s.Undeclared[int(s.NumArguments)+i+1:]...)
 				break
 			}
 		}
@@ -226,7 +227,7 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 
 func (s *Scope) MarkArguments() {
 	// set the offset for variables used for arguments, to ensure different b's for: function f(a=b){var b}
-	s.argumentsOffset = len(s.Undeclared)
+	s.NumArguments = uint16(len(s.Undeclared))
 }
 
 func (s *Scope) HoistUndeclared() {
@@ -272,6 +273,8 @@ func (s *Scope) UndeclareScope() {
 			s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
 		}
 	}
+	s.Declared = s.Declared[:0]
+	s.Undeclared = s.Undeclared[:0]
 }
 
 ////////////////////////////////////////////////////////////////

@@ -1,12 +1,15 @@
 package js
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 
 	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/parse/v2/buffer"
 )
+
+var evalBytes = []byte("eval")
 
 // Parser is the state for the parser.
 type Parser struct {
@@ -125,7 +128,16 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	// create a new scope object and add it to the parent
 	parent := p.scope
 	p.scope = scope
-	*scope = Scope{parent, nil, VarArray{}, VarArray{}, 0, 0}
+	*scope = Scope{
+		Parent:         parent,
+		Func:           nil,
+		Declared:       VarArray{},
+		Undeclared:     VarArray{},
+		NumVarDecls:    0,
+		NumArguments:   0,
+		IsGlobalOrFunc: isFunc,
+		HasWithOrEval:  false,
+	}
 	if isFunc {
 		scope.Func = scope
 	} else if parent != nil {
@@ -135,6 +147,16 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 }
 
 func (p *Parser) exitScope(parent *Scope) {
+	if p.scope.IsGlobalOrFunc {
+		if !p.scope.HasWithOrEval {
+			for _, v := range p.scope.Undeclared {
+				if bytes.Equal(v.Data, evalBytes) {
+					p.scope.HasWithOrEval = true
+				}
+			}
+		}
+		parent.Func.HasWithOrEval = p.scope.HasWithOrEval
+	}
 	p.scope.HoistUndeclared()
 	p.scope = parent
 }
@@ -238,6 +260,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		if !p.consume("with statement", CloseParenToken) {
 			return
 		}
+
+		p.scope.Func.HasWithOrEval = true
 		stmt = &WithStmt{cond, p.parseStmt(false)}
 	case DoToken:
 		stmt = &DoWhileStmt{}
@@ -711,7 +735,7 @@ func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
 	declType := LexicalDecl
 	if tt == VarToken {
 		declType = VariableDecl
-		p.scope.Func.NVarDecls++
+		p.scope.Func.NumVarDecls++
 	}
 	for {
 		varDecl.List = append(varDecl.List, p.parseBindingElement(declType))
@@ -1304,8 +1328,7 @@ func (p *Parser) parseIdentifierArrowFunc(v *Var) (arrowFunc ArrowFunc) {
 		v.Uses--
 		v, _ = p.scope.Declare(ArgumentDecl, v.Data) // cannot fail
 	} else {
-		// must be undeclared
-		// TODO: what if var declared earlier?
+		// if v.Uses==1 it must be undeclared and be the last added
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
 		v.Decl = ArgumentDecl
 		p.scope.Declared = append(p.scope.Declared, v)
@@ -1940,8 +1963,9 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		p.assumeArrowFunc = parentAssumeArrowFunc
 		p.exitScope(parent)
 
+		// for any nested FuncExpr/ArrowFunc scope, Parent will point to the temporary scope created in case this was an arrow function instead of a parenthesized expression. This is not a problem as Parent is only used for defining new variables, and we already parsed all the nested scopes so that Parent (not Func) are not relevant anymore. Anyways, the Parent will just point to an empty scope, whose Parent/Func will point to valid scopes. This should not be a big deal.
+		// Here we move all declared ArgumentDecls (in case of an arrow function) to its parent scope as undeclared variables (identifiers used in a parenthesized expression).
 		arrowFunc.Body.Scope.UndeclareScope()
-		// TODO: Parent and Func pointers are bad for any nested FuncDecl/ArrowFunc inside, maybe not a problem?
 
 		// parenthesized expression
 		left = list[0]

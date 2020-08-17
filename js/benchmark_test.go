@@ -8,9 +8,10 @@ import (
 )
 
 var z = 0
-var n = []int{4, 12, 20, 30, 40, 50, 150}
+var n = []int{4, 12, 20, 30, 40, 50, 60, 150}
 var randStrings [][]byte
 var mapStrings []map[string]bool
+var mapStructStrings []map[string]struct{}
 var mapInts []map[int]bool
 var arrayStrings [][]string
 var arrayBytes [][][]byte
@@ -29,6 +30,7 @@ func helperRandString() string {
 func init() {
 	for j := 0; j < len(n); j++ {
 		ms := map[string]bool{}
+		mss := map[string]struct{}{}
 		mi := map[int]bool{}
 		as := []string{}
 		ab := [][]byte{}
@@ -36,12 +38,14 @@ func init() {
 		for i := 0; i < n[j]; i++ {
 			s := helperRandString()
 			ms[s] = true
+			mss[s] = struct{}{}
 			mi[i] = true
 			as = append(as, s)
 			ab = append(ab, []byte(s))
 			ai = append(ai, i)
 		}
 		mapStrings = append(mapStrings, ms)
+		mapStructStrings = append(mapStructStrings, mss)
 		mapInts = append(mapInts, mi)
 		arrayStrings = append(arrayStrings, as)
 		arrayBytes = append(arrayBytes, ab)
@@ -130,6 +134,20 @@ func BenchmarkLookupMapStrings(b *testing.B) {
 			for k := 0; k < b.N; k++ {
 				for i := 0; i < n[j]; i++ {
 					if mapStrings[j][arrayStrings[j][i]] == true {
+						z++
+					}
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkLookupMapStructStrings(b *testing.B) {
+	for j := 0; j < len(n); j++ {
+		b.Run(fmt.Sprintf("%v", n[j]), func(b *testing.B) {
+			for k := 0; k < b.N; k++ {
+				for i := 0; i < n[j]; i++ {
+					if _, ok := mapStructStrings[j][string(arrayBytes[j][i])]; ok {
 						z++
 					}
 				}
