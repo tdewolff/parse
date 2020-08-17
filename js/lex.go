@@ -65,7 +65,7 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 	} else if 1 < l.r.Offset() && l.r.Peek(-1) == '=' && l.r.Peek(-2) == '/' {
 		l.r.Move(-2)
 	} else {
-		l.err = parse.NewErrorLexer(l.r, "expected '/' or '/='")
+		l.err = parse.NewErrorLexer(l.r, "expected / or /=")
 		return ErrorToken, nil
 	}
 	l.r.Skip() // trick to set start = pos

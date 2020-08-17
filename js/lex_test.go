@@ -244,11 +244,11 @@ func TestLexerErrors(t *testing.T) {
 
 	l = NewLexer(parse.NewInputString("\u2010"))
 	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected '\u2010'")
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected \u2010")
 
 	l = NewLexer(parse.NewInputString(""))
 	l.RegExp()
-	test.T(t, l.Err().(*parse.Error).Message, "expected '/' or '/='")
+	test.T(t, l.Err().(*parse.Error).Message, "expected / or /=")
 
 	l = NewLexer(parse.NewInputString("/"))
 	l.Next()
