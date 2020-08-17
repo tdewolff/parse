@@ -683,14 +683,14 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			async := p.data
 			p.next()
 			if p.tt == FunctionToken && !p.prevLT {
-				funcDecl := p.parseAsyncFuncDecl()
+				funcDecl := p.parseAsyncFuncExpr()
 				exportStmt.Decl = &funcDecl
 			} else {
 				// expression
 				exportStmt.Decl = p.parseAsyncExpression(OpExpr, async)
 			}
 		} else if p.tt == ClassToken {
-			classDecl := p.parseClassDecl()
+			classDecl := p.parseClassExpr()
 			exportStmt.Decl = &classDecl
 		} else {
 			exportStmt.Decl = p.parseExpression(OpAssign)
@@ -780,7 +780,6 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 	}
 	var ok bool
 	var name []byte
-	// TODO: must have name for function statement? Check +Default in spec
 	if inExpr && (IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken) || !inExpr && p.isIdentifierReference(p.tt) {
 		name = p.data
 		if !inExpr {
@@ -791,6 +790,9 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 			}
 		}
 		p.next()
+	} else if !inExpr {
+		p.fail("function declaration", IdentifierToken)
+		return
 	} else if p.tt != OpenParenToken {
 		p.fail("function declaration", IdentifierToken, OpenParenToken)
 		return
@@ -834,6 +836,9 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 			classDecl.Name = &Var{ExprDecl, p.data, nil, 1}
 		}
 		p.next()
+	} else if !inExpr {
+		p.fail("class declaration", IdentifierToken)
+		return
 	}
 	if p.tt == ExtendsToken {
 		p.next()
