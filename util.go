@@ -351,31 +351,6 @@ func ReplaceMultipleWhitespaceAndEntities(b []byte, entitiesMap map[string][]byt
 	return b[:j]
 }
 
-func DecodeURL(b []byte) []byte {
-	for i := 0; i < len(b); i++ {
-		if b[i] == '%' && i+2 < len(b) {
-			j := i + 1
-			c := 0
-			for ; j < i+3 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'z' || b[j] >= 'A' && b[j] <= 'Z'); j++ {
-				if b[j] <= '9' {
-					c = c<<4 + int(b[j]-'0')
-				} else if b[j] <= 'F' {
-					c = c<<4 + int(b[j]-'A') + 10
-				} else if b[j] <= 'f' {
-					c = c<<4 + int(b[j]-'a') + 10
-				}
-			}
-			if j == i+3 && c < 128 {
-				b[i] = byte(c)
-				b = append(b[:i+1], b[i+3:]...)
-			}
-		} else if b[i] == '+' {
-			b[i] = ' '
-		}
-	}
-	return b
-}
-
 var URLEncodingTable = [256]bool{
 	// ASCII
 	true, true, true, true, true, true, true, true,
@@ -383,20 +358,66 @@ var URLEncodingTable = [256]bool{
 	true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true,
 
-	false, false, true, true, true, true, true, false, // space, !, '
-	false, false, false, true, true, false, false, true, // (, ), *, -, .
-	false, false, false, false, false, false, false, false, // 0, 1, 2, 3, 4, 5, 6, 7
-	false, false, true, true, true, true, true, true, // 8, 9
+	true, false, true, true, true, true, true, false, // space, ", #, $, %, &
+	false, false, false, true, true, false, false, true, // +, comma, /
+	false, false, false, false, false, false, false, false,
+	false, false, true, true, true, true, true, true, // :, ;, <, =, >, ?
 
-	true, false, false, false, false, false, false, false, // A, B, C, D, E, F, G
-	false, false, false, false, false, false, false, false, // H, I, J, K, L, M, N, O
-	false, false, false, false, false, false, false, false, // P, Q, R, S, T, U, V, W
-	false, false, false, true, true, true, true, false, // X, Y, Z, _
+	true, false, false, false, false, false, false, false, // @
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, true, false, // [, \, ], ^
 
-	true, false, false, false, false, false, false, false, // a, b, c, d, e, f, g
-	false, false, false, false, false, false, false, false, // h, i, j, k, l, m, n, o
-	false, false, false, false, false, false, false, false, // p, q, r, s, t, u, v, w
-	false, false, false, true, true, true, false, true, // x, y, z, ~
+	true, false, false, false, false, false, false, false, // `
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, false, true, // {, |, }, DEL
+
+	// non-ASCII
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+}
+
+// URL encoding for Data URIs, escape only non-printable characters, unicode and %, #, &
+// IE11 additionally requires encoding of \, [, ], ", <, >, `, {, }, |, ^ which is not required by Chrome, Firefox, Opera, Edge, Safari, Yandex
+var DataURIEncodingTable = [256]bool{
+	// ASCII
+	true, true, true, true, true, true, true, true,
+	true, false, false, true, true, false, true, true, // all except \t, \n, \r
+	true, true, true, true, true, true, true, true,
+	true, true, true, true, true, true, true, true,
+
+	false, false, true, true, false, true, true, false, // ", #, %, &
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, true, false, true, false, // <, >
+
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, true, false, // [, \, ], ^
+
+	true, false, false, false, false, false, false, false, // `
+	false, false, false, false, false, false, false, false,
+	false, false, false, false, false, false, false, false,
+	false, false, false, true, true, true, false, true, // {, |, }, DEL
 
 	// non-ASCII
 	true, true, true, true, true, true, true, true,
@@ -424,13 +445,40 @@ func EncodeURL(b []byte, table [256]bool) []byte {
 	for i := 0; i < len(b); i++ {
 		c := b[i]
 		if table[c] {
-			b = append(b, 0, 0)
-			copy(b[i+3:], b[i+1:])
-			b[i+0] = '%'
-			b[i+1] = "0123456789ABCDEF"[c>>4]
-			b[i+2] = "0123456789ABCDEF"[c&15]
-		} else if c == ' ' {
-			b[i] = '+'
+			if c == ' ' {
+				b[i] = '+'
+			} else {
+				b = append(b, 0, 0)
+				copy(b[i+3:], b[i+1:])
+				b[i+0] = '%'
+				b[i+1] = "0123456789ABCDEF"[c>>4]
+				b[i+2] = "0123456789ABCDEF"[c&15]
+			}
+		}
+	}
+	return b
+}
+
+func DecodeURL(b []byte) []byte {
+	for i := 0; i < len(b); i++ {
+		if b[i] == '%' && i+2 < len(b) {
+			j := i + 1
+			c := 0
+			for ; j < i+3 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'z' || b[j] >= 'A' && b[j] <= 'Z'); j++ {
+				if b[j] <= '9' {
+					c = c<<4 + int(b[j]-'0')
+				} else if b[j] <= 'F' {
+					c = c<<4 + int(b[j]-'A') + 10
+				} else if b[j] <= 'f' {
+					c = c<<4 + int(b[j]-'a') + 10
+				}
+			}
+			if j == i+3 && c < 128 {
+				b[i] = byte(c)
+				b = append(b[:i+1], b[i+3:]...)
+			}
+		} else if b[i] == '+' {
+			b[i] = ' '
 		}
 	}
 	return b
