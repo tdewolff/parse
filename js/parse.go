@@ -1,7 +1,6 @@
 package js
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 
@@ -129,14 +128,13 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	parent := p.scope
 	p.scope = scope
 	*scope = Scope{
-		Parent:         parent,
-		Func:           nil,
-		Declared:       VarArray{},
-		Undeclared:     VarArray{},
-		NumVarDecls:    0,
-		NumArguments:   0,
-		IsGlobalOrFunc: isFunc,
-		HasWithOrEval:  false,
+		Parent:       parent,
+		Func:         nil,
+		Declared:     VarArray{},
+		Undeclared:   VarArray{},
+		NumVarDecls:  0,
+		NumArguments: 0,
+		HasWith:      false,
 	}
 	if isFunc {
 		scope.Func = scope
@@ -147,16 +145,6 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 }
 
 func (p *Parser) exitScope(parent *Scope) {
-	if p.scope.IsGlobalOrFunc {
-		if !p.scope.HasWithOrEval {
-			for _, v := range p.scope.Undeclared {
-				if bytes.Equal(v.Data, evalBytes) {
-					p.scope.HasWithOrEval = true
-				}
-			}
-		}
-		parent.Func.HasWithOrEval = p.scope.HasWithOrEval
-	}
 	p.scope.HoistUndeclared()
 	p.scope = parent
 }
@@ -261,7 +249,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			return
 		}
 
-		p.scope.Func.HasWithOrEval = true
+		p.scope.Func.HasWith = true
 		stmt = &WithStmt{cond, p.parseStmt(false)}
 	case DoToken:
 		stmt = &DoWhileStmt{}

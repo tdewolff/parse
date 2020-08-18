@@ -115,11 +115,15 @@ type Scope struct {
 	NumVarDecls    uint16 // number of variable declaration statements in a function scope
 	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
-	HasWithOrEval  bool
+	HasWith        bool
 }
 
 func (s Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
+}
+
+func (s *Scope) IsFunc() bool {
+	return s.Parent == s.Func
 }
 
 // Declare a new variable
