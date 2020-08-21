@@ -1258,7 +1258,7 @@ func (p *Parser) parseTemplateLiteral(precLeft OpPrec) (template TemplateExpr) {
 	return
 }
 
-func (p *Parser) parseArgs() (args Arguments) {
+func (p *Parser) parseArguments() (args Arguments) {
 	// assume we're on (
 	p.next()
 	args.List = make([]IExpr, 0, 4)
@@ -1493,7 +1493,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		} else {
 			newExpr := &NewExpr{p.parseExpression(OpNew), nil}
 			if p.tt == OpenParenToken {
-				args := p.parseArgs()
+				args := p.parseArguments()
 				if len(args.List) != 0 || args.Rest != nil {
 					newExpr.Args = &args
 				}
@@ -1695,7 +1695,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				p.fail("expression")
 				return nil
 			}
-			left = &CallExpr{left, p.parseArgs()}
+			left = &CallExpr{left, p.parseArguments()}
 			precLeft = OpCall
 		case TemplateToken, TemplateStartToken:
 			// OpMember < prec does never happen
@@ -1717,7 +1717,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 			p.next()
 			if p.tt == OpenParenToken {
-				left = &OptChainExpr{left, &CallExpr{nil, p.parseArgs()}}
+				left = &OptChainExpr{left, &CallExpr{nil, p.parseArguments()}}
 			} else if p.tt == OpenBracketToken {
 				p.next()
 				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpression(OpExpr), OpCall}}
