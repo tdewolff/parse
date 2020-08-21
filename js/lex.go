@@ -36,6 +36,7 @@ type Lexer struct {
 	r                  *parse.Input
 	err                error
 	prevLineTerminator bool
+	prevNumericLiteral bool
 	level              int
 	templateLevels     []int
 }
@@ -82,6 +83,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	prevLineTerminator := l.prevLineTerminator
 	l.prevLineTerminator = false
 
+	prevNumericLiteral := l.prevNumericLiteral
+	l.prevNumericLiteral = false
+
 	// study on 50x jQuery shows:
 	// spaces: 20k
 	// alpha: 16k
@@ -118,6 +122,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
 		if tt := l.consumeNumericToken(); tt != ErrorToken {
+			l.prevNumericLiteral = true
 			return tt, l.r.Shift()
 		} else if c == '.' {
 			l.r.Move(1)
@@ -181,9 +186,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.templateLevels = append(l.templateLevels, l.level)
 		return l.consumeTemplateToken(), l.r.Shift()
 	default:
-		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
-			return tt, l.r.Shift()
-		} else if 0xC0 <= c {
+		if !prevNumericLiteral {
+			if tt := l.consumeIdentifierToken(); tt != ErrorToken {
+				return tt, l.r.Shift()
+			}
+		}
+		if 0xC0 <= c {
 			if l.consumeWhitespace() {
 				for l.consumeWhitespace() {
 				}
@@ -500,9 +508,8 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 
 func (l *Lexer) consumeNumericToken() TokenType {
 	// assume to be on 0 1 2 3 4 5 6 7 8 9 .
-	mark := l.r.Pos()
-	c := l.r.Peek(0)
-	if c == '0' {
+	first := l.r.Peek(0)
+	if first == '0' {
 		l.r.Move(1)
 		if l.r.Peek(0) == 'x' || l.r.Peek(0) == 'X' {
 			l.r.Move(1)
@@ -511,8 +518,8 @@ func (l *Lexer) consumeNumericToken() TokenType {
 				}
 				return HexadecimalToken
 			}
-			l.r.Move(-1) // return just the zero
-			return DecimalToken
+			l.err = parse.NewErrorLexer(l.r, "invalid hexadecimal number")
+			return ErrorToken
 		} else if l.r.Peek(0) == 'b' || l.r.Peek(0) == 'B' {
 			l.r.Move(1)
 			if l.consumeBinaryDigit() {
@@ -520,8 +527,8 @@ func (l *Lexer) consumeNumericToken() TokenType {
 				}
 				return BinaryToken
 			}
-			l.r.Move(-1) // return just the zero
-			return DecimalToken
+			l.err = parse.NewErrorLexer(l.r, "invalid binary number")
+			return ErrorToken
 		} else if l.r.Peek(0) == 'o' || l.r.Peek(0) == 'O' {
 			l.r.Move(1)
 			if l.consumeOctalDigit() {
@@ -529,35 +536,38 @@ func (l *Lexer) consumeNumericToken() TokenType {
 				}
 				return OctalToken
 			}
-			l.r.Move(-1) // return just the zero
-			return DecimalToken
+			l.err = parse.NewErrorLexer(l.r, "invalid octal number")
+			return ErrorToken
 		} else if l.r.Peek(0) == 'n' {
 			l.r.Move(1)
 			return BigIntToken
+		} else if '0' <= l.r.Peek(0) && l.r.Peek(0) <= '9' {
+			l.err = parse.NewErrorLexer(l.r, "legacy octal numbers are not supported")
+			return ErrorToken
 		}
-	} else if c != '.' {
+	} else if first != '.' {
 		for l.consumeDigit() {
 		}
 	}
-	if l.r.Peek(0) == '.' {
+	// we have parsed a 0 or an integer number
+	c := l.r.Peek(0)
+	if c == '.' {
 		l.r.Move(1)
 		if l.consumeDigit() {
 			for l.consumeDigit() {
 			}
-		} else if c != '.' {
-			// . could belong to the next token
+			c = l.r.Peek(0)
+		} else if first == '.' {
+			// number starts with a dot and must be followed by digits
 			l.r.Move(-1)
-			return DecimalToken
+			return ErrorToken // may be dot or ellipsis
 		} else {
-			l.r.Rewind(mark)
-			return ErrorToken
+			c = l.r.Peek(0)
 		}
-	} else if l.r.Peek(0) == 'n' {
+	} else if c == 'n' {
 		l.r.Move(1)
 		return BigIntToken
 	}
-	mark = l.r.Pos()
-	c = l.r.Peek(0)
 	if c == 'e' || c == 'E' {
 		l.r.Move(1)
 		c = l.r.Peek(0)
@@ -565,9 +575,8 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			l.r.Move(1)
 		}
 		if !l.consumeDigit() {
-			// e could belong to the next token
-			l.r.Rewind(mark)
-			return DecimalToken
+			l.err = parse.NewErrorLexer(l.r, "invalid number")
+			return ErrorToken
 		}
 		for l.consumeDigit() {
 		}

@@ -18,9 +18,9 @@ func TestTokens(t *testing.T) {
 	}{
 		{" \t\v\f\u00A0\uFEFF\u2000", TTs{}}, // WhitespaceToken
 		{"\n\r\r\n\u2028\u2029", TTs{LineTerminatorToken}},
-		{"5.2 .04 0x0F 5e99", TTs{DecimalToken, DecimalToken, HexadecimalToken, DecimalToken}},
+		{"5.2 .04 1. 2.e3 0x0F 5e99", TTs{DecimalToken, DecimalToken, DecimalToken, DecimalToken, HexadecimalToken, DecimalToken}},
 		{"0o22 0b11", TTs{OctalToken, BinaryToken}},
-		{"0n 2345n 435.333n", TTs{BigIntToken, BigIntToken, DecimalToken, IdentifierToken}},
+		{"0n 2345n 435.333n", TTs{BigIntToken, BigIntToken, DecimalToken, ErrorToken}},
 		{"a = 'string'", TTs{IdentifierToken, EqToken, StringToken}},
 		{"/*comment*/ //comment", TTs{CommentToken, CommentToken}},
 		{"{ } ( ) [ ]", TTs{OpenBraceToken, CloseBraceToken, OpenParenToken, CloseParenToken, OpenBracketToken, CloseBracketToken}},
@@ -51,8 +51,6 @@ func TestTokens(t *testing.T) {
 		{">>>=>>>>=", TTs{GtGtGtEqToken, GtGtGtToken, GtEqToken}},
 		{"1/", TTs{DecimalToken, DivToken}},
 		{"1/=", TTs{DecimalToken, DivEqToken}},
-		{"010xF", TTs{DecimalToken, DecimalToken, IdentifierToken}}, // Decimal(0) Decimal(10) Identifier(xF)
-		{"50e+-0", TTs{DecimalToken, IdentifierToken, AddToken, SubToken, DecimalToken}},
 		{"'str\\i\\'ng'", TTs{StringToken}},
 		{"'str\\\\'abc", TTs{StringToken, IdentifierToken}},
 		{"'str\\\ni\\\\u00A0ng'", TTs{StringToken}},
@@ -85,8 +83,12 @@ func TestTokens(t *testing.T) {
 
 		// coverage
 		{"Ø a〉", TTs{IdentifierToken, IdentifierToken, ErrorToken}},
-		{"0xg 0.f", TTs{DecimalToken, IdentifierToken, DecimalToken, DotToken, IdentifierToken}},
-		{"0bg 0og", TTs{DecimalToken, IdentifierToken, DecimalToken, IdentifierToken}},
+		{"0xg", TTs{ErrorToken}},
+		{"0.f", TTs{DecimalToken, ErrorToken}},
+		{"0bg", TTs{ErrorToken}},
+		{"0og", TTs{ErrorToken}},
+		{"010", TTs{ErrorToken}}, // Decimal(0) Decimal(10) Identifier(xF)
+		{"50e+-0", TTs{ErrorToken}},
 		{"\u00A0\uFEFF\u2000", TTs{}},
 		{"\u2028\u2029", TTs{LineTerminatorToken}},
 		{"\\u0029ident", TTs{IdentifierToken}},
@@ -254,6 +256,11 @@ func TestLexerErrors(t *testing.T) {
 	l.Next()
 	l.RegExp()
 	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline")
+
+	l = NewLexer(parse.NewInputString("5a"))
+	l.Next()
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected a")
 }
 
 ////////////////////////////////////////////////////////////////

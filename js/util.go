@@ -28,10 +28,8 @@ func AsDecimalLiteral(b []byte) bool {
 	}
 	if i < len(b) && b[i] == '.' {
 		i++
-		if i < len(b) && '0' <= b[i] && b[i] <= '9' {
-			for i < len(b) && '0' <= b[i] && b[i] <= '9' {
-				i++
-			}
+		for i < len(b) && '0' <= b[i] && b[i] <= '9' {
+			i++
 		}
 	}
 	return i == len(b)
