@@ -186,10 +186,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.templateLevels = append(l.templateLevels, l.level)
 		return l.consumeTemplateToken(), l.r.Shift()
 	default:
-		if !prevNumericLiteral {
-			if tt := l.consumeIdentifierToken(); tt != ErrorToken {
-				return tt, l.r.Shift()
+		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
+			if prevNumericLiteral {
+				l.err = parse.NewErrorLexer(l.r, "unexpected identifier after number")
+				return ErrorToken, nil
 			}
+			return tt, l.r.Shift()
 		}
 		if 0xC0 <= c {
 			if l.consumeWhitespace() {

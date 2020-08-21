@@ -81,14 +81,18 @@ func TestTokens(t *testing.T) {
 		{"`template\x00`return", TTs{TemplateToken, ReturnToken}},
 		{"`template\\\x00`return", TTs{TemplateToken, ReturnToken}},
 
-		// coverage
-		{"Ø a〉", TTs{IdentifierToken, IdentifierToken, ErrorToken}},
+		// numbers
 		{"0xg", TTs{ErrorToken}},
 		{"0.f", TTs{DecimalToken, ErrorToken}},
 		{"0bg", TTs{ErrorToken}},
 		{"0og", TTs{ErrorToken}},
 		{"010", TTs{ErrorToken}}, // Decimal(0) Decimal(10) Identifier(xF)
 		{"50e+-0", TTs{ErrorToken}},
+		{"5.a", TTs{DecimalToken, ErrorToken}},
+		{"5..a", TTs{DecimalToken, DotToken, IdentifierToken}},
+
+		// coverage
+		{"Ø a〉", TTs{IdentifierToken, IdentifierToken, ErrorToken}},
 		{"\u00A0\uFEFF\u2000", TTs{}},
 		{"\u2028\u2029", TTs{LineTerminatorToken}},
 		{"\\u0029ident", TTs{IdentifierToken}},
@@ -260,7 +264,7 @@ func TestLexerErrors(t *testing.T) {
 	l = NewLexer(parse.NewInputString("5a"))
 	l.Next()
 	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected a")
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected identifier after number")
 }
 
 ////////////////////////////////////////////////////////////////
