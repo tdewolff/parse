@@ -58,6 +58,7 @@ func TestTokens(t *testing.T) {
 		{"0b0101 0o0707 0b17", TTs{BinaryToken, OctalToken, BinaryToken, DecimalToken}},
 		{"`template`", TTs{TemplateToken}},
 		{"`a${x+y}b`", TTs{TemplateStartToken, IdentifierToken, AddToken, IdentifierToken, TemplateEndToken}},
+		{"`tmpl${x}tmpl${x}`", TTs{TemplateStartToken, IdentifierToken, TemplateMiddleToken, IdentifierToken, TemplateEndToken}},
 		{"`temp\nlate`", TTs{TemplateToken}},
 		{"`outer${{x: 10}}bar${ raw`nested${2}endnest` }end`", TTs{TemplateStartToken, OpenBraceToken, IdentifierToken, ColonToken, DecimalToken, CloseBraceToken, TemplateMiddleToken, IdentifierToken, TemplateStartToken, DecimalToken, TemplateEndToken, TemplateEndToken}},
 		{"`tmpl ${ a ? '' : `tmpl2 ${b ? 'b' : 'c'}` }`", TTs{TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, TemplateStartToken, IdentifierToken, QuestionToken, StringToken, ColonToken, StringToken, TemplateEndToken, TemplateEndToken}},

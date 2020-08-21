@@ -1246,12 +1246,10 @@ func (p *Parser) parseTemplateLiteral(precLeft OpPrec) (template TemplateExpr) {
 		tpl := p.data
 		p.next()
 		template.List = append(template.List, TemplatePart{tpl, p.parseExpression(OpExpr)})
-		if p.tt == TemplateEndToken {
-			break
-		} else {
-			p.fail("template literal", TemplateToken)
-			return
-		}
+	}
+	if p.tt != TemplateToken && p.tt != TemplateEndToken {
+		p.fail("template literal", TemplateToken)
+		return
 	}
 	template.Tail = p.data
 	p.next() // TemplateEndToken

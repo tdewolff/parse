@@ -104,6 +104,7 @@ func TestParse(t *testing.T) {
 		{"class A { [5](b) {} }", "Decl(class A Method([5] Params(Binding(b)) Stmt({ })))"},
 		{"`tmpl`", "Stmt(`tmpl`)"},
 		{"`tmpl${x}`", "Stmt(`tmpl${x}`)"},
+		{"`tmpl${x}tmpl${x}`", "Stmt(`tmpl${x}tmpl${x}`)"},
 		{"import \"pkg\";", "Stmt(import \"pkg\")"},
 		{"import yield from \"pkg\"", "Stmt(import yield from \"pkg\")"},
 		{"import * as yield from \"pkg\"", "Stmt(import * as yield from \"pkg\")"},
