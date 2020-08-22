@@ -123,6 +123,14 @@ func (p *Parser) consume(in string, tt TokenType) bool {
 	return true
 }
 
+// TODO: refactor
+//type ScopeState struct {
+//	scope           *Scope
+//	async           bool
+//	generator       bool
+//	assumeArrowFunc bool
+//}
+
 func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	// create a new scope object and add it to the parent
 	parent := p.scope
@@ -1221,7 +1229,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				}
 				if p.tt == EqToken {
 					p.next()
+					parentAssumeArrowFunc := p.assumeArrowFunc
+					p.assumeArrowFunc = false
 					property.Init = p.parseExpression(OpAssign)
+					p.assumeArrowFunc = parentAssumeArrowFunc
 				}
 			}
 		}
@@ -1872,13 +1883,17 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 func (p *Parser) parseAssignmentExpression() IExpr {
 	// this could be a BindingElement or an AssignmentExpression. Here we handle BindingIdentifier with a possible Initializer, BindingPattern will be handled by parseArrayLiteral or parseObjectLiteral
 	if p.assumeArrowFunc && IsIdentifier(p.tt) {
+		// TODO: what about  yield and await?
 		tt := p.tt
 		data := p.data
 		p.next()
 		if p.tt == EqToken || p.tt == CommaToken || p.tt == CloseParenToken || p.tt == CloseBraceToken || p.tt == CloseBracketToken {
 			var left IExpr
 			left, _ = p.scope.Declare(ArgumentDecl, data) // cannot fail
-			return p.parseExpressionSuffix(left, OpAssign, OpPrimary)
+			p.assumeArrowFunc = false
+			left = p.parseExpressionSuffix(left, OpAssign, OpPrimary)
+			p.assumeArrowFunc = true
+			return left
 		}
 		p.assumeArrowFunc = false
 		if tt == AsyncToken {
@@ -1906,11 +1921,24 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 	// parse a parenthesized expression but assume we might be parsing an arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables an undeclared and merge them with the parent scope.
 
 	var list []IExpr
-	var rest IBinding
+	var rest IExpr
 	for p.tt != CloseParenToken && p.tt != ErrorToken {
 		if p.tt == EllipsisToken && p.assumeArrowFunc {
 			p.next()
-			rest = p.parseBinding(ArgumentDecl)
+			if IsIdentifier(p.tt) || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
+				// TODO: what about  yield and await?
+				rest, _ = p.scope.Declare(ArgumentDecl, p.data) // cannot fail
+				p.next()
+			} else if p.tt == OpenBracketToken {
+				array := p.parseArrayLiteral()
+				rest = &array
+			} else if p.tt == OpenBraceToken {
+				object := p.parseObjectLiteral()
+				rest = &object
+			} else {
+				p.fail("arrow function")
+				return nil
+			}
 			break
 		}
 
@@ -1931,10 +1959,11 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		p.async, p.generator = false, false
 
 		// arrow function
-		arrowFunc.Params = Params{List: make([]BindingElement, len(list)), Rest: rest}
+		arrowFunc.Params = Params{List: make([]BindingElement, len(list))}
 		for i, item := range list {
 			arrowFunc.Params.List[i] = p.exprToBindingElement(item) // can not fail when assumArrowFunc is set
 		}
+		arrowFunc.Params.Rest = p.exprToBinding(rest)
 		arrowFunc.Body.List = p.parseArrowFuncBody()
 
 		p.async, p.generator, p.assumeArrowFunc = parentAsync, parentGenerator, parentAssumeArrowFunc

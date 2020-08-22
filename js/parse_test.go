@@ -285,6 +285,7 @@ func TestParse(t *testing.T) {
 		{"x = ([{...a}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ ...Binding(a) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = ([{a: b}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ a: Binding(b) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
+		{"x = ({a = 5}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a = 5) })) => Stmt({ Stmt(a++) })))"},
 
 		// expression precedence
 		{"!!a", "Stmt(!(!a))"},
@@ -721,6 +722,10 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 		for _, item := range expr.Body.List {
 			sv.AddStmt(item)
 		}
+	case *CondExpr:
+		sv.AddExpr(expr.Cond)
+		sv.AddExpr(expr.X)
+		sv.AddExpr(expr.Y)
 	case *UnaryExpr:
 		sv.AddExpr(expr.X)
 	case *BinaryExpr:
@@ -920,6 +925,8 @@ func TestParseScope(t *testing.T) {
 		{"{a} {a} var a", "a=1//", "/a=1/a=1"},      // second block must add a new var in case the block contains a var decl
 		{"(a),(a)", "", "a=1"},                      // second parens could have been arrow function, so must have added new var
 		{"var a,b,c;(a = b[c])", "a=1,b=2,c=3", ""}, // parens could have been arrow function, so must have added new var
+		{"!function(a){var b,c;return b?(c=function(){return[a];a.dispatch()},c):t}", "/a=2,b=3,c=4/", "t=1/t=1/a=2"},
+		{"(...{a=function(){return [b]}}) => 5", "/a=2/", "b=1/b=1/b=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
