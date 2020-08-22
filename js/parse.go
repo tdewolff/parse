@@ -1558,8 +1558,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 				yieldExpr.Generator = p.tt == MulToken
 				if yieldExpr.Generator {
 					p.next()
+					yieldExpr.X = p.parseExpression(OpAssign)
+				} else if p.tt != CloseBraceToken && p.tt != CloseBracketToken && p.tt != CloseParenToken && p.tt != ColonToken && p.tt != CommaToken && p.tt != SemicolonToken {
+					yieldExpr.X = p.parseExpression(OpAssign)
 				}
-				yieldExpr.X = p.parseExpression(OpAssign)
 			}
 			left = &yieldExpr
 			precLeft = OpAssign
@@ -1882,8 +1884,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 
 func (p *Parser) parseAssignmentExpression() IExpr {
 	// this could be a BindingElement or an AssignmentExpression. Here we handle BindingIdentifier with a possible Initializer, BindingPattern will be handled by parseArrayLiteral or parseObjectLiteral
-	if p.assumeArrowFunc && IsIdentifier(p.tt) {
-		// TODO: what about  yield and await?
+	if p.assumeArrowFunc && p.isIdentifierReference(p.tt) {
 		tt := p.tt
 		data := p.data
 		p.next()
@@ -1925,8 +1926,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 	for p.tt != CloseParenToken && p.tt != ErrorToken {
 		if p.tt == EllipsisToken && p.assumeArrowFunc {
 			p.next()
-			if IsIdentifier(p.tt) || !p.generator && p.tt == YieldToken || !p.async && p.tt == AwaitToken {
-				// TODO: what about  yield and await?
+			if p.isIdentifierReference(p.tt) {
 				rest, _ = p.scope.Declare(ArgumentDecl, p.data) // cannot fail
 				p.next()
 			} else if p.tt == OpenBracketToken {
