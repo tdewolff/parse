@@ -21,12 +21,10 @@ func AsDecimalLiteral(b []byte) bool {
 		return false
 	}
 	i := 1
-	if b[0] != '.' {
-		for i < len(b) && '0' <= b[i] && b[i] <= '9' {
-			i++
-		}
+	for i < len(b) && '0' <= b[i] && b[i] <= '9' {
+		i++
 	}
-	if i < len(b) && b[i] == '.' {
+	if i < len(b) && b[i] == '.' && b[0] != '.' {
 		i++
 		for i < len(b) && '0' <= b[i] && b[i] <= '9' {
 			i++

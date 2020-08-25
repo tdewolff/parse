@@ -60,7 +60,9 @@ func TestParse(t *testing.T) {
 		{"for (a,b=5;;) {}", "Stmt(for (a,(b=5)) ; ; Stmt({ }))"},
 		{"for (let a;;) {}", "Stmt(for Decl(let Binding(a)) ; ; Stmt({ }))"},
 		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
+		{"for (var a in b) c", "Stmt(for Decl(var Binding(a)) in b Stmt({ Stmt(c) }))"},
 		{"for (var a of b) {}", "Stmt(for Decl(var Binding(a)) of b Stmt({ }))"},
+		{"for (var a of b) c", "Stmt(for Decl(var Binding(a)) of b Stmt({ Stmt(c) }))"},
 		{"for (var a=5 of b) {}", "Stmt(for Decl(var Binding(a = 5)) of b Stmt({ }))"},
 		{"for (var a in b) {}", "Stmt(for Decl(var Binding(a)) in b Stmt({ }))"},
 		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
@@ -289,6 +291,7 @@ func TestParse(t *testing.T) {
 		{"x = ([{a: b}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ a: Binding(b) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
 		{"x = ({a = 5}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a = 5) })) => Stmt({ Stmt(a++) })))"},
+		{"x = ([a = 5]) => {a++}", "Stmt(x=(Params(Binding([ Binding(a = 5) ])) => Stmt({ Stmt(a++) })))"},
 
 		// expression precedence
 		{"!!a", "Stmt(!(!a))"},
@@ -302,6 +305,8 @@ func TestParse(t *testing.T) {
 		{"new super.a(b)", "Stmt(new (super.a)(b))"},
 		{"new new.target(a)", "Stmt(new (new.target)(a))"},
 		{"new import.meta(a)", "Stmt(new (import.meta)(a))"},
+		{"a(b)[c]", "Stmt((a(b))[c])"},
+		{"a[b]`tmpl`", "Stmt((a[b])`tmpl`)"},
 		{"a||b?c:d", "Stmt((a||b) ? c : d)"},
 		{"a??b?c:d", "Stmt((a??b) ? c : d)"},
 		{"a==b==c", "Stmt((a==b)==c)"},
