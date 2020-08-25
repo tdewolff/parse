@@ -266,6 +266,11 @@ func TestLexerErrors(t *testing.T) {
 	l.Next()
 	l.Next()
 	test.T(t, l.Err().(*parse.Error).Message, "unexpected identifier after number")
+
+	l = NewLexer(parse.NewInputString(".0E"))
+	l.Next()
+	l.Next()
+	test.T(t, l.Err().(*parse.Error).Message, "invalid number")
 }
 
 ////////////////////////////////////////////////////////////////

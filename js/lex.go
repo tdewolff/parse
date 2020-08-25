@@ -121,7 +121,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return tt, l.r.Shift()
 		}
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '.':
-		if tt := l.consumeNumericToken(); tt != ErrorToken {
+		if tt := l.consumeNumericToken(); tt != ErrorToken || l.r.Pos() != 0 {
 			l.prevNumericLiteral = true
 			return tt, l.r.Shift()
 		} else if c == '.' {
