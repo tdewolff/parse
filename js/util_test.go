@@ -20,4 +20,7 @@ func TestAsDecimalLiteral(t *testing.T) {
 	test.That(t, AsDecimalLiteral([]byte("12.56")))
 	test.That(t, AsDecimalLiteral([]byte(".56")))
 	test.That(t, !AsDecimalLiteral([]byte(".56a")))
+	test.That(t, !AsDecimalLiteral([]byte(".")))
+	test.That(t, AsDecimalLiteral([]byte("0")))
+	test.That(t, !AsDecimalLiteral([]byte("00")))
 }
