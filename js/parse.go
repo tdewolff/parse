@@ -296,12 +296,14 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		body := BlockStmt{}
 		parent := p.enterScope(&body.Scope, false)
 
+		numDecls := 0
 		var init IExpr
 		p.inFor = true
 		if p.tt == VarToken || p.tt == LetToken || p.tt == ConstToken {
 			tt := p.tt
 			p.next()
 			varDecl := p.parseVarDecl(tt)
+			numDecls = len(varDecl.List)
 			init = &varDecl
 		} else if p.tt != SemicolonToken {
 			init = p.parseExpression(OpExpr)
@@ -337,6 +339,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if await {
 				p.fail("for statement", OfToken)
 				return
+			} else if 1 < numDecls {
+				p.fail("for statement")
+				return
 			}
 			p.next()
 			value := p.parseExpression(OpExpr)
@@ -350,6 +355,10 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 			stmt = &ForInStmt{init, value, body}
 		} else if p.tt == OfToken {
+			if 1 < numDecls {
+				p.fail("for statement")
+				return
+			}
 			p.next()
 			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
@@ -1690,7 +1699,10 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if precLeft < OpMember {
 				exprPrec = OpCall
 			}
+			parentInFor := p.inFor
+			p.inFor = false
 			left = &IndexExpr{left, p.parseExpression(OpExpr), exprPrec}
+			p.inFor = parentInFor
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
 			}
@@ -1706,14 +1718,19 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				p.fail("expression")
 				return nil
 			}
+			parentInFor := p.inFor
+			p.inFor = false
 			left = &CallExpr{left, p.parseArguments()}
 			precLeft = OpCall
+			p.inFor = parentInFor
 		case TemplateToken, TemplateStartToken:
 			// OpMember < prec does never happen
 			if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
+			parentInFor := p.inFor
+			p.inFor = false
 			template := p.parseTemplateLiteral(precLeft)
 			template.Tag = left
 			left = &template
@@ -1722,6 +1739,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			} else {
 				precLeft = OpMember
 			}
+			p.inFor = parentInFor
 		case OptChainToken:
 			if OpCall < prec {
 				return left
@@ -1916,8 +1934,8 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 
 	arrowFunc := ArrowFunc{}
 	parent := p.enterScope(&arrowFunc.Body.Scope, true)
-	parentAssumeArrowFunc := p.assumeArrowFunc
-	p.assumeArrowFunc = true
+	parentAssumeArrowFunc, parentInFor := p.assumeArrowFunc, p.inFor
+	p.assumeArrowFunc, p.inFor = true, false
 
 	// parse a parenthesized expression but assume we might be parsing an arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables an undeclared and merge them with the parent scope.
 
@@ -1953,6 +1971,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		return nil
 	}
 	p.next()
+	p.inFor = parentInFor
 
 	if p.tt == ArrowToken && p.assumeArrowFunc {
 		parentAsync, parentGenerator := p.async, p.generator
