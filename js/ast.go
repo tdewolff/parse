@@ -109,7 +109,7 @@ func (vs VarArray) String() string {
 
 // Scope is a function or block scope with a list of variables declared and used
 type Scope struct {
-	Parent, Func   *Scope
+	Parent, Func   *Scope   // Parent is nil for global scope, Parent equals Func for function scope
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
 	NumVarDecls    uint16 // number of variable declaration statements in a function scope
@@ -120,10 +120,6 @@ type Scope struct {
 
 func (s Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
-}
-
-func (s *Scope) IsFunc() bool {
-	return s.Parent == s.Func
 }
 
 // Declare a new variable
@@ -156,11 +152,9 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	// reuse variable if previously used, as in:  a;var a
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
 		for i, uv := range s.Undeclared[s.NumArguments:] {
+			// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
 			if 0 < uv.Uses && bytes.Equal(name, uv.Data) {
 				v = uv
-				for v.Link != nil {
-					v = v.Link
-				}
 				s.Undeclared = append(s.Undeclared[:int(s.NumArguments)+i], s.Undeclared[int(s.NumArguments)+i+1:]...)
 				break
 			}
@@ -200,7 +194,7 @@ func (s *Scope) Use(name []byte) *Var {
 // find declared variable in the current scope
 func (s *Scope) findDeclared(name []byte) *Var {
 	for _, v := range s.Declared {
-		// no need to evaluate v.Link as v.Name stays the same, and Link is always nil in Declared
+		// no need to evaluate v.Link as v.Data stays the same, and Link is always nil in Declared
 		if bytes.Equal(name, v.Data) {
 			return v
 		}
@@ -208,20 +202,10 @@ func (s *Scope) findDeclared(name []byte) *Var {
 	return nil
 }
 
-// find declared variable in the current and upper scopes
-func (s *Scope) findVarDeclaration(name []byte) (*Var, *Scope) {
-	if v := s.findDeclared(name); v != nil {
-		return v, s
-	} else if s.Parent != nil {
-		return s.Parent.findVarDeclaration(name)
-	}
-	return nil, nil
-}
-
 // find undeclared variable in the current and lower scopes
 func (s *Scope) findUndeclared(name []byte) *Var {
 	for _, v := range s.Undeclared {
-		// no need to evaluate v.Link as v.Name stays the same
+		// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
 		if 0 < v.Uses && bytes.Equal(name, v.Data) {
 			return v
 		}
@@ -237,7 +221,7 @@ func (s *Scope) MarkArguments() {
 func (s *Scope) HoistUndeclared() {
 	// copy all undeclared variables to the parent scope
 	for i, vorig := range s.Undeclared {
-		// no need to evaluate vorig.Link as vorig.Name stays the same
+		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
 			if v := s.Parent.findDeclared(vorig.Data); v != nil {
 				// check if variable is declared in parent scope
@@ -261,7 +245,7 @@ func (s *Scope) UndeclareScope() {
 	// called when possibly arrow func ends up being a parenthesized expression, scope not futher used
 	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
 	for _, vorig := range s.Declared {
-		// no need to evaluate vorig.Link as vorig.Name stays the same, and Link is always nil in Declared
+		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
 		if v := s.Parent.findDeclared(vorig.Data); v != nil {
 			// check if variable has been declared in this scope
