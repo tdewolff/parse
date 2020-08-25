@@ -981,7 +981,10 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 
 func (p *Parser) parseBindingElement(decl DeclType) (bindingElement BindingElement) {
 	// binding element
+	parentInFor := p.inFor
+	p.inFor = false
 	bindingElement.Binding = p.parseBinding(decl)
+	p.inFor = parentInFor
 	if p.tt == EqToken {
 		p.next()
 		bindingElement.Default = p.parseExpression(OpAssign)
@@ -1080,7 +1083,10 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 					}
 					if p.tt == EqToken {
 						p.next()
+						parentInFor := p.inFor
+						p.inFor = false
 						item.Value.Default = p.parseExpression(OpAssign)
+						p.inFor = parentInFor
 					}
 				}
 			} else {
@@ -1429,11 +1435,17 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 	case OpenBracketToken:
+		parentInFor := p.inFor
+		p.inFor = false
 		array := p.parseArrayLiteral()
 		left = &array
+		p.inFor = parentInFor
 	case OpenBraceToken:
+		parentInFor := p.inFor
+		p.inFor = false
 		object := p.parseObjectLiteral()
 		left = &object
+		p.inFor = parentInFor
 	case OpenParenToken:
 		// parenthesized expression or arrow parameter list
 		if OpAssign < prec {
@@ -1586,14 +1598,23 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		p.next()
 		left = p.parseAsyncExpression(prec, async)
 	case ClassToken:
+		parentInFor := p.inFor
+		p.inFor = false
 		classDecl := p.parseClassExpr()
 		left = &classDecl
+		p.inFor = parentInFor
 	case FunctionToken:
+		parentInFor := p.inFor
+		p.inFor = false
 		funcDecl := p.parseFuncExpr()
 		left = &funcDecl
+		p.inFor = parentInFor
 	case TemplateToken, TemplateStartToken:
+		parentInFor := p.inFor
+		p.inFor = false
 		template := p.parseTemplateLiteral(precLeft)
 		left = &template
+		p.inFor = parentInFor
 	default:
 		p.fail("expression")
 		return nil
