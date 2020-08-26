@@ -7,6 +7,12 @@ import (
 	"errors"
 )
 
+var (
+	dataSchemeBytes = []byte("data:")
+	base64Bytes     = []byte("base64")
+	textMimeBytes   = []byte("text/plain")
+)
+
 // ErrBadDataURI is returned by DataURI when the byte slice does not start with 'data:' or is too short.
 var ErrBadDataURI = errors.New("not a data URI")
 
@@ -145,7 +151,7 @@ func Mediatype(b []byte) ([]byte, map[string]string) {
 
 // DataURI parses the given data URI and returns the mediatype, data and ok.
 func DataURI(dataURI []byte) ([]byte, []byte, error) {
-	if len(dataURI) > 5 && bytes.Equal(dataURI[:5], []byte("data:")) {
+	if len(dataURI) > 5 && bytes.Equal(dataURI[:5], dataSchemeBytes) {
 		dataURI = dataURI[5:]
 		inBase64 := false
 		var mediatype []byte
@@ -153,7 +159,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 		for j := 0; j < len(dataURI); j++ {
 			c := dataURI[j]
 			if c == '=' || c == ';' || c == ',' {
-				if c != '=' && bytes.Equal(TrimWhitespace(dataURI[i:j]), []byte("base64")) {
+				if c != '=' && bytes.Equal(TrimWhitespace(dataURI[i:j]), base64Bytes) {
 					if len(mediatype) > 0 {
 						mediatype = mediatype[:len(mediatype)-1]
 					}
@@ -167,7 +173,7 @@ func DataURI(dataURI []byte) ([]byte, []byte, error) {
 				}
 				if c == ',' {
 					if len(mediatype) == 0 || mediatype[0] == ';' {
-						mediatype = []byte("text/plain")
+						mediatype = textMimeBytes
 					}
 					data := dataURI[j+1:]
 					if inBase64 {

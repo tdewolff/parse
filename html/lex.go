@@ -2,11 +2,9 @@
 package html
 
 import (
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
-	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // TokenType determines the type of token, eg. a number or a semicolon.
@@ -60,7 +58,7 @@ func (tt TokenType) String() string {
 
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r   *buffer.Lexer
+	r   *parse.Input
 	err error
 
 	rawTag Hash
@@ -71,9 +69,9 @@ type Lexer struct {
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
-func NewLexer(r io.Reader) *Lexer {
+func NewLexer(r *parse.Input) *Lexer {
 	return &Lexer{
-		r: buffer.NewLexer(r),
+		r: r,
 	}
 }
 
@@ -83,16 +81,6 @@ func (l *Lexer) Err() error {
 		return l.err
 	}
 	return l.r.Err()
-}
-
-// Restore restores the NULL byte at the end of the buffer.
-func (l *Lexer) Restore() {
-	l.r.Restore()
-}
-
-// Offset returns the current position in the input stream.
-func (l *Lexer) Offset() int {
-	return l.r.Offset()
 }
 
 // Text returns the textual representation of a token. This excludes delimiters and additional leading/trailing characters.

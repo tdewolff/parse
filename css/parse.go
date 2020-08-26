@@ -3,7 +3,6 @@ package css
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
@@ -86,8 +85,8 @@ type Parser struct {
 	buf   []Token
 	level int
 
-	tt          TokenType
 	data        []byte
+	tt          TokenType
 	keepWS      bool
 	prevWS      bool
 	prevEnd     bool
@@ -95,7 +94,7 @@ type Parser struct {
 }
 
 // NewParser returns a new CSS parser from an io.Reader. isInline specifies whether this is an inline style attribute.
-func NewParser(r io.Reader, isInline bool) *Parser {
+func NewParser(r *parse.Input, isInline bool) *Parser {
 	l := NewLexer(r)
 	p := &Parser{
 		l:     l,
@@ -122,16 +121,6 @@ func (p *Parser) Err() error {
 		return parse.NewError(r, p.errPos, p.err)
 	}
 	return p.l.Err()
-}
-
-// Restore restores the NULL byte at the end of the buffer.
-func (p *Parser) Restore() {
-	p.l.Restore()
-}
-
-// Offset returns the current position in the input stream.
-func (p *Parser) Offset() int {
-	return p.l.Offset()
 }
 
 // Next returns the next Grammar. It returns ErrorGrammar when an error was encountered. Using Err() one can retrieve the error message.

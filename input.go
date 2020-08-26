@@ -1,4 +1,4 @@
-package buffer
+package parse
 
 import (
 	"io"
@@ -7,9 +7,9 @@ import (
 
 var nullBuffer = []byte{0}
 
-// Lexer is a buffered reader that allows peeking forward and shifting, taking an io.Reader.
+// Input is a buffered reader that allows peeking forward and shifting, taking an io.Input.
 // It keeps data in-memory until Free, taking a byte length, is called to move beyond the data.
-type Lexer struct {
+type Input struct {
 	buf   []byte
 	pos   int // index in buf
 	start int // index in buf
@@ -18,10 +18,9 @@ type Lexer struct {
 	restore func()
 }
 
-// NewLexerBytes returns a new Lexer for a given io.Reader, and uses ioutil.ReadAll to read it into a byte slice.
-// If the io.Reader implements Bytes, that is used instead.
-// It will append a NULL at the end of the buffer.
-func NewLexer(r io.Reader) *Lexer {
+// NewInputBytes returns a new Input for a given io.Input and uses ioutil.ReadAll to read it into a byte slice.
+// If the io.Input implements Bytes, that is used instead. It will append a NULL at the end of the buffer.
+func NewInput(r io.Reader) *Input {
 	var b []byte
 	if r != nil {
 		if buffer, ok := r.(interface {
@@ -32,20 +31,25 @@ func NewLexer(r io.Reader) *Lexer {
 			var err error
 			b, err = ioutil.ReadAll(r)
 			if err != nil {
-				return &Lexer{
+				return &Input{
 					buf: nullBuffer,
 					err: err,
 				}
 			}
 		}
 	}
-	return NewLexerBytes(b)
+	return NewInputBytes(b)
 }
 
-// NewLexerBytes returns a new Lexer for a given byte slice, and appends NULL at the end.
+// NewInputString returns a new Input for a given string and appends NULL at the end.
+func NewInputString(s string) *Input {
+	return NewInputBytes([]byte(s))
+}
+
+// NewInputBytes returns a new Input for a given byte slice and appends NULL at the end.
 // To avoid reallocation, make sure the capacity has room for one more byte.
-func NewLexerBytes(b []byte) *Lexer {
-	z := &Lexer{
+func NewInputBytes(b []byte) *Input {
+	z := &Input{
 		buf: b,
 	}
 
@@ -72,20 +76,20 @@ func NewLexerBytes(b []byte) *Lexer {
 }
 
 // Restore restores the replaced byte past the end of the buffer by NULL.
-func (z *Lexer) Restore() {
+func (z *Input) Restore() {
 	if z.restore != nil {
 		z.restore()
 		z.restore = nil
 	}
 }
 
-// Err returns the error returned from io.Reader or io.EOF when the end has been reached.
-func (z *Lexer) Err() error {
+// Err returns the error returned from io.Input or io.EOF when the end has been reached.
+func (z *Input) Err() error {
 	return z.PeekErr(0)
 }
 
 // PeekErr returns the error at position pos. When pos is zero, this is the same as calling Err().
-func (z *Lexer) PeekErr(pos int) error {
+func (z *Input) PeekErr(pos int) error {
 	if z.err != nil {
 		return z.err
 	} else if z.pos+pos >= len(z.buf)-1 {
@@ -95,14 +99,14 @@ func (z *Lexer) PeekErr(pos int) error {
 }
 
 // Peek returns the ith byte relative to the end position.
-// Peek returns 0 when an error has occurred, Err returns the error.
-func (z *Lexer) Peek(pos int) byte {
+// Peek returns 0 when an error has occurred, Err returns the erroz.
+func (z *Input) Peek(pos int) byte {
 	pos += z.pos
 	return z.buf[pos]
 }
 
 // PeekRune returns the rune and rune length of the ith byte relative to the end position.
-func (z *Lexer) PeekRune(pos int) (rune, int) {
+func (z *Input) PeekRune(pos int) (rune, int) {
 	// from unicode/utf8
 	c := z.Peek(pos)
 	if c < 0xC0 || z.Peek(pos+1) == 0 {
@@ -116,49 +120,54 @@ func (z *Lexer) PeekRune(pos int) (rune, int) {
 }
 
 // Move advances the position.
-func (z *Lexer) Move(n int) {
+func (z *Input) Move(n int) {
 	z.pos += n
 }
 
 // Pos returns a mark to which can be rewinded.
-func (z *Lexer) Pos() int {
+func (z *Input) Pos() int {
 	return z.pos - z.start
 }
 
 // Rewind rewinds the position to the given position.
-func (z *Lexer) Rewind(pos int) {
+func (z *Input) Rewind(pos int) {
 	z.pos = z.start + pos
 }
 
 // Lexeme returns the bytes of the current selection.
-func (z *Lexer) Lexeme() []byte {
+func (z *Input) Lexeme() []byte {
 	return z.buf[z.start:z.pos:z.pos]
 }
 
 // Skip collapses the position to the end of the selection.
-func (z *Lexer) Skip() {
+func (z *Input) Skip() {
 	z.start = z.pos
 }
 
 // Shift returns the bytes of the current selection and collapses the position to the end of the selection.
-func (z *Lexer) Shift() []byte {
+func (z *Input) Shift() []byte {
 	b := z.buf[z.start:z.pos:z.pos]
 	z.start = z.pos
 	return b
 }
 
-// Offset returns the character position in the buffer.
-func (z *Lexer) Offset() int {
+// Offset returns the character position in the buffez.
+func (z *Input) Offset() int {
 	return z.pos
 }
 
-// Bytes returns the underlying buffer.
-func (z *Lexer) Bytes() []byte {
+// Bytes returns the underlying buffez.
+func (z *Input) Bytes() []byte {
 	return z.buf[: len(z.buf)-1 : len(z.buf)-1]
 }
 
-// Reset resets position to the underlying buffer.
-func (z *Lexer) Reset() {
+// Len returns the length of the underlying buffez.
+func (z *Input) Len() int {
+	return len(z.buf) - 1
+}
+
+// Reset resets position to the underlying buffez.
+func (z *Input) Reset() {
 	z.start = 0
 	z.pos = 0
 }

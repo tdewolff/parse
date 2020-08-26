@@ -2,7 +2,9 @@ package parse
 
 import (
 	"bytes"
+	"fmt"
 	"strconv"
+	"unicode"
 )
 
 // Copy returns a copy of the given byte slice.
@@ -34,6 +36,16 @@ func EqualFold(s, targetLower []byte) bool {
 		}
 	}
 	return true
+}
+
+// Return printable string for given rune
+func Printable(r rune) string {
+	if unicode.IsGraphic(r) {
+		return fmt.Sprintf("%c", r)
+	} else if r < 128 {
+		return fmt.Sprintf("0x%02X", r)
+	}
+	return fmt.Sprintf("%U", r)
 }
 
 var whitespaceTable = [256]bool{

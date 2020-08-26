@@ -1,10 +1,9 @@
 package parse
 
 import (
+	"bytes"
 	"fmt"
 	"io"
-
-	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // Error is a parsing error returned by parser. It contains a message and an offset at which the error occurred.
@@ -30,8 +29,8 @@ func NewError(r io.Reader, offset int, message string, a ...interface{}) *Error 
 }
 
 // NewErrorLexer creates a new error from an active Lexer.
-func NewErrorLexer(l *buffer.Lexer, message string, a ...interface{}) *Error {
-	r := buffer.NewReader(l.Bytes())
+func NewErrorLexer(l *Input, message string, a ...interface{}) *Error {
+	r := bytes.NewBuffer(l.Bytes())
 	offset := l.Offset()
 	return NewError(r, offset, message, a...)
 }

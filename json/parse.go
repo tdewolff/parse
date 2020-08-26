@@ -2,11 +2,9 @@
 package json
 
 import (
-	"io"
 	"strconv"
 
 	"github.com/tdewolff/parse/v2"
-	"github.com/tdewolff/parse/v2/buffer"
 )
 
 // GrammarType determines the type of grammar
@@ -82,7 +80,7 @@ func (state State) String() string {
 
 // Parser is the state for the lexer.
 type Parser struct {
-	r     *buffer.Lexer
+	r     *parse.Input
 	state []State
 	err   error
 
@@ -90,9 +88,9 @@ type Parser struct {
 }
 
 // NewParser returns a new Parser for a given io.Reader.
-func NewParser(r io.Reader) *Parser {
+func NewParser(r *parse.Input) *Parser {
 	return &Parser{
-		r:     buffer.NewLexer(r),
+		r:     r,
 		state: []State{ValueState},
 	}
 }
@@ -103,16 +101,6 @@ func (p *Parser) Err() error {
 		return p.err
 	}
 	return p.r.Err()
-}
-
-// Restore restores the NULL byte at the end of the buffer.
-func (p *Parser) Restore() {
-	p.r.Restore()
-}
-
-// Offset returns the current position in the input stream.
-func (p *Parser) Offset() int {
-	return p.r.Offset()
 }
 
 // State returns the state the parser is currently in (ie. which token is expected).

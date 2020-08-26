@@ -1,7 +1,6 @@
 package json
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"testing"
@@ -38,7 +37,7 @@ func TestGrammars(t *testing.T) {
 	}
 	for _, tt := range grammarTests {
 		t.Run(tt.json, func(t *testing.T) {
-			p := NewParser(bytes.NewBufferString(tt.json))
+			p := NewParser(parse.NewInputString(tt.json))
 			i := 0
 			for {
 				grammar, _ := p.Next()
@@ -80,7 +79,7 @@ func TestGrammarsErrorEOF(t *testing.T) {
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {
-			p := NewParser(bytes.NewBufferString(tt.json))
+			p := NewParser(parse.NewInputString(tt.json))
 			for {
 				grammar, _ := p.Next()
 				if grammar == ErrorGrammar {
@@ -114,7 +113,7 @@ func TestGrammarsError(t *testing.T) {
 	}
 	for _, tt := range grammarErrorTests {
 		t.Run(tt.json, func(t *testing.T) {
-			p := NewParser(bytes.NewBufferString(tt.json))
+			p := NewParser(parse.NewInputString(tt.json))
 			for {
 				grammar, _ := p.Next()
 				if grammar == ErrorGrammar {
@@ -142,7 +141,7 @@ func TestStates(t *testing.T) {
 	}
 	for _, tt := range stateTests {
 		t.Run(tt.json, func(t *testing.T) {
-			p := NewParser(bytes.NewBufferString(tt.json))
+			p := NewParser(parse.NewInputString(tt.json))
 			i := 0
 			for {
 				grammar, _ := p.Next()
@@ -165,32 +164,33 @@ func TestStates(t *testing.T) {
 }
 
 func TestOffset(t *testing.T) {
-	p := NewParser(bytes.NewBufferString(`{"key": [5, "string", null, true]}`))
-	test.T(t, p.Offset(), 0)
+	z := parse.NewInputString(`{"key": [5, "string", null, true]}`)
+	p := NewParser(z)
+	test.T(t, z.Offset(), 0)
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 1) // {
+	test.T(t, z.Offset(), 1) // {
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 7) // "key":
+	test.T(t, z.Offset(), 7) // "key":
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 9) // [
+	test.T(t, z.Offset(), 9) // [
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 10) // 5
+	test.T(t, z.Offset(), 10) // 5
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 20) // , "string"
+	test.T(t, z.Offset(), 20) // , "string"
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 26) // , null
+	test.T(t, z.Offset(), 26) // , null
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 32) // , true
+	test.T(t, z.Offset(), 32) // , true
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 33) // ]
+	test.T(t, z.Offset(), 33) // ]
 	_, _ = p.Next()
-	test.T(t, p.Offset(), 34) // }
+	test.T(t, z.Offset(), 34) // }
 }
 
 ////////////////////////////////////////////////////////////////
 
 func ExampleNewParser() {
-	p := NewParser(bytes.NewBufferString(`{"key": 5}`))
+	p := NewParser(parse.NewInputString(`{"key": 5}`))
 	out := ""
 	for {
 		state := p.State()
