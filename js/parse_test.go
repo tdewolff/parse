@@ -65,6 +65,7 @@ func TestParse(t *testing.T) {
 		{"for (var a of b) c", "Stmt(for Decl(var Binding(a)) of b Stmt({ Stmt(c) }))"},
 		{"for (var a=5 of b) {}", "Stmt(for Decl(var Binding(a = 5)) of b Stmt({ }))"},
 		{"for (var a=(b in c) in d) {}", "Stmt(for Decl(var Binding(a = ((b in c)))) in d Stmt({ }))"},
+		{"for (c && (a in b);;) {}", "Stmt(for (c&&((a in b))) ; ; Stmt({ }))"},
 		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
 		{"for (a = b;;) {}", "Stmt(for (a=b) ; ; Stmt({ }))"},
 		{"throw 5", "Stmt(throw 5)"},

@@ -1451,7 +1451,10 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		if OpAssign < prec {
 			// must be a parenthesized expression
 			p.next()
+			parentInFor := p.inFor
+			p.inFor = false
 			left = &GroupExpr{p.parseExpression(OpExpr)}
+			p.inFor = parentInFor
 			if !p.consume("expression", CloseParenToken) {
 				return nil
 			}
