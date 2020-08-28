@@ -34,10 +34,14 @@ func Parse(r *parse.Input) (*AST, error) {
 
 	ast := &AST{}
 	p.tt, p.data = p.l.Next()
-	if p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
-		ast.Comment = p.data
-		p.next()
-	} else if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
+	for p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
+		ast.Comments = append(ast.Comments, p.data)
+		p.tt, p.data = p.l.Next()
+		if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
+			p.tt, p.data = p.l.Next()
+		}
+	}
+	if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
 		p.next()
 	}
 	// prevLT may be wrong but that is not a problem

@@ -7,8 +7,8 @@ import (
 )
 
 type AST struct {
-	Comment   []byte // first comment in file
-	BlockStmt        // module
+	Comments  [][]byte // first comments in file
+	BlockStmt          // module
 }
 
 func (ast *AST) String() string {
