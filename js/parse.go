@@ -1999,9 +1999,10 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		return nil
 	}
 	p.next()
-	p.inFor = parentInFor
+	isArrowFunc := p.tt == ArrowToken && p.assumeArrowFunc
+	p.assumeArrowFunc, p.inFor = parentAssumeArrowFunc, parentInFor
 
-	if p.tt == ArrowToken && p.assumeArrowFunc {
+	if isArrowFunc {
 		parentAsync, parentGenerator := p.async, p.generator
 		p.async, p.generator = false, false
 
@@ -2013,7 +2014,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		arrowFunc.Params.Rest = p.exprToBinding(rest)
 		arrowFunc.Body.List = p.parseArrowFuncBody()
 
-		p.async, p.generator, p.assumeArrowFunc = parentAsync, parentGenerator, parentAssumeArrowFunc
+		p.async, p.generator = parentAsync, parentGenerator
 		p.exitScope(parent)
 
 		left = &arrowFunc
@@ -2022,7 +2023,6 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec) IExpr {
 		p.fail("arrow function", ArrowToken)
 		return nil
 	} else {
-		p.assumeArrowFunc = parentAssumeArrowFunc
 		p.exitScope(parent)
 
 		// for any nested FuncExpr/ArrowFunc scope, Parent will point to the temporary scope created in case this was an arrow function instead of a parenthesized expression. This is not a problem as Parent is only used for defining new variables, and we already parsed all the nested scopes so that Parent (not Func) are not relevant anymore. Anyways, the Parent will just point to an empty scope, whose Parent/Func will point to valid scopes. This should not be a big deal.

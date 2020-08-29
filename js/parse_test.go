@@ -363,6 +363,8 @@ func TestParse(t *testing.T) {
 		{"return /*com\nment*/ a", "Stmt(return) Stmt(a)"},
 		{"return //comment\n a", "Stmt(return) Stmt(a)"},
 		{"a?.b\n`c`", "Stmt((a?.b)`c`)"},
+
+		{"() => { const v=6; x={v} }", "Stmt(Params() => Stmt({ Decl(const Binding(v = 6)) Stmt(x={v}) }))"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
