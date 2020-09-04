@@ -113,6 +113,7 @@ type Scope struct {
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
 	NumVarDecls    uint16 // number of variable declaration statements in a function scope
+	NumForInit     uint16 // offset into Declared to mark variables used in for initializer
 	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
 	HasWith        bool
@@ -211,6 +212,11 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 		}
 	}
 	return nil
+}
+
+func (s *Scope) MarkForInit() {
+	// set the offset for variables declared in for initializer to distinguish from declarations in body
+	s.NumForInit = uint16(len(s.Declared))
 }
 
 func (s *Scope) MarkArguments() {

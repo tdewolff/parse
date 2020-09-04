@@ -333,6 +333,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
+			p.scope.MarkForInit()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
@@ -352,6 +353,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
+			p.scope.MarkForInit()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
@@ -368,6 +370,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
+			p.scope.MarkForInit()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
