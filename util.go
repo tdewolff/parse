@@ -464,7 +464,7 @@ func DecodeURL(b []byte) []byte {
 		if b[i] == '%' && i+2 < len(b) {
 			j := i + 1
 			c := 0
-			for ; j < i+3 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'z' || b[j] >= 'A' && b[j] <= 'Z'); j++ {
+			for ; j < i+3 && (b[j] >= '0' && b[j] <= '9' || b[j] >= 'a' && b[j] <= 'f' || b[j] >= 'A' && b[j] <= 'F'); j++ {
 				if b[j] <= '9' {
 					c = c<<4 + int(b[j]-'0')
 				} else if b[j] <= 'F' {
