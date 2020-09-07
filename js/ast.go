@@ -55,10 +55,10 @@ func (decl DeclType) String() string {
 
 // Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables
 type Var struct {
-	Decl DeclType
 	Data []byte
 	Link *Var // is set when merging variable uses, as in:  {a} {var a}  where the first lins to the second
 	Uses uint16
+	Decl DeclType
 }
 
 func (v *Var) Name() []byte {
