@@ -750,7 +750,21 @@ func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
 		p.scope.Func.NumVarDecls++
 	}
 	for {
-		varDecl.List = append(varDecl.List, p.parseBindingElement(declType))
+		var bindingElement BindingElement
+		// binding element
+		parentInFor := p.inFor
+		p.inFor = false
+		bindingElement.Binding = p.parseBinding(declType)
+		p.inFor = parentInFor
+		if p.tt == EqToken {
+			p.next()
+			bindingElement.Default = p.parseExpression(OpAssign)
+		} else if _, ok := bindingElement.Binding.(*Var); !ok {
+			p.fail("var statement", EqToken)
+			return
+		}
+
+		varDecl.List = append(varDecl.List, bindingElement)
 		if p.tt == CommaToken {
 			p.next()
 		} else {
