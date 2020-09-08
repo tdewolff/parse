@@ -163,7 +163,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	}
 	if v == nil {
 		// add variable to the context list and to the scope
-		v = &Var{decl, name, nil, 0}
+		v = &Var{name, nil, 0, decl}
 	} else {
 		v.Decl = decl
 	}
@@ -184,7 +184,7 @@ func (s *Scope) Use(name []byte) *Var {
 		v = s.findUndeclared(name)
 		if v == nil {
 			// add variable to the context list and to the scope's undeclared
-			v = &Var{NoDecl, name, nil, 0}
+			v = &Var{name, nil, 0, NoDecl}
 			s.Undeclared = append(s.Undeclared, v)
 		}
 	}

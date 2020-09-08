@@ -290,7 +290,7 @@ var listVars []*Var
 func BenchmarkInterfaceAddPtr(b *testing.B) {
 	listInterface = listInterface[:0:0]
 	for k := 0; k < b.N; k++ {
-		v := &Var{0, nil, nil, 0}
+		v := &Var{nil, nil, 0, 0}
 		listInterface = append(listInterface, v)
 	}
 }
@@ -312,7 +312,7 @@ func BenchmarkInterfaceAddPtr(b *testing.B) {
 //}
 
 func BenchmarkInterfaceCheckPtr(b *testing.B) {
-	v := &Var{0, nil, nil, 0}
+	v := &Var{nil, nil, 0, 0}
 	i := interface{}(v)
 	for k := 0; k < b.N; k++ {
 		if r, ok := i.(*Var); ok {

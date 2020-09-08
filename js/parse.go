@@ -869,7 +869,7 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 			}
 		} else {
 			//classDecl.Name, ok = p.scope.Declare(ExprDecl, p.data) // classes do not register vars
-			classDecl.Name = &Var{ExprDecl, p.data, nil, 1}
+			classDecl.Name = &Var{p.data, nil, 1, ExprDecl}
 		}
 		p.next()
 	} else if !inExpr {
