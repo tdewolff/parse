@@ -1015,6 +1015,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 		if p.tt == CommaToken {
 			array.List = append(array.List, BindingElement{})
 		}
+		last := 0
 		for p.tt != CloseBracketToken {
 			// elision
 			for p.tt == CommaToken {
@@ -1033,10 +1034,12 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 				}
 				break
 			} else if p.tt == CloseBracketToken {
+				array.List = array.List[:last]
 				break
 			}
 
 			array.List = append(array.List, p.parseBindingElement(decl))
+			last = len(array.List)
 
 			if p.tt != CommaToken && p.tt != CloseBracketToken {
 				p.fail("array binding pattern", CommaToken, CloseBracketToken)

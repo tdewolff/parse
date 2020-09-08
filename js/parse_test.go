@@ -167,11 +167,11 @@ func TestParse(t *testing.T) {
 
 		// bindings
 		{"let []", "Decl(let Binding([ ]))"},
-		{"let [,]", "Decl(let Binding([ Binding() ]))"},
+		{"let [,]", "Decl(let Binding([ ]))"},
 		{"let [,a]", "Decl(let Binding([ Binding(), Binding(a) ]))"},
 		{"let [name = 5]", "Decl(let Binding([ Binding(name = 5) ]))"},
 		{"let [name = 5,]", "Decl(let Binding([ Binding(name = 5) ]))"},
-		{"let [name = 5,,]", "Decl(let Binding([ Binding(name = 5), Binding() ]))"},
+		{"let [name = 5,,]", "Decl(let Binding([ Binding(name = 5) ]))"},
 		{"let [name = 5,, ...yield]", "Decl(let Binding([ Binding(name = 5), Binding(), ...Binding(yield) ]))"},
 		{"let [...yield]", "Decl(let Binding([ ...Binding(yield) ]))"},
 		{"let [,,...yield]", "Decl(let Binding([ Binding(), Binding(), ...Binding(yield) ]))"},
