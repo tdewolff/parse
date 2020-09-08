@@ -300,14 +300,21 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		body := BlockStmt{}
 		parent := p.enterScope(&body.Scope, false)
 
-		numDecls := 0
 		var init IExpr
 		p.inFor = true
 		if p.tt == VarToken || p.tt == LetToken || p.tt == ConstToken {
 			tt := p.tt
 			p.next()
 			varDecl := p.parseVarDecl(tt)
-			numDecls = len(varDecl.List)
+			if p.tt != SemicolonToken && (1 < len(varDecl.List) || varDecl.List[0].Default != nil) {
+				p.fail("for statement")
+				return
+			} else if p.tt == SemicolonToken && varDecl.List[0].Default == nil {
+				if _, ok := varDecl.List[0].Binding.(*Var); !ok {
+					p.fail("for statement")
+					return
+				}
+			}
 			init = &varDecl
 		} else if p.tt != SemicolonToken {
 			init = p.parseExpression(OpExpr)
@@ -344,9 +351,6 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if await {
 				p.fail("for statement", OfToken)
 				return
-			} else if 1 < numDecls {
-				p.fail("for statement")
-				return
 			}
 			p.next()
 			value := p.parseExpression(OpExpr)
@@ -361,10 +365,6 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 			stmt = &ForInStmt{init, value, body}
 		} else if p.tt == OfToken {
-			if 1 < numDecls {
-				p.fail("for statement")
-				return
-			}
 			p.next()
 			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
@@ -750,8 +750,8 @@ func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
 		p.scope.Func.NumVarDecls++
 	}
 	for {
+		// binding element, var declaration in for-in or for-of can never have a default
 		var bindingElement BindingElement
-		// binding element
 		parentInFor := p.inFor
 		p.inFor = false
 		bindingElement.Binding = p.parseBinding(declType)
@@ -759,7 +759,7 @@ func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
 		if p.tt == EqToken {
 			p.next()
 			bindingElement.Default = p.parseExpression(OpAssign)
-		} else if _, ok := bindingElement.Binding.(*Var); !ok {
+		} else if _, ok := bindingElement.Binding.(*Var); !ok && (!p.inFor || 0 < len(varDecl.List)) {
 			p.fail("var statement", EqToken)
 			return
 		}
@@ -1002,10 +1002,7 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 
 func (p *Parser) parseBindingElement(decl DeclType) (bindingElement BindingElement) {
 	// binding element
-	parentInFor := p.inFor
-	p.inFor = false
 	bindingElement.Binding = p.parseBinding(decl)
-	p.inFor = parentInFor
 	if p.tt == EqToken {
 		p.next()
 		bindingElement.Default = p.parseExpression(OpAssign)
@@ -1107,10 +1104,7 @@ func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
 					}
 					if p.tt == EqToken {
 						p.next()
-						parentInFor := p.inFor
-						p.inFor = false
 						item.Value.Default = p.parseExpression(OpAssign)
-						p.inFor = parentInFor
 					}
 				}
 			} else {
@@ -1393,7 +1387,10 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	p.scope.MarkArguments()
 
 	if p.tt == OpenBraceToken {
+		parentInFor := p.inFor
+		p.inFor = false
 		list = p.parseStmtList("arrow function")
+		p.inFor = parentInFor
 	} else {
 		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
 	}
