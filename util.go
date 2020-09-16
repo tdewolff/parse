@@ -400,7 +400,7 @@ var URLEncodingTable = [256]bool{
 var DataURIEncodingTable = [256]bool{
 	// ASCII
 	true, true, true, true, true, true, true, true,
-	true, false, false, true, true, false, true, true, // all except \t, \n, \r
+	true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true,
 
