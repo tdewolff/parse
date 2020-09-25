@@ -950,6 +950,7 @@ func TestParseScope(t *testing.T) {
 		{"!function(a){var b,c;return b?(c=function(){return[a];a.dispatch()},c):t}", "/a=2,b=3,c=4/", "t=1/t=1/a=2*"},
 		{"(...{a=function(){return [b]}}) => 5", "/a=2/", "b=1/b=1/b=1"},
 		{"(...[a=function(){return [b]}]) => 5", "/a=2/", "b=1/b=1/b=1"},
+		{`a=>{for(let b of c){b,a;{var d}}}`, "/a=2,d=3/b=4/", "c=1/c=1/c=1,a=2,d=3/d=3"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

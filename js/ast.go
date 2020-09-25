@@ -169,8 +169,9 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	}
 	v.Uses++
 	s.Declared = append(s.Declared, v)
-	if s != curScope {
+	for s != curScope {
 		curScope.Undeclared = append(curScope.Undeclared, v) // add variable declaration as used variable to the current scope
+		curScope = curScope.Parent
 	}
 	return v, true
 }
