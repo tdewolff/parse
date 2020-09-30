@@ -35,7 +35,7 @@ func NewErrorLexer(l *Input, message string, a ...interface{}) *Error {
 	return NewError(r, offset, message, a...)
 }
 
-// Positions returns the line, column, and context of the error.
+// Position returns the line, column, and context of the error.
 // Context is the entire line at which the error occurred.
 func (e *Error) Position() (int, int, string) {
 	return e.Line, e.Column, e.Context

@@ -38,7 +38,7 @@ func EqualFold(s, targetLower []byte) bool {
 	return true
 }
 
-// Return printable string for given rune
+// Printable returns a printable string for given rune
 func Printable(r rune) string {
 	if unicode.IsGraphic(r) {
 		return fmt.Sprintf("%c", r)
@@ -351,6 +351,7 @@ func ReplaceMultipleWhitespaceAndEntities(b []byte, entitiesMap map[string][]byt
 	return b[:j]
 }
 
+// URLEncodingTable is a charmap for which characters need escaping in the URL encoding scheme
 var URLEncodingTable = [256]bool{
 	// ASCII
 	true, true, true, true, true, true, true, true,
@@ -395,8 +396,9 @@ var URLEncodingTable = [256]bool{
 	true, true, true, true, true, true, true, true,
 }
 
-// URL encoding for Data URIs, escape only non-printable characters, unicode and %, #, &
-// IE11 additionally requires encoding of \, [, ], ", <, >, `, {, }, |, ^ which is not required by Chrome, Firefox, Opera, Edge, Safari, Yandex
+// DataURIEncodingTable is a charmap for which characters need escaping in the Data URI encoding scheme
+// Escape only non-printable characters, unicode and %, #, &. IE11 additionally requires encoding of
+// \, [, ], ", <, >, `, {, }, |, ^ which is not required by Chrome, Firefox, Opera, Edge, Safari, Yandex
 var DataURIEncodingTable = [256]bool{
 	// ASCII
 	true, true, true, true, true, true, true, true,
@@ -441,6 +443,7 @@ var DataURIEncodingTable = [256]bool{
 	true, true, true, true, true, true, true, true,
 }
 
+// EncodeURL encodes bytes using the URL encoding scheme
 func EncodeURL(b []byte, table [256]bool) []byte {
 	for i := 0; i < len(b); i++ {
 		c := b[i]
@@ -459,6 +462,7 @@ func EncodeURL(b []byte, table [256]bool) []byte {
 	return b
 }
 
+// DecodeURL decodes an URL encoded using the URL encoding scheme
 func DecodeURL(b []byte) []byte {
 	for i := 0; i < len(b); i++ {
 		if b[i] == '%' && i+2 < len(b) {

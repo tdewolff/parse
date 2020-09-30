@@ -1300,7 +1300,7 @@ func (p *Parser) parseTemplateLiteral(precLeft OpPrec) (template TemplateExpr) {
 	return
 }
 
-func (p *Parser) parseArguments() (args Arguments) {
+func (p *Parser) parseArguments() (args Args) {
 	// assume we're on (
 	p.next()
 	args.List = make([]IExpr, 0, 4)

@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// AST is the full ECMAScript abstract syntax tree.
 type AST struct {
 	Comments  [][]byte // first comments in file
 	BlockStmt          // module
@@ -24,8 +25,10 @@ func (ast *AST) String() string {
 
 ////////////////////////////////////////////////////////////////
 
+// DeclType specifies the kind of declaration.
 type DeclType uint16
 
+// DeclType values.
 const (
 	NoDecl       DeclType = iota // undeclared variables
 	VariableDecl                 // var
@@ -53,7 +56,7 @@ func (decl DeclType) String() string {
 	return "Invalid(" + strconv.Itoa(int(decl)) + ")"
 }
 
-// Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables
+// Var is a variable, where Decl is the type of declaration and can be var|function for function scoped variables, let|const|class for block scoped variables.
 type Var struct {
 	Data []byte
 	Link *Var // is set when merging variable uses, as in:  {a} {var a}  where the first lins to the second
@@ -61,6 +64,7 @@ type Var struct {
 	Decl DeclType
 }
 
+// Name returns the variable name.
 func (v *Var) Name() []byte {
 	for v.Link != nil {
 		v = v.Link
@@ -72,7 +76,7 @@ func (v *Var) String() string {
 	return string(v.Name())
 }
 
-// VarsByUses is sortable by uses in descending order
+// VarsByUses is sortable by uses in descending order.
 type VarsByUses VarArray
 
 func (vs VarsByUses) Len() int {
@@ -89,6 +93,7 @@ func (vs VarsByUses) Less(i, j int) bool {
 
 ////////////////////////////////////////////////////////////////
 
+// VarArray is a set of variables in scopes.
 type VarArray []*Var
 
 func (vs VarArray) String() string {
@@ -107,7 +112,7 @@ func (vs VarArray) String() string {
 	return s + "]"
 }
 
-// Scope is a function or block scope with a list of variables declared and used
+// Scope is a function or block scope with a list of variables declared and used.
 type Scope struct {
 	Parent, Func   *Scope   // Parent is nil for global scope, Parent equals Func for function scope
 	Declared       VarArray // Link in Var are always nil
@@ -123,7 +128,7 @@ func (s Scope) String() string {
 	return "Scope{Declared: " + s.Declared.String() + ", Undeclared: " + s.Undeclared.String() + "}"
 }
 
-// Declare a new variable
+// Declare declares a new variable.
 func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	// refer to new variable for previously undeclared symbols in the current and lower scopes
 	// this happens in `{ a = 5; } var a` where both a's refer to the same variable
@@ -176,7 +181,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	return v, true
 }
 
-// Use a variable
+// Use increments the usage of a variable.
 func (s *Scope) Use(name []byte) *Var {
 	// check if variable is declared in the current scope
 	v := s.findDeclared(name)
@@ -193,7 +198,7 @@ func (s *Scope) Use(name []byte) *Var {
 	return v
 }
 
-// find declared variable in the current scope
+// findDeclared finds a declared variable in the current scope.
 func (s *Scope) findDeclared(name []byte) *Var {
 	for _, v := range s.Declared {
 		// no need to evaluate v.Link as v.Data stays the same, and Link is always nil in Declared
@@ -204,7 +209,7 @@ func (s *Scope) findDeclared(name []byte) *Var {
 	return nil
 }
 
-// find undeclared variable in the current and lower scopes
+// findUndeclared finds an undeclared variable in the current and contained scopes.
 func (s *Scope) findUndeclared(name []byte) *Var {
 	for _, v := range s.Undeclared {
 		// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
@@ -215,18 +220,18 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 	return nil
 }
 
+// MarkForInit marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
 func (s *Scope) MarkForInit() {
-	// set the offset for variables declared in for initializer to distinguish from declarations in body
 	s.NumForInit = uint16(len(s.Declared))
 }
 
+// MarkArguments marks the undeclared variables in the current scope as function arguments. It ensures different b's in `function f(a=b){var b}`.
 func (s *Scope) MarkArguments() {
-	// set the offset for variables used for arguments, to ensure different b's for: function f(a=b){var b}
 	s.NumArguments = uint16(len(s.Undeclared))
 }
 
+// HoistUndeclared copies all undeclared variables of the current scope to the parent scope.
 func (s *Scope) HoistUndeclared() {
-	// copy all undeclared variables to the parent scope
 	for i, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
@@ -248,9 +253,10 @@ func (s *Scope) HoistUndeclared() {
 	}
 }
 
+// UndeclareScope undeclares all declared variables in the current scope and adds them to the parent scope.
+// Called when possible arrow func ends up being a parenthesized expression, scope is not futher used.
 func (s *Scope) UndeclareScope() {
-	// called when possibly arrow func ends up being a parenthesized expression, scope not futher used
-	// move all declared variables to the parent scope as undeclared variables. Look if the variable already exists in the parent scope, if so replace the Var pointer in original use
+	// look if the variable already exists in the parent scope, if so replace the Var pointer in original use
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
@@ -274,16 +280,19 @@ func (s *Scope) UndeclareScope() {
 
 ////////////////////////////////////////////////////////////////
 
+// IStmt is a dummy interface for statements.
 type IStmt interface {
 	String() string
 	stmtNode()
 }
 
+// IBinding is a dummy interface for bindings.
 type IBinding interface {
 	String() string
 	bindingNode()
 }
 
+// IExpr is a dummy interface for expressions.
 type IExpr interface {
 	String() string
 	exprNode()
@@ -291,6 +300,7 @@ type IExpr interface {
 
 ////////////////////////////////////////////////////////////////
 
+// BlockStmt is a block statement.
 type BlockStmt struct {
 	List []IStmt
 	Scope
@@ -304,40 +314,28 @@ func (n BlockStmt) String() string {
 	return s + " })"
 }
 
-type BranchStmt struct {
-	Type  TokenType
-	Label []byte // can be nil
+// EmptyStmt is an empty statement.
+type EmptyStmt struct {
 }
 
-func (n BranchStmt) String() string {
-	s := "Stmt(" + n.Type.String()
-	if n.Label != nil {
-		s += " " + string(n.Label)
+func (n EmptyStmt) String() string {
+	return "Stmt(;)"
+}
+
+// ExprStmt is an expression statement.
+type ExprStmt struct {
+	Value IExpr
+}
+
+func (n ExprStmt) String() string {
+	val := n.Value.String()
+	if val[0] == '(' && val[len(val)-1] == ')' {
+		return "Stmt" + n.Value.String()
 	}
-	return s + ")"
+	return "Stmt(" + n.Value.String() + ")"
 }
 
-type LabelledStmt struct {
-	Label []byte
-	Value IStmt
-}
-
-func (n LabelledStmt) String() string {
-	return "Stmt(" + string(n.Label) + " : " + n.Value.String() + ")"
-}
-
-type ReturnStmt struct {
-	Value IExpr // can be nil
-}
-
-func (n ReturnStmt) String() string {
-	s := "Stmt(return"
-	if n.Value != nil {
-		s += " " + n.Value.String()
-	}
-	return s + ")"
-}
-
+// IfStmt is an if statement.
 type IfStmt struct {
 	Cond IExpr
 	Body IStmt
@@ -352,15 +350,7 @@ func (n IfStmt) String() string {
 	return s + ")"
 }
 
-type WithStmt struct {
-	Cond IExpr
-	Body IStmt
-}
-
-func (n WithStmt) String() string {
-	return "Stmt(with " + n.Cond.String() + " " + n.Body.String() + ")"
-}
-
+// DoWhileStmt is a do-while iteration statement.
 type DoWhileStmt struct {
 	Cond IExpr
 	Body IStmt
@@ -370,6 +360,7 @@ func (n DoWhileStmt) String() string {
 	return "Stmt(do " + n.Body.String() + " while " + n.Cond.String() + ")"
 }
 
+// WhileStmt is a while iteration statement.
 type WhileStmt struct {
 	Cond IExpr
 	Body IStmt
@@ -379,6 +370,7 @@ func (n WhileStmt) String() string {
 	return "Stmt(while " + n.Cond.String() + " " + n.Body.String() + ")"
 }
 
+// ForStmt is a regular for iteration statement.
 type ForStmt struct {
 	Init IExpr // can be nil
 	Cond IExpr // can be nil
@@ -402,6 +394,7 @@ func (n ForStmt) String() string {
 	return s + " " + n.Body.String() + ")"
 }
 
+// ForInStmt is a for-in iteration statement.
 type ForInStmt struct {
 	Init  IExpr
 	Value IExpr
@@ -412,6 +405,7 @@ func (n ForInStmt) String() string {
 	return "Stmt(for " + n.Init.String() + " in " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
+// ForOfStmt is a for-of iteration statement.
 type ForOfStmt struct {
 	Await bool
 	Init  IExpr
@@ -427,12 +421,14 @@ func (n ForOfStmt) String() string {
 	return s + " " + n.Init.String() + " of " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
+// CaseClause is a case clause or default clause for a switch statement.
 type CaseClause struct {
 	TokenType
 	Cond IExpr // can be nil
 	List []IStmt
 }
 
+// SwitchStmt is a switch statement.
 type SwitchStmt struct {
 	Init IExpr
 	List []CaseClause
@@ -453,6 +449,54 @@ func (n SwitchStmt) String() string {
 	return s + ")"
 }
 
+// BranchStmt is a continue or break statement.
+type BranchStmt struct {
+	Type  TokenType
+	Label []byte // can be nil
+}
+
+func (n BranchStmt) String() string {
+	s := "Stmt(" + n.Type.String()
+	if n.Label != nil {
+		s += " " + string(n.Label)
+	}
+	return s + ")"
+}
+
+// ReturnStmt is a return statement.
+type ReturnStmt struct {
+	Value IExpr // can be nil
+}
+
+func (n ReturnStmt) String() string {
+	s := "Stmt(return"
+	if n.Value != nil {
+		s += " " + n.Value.String()
+	}
+	return s + ")"
+}
+
+// WithStmt is a with statement.
+type WithStmt struct {
+	Cond IExpr
+	Body IStmt
+}
+
+func (n WithStmt) String() string {
+	return "Stmt(with " + n.Cond.String() + " " + n.Body.String() + ")"
+}
+
+// LabelledStmt is a labelled statement.
+type LabelledStmt struct {
+	Label []byte
+	Value IStmt
+}
+
+func (n LabelledStmt) String() string {
+	return "Stmt(" + string(n.Label) + " : " + n.Value.String() + ")"
+}
+
+// ThrowStmt is a throw statement.
 type ThrowStmt struct {
 	Value IExpr
 }
@@ -461,6 +505,7 @@ func (n ThrowStmt) String() string {
 	return "Stmt(throw " + n.Value.String() + ")"
 }
 
+// TryStmt is a try statement.
 type TryStmt struct {
 	Body    BlockStmt
 	Binding IBinding   // can be nil
@@ -483,6 +528,7 @@ func (n TryStmt) String() string {
 	return s + ")"
 }
 
+// DebuggerStmt is a debugger statement.
 type DebuggerStmt struct {
 }
 
@@ -490,13 +536,7 @@ func (n DebuggerStmt) String() string {
 	return "Stmt(debugger)"
 }
 
-type EmptyStmt struct {
-}
-
-func (n EmptyStmt) String() string {
-	return "Stmt(;)"
-}
-
+// Alias is a name space import or import/export specifier for import/export statements.
 type Alias struct {
 	Name    []byte // can be nil
 	Binding []byte // can be nil
@@ -510,6 +550,7 @@ func (alias Alias) String() string {
 	return s + string(alias.Binding)
 }
 
+// ImportStmt is an import statement.
 type ImportStmt struct {
 	List    []Alias
 	Default []byte // can be nil
@@ -544,6 +585,7 @@ func (n ImportStmt) String() string {
 	return s + " " + string(n.Module) + ")"
 }
 
+// ExportStmt is an export statement.
 type ExportStmt struct {
 	List    []Alias
 	Module  []byte // can be nil
@@ -578,53 +620,45 @@ func (n ExportStmt) String() string {
 	return s + ")"
 }
 
-type ExprStmt struct {
-	Value IExpr
-}
-
-func (n ExprStmt) String() string {
-	val := n.Value.String()
-	if val[0] == '(' && val[len(val)-1] == ')' {
-		return "Stmt" + n.Value.String()
-	}
-	return "Stmt(" + n.Value.String() + ")"
-}
-
 func (n BlockStmt) stmtNode()    {}
-func (n BranchStmt) stmtNode()   {}
-func (n LabelledStmt) stmtNode() {}
-func (n ReturnStmt) stmtNode()   {}
+func (n EmptyStmt) stmtNode()    {}
+func (n ExprStmt) stmtNode()     {}
 func (n IfStmt) stmtNode()       {}
-func (n WithStmt) stmtNode()     {}
 func (n DoWhileStmt) stmtNode()  {}
 func (n WhileStmt) stmtNode()    {}
 func (n ForStmt) stmtNode()      {}
 func (n ForInStmt) stmtNode()    {}
 func (n ForOfStmt) stmtNode()    {}
 func (n SwitchStmt) stmtNode()   {}
+func (n BranchStmt) stmtNode()   {}
+func (n ReturnStmt) stmtNode()   {}
+func (n WithStmt) stmtNode()     {}
+func (n LabelledStmt) stmtNode() {}
 func (n ThrowStmt) stmtNode()    {}
 func (n TryStmt) stmtNode()      {}
 func (n DebuggerStmt) stmtNode() {}
-func (n EmptyStmt) stmtNode()    {}
 func (n ImportStmt) stmtNode()   {}
 func (n ExportStmt) stmtNode()   {}
-func (n ExprStmt) stmtNode()     {}
 
 ////////////////////////////////////////////////////////////////
 
+// PropertyName is a property name for binding properties, method names, and in object literals.
 type PropertyName struct {
 	Literal  LiteralExpr
 	Computed IExpr // can be nil
 }
 
+// IsSet returns true is PropertyName is not nil.
 func (n PropertyName) IsSet() bool {
 	return n.IsComputed() || n.Literal.TokenType != ErrorToken
 }
 
+// IsComputed returns true if PropertyName is computed.
 func (n PropertyName) IsComputed() bool {
 	return n.Computed != nil
 }
 
+// IsIdent returns true if PropertyName equals the given identifier name.
 func (n PropertyName) IsIdent(data []byte) bool {
 	return !n.IsComputed() && n.Literal.TokenType == IdentifierToken && bytes.Equal(data, n.Literal.Data)
 }
@@ -640,6 +674,7 @@ func (n PropertyName) String() string {
 	return string(n.Literal.Data)
 }
 
+// BindingArray is an array binding pattern.
 type BindingArray struct {
 	List []BindingElement
 	Rest IBinding // can be nil
@@ -662,11 +697,13 @@ func (n BindingArray) String() string {
 	return s + " ]"
 }
 
+// BindingObjectItem is a binding property.
 type BindingObjectItem struct {
 	Key   *PropertyName // can be nil
 	Value BindingElement
 }
 
+// BindingObject is an object binding pattern.
 type BindingObject struct {
 	List []BindingObjectItem
 	Rest *Var // can be nil
@@ -694,6 +731,7 @@ func (n BindingObject) String() string {
 	return s + " }"
 }
 
+// BindingElement is a binding element.
 type BindingElement struct {
 	Binding IBinding // can be nil (in case of ellision)
 	Default IExpr    // can be nil
@@ -710,12 +748,27 @@ func (n BindingElement) String() string {
 	return s + ")"
 }
 
-func (n *Var) bindingNode()          {}
+func (v *Var) bindingNode()          {}
 func (n BindingArray) bindingNode()  {}
 func (n BindingObject) bindingNode() {}
 
 ////////////////////////////////////////////////////////////////
 
+// VarDecl is a variable statement or lexical declaration.
+type VarDecl struct {
+	TokenType
+	List []BindingElement
+}
+
+func (n VarDecl) String() string {
+	s := "Decl(" + n.TokenType.String()
+	for _, item := range n.List {
+		s += " " + item.String()
+	}
+	return s + ")"
+}
+
+// Params is a list of parameters for functions, methods, and arrow function.
 type Params struct {
 	List []BindingElement
 	Rest IBinding // can be nil
@@ -738,41 +791,7 @@ func (n Params) String() string {
 	return s + ")"
 }
 
-type Arguments struct {
-	List []IExpr
-	Rest IExpr // can be nil
-}
-
-func (n Arguments) String() string {
-	s := "("
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.String()
-	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
-		}
-		s += "..." + n.Rest.String()
-	}
-	return s + ")"
-}
-
-type VarDecl struct {
-	TokenType
-	List []BindingElement
-}
-
-func (n VarDecl) String() string {
-	s := "Decl(" + n.TokenType.String()
-	for _, item := range n.List {
-		s += " " + item.String()
-	}
-	return s + ")"
-}
-
+// FuncDecl is an (async) (generator) function declaration or expression.
 type FuncDecl struct {
 	Async     bool
 	Generator bool
@@ -797,6 +816,7 @@ func (n FuncDecl) String() string {
 	return s + " " + n.Params.String() + " " + n.Body.String() + ")"
 }
 
+// MethodDecl is a method definition in a class declaration.
 type MethodDecl struct {
 	Static    bool
 	Async     bool
@@ -829,6 +849,7 @@ func (n MethodDecl) String() string {
 	return "Method(" + s[1:] + ")"
 }
 
+// ClassDecl is a class declaration.
 type ClassDecl struct {
 	Name    *Var  // can be nil
 	Extends IExpr // can be nil
@@ -860,19 +881,23 @@ func (n MethodDecl) exprNode() {} // not a real IExpr, used for ObjectExpression
 
 ////////////////////////////////////////////////////////////////
 
-type GroupExpr struct {
-	X IExpr
+// LiteralExpr can be this, null, boolean, numeric, string, or regular expression literals.
+type LiteralExpr struct {
+	TokenType
+	Data []byte
 }
 
-func (n GroupExpr) String() string {
-	return "(" + n.X.String() + ")"
+func (n LiteralExpr) String() string {
+	return string(n.Data)
 }
 
+// Element is an array literal element.
 type Element struct {
 	Value  IExpr // can be nil
 	Spread bool
 }
 
+// ArrayExpr is an array literal.
 type ArrayExpr struct {
 	List []Element
 }
@@ -896,6 +921,7 @@ func (n ArrayExpr) String() string {
 	return s + "]"
 }
 
+// Property is a property definition in an object literal.
 type Property struct {
 	// either Name or Spread are set. When Spread is set then Value is AssignmentExpression
 	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
@@ -921,6 +947,7 @@ func (n Property) String() string {
 	return s
 }
 
+// ObjectExpr is an object literal.
 type ObjectExpr struct {
 	List []Property
 }
@@ -936,11 +963,13 @@ func (n ObjectExpr) String() string {
 	return s + "}"
 }
 
+// TemplatePart is a template head or middle.
 type TemplatePart struct {
 	Value []byte
 	Expr  IExpr
 }
 
+// TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
 type TemplateExpr struct {
 	Tag  IExpr // can be nil
 	List []TemplatePart
@@ -959,75 +988,16 @@ func (n TemplateExpr) String() string {
 	return s + string(n.Tail)
 }
 
-type NewExpr struct {
-	X    IExpr
-	Args *Arguments // can be nil
+// GroupExpr is a parenthesized expression.
+type GroupExpr struct {
+	X IExpr
 }
 
-func (n NewExpr) String() string {
-	if n.Args != nil {
-		return "(new " + n.X.String() + n.Args.String() + ")"
-	}
-	return "(new " + n.X.String() + ")"
+func (n GroupExpr) String() string {
+	return "(" + n.X.String() + ")"
 }
 
-type NewTargetExpr struct {
-}
-
-func (n NewTargetExpr) String() string {
-	return "(new.target)"
-}
-
-type ImportMetaExpr struct {
-}
-
-func (n ImportMetaExpr) String() string {
-	return "(import.meta)"
-}
-
-type YieldExpr struct {
-	Generator bool
-	X         IExpr // can be nil
-}
-
-func (n YieldExpr) String() string {
-	if n.X == nil {
-		return "(yield)"
-	}
-	s := "(yield"
-	if n.Generator {
-		s += "*"
-	}
-	return s + " " + n.X.String() + ")"
-}
-
-type CondExpr struct {
-	Cond, X, Y IExpr
-}
-
-func (n CondExpr) String() string {
-	return "(" + n.Cond.String() + " ? " + n.X.String() + " : " + n.Y.String() + ")"
-}
-
-type DotExpr struct {
-	X    IExpr
-	Y    LiteralExpr
-	Prec OpPrec
-}
-
-func (n DotExpr) String() string {
-	return "(" + n.X.String() + "." + n.Y.String() + ")"
-}
-
-type CallExpr struct {
-	X    IExpr
-	Args Arguments
-}
-
-func (n CallExpr) String() string {
-	return "(" + n.X.String() + n.Args.String() + ")"
-}
-
+// IndexExpr is a member/call expression, super property, or optional chain with an index expression.
 type IndexExpr struct {
 	X     IExpr
 	Index IExpr
@@ -1038,6 +1008,80 @@ func (n IndexExpr) String() string {
 	return "(" + n.X.String() + "[" + n.Index.String() + "])"
 }
 
+// DotExpr is a member/call expression, super property, or optional chain with a dot expression.
+type DotExpr struct {
+	X    IExpr
+	Y    LiteralExpr
+	Prec OpPrec
+}
+
+func (n DotExpr) String() string {
+	return "(" + n.X.String() + "." + n.Y.String() + ")"
+}
+
+// NewTargetExpr is a new target meta property.
+type NewTargetExpr struct {
+}
+
+func (n NewTargetExpr) String() string {
+	return "(new.target)"
+}
+
+// ImportMetaExpr is a import meta meta property.
+type ImportMetaExpr struct {
+}
+
+func (n ImportMetaExpr) String() string {
+	return "(import.meta)"
+}
+
+// Args is a list of arguments as used by new and call expressions.
+type Args struct {
+	List []IExpr
+	Rest IExpr // can be nil
+}
+
+func (n Args) String() string {
+	s := "("
+	for i, item := range n.List {
+		if i != 0 {
+			s += ", "
+		}
+		s += item.String()
+	}
+	if n.Rest != nil {
+		if len(n.List) != 0 {
+			s += ", "
+		}
+		s += "..." + n.Rest.String()
+	}
+	return s + ")"
+}
+
+// NewExpr is a new expression or new member expression.
+type NewExpr struct {
+	X    IExpr
+	Args *Args // can be nil
+}
+
+func (n NewExpr) String() string {
+	if n.Args != nil {
+		return "(new " + n.X.String() + n.Args.String() + ")"
+	}
+	return "(new " + n.X.String() + ")"
+}
+
+// CallExpr is a call expression.
+type CallExpr struct {
+	X    IExpr
+	Args Args
+}
+
+func (n CallExpr) String() string {
+	return "(" + n.X.String() + n.Args.String() + ")"
+}
+
+// OptChainExpr is an optional chain.
 type OptChainExpr struct {
 	X IExpr
 	Y IExpr // can be CallExpr, IndexExpr, LiteralExpr, or TemplateExpr
@@ -1055,6 +1099,7 @@ func (n OptChainExpr) String() string {
 	}
 }
 
+// UnaryExpr is an update or unary expression.
 type UnaryExpr struct {
 	Op TokenType
 	X  IExpr
@@ -1069,6 +1114,7 @@ func (n UnaryExpr) String() string {
 	return "(" + n.Op.String() + n.X.String() + ")"
 }
 
+// BinaryExpr is a binary expression.
 type BinaryExpr struct {
 	Op   TokenType
 	X, Y IExpr
@@ -1081,15 +1127,33 @@ func (n BinaryExpr) String() string {
 	return "(" + n.X.String() + n.Op.String() + n.Y.String() + ")"
 }
 
-type LiteralExpr struct {
-	TokenType
-	Data []byte
+// CondExpr is a conditional expression.
+type CondExpr struct {
+	Cond, X, Y IExpr
 }
 
-func (n LiteralExpr) String() string {
-	return string(n.Data)
+func (n CondExpr) String() string {
+	return "(" + n.Cond.String() + " ? " + n.X.String() + " : " + n.Y.String() + ")"
 }
 
+// YieldExpr is a yield expression.
+type YieldExpr struct {
+	Generator bool
+	X         IExpr // can be nil
+}
+
+func (n YieldExpr) String() string {
+	if n.X == nil {
+		return "(yield)"
+	}
+	s := "(yield"
+	if n.Generator {
+		s += "*"
+	}
+	return s + " " + n.X.String() + ")"
+}
+
+// ArrowFunc is an (async) arrow function.
 type ArrowFunc struct {
 	Async  bool
 	Params Params
@@ -1104,21 +1168,21 @@ func (n ArrowFunc) String() string {
 	return s + n.Params.String() + " => " + n.Body.String() + ")"
 }
 
-func (n GroupExpr) exprNode()      {}
+func (v *Var) exprNode()           {}
+func (n LiteralExpr) exprNode()    {}
 func (n ArrayExpr) exprNode()      {}
 func (n ObjectExpr) exprNode()     {}
 func (n TemplateExpr) exprNode()   {}
-func (n NewExpr) exprNode()        {}
+func (n GroupExpr) exprNode()      {}
+func (n DotExpr) exprNode()        {}
+func (n IndexExpr) exprNode()      {}
 func (n NewTargetExpr) exprNode()  {}
 func (n ImportMetaExpr) exprNode() {}
-func (n YieldExpr) exprNode()      {}
-func (n CondExpr) exprNode()       {}
-func (n DotExpr) exprNode()        {}
+func (n NewExpr) exprNode()        {}
 func (n CallExpr) exprNode()       {}
-func (n IndexExpr) exprNode()      {}
 func (n OptChainExpr) exprNode()   {}
 func (n UnaryExpr) exprNode()      {}
 func (n BinaryExpr) exprNode()     {}
-func (n LiteralExpr) exprNode()    {}
+func (n CondExpr) exprNode()       {}
+func (n YieldExpr) exprNode()      {}
 func (n ArrowFunc) exprNode()      {}
-func (n *Var) exprNode()           {}

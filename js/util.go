@@ -1,5 +1,6 @@
 package js
 
+// AsIdentifierName returns true if a valid identifier name is given.
 func AsIdentifierName(b []byte) bool {
 	if len(b) == 0 || !identifierStartTable[b[0]] {
 		return false
@@ -16,6 +17,7 @@ func AsIdentifierName(b []byte) bool {
 	return true
 }
 
+// AsDecimalLiteral returns true if a valid decimal literal is given.
 func AsDecimalLiteral(b []byte) bool {
 	if len(b) == 0 || (b[0] < '0' || '9' < b[0]) && (b[0] != '.' || len(b) == 1) {
 		return false

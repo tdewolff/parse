@@ -2,8 +2,10 @@ package js
 
 import "strconv"
 
+// OpPrec is the operator precedence
 type OpPrec int
 
+// OpPrec values.
 const (
 	OpExpr     OpPrec = iota // a,b
 	OpAssign                 // a?b:c, yield x, ()=>x, async ()=>x, a=b, a+=b, ...
@@ -76,6 +78,7 @@ func (prec OpPrec) String() string {
 	return "Invalid(" + strconv.Itoa(int(prec)) + ")"
 }
 
+// Keywords is a map of reserved, strict, and other keywords
 var Keywords = map[string]TokenType{
 	// reserved
 	"await":      AwaitToken,

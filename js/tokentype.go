@@ -20,6 +20,7 @@ const (
 	RegExpToken
 )
 
+// Numeric token values.
 const (
 	NumericToken TokenType = 0x0100 + iota
 	DecimalToken
@@ -29,6 +30,7 @@ const (
 	BigIntToken
 )
 
+// Punctuator token values.
 const (
 	PunctuatorToken   TokenType = 0x0200 + iota
 	OpenBraceToken              // {
@@ -46,6 +48,7 @@ const (
 	EllipsisToken               // ...
 )
 
+// Operator token values.
 const (
 	OperatorToken TokenType = 0x0600 + iota
 	EqToken                 // =
@@ -99,6 +102,7 @@ const (
 	PostDecrToken // a--
 )
 
+// Reserved token values.
 const (
 	ReservedToken TokenType = 0x0800 + iota
 	AwaitToken
@@ -141,6 +145,7 @@ const (
 	WithToken
 )
 
+// Identifier token values.
 const (
 	IdentifierToken TokenType = 0x1000 + iota
 	AsToken
@@ -161,14 +166,17 @@ const (
 	TargetToken
 )
 
+// IsNumeric return true if token is numeric.
 func IsNumeric(tt TokenType) bool {
 	return tt&0x0100 != 0
 }
 
+// IsPunctuator return true if token is a punctuator.
 func IsPunctuator(tt TokenType) bool {
 	return tt&0x0200 != 0
 }
 
+// IsOperator return true if token is an operator.
 func IsOperator(tt TokenType) bool {
 	return tt&0x0400 != 0
 }
@@ -188,7 +196,6 @@ func IsIdentifier(tt TokenType) bool {
 	return tt&0x1000 != 0
 }
 
-// String returns the string representation of a TokenType.
 func (tt TokenType) String() string {
 	s := tt.Bytes()
 	if s == nil {

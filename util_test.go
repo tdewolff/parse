@@ -34,13 +34,11 @@ func helperRandStrings(n, m int, ss []string) [][]byte {
 
 var wsSlices [][]byte
 var entitySlices [][]byte
-var encodedUrlSlices [][]byte
 var urlSlices [][]byte
 
 func init() {
 	wsSlices = helperRandChars(10000, 50, "abcdefg \n\r\f\t")
 	entitySlices = helperRandStrings(100, 5, []string{"&quot;", "&#39;", "&#x027;", "    ", " ", "test"})
-	encodedUrlSlices = helperRandStrings(100, 5, []string{"%20", "%3D", "test"})
 	urlSlices = helperRandStrings(100, 5, []string{"~", "\"", "<", "test"})
 }
 
