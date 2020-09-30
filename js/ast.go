@@ -254,7 +254,7 @@ func (s *Scope) HoistUndeclared() {
 }
 
 // UndeclareScope undeclares all declared variables in the current scope and adds them to the parent scope.
-// Called when possible arrow func ends up being a parenthesized expression, scope is not futher used.
+// Called when possible arrow func ends up being a parenthesized expression, scope is not further used.
 func (s *Scope) UndeclareScope() {
 	// look if the variable already exists in the parent scope, if so replace the Var pointer in original use
 	for _, vorig := range s.Declared {

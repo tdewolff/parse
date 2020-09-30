@@ -1427,7 +1427,7 @@ func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
 	return left
 }
 
-// parseExpression parses an expression that has a precendence of prec or higher.
+// parseExpression parses an expression that has a precedence of prec or higher.
 func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
