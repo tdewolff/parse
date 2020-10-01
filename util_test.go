@@ -208,6 +208,28 @@ func TestReplaceMultipleWhitespaceAndEntitiesRandom(t *testing.T) {
 	}
 }
 
+func TestPrintable(t *testing.T) {
+	var tests = []struct {
+		s         string
+		printable string
+	}{
+		{"a", "a"},
+		{"\x00", "0x00"},
+		{"\x7F", "0x7F"},
+		{"\u0800", "ࠀ"},
+		{"\u200F", "U+200F"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.s, func(t *testing.T) {
+			printable := ""
+			for _, r := range tt.s {
+				printable += Printable(r)
+			}
+			test.T(t, printable, tt.printable)
+		})
+	}
+}
+
 func TestDecodeURL(t *testing.T) {
 	var urlTests = []struct {
 		url      string

@@ -45,6 +45,9 @@ func TestLexer(t *testing.T) {
 	z.Move(-1)
 	test.T(t, z.Err(), nil, "error must be nil just before the end of the buffer, even when it has been past the buffer")
 
+	z.Reset()
+	test.That(t, z.Peek(0) == 'L', "must be 'L' at position 0")
+	test.That(t, z.Peek(1) == 'o', "must be 'o' at position 1")
 }
 
 func TestLexerRunes(t *testing.T) {

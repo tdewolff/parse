@@ -179,6 +179,7 @@ func TestParseError(t *testing.T) {
 					if tt.col == 0 {
 						test.T(t, p.Err(), io.EOF)
 					} else if perr, ok := p.Err().(*parse.Error); ok {
+						test.That(t, p.HasParseError())
 						_, col, _ := perr.Position()
 						test.T(t, col, tt.col)
 					} else {

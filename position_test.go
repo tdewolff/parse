@@ -28,6 +28,7 @@ func TestPosition(t *testing.T) {
 
 		// edge cases
 		{0, "", 1, 1},
+		{2, "x", 1, 2},
 		{0, "\nx", 1, 1},
 		{1, "\r\nx", 1, 2},
 		{-1, "x", 1, 1},

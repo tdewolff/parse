@@ -310,6 +310,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				p.fail("for statement")
 				return
 			} else if p.tt == SemicolonToken && varDecl.List[0].Default == nil {
+				// all but the first item were already verified
 				if _, ok := varDecl.List[0].Binding.(*Var); !ok {
 					p.fail("for statement")
 					return
