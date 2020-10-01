@@ -216,7 +216,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 
 	if p.tt == RightBraceToken {
 		// right brace token will occur when we've had a decl error that ended in a right brace token
-		// as these are not handled by decl error, we handle it here explictly. Normally its used to end eg. the qual rule.
+		// as these are not handled by decl error, we handle it here explicitly. Normally its used to end eg. the qual rule.
 		p.pushBuf(p.tt, p.data)
 		return ErrorGrammar
 	}

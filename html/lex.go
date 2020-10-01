@@ -334,9 +334,8 @@ func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 			l.inTag = false
 			if h == Svg {
 				return SvgToken, data
-			} else {
-				return MathToken, data
 			}
+			return MathToken, data
 		}
 		l.rawTag = h
 	}

@@ -999,13 +999,13 @@ func (n GroupExpr) String() string {
 
 // IndexExpr is a member/call expression, super property, or optional chain with an index expression.
 type IndexExpr struct {
-	X     IExpr
-	Index IExpr
-	Prec  OpPrec
+	X    IExpr
+	Y    IExpr
+	Prec OpPrec
 }
 
 func (n IndexExpr) String() string {
-	return "(" + n.X.String() + "[" + n.Index.String() + "])"
+	return "(" + n.X.String() + "[" + n.Y.String() + "])"
 }
 
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
@@ -1093,7 +1093,7 @@ func (n OptChainExpr) String() string {
 	case *CallExpr:
 		return s + y.Args.String() + ")"
 	case *IndexExpr:
-		return s + "[" + y.Index.String() + "])"
+		return s + "[" + y.Y.String() + "])"
 	default:
 		return s + y.String() + ")"
 	}

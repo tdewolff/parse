@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// Int parses a byte-slice and returns the integer it represents.
+// ParseInt parses a byte-slice and returns the integer it represents.
 // If an invalid character is encountered, it will stop there.
 func ParseInt(b []byte) (int64, int) {
 	i := 0
@@ -38,6 +38,7 @@ func ParseInt(b []byte) (int64, int) {
 	return int64(n), i
 }
 
+// LenInt returns the written length of an integer.
 func LenInt(i int64) int {
 	if i < 0 {
 		if i == -9223372036854775808 {

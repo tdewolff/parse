@@ -3,6 +3,7 @@ package fuzz
 
 import "github.com/tdewolff/parse/v2"
 
+// Fuzz is a fuzz test.
 func Fuzz(data []byte) int {
 	data = parse.Copy(data) // ignore const-input error for OSS-Fuzz
 	newData := parse.ReplaceEntities(data, map[string][]byte{

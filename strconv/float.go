@@ -10,7 +10,7 @@ var float64pow10 = []float64{
 	1e20, 1e21, 1e22,
 }
 
-// Float parses a byte-slice and returns the float it represents.
+// ParseFloat parses a byte-slice and returns the float it represents.
 // If an invalid character is encountered, it will stop there.
 func ParseFloat(b []byte) (float64, int) {
 	i := 0
@@ -107,7 +107,7 @@ func float64exp(f float64) int {
 	return int(exp10)
 }
 
-// AppendFloat appends a float to `b` with precision `prec`. It returns the new slice and whether succesful or not. Precision is the number of decimals to display, thus prec + 1 == number of significant digits.
+// AppendFloat appends a float to `b` with precision `prec`. It returns the new slice and whether successful or not. Precision is the number of decimals to display, thus prec + 1 == number of significant digits.
 func AppendFloat(b []byte, f float64, prec int) ([]byte, bool) {
 	if math.IsNaN(f) || math.IsInf(f, 0) {
 		return b, false
