@@ -34,11 +34,13 @@ func helperRandStrings(n, m int, ss []string) [][]byte {
 
 var wsSlices [][]byte
 var entitySlices [][]byte
+var encodedURLSlices [][]byte
 var urlSlices [][]byte
 
 func init() {
 	wsSlices = helperRandChars(10000, 50, "abcdefg \n\r\f\t")
 	entitySlices = helperRandStrings(100, 5, []string{"&quot;", "&#39;", "&#x027;", "    ", " ", "test"})
+	encodedURLSlices = helperRandStrings(100, 5, []string{"%20", "%3D", "test"})
 	urlSlices = helperRandStrings(100, 5, []string{"~", "\"", "<", "test"})
 }
 
@@ -226,7 +228,7 @@ func TestDecodeURL(t *testing.T) {
 }
 
 func TestDecodeURLRandom(t *testing.T) {
-	for _, e := range encodedUrlSlices {
+	for _, e := range encodedURLSlices {
 		reference, _ := url.QueryUnescape(string(e))
 		test.Bytes(t, DecodeURL(Copy(e)), []byte(reference), "in '"+string(e)+"'")
 	}
