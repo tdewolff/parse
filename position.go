@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"unicode"
 )
 
 // Position returns the line and column number for a certain position in a file. It is useful for recovering the position in a file that caused an error.
@@ -61,36 +62,47 @@ func positionContext(l *Input, line, col int) (context string) {
 		l.Move(1)
 	}
 
+	// fix position if preceded by unicode characters
+	s := string(l.Lexeme())
+	pos := 0
+	for i, _ := range s {
+		if i == col {
+			break
+		}
+		pos++
+	}
+
 	// cut off front or rear of context to stay between 60 characters
-	b := l.Lexeme()
+	rs := []rune(s)
 	limit := 60
 	offset := 20
 	ellipsisFront := ""
 	ellipsisRear := ""
-	if limit < len(b) {
+	if limit < len(rs) {
 		if col <= limit-offset {
 			ellipsisRear = "..."
-			b = b[:limit-3]
-		} else if col >= len(b)-offset-3 {
+			rs = rs[:limit-3]
+		} else if col >= len(rs)-offset-3 {
 			ellipsisFront = "..."
-			col -= len(b) - offset - offset - 7
-			b = b[len(b)-offset-offset-4:]
+			pos -= len(rs) - offset - offset - 7
+			rs = rs[len(rs)-offset-offset-4:]
 		} else {
 			ellipsisFront = "..."
 			ellipsisRear = "..."
-			b = b[col-offset-1 : col+offset]
-			col = offset + 4
+			rs = rs[pos-offset-1 : col+offset]
+			pos = offset + 4
 		}
 	}
 
 	// replace unprintable characters by a space
-	for i, c := range b {
-		if c < 0x20 || c == 0x7F {
-			b[i] = ' '
+	for i, r := range rs {
+		if !unicode.IsGraphic(r) {
+			rs[i] = '·'
 		}
 	}
+	s = string(rs)
 
-	context += fmt.Sprintf("%5d: %s%s%s\n", line, ellipsisFront, string(b), ellipsisRear)
-	context += fmt.Sprintf("%s^", strings.Repeat(" ", col+6))
+	context += fmt.Sprintf("%5d: %s%s%s\n", line, ellipsisFront, s, ellipsisRear)
+	context += fmt.Sprintf("%s^", strings.Repeat(" ", 6+pos))
 	return
 }
