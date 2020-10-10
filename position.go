@@ -35,8 +35,6 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 		}
 
 		if 1 < n && offset < l.Pos()+n {
-			// move onto offset position
-			l.Move(offset - l.Pos())
 			break
 		}
 		l.Move(n)
@@ -48,7 +46,7 @@ func Position(r io.Reader, offset int) (line, col int, context string) {
 		}
 	}
 
-	col = l.Pos() + 1
+	col = len([]rune(string(l.Lexeme()))) + 1
 	context = positionContext(l, line, col)
 	return
 }
@@ -61,19 +59,9 @@ func positionContext(l *Input, line, col int) (context string) {
 		}
 		l.Move(1)
 	}
-
-	// fix position if preceded by unicode characters
-	s := string(l.Lexeme())
-	pos := 0
-	for i, _ := range s {
-		if i == col {
-			break
-		}
-		pos++
-	}
+	rs := []rune(string(l.Lexeme()))
 
 	// cut off front or rear of context to stay between 60 characters
-	rs := []rune(s)
 	limit := 60
 	offset := 20
 	ellipsisFront := ""
@@ -84,13 +72,13 @@ func positionContext(l *Input, line, col int) (context string) {
 			rs = rs[:limit-3]
 		} else if col >= len(rs)-offset-3 {
 			ellipsisFront = "..."
-			pos -= len(rs) - offset - offset - 7
+			col -= len(rs) - offset - offset - 7
 			rs = rs[len(rs)-offset-offset-4:]
 		} else {
 			ellipsisFront = "..."
 			ellipsisRear = "..."
-			rs = rs[pos-offset-1 : col+offset]
-			pos = offset + 4
+			rs = rs[col-offset-1 : col+offset]
+			col = offset + 4
 		}
 	}
 
@@ -100,9 +88,8 @@ func positionContext(l *Input, line, col int) (context string) {
 			rs[i] = '·'
 		}
 	}
-	s = string(rs)
 
-	context += fmt.Sprintf("%5d: %s%s%s\n", line, ellipsisFront, s, ellipsisRear)
-	context += fmt.Sprintf("%s^", strings.Repeat(" ", 6+pos))
+	context += fmt.Sprintf("%5d: %s%s%s\n", line, ellipsisFront, string(rs), ellipsisRear)
+	context += fmt.Sprintf("%s^", strings.Repeat(" ", 6+col))
 	return
 }
