@@ -15,7 +15,7 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new Parser with io.Reader `r`:
 ``` go
-p := json.NewParser(r)
+p := json.NewParser(parse.NewInput(r))
 ```
 
 To tokenize until EOF an error, use:
@@ -56,7 +56,7 @@ import (
 
 // Tokenize JSON from stdin.
 func main() {
-	p := json.NewParser(os.Stdin)
+	p := json.NewParser(parse.NewInput(os.Stdin))
 	for {
 		gt, text := p.Next()
 		switch gt {

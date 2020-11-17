@@ -15,7 +15,7 @@ or add the following import and run project with `go get`
 ### Usage
 The following initializes a new Lexer with io.Reader `r`:
 ``` go
-l := html.NewLexer(r)
+l := html.NewLexer(parse.NewInput(r))
 ```
 
 To tokenize until EOF an error, use:
@@ -65,7 +65,7 @@ import (
 
 // Tokenize HTML from stdin.
 func main() {
-	l := html.NewLexer(os.Stdin)
+	l := html.NewLexer(parse.NewInput(os.Stdin))
 	for {
 		tt, data := l.Next()
 		switch tt {
