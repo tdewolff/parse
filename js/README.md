@@ -65,6 +65,15 @@ func main() {
 }
 ```
 
+## Parser
+### Usage
+The following parses a file and returns an abstract syntax tree (AST).
+``` go
+ast, err := js.NewParser(parse.NewInputString("if (state == 5) { console.log('In state five'); }"))
+```
+
+See [ast.go](https://github.com/tdewolff/parse/blob/master/js/ast.go) for all available data structures that can represent the abstact syntax tree.
+
 ## License
 Released under the [MIT license](https://github.com/tdewolff/parse/blob/master/LICENSE.md).
 
