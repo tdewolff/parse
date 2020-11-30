@@ -565,9 +565,9 @@ func (n ImportStmt) String() string {
 			s += " ,"
 		}
 	}
-	if len(n.List) == 1 {
+	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
 		s += " " + n.List[0].String()
-	} else if 1 < len(n.List) {
+	} else if 0 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
 			if i != 0 {
@@ -600,9 +600,9 @@ func (n ExportStmt) String() string {
 			s += " default"
 		}
 		return s + " " + n.Decl.String() + ")"
-	} else if len(n.List) == 1 {
+	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
 		s += " " + n.List[0].String()
-	} else if 1 < len(n.List) {
+	} else if 0 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
 			if i != 0 {

@@ -113,7 +113,7 @@ func TestParse(t *testing.T) {
 		{"import * as yield from \"pkg\"", "Stmt(import * as yield from \"pkg\")"},
 		{"import {yield, for as yield,} from \"pkg\"", "Stmt(import { yield , for as yield , } from \"pkg\")"},
 		{"import yield, * as yield from \"pkg\"", "Stmt(import yield , * as yield from \"pkg\")"},
-		{"import yield, {yield} from \"pkg\"", "Stmt(import yield , yield from \"pkg\")"},
+		{"import yield, {yield} from \"pkg\"", "Stmt(import yield , { yield } from \"pkg\")"},
 		{"import {yield,} from \"pkg\"", "Stmt(import { yield , } from \"pkg\")"},
 		{"export * from \"pkg\";", "Stmt(export * from \"pkg\")"},
 		{"export * as for from \"pkg\"", "Stmt(export * as for from \"pkg\")"},

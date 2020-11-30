@@ -1,6 +1,7 @@
 package js
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -113,7 +114,7 @@ func (p *Parser) fail(in string, expected ...TokenType) {
 			msg += " in " + in
 		}
 
-		p.err = fmt.Errorf(msg)
+		p.err = errors.New(msg)
 		p.tt = ErrorToken
 	}
 }
