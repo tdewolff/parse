@@ -23,6 +23,9 @@ type Parser struct {
 	async, generator bool
 	assumeArrowFunc  bool
 
+	stmtLevel int
+	exprLevel int
+
 	scope *Scope
 }
 
@@ -181,6 +184,12 @@ func (p *Parser) parseModule() (module BlockStmt) {
 }
 
 func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
+	p.stmtLevel++
+	if 1000 < p.stmtLevel {
+		p.failMessage("too many nested statements")
+		return nil
+	}
+
 	switch tt := p.tt; tt {
 	case OpenBraceToken:
 		blockStmt := p.parseBlockStmt("block statement")
@@ -531,6 +540,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 	if p.tt == SemicolonToken {
 		p.next()
 	}
+	p.stmtLevel--
 	return
 }
 
@@ -1431,6 +1441,12 @@ func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
 
 // parseExpression parses an expression that has a precedence of prec or higher.
 func (p *Parser) parseExpression(prec OpPrec) IExpr {
+	p.exprLevel++
+	if 1000 < p.exprLevel {
+		p.failMessage("too many nested expressions")
+		return nil
+	}
+
 	// reparse input if we have / or /= as the beginning of a new expression, this should be a regular expression!
 	if p.tt == DivToken || p.tt == DivEqToken {
 		p.tt, p.data = p.l.RegExp()
@@ -1446,11 +1462,15 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	if IsIdentifier(p.tt) && p.tt != AsyncToken {
 		left = p.scope.Use(p.data)
 		p.next()
-		return p.parseExpressionSuffix(left, prec, precLeft)
+		suffix := p.parseExpressionSuffix(left, prec, precLeft)
+		p.exprLevel--
+		return suffix
 	} else if IsNumeric(p.tt) {
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
-		return p.parseExpressionSuffix(left, prec, precLeft)
+		suffix := p.parseExpressionSuffix(left, prec, precLeft)
+		p.exprLevel--
+		return suffix
 	}
 
 	switch tt := p.tt; tt {
@@ -1483,7 +1503,9 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			}
 			break
 		}
-		return p.parseParenthesizedExpressionOrArrowFunc(prec)
+		suffix := p.parseParenthesizedExpressionOrArrowFunc(prec)
+		p.exprLevel--
+		return suffix
 	case NotToken, BitNotToken, TypeofToken, VoidToken, DeleteToken:
 		if OpUnary < prec {
 			p.fail("expression")
@@ -1645,7 +1667,9 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		p.fail("expression")
 		return nil
 	}
-	return p.parseExpressionSuffix(left, prec, precLeft)
+	suffix := p.parseExpressionSuffix(left, prec, precLeft)
+	p.exprLevel--
+	return suffix
 }
 
 func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr {
