@@ -195,7 +195,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 // Use increments the usage of a variable.
 func (s *Scope) Use(name []byte) *Var {
 	// check if variable is declared in the current scope
-	v := s.findDeclared(name, true)
+	v := s.findDeclared(name, false)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
 		v = s.findUndeclared(name)
