@@ -490,7 +490,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			parent := p.enterScope(&catch.Scope, false)
 			if p.tt == OpenParenToken {
 				p.next()
-				binding = p.parseBinding(LexicalDecl) // local to block scope of catch
+				binding = p.parseBinding(CatchDecl) // local to block scope of catch
 				if !p.consume("try-catch statement", CloseParenToken) {
 					return
 				}

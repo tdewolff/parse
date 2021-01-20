@@ -33,8 +33,9 @@ const (
 	NoDecl       DeclType = iota // undeclared variables
 	VariableDecl                 // var
 	FunctionDecl                 // function
+	ArgumentDecl                 // function and method arguments
 	LexicalDecl                  // let, const, class
-	ArgumentDecl                 // function, method, and catch statement arguments
+	CatchDecl                    // catch statement argument
 	ExprDecl                     // function expression name or class expression name
 )
 
@@ -46,10 +47,12 @@ func (decl DeclType) String() string {
 		return "VariableDecl"
 	case FunctionDecl:
 		return "FunctionDecl"
-	case LexicalDecl:
-		return "LexicalDecl"
 	case ArgumentDecl:
 		return "ArgumentDecl"
+	case LexicalDecl:
+		return "LexicalDecl"
+	case CatchDecl:
+		return "CatchDecl"
 	case ExprDecl:
 		return "ExprDecl"
 	}
@@ -135,12 +138,18 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	curScope := s
 	if decl == VariableDecl || decl == FunctionDecl {
 		// find function scope for var and function declarations
-		s = s.Func
+		for s != s.Func {
+			// make sure that `{let i;{var i}}` is an error
+			if v := s.findDeclared(name, false); v != nil && v.Decl != decl && v.Decl != CatchDecl {
+				return nil, false
+			}
+			s = s.Parent
+		}
 	}
 
-	if v := s.findDeclared(name); v != nil {
+	if v := s.findDeclared(name, true); v != nil {
 		// variable already declared, might be an error or a duplicate declaration
-		if (v.Decl == LexicalDecl || decl == LexicalDecl) && v.Decl != ExprDecl {
+		if (LexicalDecl <= v.Decl || LexicalDecl <= decl) && v.Decl != ExprDecl {
 			// redeclaration of let, const, class on an already declared name is an error, except if the declared name is a function expression name
 			return nil, false
 		}
@@ -148,8 +157,9 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 			v.Decl = decl
 		}
 		v.Uses++
-		if s != curScope {
-			curScope.Undeclared = append(curScope.Undeclared, v) // add variable declaration as used variable to the current scope
+		for s != curScope {
+			curScope.addUndeclared(v) // add variable declaration as used variable to the current scope
+			curScope = curScope.Parent
 		}
 		return v, true
 	}
@@ -159,7 +169,8 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
 		for i, uv := range s.Undeclared[s.NumArguments:] {
 			// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
-			if 0 < uv.Uses && bytes.Equal(name, uv.Data) {
+			if 0 < uv.Uses && uv.Decl == NoDecl && bytes.Equal(name, uv.Data) {
+				// must be NoDecl so that it can't be a var declaration that has been added
 				v = uv
 				s.Undeclared = append(s.Undeclared[:int(s.NumArguments)+i], s.Undeclared[int(s.NumArguments)+i+1:]...)
 				break
@@ -175,7 +186,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	v.Uses++
 	s.Declared = append(s.Declared, v)
 	for s != curScope {
-		curScope.Undeclared = append(curScope.Undeclared, v) // add variable declaration as used variable to the current scope
+		curScope.addUndeclared(v) // add variable declaration as used variable to the current scope
 		curScope = curScope.Parent
 	}
 	return v, true
@@ -184,7 +195,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 // Use increments the usage of a variable.
 func (s *Scope) Use(name []byte) *Var {
 	// check if variable is declared in the current scope
-	v := s.findDeclared(name)
+	v := s.findDeclared(name, true)
 	if v == nil {
 		// check if variable is already used before in the current or lower scopes
 		v = s.findUndeclared(name)
@@ -199,8 +210,15 @@ func (s *Scope) Use(name []byte) *Var {
 }
 
 // findDeclared finds a declared variable in the current scope.
-func (s *Scope) findDeclared(name []byte) *Var {
-	for _, v := range s.Declared {
+func (s *Scope) findDeclared(name []byte, skipForInit bool) *Var {
+	start := 0
+	if skipForInit {
+		// we skip the for initializer for declarations (only has effect for let/const)
+		start = int(s.NumForInit)
+	}
+	// reverse order to find the inner let first in `for(let a in []){let a; {a}}`
+	for i := len(s.Declared) - 1; start <= i; i-- {
+		v := s.Declared[i]
 		// no need to evaluate v.Link as v.Data stays the same, and Link is always nil in Declared
 		if bytes.Equal(name, v.Data) {
 			return v
@@ -220,6 +238,17 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 	return nil
 }
 
+// add undeclared variable to scope, this is called for the block scope when declaring a var in it
+func (s *Scope) addUndeclared(v *Var) {
+	// don't add undeclared symbol if it's already there
+	for _, vorig := range s.Undeclared {
+		if v == vorig {
+			return
+		}
+	}
+	s.Undeclared = append(s.Undeclared, v) // add variable declaration as used variable to the current scope
+}
+
 // MarkForInit marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
 func (s *Scope) MarkForInit() {
 	s.NumForInit = uint16(len(s.Declared))
@@ -235,7 +264,7 @@ func (s *Scope) HoistUndeclared() {
 	for i, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
-			if v := s.Parent.findDeclared(vorig.Data); v != nil {
+			if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
 				// check if variable is declared in parent scope
 				v.Uses += vorig.Uses
 				vorig.Link = v
@@ -260,7 +289,7 @@ func (s *Scope) UndeclareScope() {
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
-		if v := s.Parent.findDeclared(vorig.Data); v != nil {
+		if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
 			// check if variable has been declared in this scope
 			v.Uses += vorig.Uses
 			vorig.Link = v

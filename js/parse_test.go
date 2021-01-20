@@ -192,6 +192,12 @@ func TestParse(t *testing.T) {
 		{"let i;for(let i;;);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) ; ; Stmt({ }))"},
 		{"let i;for(let i in x);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) in x Stmt({ }))"},
 		{"let i;for(let i of x);", "Decl(let Binding(i)) Stmt(for Decl(let Binding(i)) of x Stmt({ }))"},
+		{"for(let a in [0,1,2]){let a=5}", "Stmt(for Decl(let Binding(a)) in [0, 1, 2] Stmt({ Decl(let Binding(a = 5)) }))"},
+		{"for(var a in [0,1,2]){let a=5}", "Stmt(for Decl(var Binding(a)) in [0, 1, 2] Stmt({ Decl(let Binding(a = 5)) }))"},
+		{"for(var a in [0,1,2]){var a=5}", "Stmt(for Decl(var Binding(a)) in [0, 1, 2] Stmt({ Decl(var Binding(a = 5)) }))"},
+		{"for(let a=0; a<10; a++){let a=5}", "Stmt(for Decl(let Binding(a = 0)) ; (a<10) ; (a++) Stmt({ Decl(let Binding(a = 5)) }))"},
+		{"for(var a=0; a<10; a++){let a=5}", "Stmt(for Decl(var Binding(a = 0)) ; (a<10) ; (a++) Stmt({ Decl(let Binding(a = 5)) }))"},
+		{"for(var a=0; a<10; a++){var a=5}", "Stmt(for Decl(var Binding(a = 0)) ; (a<10) ; (a++) Stmt({ Decl(var Binding(a = 5)) }))"},
 
 		// expressions
 		{"x = [a, ...b]", "Stmt(x=[a, ...b])"},
@@ -623,6 +629,7 @@ func TestParseError(t *testing.T) {
 		// variable reuse
 		{"let a; var a", "identifier a has already been declared"},
 		{"let a; {var a}", "identifier a has already been declared"},
+		{"{let a; {var a}}", "identifier a has already been declared"},
 		{"var a; let a", "identifier a has already been declared"},
 		{"{var a} let a", "identifier a has already been declared"},
 		{"var a; const a", "identifier a has already been declared"},
@@ -634,6 +641,8 @@ func TestParseError(t *testing.T) {
 		{"try{}catch(a){let a}", "identifier a has already been declared"},
 		{"let {a, a}", "identifier a has already been declared"},
 		{"let {a, ...a}", "identifier a has already been declared"},
+		{"for(let a in [0,1,2]){var a = 5}", "identifier a has already been declared"},
+		{"for(let a=0; a<10; a++){var a = 5}", "identifier a has already been declared"},
 
 		// other
 		{"\x00", "unexpected 0x00"},
@@ -953,6 +962,10 @@ func TestParseScope(t *testing.T) {
 		{"(...{a=function(){return [b]}}) => 5", "/a=2/", "b=1/b=1/b=1"},
 		{"(...[a=function(){return [b]}]) => 5", "/a=2/", "b=1/b=1/b=1"},
 		{`a=>{for(let b of c){b,a;{var d}}}`, "/a=2,d=3/b=4/", "c=1/c=1/c=1,a=2,d=3/d=3"},
+		{`var a;{let b;{var a}}`, "a=1/b=2/", "/a=1/a=1"},
+		{`for(let b of c){let b;{b}}`, "/b=2,b=3/", "c=1/c=1/b=3"},
+		{`for(var b of c){let b;{b}}`, "b=1/b=3/", "c=2/b=1,c=2/b=3"},
+		{`for(var b of c){var b;{b}}`, "b=1//", "c=2/b=1,c=2/b=1"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
