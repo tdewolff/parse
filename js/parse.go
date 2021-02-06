@@ -1315,21 +1315,20 @@ func (p *Parser) parseTemplateLiteral(precLeft OpPrec) (template TemplateExpr) {
 func (p *Parser) parseArguments() (args Args) {
 	// assume we're on (
 	p.next()
-	args.List = make([]IExpr, 0, 4)
+	args.List = make([]Arg, 0, 4)
 	for {
-		if p.tt == EllipsisToken {
+		rest := p.tt == EllipsisToken
+		if rest {
 			p.next()
-			args.Rest = p.parseExpression(OpAssign)
-			if p.tt == CommaToken {
-				p.next()
-			}
-			break
 		}
 
 		if p.tt == CloseParenToken || p.tt == ErrorToken {
 			break
 		}
-		args.List = append(args.List, p.parseExpression(OpAssign))
+		args.List = append(args.List, Arg{
+			Value: p.parseExpression(OpAssign),
+			Rest:  rest,
+		})
 		if p.tt == CommaToken {
 			p.next()
 		}
@@ -1572,7 +1571,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			newExpr := &NewExpr{p.parseExpression(OpNew), nil}
 			if p.tt == OpenParenToken {
 				args := p.parseArguments()
-				if len(args.List) != 0 || args.Rest != nil {
+				if len(args.List) != 0 {
 					newExpr.Args = &args
 				}
 				precLeft = OpMember

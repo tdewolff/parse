@@ -1064,10 +1064,14 @@ func (n ImportMetaExpr) String() string {
 	return "(import.meta)"
 }
 
+type Arg struct {
+	Value IExpr
+	Rest  bool
+}
+
 // Args is a list of arguments as used by new and call expressions.
 type Args struct {
-	List []IExpr
-	Rest IExpr // can be nil
+	List []Arg
 }
 
 func (n Args) String() string {
@@ -1076,13 +1080,10 @@ func (n Args) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.String()
-	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
+		if item.Rest {
+			s += "..."
 		}
-		s += "..." + n.Rest.String()
+		s += item.Value.String()
 	}
 	return s + ")"
 }

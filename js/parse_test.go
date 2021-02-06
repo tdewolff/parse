@@ -250,6 +250,7 @@ func TestParse(t *testing.T) {
 		{"x = a?.(b)", "Stmt(x=(a?.(b)))"},
 		{"x = super(a)", "Stmt(x=(super(a)))"},
 		{"x = a(a,b,...c,)", "Stmt(x=(a(a, b, ...c)))"},
+		{"x = a(...a,...b)", "Stmt(x=(a(...a, ...b)))"},
 		{"x = new a", "Stmt(x=(new a))"},
 		{"x = new a()", "Stmt(x=(new a))"},
 		{"x = new a(b)", "Stmt(x=(new a(b)))"},
