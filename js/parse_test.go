@@ -23,6 +23,7 @@ func TestParse(t *testing.T) {
 		{"\n", ""},
 		{"/* comment */", ""},
 		{"{}", "Stmt({ })"},
+		{`"use strict"`, `Stmt("use strict")`},
 		{"var a = b;", "Decl(var Binding(a = b))"},
 		{"const a = b;", "Decl(const Binding(a = b))"},
 		{"let a = b;", "Decl(let Binding(a = b))"},

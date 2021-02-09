@@ -649,25 +649,35 @@ func (n ExportStmt) String() string {
 	return s + ")"
 }
 
-func (n BlockStmt) stmtNode()    {}
-func (n EmptyStmt) stmtNode()    {}
-func (n ExprStmt) stmtNode()     {}
-func (n IfStmt) stmtNode()       {}
-func (n DoWhileStmt) stmtNode()  {}
-func (n WhileStmt) stmtNode()    {}
-func (n ForStmt) stmtNode()      {}
-func (n ForInStmt) stmtNode()    {}
-func (n ForOfStmt) stmtNode()    {}
-func (n SwitchStmt) stmtNode()   {}
-func (n BranchStmt) stmtNode()   {}
-func (n ReturnStmt) stmtNode()   {}
-func (n WithStmt) stmtNode()     {}
-func (n LabelledStmt) stmtNode() {}
-func (n ThrowStmt) stmtNode()    {}
-func (n TryStmt) stmtNode()      {}
-func (n DebuggerStmt) stmtNode() {}
-func (n ImportStmt) stmtNode()   {}
-func (n ExportStmt) stmtNode()   {}
+// DirectivePrologueStmt is a string literal at the beginning of a function or module (usually "use strict").
+type DirectivePrologueStmt struct {
+	Value []byte
+}
+
+func (n DirectivePrologueStmt) String() string {
+	return "Stmt(" + string(n.Value) + ")"
+}
+
+func (n BlockStmt) stmtNode()             {}
+func (n EmptyStmt) stmtNode()             {}
+func (n ExprStmt) stmtNode()              {}
+func (n IfStmt) stmtNode()                {}
+func (n DoWhileStmt) stmtNode()           {}
+func (n WhileStmt) stmtNode()             {}
+func (n ForStmt) stmtNode()               {}
+func (n ForInStmt) stmtNode()             {}
+func (n ForOfStmt) stmtNode()             {}
+func (n SwitchStmt) stmtNode()            {}
+func (n BranchStmt) stmtNode()            {}
+func (n ReturnStmt) stmtNode()            {}
+func (n WithStmt) stmtNode()              {}
+func (n LabelledStmt) stmtNode()          {}
+func (n ThrowStmt) stmtNode()             {}
+func (n TryStmt) stmtNode()               {}
+func (n DebuggerStmt) stmtNode()          {}
+func (n ImportStmt) stmtNode()            {}
+func (n ExportStmt) stmtNode()            {}
+func (n DirectivePrologueStmt) stmtNode() {}
 
 ////////////////////////////////////////////////////////////////
 

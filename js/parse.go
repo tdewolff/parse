@@ -16,12 +16,13 @@ type Parser struct {
 	l   *Lexer
 	err error
 
-	data             []byte
-	tt               TokenType
-	prevLT           bool
-	inFor            bool
-	async, generator bool
-	assumeArrowFunc  bool
+	data                   []byte
+	tt                     TokenType
+	prevLT                 bool
+	inFor                  bool
+	async, generator       bool
+	assumeArrowFunc        bool
+	allowDirectivePrologue bool
 
 	stmtLevel int
 	exprLevel int
@@ -167,6 +168,7 @@ func (p *Parser) exitScope(parent *Scope) {
 
 func (p *Parser) parseModule() (module BlockStmt) {
 	p.enterScope(&module.Scope, true)
+	p.allowDirectivePrologue = true
 	for {
 		switch p.tt {
 		case ErrorToken:
@@ -535,6 +537,13 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				p.fail("expression")
 				return
 			}
+			if p.allowDirectivePrologue {
+				if lit, ok := stmt.(*ExprStmt).Value.(*LiteralExpr); ok && lit.TokenType == StringToken {
+					stmt = &DirectivePrologueStmt{lit.Data}
+				} else {
+					p.allowDirectivePrologue = false
+				}
+			}
 		}
 	}
 	if p.tt == SemicolonToken {
@@ -867,6 +876,7 @@ func (p *Parser) parseAnyFunc(async, inExpr bool) (funcDecl FuncDecl) {
 		funcDecl.Name, _ = p.scope.Declare(ExprDecl, name) // cannot fail
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
+	p.allowDirectivePrologue = true
 	funcDecl.Body.List = p.parseStmtList("function declaration")
 
 	p.async, p.generator = parentAsync, parentGenerator
@@ -975,6 +985,7 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 	p.async, p.generator = method.Async, method.Generator
 
 	method.Params = p.parseFuncParams("method definition")
+	p.allowDirectivePrologue = true
 	method.Body.List = p.parseStmtList("method definition")
 
 	p.async, p.generator = parentAsync, parentGenerator
@@ -1400,6 +1411,7 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	if p.tt == OpenBraceToken {
 		parentInFor := p.inFor
 		p.inFor = false
+		p.allowDirectivePrologue = true
 		list = p.parseStmtList("arrow function")
 		p.inFor = parentInFor
 	} else {
