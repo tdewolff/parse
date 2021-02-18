@@ -1686,7 +1686,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr {
 	for {
 		switch tt := p.tt; tt {
-		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken:
+		case EqToken, MulEqToken, DivEqToken, ModEqToken, ExpEqToken, AddEqToken, SubEqToken, LtLtEqToken, GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitXorEqToken, BitOrEqToken, AndEqToken, OrEqToken, NullishEqToken:
 			if OpAssign < prec {
 				return left
 			} else if precLeft < OpLHS {

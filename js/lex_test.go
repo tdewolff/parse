@@ -31,6 +31,7 @@ func TestTokens(t *testing.T) {
 		{"! ~ && || ? : ?? ?.", TTs{NotToken, BitNotToken, AndToken, OrToken, QuestionToken, ColonToken, NullishToken, OptChainToken}},
 		{"= += -= *= **= /= %= <<=", TTs{EqToken, AddEqToken, SubEqToken, MulEqToken, ExpEqToken, DivEqToken, ModEqToken, LtLtEqToken}},
 		{">>= >>>= &= |= ^= =>", TTs{GtGtEqToken, GtGtGtEqToken, BitAndEqToken, BitOrEqToken, BitXorEqToken, ArrowToken}},
+		{"&&= ||= ??=", TTs{AndEqToken, OrEqToken, NullishEqToken}},
 		{"?.5", TTs{QuestionToken, DecimalToken}},
 		{"?.a", TTs{OptChainToken, IdentifierToken}},
 		{"await break case catch class const continue", TTs{AwaitToken, BreakToken, CaseToken, CatchToken, ClassToken, ConstToken, ContinueToken}},

@@ -416,12 +416,21 @@ var opEqTokens = map[byte]TokenType{
 }
 
 var opOpTokens = map[byte]TokenType{
+	'<': LtLtToken,
 	'+': IncrToken,
 	'-': DecrToken,
 	'*': ExpToken,
 	'&': AndToken,
 	'|': OrToken,
 	'?': NullishToken,
+}
+
+var opOpEqTokens = map[byte]TokenType{
+	'<': LtLtEqToken,
+	'*': ExpEqToken,
+	'&': AndEqToken,
+	'|': OrEqToken,
+	'?': NullishEqToken,
 }
 
 func (l *Lexer) consumeOperatorToken() TokenType {
@@ -437,11 +446,11 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 			return EqEqEqToken
 		}
 		return opEqTokens[c]
-	} else if l.r.Peek(0) == c && (c == '+' || c == '-' || c == '*' || c == '&' || c == '|' || c == '?') {
+	} else if l.r.Peek(0) == c && (c == '+' || c == '-' || c == '*' || c == '&' || c == '|' || c == '?' || c == '<') {
 		l.r.Move(1)
-		if c == '*' && l.r.Peek(0) == '=' {
+		if l.r.Peek(0) == '=' {
 			l.r.Move(1)
-			return ExpEqToken
+			return opOpEqTokens[c]
 		}
 		return opOpTokens[c]
 	} else if c == '?' && l.r.Peek(0) == '.' && (l.r.Peek(1) < '0' || l.r.Peek(1) > '9') {
@@ -450,13 +459,6 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 	} else if c == '=' && l.r.Peek(0) == '>' {
 		l.r.Move(1)
 		return ArrowToken
-	} else if c == '<' && l.r.Peek(0) == '<' {
-		l.r.Move(1)
-		if l.r.Peek(0) == '=' {
-			l.r.Move(1)
-			return LtLtEqToken
-		}
-		return LtLtToken
 	} else if c == '>' && l.r.Peek(0) == '>' {
 		l.r.Move(1)
 		if l.r.Peek(0) == '>' {
