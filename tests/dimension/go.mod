@@ -1,4 +1,4 @@
-module github.com/tdewolff/fuzz/minify/replace-entities
+module github.com/tdewolff/parse/tests/dimension
 
 go 1.13
 
