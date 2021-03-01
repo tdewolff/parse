@@ -931,12 +931,18 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl ClassDecl) {
 			p.next()
 			break
 		}
-		classDecl.Methods = append(classDecl.Methods, p.parseMethod())
+
+		method, definition := p.parseClassElement()
+		if method.Name.IsSet() {
+			classDecl.Methods = append(classDecl.Methods, method)
+		} else {
+			classDecl.Definitions = append(classDecl.Definitions, definition)
+		}
 	}
 	return
 }
 
-func (p *Parser) parseMethod() (method MethodDecl) {
+func (p *Parser) parseClassElement() (method MethodDecl, definition FieldDefinition) {
 	var data []byte
 	if p.tt == StaticToken {
 		method.Static = true
@@ -967,6 +973,7 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 		p.next()
 	}
 
+	isFieldDefinition := false
 	if data != nil && p.tt == OpenParenToken {
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
 		if method.Async || method.Get || method.Set {
@@ -976,8 +983,29 @@ func (p *Parser) parseMethod() (method MethodDecl) {
 		} else {
 			method.Static = false
 		}
+	} else if data != nil && (p.tt == EqToken || p.tt == SemicolonToken || p.tt == CloseBraceToken) {
+		method.Name.Literal = LiteralExpr{IdentifierToken, data}
+		isFieldDefinition = true
+	} else if data == nil && p.tt == PrivateIdentifierToken {
+		method.Name.Literal = LiteralExpr{p.tt, p.data}
+		p.next()
+		isFieldDefinition = true
 	} else {
 		method.Name = p.parsePropertyName("method definition")
+		if data == nil && p.tt != OpenParenToken {
+			isFieldDefinition = true
+		}
+	}
+
+	if isFieldDefinition {
+		// FieldDefinition
+		definition.Name = method.Name
+		if p.tt == EqToken {
+			p.next()
+			definition.Init = p.parseExpression(OpAssign)
+		}
+		method = MethodDecl{}
+		return
 	}
 
 	parent := p.enterScope(&method.Body.Scope, true)
@@ -1755,7 +1783,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				return nil
 			}
 			p.next()
-			if !IsIdentifierName(p.tt) {
+			if !IsIdentifierName(p.tt) && p.tt != PrivateIdentifierToken {
 				p.fail("dot expression", IdentifierToken)
 				return nil
 			}
@@ -1763,7 +1791,10 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if precLeft < OpMember {
 				exprPrec = OpCall
 			}
-			left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}, exprPrec}
+			if p.tt != PrivateIdentifierToken {
+				p.tt = IdentifierToken
+			}
+			left = &DotExpr{left, LiteralExpr{p.tt, p.data}, exprPrec}
 			p.next()
 			if precLeft < OpMember {
 				precLeft = OpCall
@@ -1840,6 +1871,9 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				left = &OptChainExpr{left, &template}
 			} else if IsIdentifierName(p.tt) {
 				left = &OptChainExpr{left, &LiteralExpr{IdentifierToken, p.data}}
+				p.next()
+			} else if p.tt == PrivateIdentifierToken {
+				left = &OptChainExpr{left, &LiteralExpr{p.tt, p.data}}
 				p.next()
 			} else {
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)

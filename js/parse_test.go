@@ -106,6 +106,13 @@ func TestParse(t *testing.T) {
 		{"class A { static() {} }", "Decl(class A Method(static Params() Stmt({ })))"},
 		{"class A { static a(b) {} }", "Decl(class A Method(static a Params(Binding(b)) Stmt({ })))"},
 		{"class A { [5](b) {} }", "Decl(class A Method([5] Params(Binding(b)) Stmt({ })))"},
+		{"class A { field }", "Decl(class A Definition(field))"},
+		{"class A { #field }", "Decl(class A Definition(#field))"},
+		{"class A { field=5 }", "Decl(class A Definition(field = 5))"},
+		{"class A { #field=5 }", "Decl(class A Definition(#field = 5))"},
+		{"class A { get }", "Decl(class A Definition(get))"},
+		{"class A { field static get method(){} }", "Decl(class A Definition(field) Method(static get method Params() Stmt({ })))"},
+		//{"class A { get get get(){} }", "Decl(class A Definition(get) Method(get get Params() Stmt({ })))"}, // doesn't look like this should be supported
 		{"`tmpl`", "Stmt(`tmpl`)"},
 		{"`tmpl${x}`", "Stmt(`tmpl${x}`)"},
 		{"`tmpl${x}tmpl${x}`", "Stmt(`tmpl${x}tmpl${x}`)"},

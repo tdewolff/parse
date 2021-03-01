@@ -888,11 +888,26 @@ func (n MethodDecl) String() string {
 	return "Method(" + s[1:] + ")"
 }
 
+// FieldDefinition is a field definition in a class declaration.
+type FieldDefinition struct {
+	Name PropertyName
+	Init IExpr
+}
+
+func (n FieldDefinition) String() string {
+	s := "Definition(" + n.Name.String()
+	if n.Init != nil {
+		s += " = " + n.Init.String()
+	}
+	return s + ")"
+}
+
 // ClassDecl is a class declaration.
 type ClassDecl struct {
-	Name    *Var  // can be nil
-	Extends IExpr // can be nil
-	Methods []MethodDecl
+	Name        *Var  // can be nil
+	Extends     IExpr // can be nil
+	Definitions []FieldDefinition
+	Methods     []MethodDecl
 }
 
 func (n ClassDecl) String() string {
@@ -902,6 +917,9 @@ func (n ClassDecl) String() string {
 	}
 	if n.Extends != nil {
 		s += " extends " + n.Extends.String()
+	}
+	for _, item := range n.Definitions {
+		s += " " + item.String()
 	}
 	for _, item := range n.Methods {
 		s += " " + item.String()

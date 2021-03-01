@@ -185,13 +185,21 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	case '`':
 		l.templateLevels = append(l.templateLevels, l.level)
 		return l.consumeTemplateToken(), l.r.Shift()
+	case '#':
+		l.r.Move(1)
+		if l.consumeIdentifierToken() {
+			return PrivateIdentifierToken, l.r.Shift()
+		}
+		return ErrorToken, nil
 	default:
-		if tt := l.consumeIdentifierToken(); tt != ErrorToken {
+		if l.consumeIdentifierToken() {
 			if prevNumericLiteral {
 				l.err = parse.NewErrorLexer(l.r, "unexpected identifier after number")
 				return ErrorToken, nil
+			} else if keyword, ok := Keywords[string(l.r.Lexeme())]; ok {
+				return keyword, l.r.Shift()
 			}
-			return tt, l.r.Shift()
+			return IdentifierToken, l.r.Shift()
 		}
 		if 0xC0 <= c {
 			if l.consumeWhitespace() {
@@ -477,7 +485,7 @@ func (l *Lexer) consumeOperatorToken() TokenType {
 	return opTokens[c]
 }
 
-func (l *Lexer) consumeIdentifierToken() TokenType {
+func (l *Lexer) consumeIdentifierToken() bool {
 	c := l.r.Peek(0)
 	if identifierStartTable[c] {
 		l.r.Move(1)
@@ -485,10 +493,10 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 		if r, n := l.r.PeekRune(0); unicode.IsOneOf(identifierStart, r) {
 			l.r.Move(n)
 		} else {
-			return ErrorToken
+			return false
 		}
 	} else if !l.consumeUnicodeEscape() {
-		return ErrorToken
+		return false
 	}
 	for {
 		c := l.r.Peek(0)
@@ -504,10 +512,7 @@ func (l *Lexer) consumeIdentifierToken() TokenType {
 			break
 		}
 	}
-	if keyword, ok := Keywords[string(l.r.Lexeme())]; ok {
-		return keyword
-	}
-	return IdentifierToken
+	return true
 }
 
 func (l *Lexer) consumeNumericToken() TokenType {

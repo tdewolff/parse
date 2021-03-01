@@ -18,6 +18,7 @@ const (
 	TemplateMiddleToken
 	TemplateEndToken
 	RegExpToken
+	PrivateIdentifierToken
 )
 
 // Numeric token values.
@@ -356,6 +357,8 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("TemplateEnd")
 	case RegExpToken:
 		return []byte("RegExp")
+	case PrivateIdentifierToken:
+		return []byte("PrivateIdentifier")
 	case NumericToken:
 		return []byte("Numeric")
 	case DecimalToken:
