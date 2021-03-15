@@ -32,12 +32,19 @@ type Parser struct {
 
 // Parse returns a JS AST tree of.
 func Parse(r *parse.Input) (*AST, error) {
+	ast := &AST{}
 	p := &Parser{
 		l:  NewLexer(r),
 		tt: WhitespaceToken, // trick so that next() works
 	}
 
-	ast := &AST{}
+	// process shebang
+	if r.Peek(0) == '#' && r.Peek(1) == '!' {
+		r.Move(2)
+		p.l.consumeSingleLineComment() // consume till end-of-line
+		ast.Comments = append(ast.Comments, r.Shift())
+	}
+
 	p.tt, p.data = p.l.Next()
 	for p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
 		ast.Comments = append(ast.Comments, p.data)
