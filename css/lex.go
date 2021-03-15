@@ -491,7 +491,7 @@ func (l *Lexer) consumeUnicodeRangeToken() bool {
 
 	// either a minus or a question mark or the end is expected
 	if l.consumeByte('-') {
-		if 6 < k {
+		if k == 0 || 6 < k {
 			l.r.Rewind(mark)
 			return false
 		}
@@ -513,7 +513,7 @@ func (l *Lexer) consumeUnicodeRangeToken() bool {
 			k++
 		}
 	}
-	if 6 < k {
+	if k == 0 || 6 < k {
 		l.r.Rewind(mark)
 		return false
 	}

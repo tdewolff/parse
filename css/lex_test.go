@@ -79,7 +79,7 @@ func TestTokens(t *testing.T) {
 		{"  \n\r\n\r\"\\\r\n\\\r\"", TTs{StringToken}, []string{"\"\\\r\n\\\r\""}},
 		{"U+?????? U+ABCD?? U+ABC-DEF", TTs{UnicodeRangeToken, UnicodeRangeToken, UnicodeRangeToken}, []string{"U+??????", "U+ABCD??", "U+ABC-DEF"}},
 		{"U+? U+A?", TTs{UnicodeRangeToken, UnicodeRangeToken}, []string{"U+?", "U+A?"}},
-		{"U+ABCDEF?", TTs{IdentToken, DelimToken, IdentToken, DelimToken}, []string{"U", "+", "ABCDEF", "?"}},
+		{"U+ U+ABCDEF?", TTs{IdentToken, DelimToken, IdentToken, DelimToken, IdentToken, DelimToken}, []string{"U", "+", "U", "+", "ABCDEF", "?"}},
 		{"-5.23 -moz", TTs{NumberToken, IdentToken}, []string{"-5.23", "-moz"}},
 		{"()", TTs{LeftParenthesisToken, RightParenthesisToken}, []string{"(", ")"}},
 		{"url( //url\n  )", TTs{URLToken}, []string{"url( //url\n  )"}},
