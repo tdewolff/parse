@@ -482,48 +482,40 @@ func (l *Lexer) consumeUnicodeRangeToken() bool {
 	}
 	mark := l.r.Pos()
 	l.r.Move(2)
-	if l.consumeHexDigit() {
-		// consume up to 6 hexDigits
-		k := 1
-		for ; k < 6; k++ {
-			if !l.consumeHexDigit() {
-				break
-			}
+
+	// consume up to 6 hexDigits
+	k := 0
+	for l.consumeHexDigit() {
+		k++
+	}
+
+	// either a minus or a question mark or the end is expected
+	if l.consumeByte('-') {
+		if 6 < k {
+			l.r.Rewind(mark)
+			return false
 		}
 
-		// either a minus or a question mark or the end is expected
-		if l.consumeByte('-') {
-			// consume another up to 6 hexDigits
-			if l.consumeHexDigit() {
-				for k := 1; k < 6; k++ {
-					if !l.consumeHexDigit() {
-						break
-					}
-				}
-			} else {
-				l.r.Rewind(mark)
-				return false
+		// consume another up to 6 hexDigits
+		if l.consumeHexDigit() {
+			k = 1
+			for l.consumeHexDigit() {
+				k++
 			}
 		} else {
-			// could be filled up to 6 characters with question marks or else regular hexDigits
-			if l.consumeByte('?') {
-				k++
-				for ; k < 6; k++ {
-					if !l.consumeByte('?') {
-						l.r.Rewind(mark)
-						return false
-					}
-				}
-			}
+			l.r.Rewind(mark)
+			return false
 		}
-	} else {
-		// consume 6 question marks
-		for k := 0; k < 6; k++ {
-			if !l.consumeByte('?') {
-				l.r.Rewind(mark)
-				return false
-			}
+	} else if l.consumeByte('?') {
+		// could be filled up to 6 characters with question marks or else regular hexDigits
+		k++
+		for l.consumeByte('?') {
+			k++
 		}
+	}
+	if 6 < k {
+		l.r.Rewind(mark)
+		return false
 	}
 	return true
 }
