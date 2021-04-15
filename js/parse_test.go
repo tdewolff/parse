@@ -266,6 +266,7 @@ func TestParse(t *testing.T) {
 		{"x = new new.target", "Stmt(x=(new (new.target)))"},
 		{"x = new import.meta", "Stmt(x=(new (import.meta)))"},
 		{"x = import(a)", "Stmt(x=(import(a)))"},
+		{"import('module')", "Stmt(import('module'))"},
 		{"x = +a", "Stmt(x=(+a))"},
 		{"x = ++a", "Stmt(x=(++a))"},
 		{"x = -a", "Stmt(x=(-a))"},

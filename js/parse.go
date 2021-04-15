@@ -181,8 +181,18 @@ func (p *Parser) parseModule() (module BlockStmt) {
 		case ErrorToken:
 			return
 		case ImportToken:
-			importStmt := p.parseImportStmt()
-			module.List = append(module.List, &importStmt)
+			p.next()
+			if p.tt == OpenParenToken {
+				// could be an import call expression
+				left := &LiteralExpr{ImportToken, []byte("import")}
+				p.exprLevel++
+				suffix := p.parseExpressionSuffix(left, OpExpr, OpCall)
+				p.exprLevel--
+				module.List = append(module.List, &ExprStmt{suffix})
+			} else {
+				importStmt := p.parseImportStmt()
+				module.List = append(module.List, &importStmt)
+			}
 		case ExportToken:
 			exportStmt := p.parseExportStmt()
 			module.List = append(module.List, &exportStmt)
@@ -585,8 +595,7 @@ func (p *Parser) parseBlockStmt(in string) (blockStmt BlockStmt) {
 }
 
 func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
-	// assume we're at import
-	p.next()
+	// assume we're passed import
 	if p.tt == StringToken {
 		importStmt.Module = p.data
 		p.next()
