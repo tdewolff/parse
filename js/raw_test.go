@@ -197,12 +197,13 @@ func TestRawRealWorldJS(t *testing.T) {
 	var _0x34d2=['log','415343ArZKCi','11ItVJMI','98599KfnlVw','139pQCPDx','526583DuLSJk','Hello\x20World!','5823JSTLxZ','543807ONUblA','2uewDkG','146389ygBdVV','2273BZpJsB'];(function(_0x6b2cbe,_0x3fd0f4){var _0xffa95b=_0x3d17;while(!![]){try{var _0x5239dc=-parseInt(_0xffa95b(0x132))+parseInt(_0xffa95b(0x12f))+-parseInt(_0xffa95b(0x131))*-parseInt(_0xffa95b(0x12c))+parseInt(_0xffa95b(0x135))*-parseInt(_0xffa95b(0x12e))+-parseInt(_0xffa95b(0x12d))+-parseInt(_0xffa95b(0x134))+-parseInt(_0xffa95b(0x133))*-parseInt(_0xffa95b(0x12b));if(_0x5239dc===_0x3fd0f4)break;else _0x6b2cbe['push'](_0x6b2cbe['shift']());}catch(_0x12a1ea){_0x6b2cbe['push'](_0x6b2cbe['shift']());}}}(_0x34d2,0x4d4a4));function hi(){var _0x2d5dfd=_0x3d17;console[_0x2d5dfd(0x12a)](_0x2d5dfd(0x130));}function _0x3d17(_0x59c992,_0x5be83e){_0x59c992=_0x59c992-0x12a;var _0x34d208=_0x34d2[_0x59c992];return _0x34d208;}hi();
 	`
 
-	_, err := Parse(parse.NewInputString(js))
+	ast, err := Parse(parse.NewInputString(js))
 	if err != nil && err != io.EOF {
 		t.Fatal(err)
 	}
 
-	_, err = Parse(parse.NewInputString(js))
+	// reparse to make sure JS is still valid
+	_, err = Parse(parse.NewInputString(ast.Raw()))
 	if err != nil && err == io.EOF {
 		t.Error("Err: ", err)
 	}
