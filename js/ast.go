@@ -83,6 +83,10 @@ func (v Var) Raw() string {
 	return v.String()
 }
 
+func (v *Var) isNil() bool {
+	return v == nil
+}
+
 // VarsByUses is sortable by uses in descending order.
 type VarsByUses VarArray
 
@@ -324,9 +328,11 @@ func (s *Scope) Unscope() {
 
 ////////////////////////////////////////////////////////////////
 
+// INode is an interface for AST nodes
 type INode interface {
 	String() string
 	Raw() string
+	isNil() bool
 }
 
 // IStmt is a dummy interface for statements.
@@ -377,6 +383,10 @@ func (n BlockStmt) Raw() string {
 	return s
 }
 
+func (n *BlockStmt) isNil() bool {
+	return n == nil
+}
+
 // EmptyStmt is an empty statement.
 type EmptyStmt struct {
 }
@@ -387,6 +397,10 @@ func (n EmptyStmt) String() string {
 
 func (n EmptyStmt) Raw() string {
 	return ";"
+}
+
+func (n *EmptyStmt) isNil() bool {
+	return n == nil
 }
 
 // ExprStmt is an expression statement.
@@ -404,6 +418,10 @@ func (n ExprStmt) String() string {
 
 func (n ExprStmt) Raw() string {
 	return n.Value.Raw()
+}
+
+func (n *ExprStmt) isNil() bool {
+	return n == nil
 }
 
 // IfStmt is an if statement.
@@ -440,6 +458,10 @@ func (n IfStmt) Raw() string {
 	return s
 }
 
+func (n *IfStmt) isNil() bool {
+	return n == nil
+}
+
 // DoWhileStmt is a do-while iteration statement.
 type DoWhileStmt struct {
 	Cond IExpr
@@ -461,6 +483,10 @@ func (n DoWhileStmt) Raw() string {
 	return s + " while (" + n.Cond.Raw() + ")"
 }
 
+func (n *DoWhileStmt) isNil() bool {
+	return n == nil
+}
+
 // WhileStmt is a while iteration statement.
 type WhileStmt struct {
 	Cond IExpr
@@ -477,6 +503,10 @@ func (n WhileStmt) Raw() string {
 		s += n.Body.Raw()
 	}
 	return s
+}
+
+func (n *WhileStmt) isNil() bool {
+	return n == nil
 }
 
 // ForStmt is a regular for iteration statement.
@@ -521,6 +551,10 @@ func (n ForStmt) Raw() string {
 	return s + ") " + n.Body.Raw()
 }
 
+func (n *ForStmt) isNil() bool {
+	return n == nil
+}
+
 // ForInStmt is a for-in iteration statement.
 type ForInStmt struct {
 	Init  IExpr
@@ -534,6 +568,10 @@ func (n ForInStmt) String() string {
 
 func (n ForInStmt) Raw() string {
 	return "for (" + n.Init.Raw() + " in " + n.Value.Raw() + ") " + n.Body.Raw()
+}
+
+func (n *ForInStmt) isNil() bool {
+	return n == nil
 }
 
 // ForOfStmt is a for-of iteration statement.
@@ -558,6 +596,10 @@ func (n ForOfStmt) Raw() string {
 		s += " await"
 	}
 	return s + " (" + n.Init.Raw() + " of " + n.Value.Raw() + ") " + n.Body.Raw()
+}
+
+func (n *ForOfStmt) isNil() bool {
+	return n == nil
 }
 
 // CaseClause is a case clause or default clause for a switch statement.
@@ -590,6 +632,10 @@ func (n CaseClause) Raw() string {
 	return s + ";"
 }
 
+func (n *CaseClause) isNil() bool {
+	return n == nil
+}
+
 // SwitchStmt is a switch statement.
 type SwitchStmt struct {
 	Init IExpr
@@ -611,6 +657,10 @@ func (n SwitchStmt) Raw() string {
 		s += clause.Raw()
 	}
 	return s + " }"
+}
+
+func (n *SwitchStmt) isNil() bool {
+	return n == nil
 }
 
 // BranchStmt is a continue or break statement.
@@ -635,6 +685,10 @@ func (n BranchStmt) Raw() string {
 	return s
 }
 
+func (n *BranchStmt) isNil() bool {
+	return n == nil
+}
+
 // ReturnStmt is a return statement.
 type ReturnStmt struct {
 	Value IExpr // can be nil
@@ -656,6 +710,10 @@ func (n ReturnStmt) Raw() string {
 	return s
 }
 
+func (n *ReturnStmt) isNil() bool {
+	return n == nil
+}
+
 // WithStmt is a with statement.
 type WithStmt struct {
 	Cond IExpr
@@ -668,6 +726,10 @@ func (n WithStmt) String() string {
 
 func (n WithStmt) Raw() string {
 	return "with (" + n.Cond.Raw() + ") " + n.Body.Raw()
+}
+
+func (n *WithStmt) isNil() bool {
+	return n == nil
 }
 
 // LabelledStmt is a labelled statement.
@@ -684,6 +746,10 @@ func (n LabelledStmt) Raw() string {
 	return string(n.Label) + ": " + n.Value.Raw()
 }
 
+func (n *LabelledStmt) isNil() bool {
+	return n == nil
+}
+
 // ThrowStmt is a throw statement.
 type ThrowStmt struct {
 	Value IExpr
@@ -695,6 +761,10 @@ func (n ThrowStmt) String() string {
 
 func (n ThrowStmt) Raw() string {
 	return "throw " + n.Value.Raw()
+}
+
+func (n *ThrowStmt) isNil() bool {
+	return n == nil
 }
 
 // TryStmt is a try statement.
@@ -735,6 +805,10 @@ func (n TryStmt) Raw() string {
 	return s
 }
 
+func (n *TryStmt) isNil() bool {
+	return n == nil
+}
+
 // DebuggerStmt is a debugger statement.
 type DebuggerStmt struct {
 }
@@ -745,6 +819,10 @@ func (n DebuggerStmt) String() string {
 
 func (n DebuggerStmt) Raw() string {
 	return "debugger"
+}
+
+func (n *DebuggerStmt) isNil() bool {
+	return n == nil
 }
 
 // Alias is a name space import or import/export specifier for import/export statements.
@@ -763,6 +841,10 @@ func (alias Alias) String() string {
 
 func (alias Alias) Raw() string {
 	return alias.String()
+}
+
+func (alias *Alias) isNil() bool {
+	return alias == nil
 }
 
 // ImportStmt is an import statement.
@@ -828,6 +910,10 @@ func (n ImportStmt) Raw() string {
 	return s + " " + string(n.Module)
 }
 
+func (n *ImportStmt) isNil() bool {
+	return n == nil
+}
+
 // ExportStmt is an export statement.
 type ExportStmt struct {
 	List    []Alias
@@ -890,6 +976,10 @@ func (n ExportStmt) Raw() string {
 	return s
 }
 
+func (n *ExportStmt) isNil() bool {
+	return n == nil
+}
+
 // DirectivePrologueStmt is a string literal at the beginning of a function or module (usually "use strict").
 type DirectivePrologueStmt struct {
 	Value []byte
@@ -901,6 +991,10 @@ func (n DirectivePrologueStmt) String() string {
 
 func (n DirectivePrologueStmt) Raw() string {
 	return string(n.Value)
+}
+
+func (n *DirectivePrologueStmt) isNil() bool {
+	return n == nil
 }
 
 func (n BlockStmt) stmtNode()             {}
@@ -962,6 +1056,10 @@ func (n PropertyName) Raw() string {
 	return n.String()
 }
 
+func (n *PropertyName) isNil() bool {
+	return n == nil
+}
+
 // BindingArray is an array binding pattern.
 type BindingArray struct {
 	List []BindingElement
@@ -1002,6 +1100,10 @@ func (n BindingArray) Raw() string {
 	return s + "]"
 }
 
+func (n *BindingArray) isNil() bool {
+	return n == nil
+}
+
 // BindingObjectItem is a binding property.
 type BindingObjectItem struct {
 	Key   *PropertyName // can be nil
@@ -1026,6 +1128,10 @@ func (n BindingObjectItem) Raw() string {
 		}
 	}
 	return " " + n.Value.Raw()
+}
+
+func (n *BindingObjectItem) isNil() bool {
+	return n == nil
 }
 
 // BindingObject is an object binding pattern.
@@ -1078,6 +1184,10 @@ func (n BindingObject) Raw() string {
 	return s + " }"
 }
 
+func (n *BindingObject) isNil() bool {
+	return n == nil
+}
+
 // BindingElement is a binding element.
 type BindingElement struct {
 	Binding IBinding // can be nil (in case of ellision)
@@ -1104,6 +1214,10 @@ func (n BindingElement) Raw() string {
 		s += " = " + n.Default.Raw()
 	}
 	return s
+}
+
+func (n *BindingElement) isNil() bool {
+	return n == nil
 }
 
 func (v *Var) bindingNode()          {}
@@ -1135,6 +1249,10 @@ func (n VarDecl) Raw() string {
 		s += " " + item.Raw()
 	}
 	return s
+}
+
+func (n *VarDecl) isNil() bool {
+	return n == nil
 }
 
 // Params is a list of parameters for functions, methods, and arrow function.
@@ -1178,6 +1296,10 @@ func (n Params) Raw() string {
 	return s
 }
 
+func (n *Params) isNil() bool {
+	return n == nil
+}
+
 // FuncDecl is an (async) (generator) function declaration or expression.
 type FuncDecl struct {
 	Async     bool
@@ -1217,6 +1339,10 @@ func (n FuncDecl) Raw() string {
 		s += " " + string(n.Name.Data)
 	}
 	return s + n.Params.Raw() + " " + n.Body.Raw()
+}
+
+func (n *FuncDecl) isNil() bool {
+	return n == nil
 }
 
 // MethodDecl is a method definition in a class declaration.
@@ -1273,6 +1399,10 @@ func (n MethodDecl) Raw() string {
 	return s[1:]
 }
 
+func (n *MethodDecl) isNil() bool {
+	return n == nil
+}
+
 // FieldDefinition is a field definition in a class declaration.
 type FieldDefinition struct {
 	Name PropertyName
@@ -1293,6 +1423,10 @@ func (n FieldDefinition) Raw() string {
 		s += " = " + n.Init.Raw()
 	}
 	return s
+}
+
+func (n *FieldDefinition) isNil() bool {
+	return n == nil
 }
 
 // ClassDecl is a class declaration.
@@ -1338,6 +1472,10 @@ func (n ClassDecl) Raw() string {
 	return s + "}"
 }
 
+func (n *ClassDecl) isNil() bool {
+	return n == nil
+}
+
 func (n VarDecl) stmtNode()   {}
 func (n FuncDecl) stmtNode()  {}
 func (n ClassDecl) stmtNode() {}
@@ -1361,6 +1499,10 @@ func (n LiteralExpr) String() string {
 
 func (n LiteralExpr) Raw() string {
 	return string(n.Data)
+}
+
+func (n *LiteralExpr) isNil() bool {
+	return n == nil
 }
 
 // Element is an array literal element.
@@ -1389,6 +1531,10 @@ func (n Element) Raw() string {
 		s += n.Value.Raw()
 	}
 	return s
+}
+
+func (n *Element) isNil() bool {
+	return n == nil
 }
 
 // ArrayExpr is an array literal.
@@ -1434,6 +1580,10 @@ func (n ArrayExpr) Raw() string {
 	return s + "]"
 }
 
+func (n *ArrayExpr) isNil() bool {
+	return n == nil
+}
+
 // Property is a property definition in an object literal.
 type Property struct {
 	// either Name or Spread are set. When Spread is set then Value is AssignmentExpression
@@ -1476,6 +1626,10 @@ func (n Property) Raw() string {
 	return s
 }
 
+func (n *Property) isNil() bool {
+	return n == nil
+}
+
 // ObjectExpr is an object literal.
 type ObjectExpr struct {
 	List []Property
@@ -1503,6 +1657,10 @@ func (n ObjectExpr) Raw() string {
 	return s + "}"
 }
 
+func (n *ObjectExpr) isNil() bool {
+	return n == nil
+}
+
 // TemplatePart is a template head or middle.
 type TemplatePart struct {
 	Value []byte
@@ -1515,6 +1673,10 @@ func (n TemplatePart) String() string {
 
 func (n TemplatePart) Raw() string {
 	return string(n.Value) + n.Expr.Raw()
+}
+
+func (n *TemplatePart) isNil() bool {
+	return n == nil
 }
 
 // TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
@@ -1547,6 +1709,10 @@ func (n TemplateExpr) Raw() string {
 	return s + string(n.Tail)
 }
 
+func (n *TemplateExpr) isNil() bool {
+	return n == nil
+}
+
 // GroupExpr is a parenthesized expression.
 type GroupExpr struct {
 	X IExpr
@@ -1558,6 +1724,10 @@ func (n GroupExpr) String() string {
 
 func (n GroupExpr) Raw() string {
 	return "(" + n.X.Raw() + ")"
+}
+
+func (n *GroupExpr) isNil() bool {
+	return n == nil
 }
 
 // IndexExpr is a member/call expression, super property, or optional chain with an index expression.
@@ -1575,6 +1745,10 @@ func (n IndexExpr) Raw() string {
 	return n.X.Raw() + "[" + n.Y.Raw() + "]"
 }
 
+func (n *IndexExpr) isNil() bool {
+	return n == nil
+}
+
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
 type DotExpr struct {
 	X    IExpr
@@ -1590,6 +1764,10 @@ func (n DotExpr) Raw() string {
 	return n.X.Raw() + "." + n.Y.Raw()
 }
 
+func (n *DotExpr) isNil() bool {
+	return n == nil
+}
+
 // NewTargetExpr is a new target meta property.
 type NewTargetExpr struct {
 }
@@ -1602,6 +1780,10 @@ func (n NewTargetExpr) Raw() string {
 	return "new.target"
 }
 
+func (n *NewTargetExpr) isNil() bool {
+	return n == nil
+}
+
 // ImportMetaExpr is a import meta meta property.
 type ImportMetaExpr struct {
 }
@@ -1612,6 +1794,10 @@ func (n ImportMetaExpr) String() string {
 
 func (n ImportMetaExpr) Raw() string {
 	return "import.meta"
+}
+
+func (n *ImportMetaExpr) isNil() bool {
+	return n == nil
 }
 
 type Arg struct {
@@ -1633,6 +1819,10 @@ func (n Arg) Raw() string {
 		s += "..."
 	}
 	return s + n.Value.Raw()
+}
+
+func (n *Arg) isNil() bool {
+	return n == nil
 }
 
 // Args is a list of arguments as used by new and call expressions.
@@ -1662,6 +1852,10 @@ func (n Args) Raw() string {
 	return s
 }
 
+func (n *Args) isNil() bool {
+	return n == nil
+}
+
 // NewExpr is a new expression or new member expression.
 type NewExpr struct {
 	X    IExpr
@@ -1682,6 +1876,10 @@ func (n NewExpr) Raw() string {
 	return "new " + n.X.Raw()
 }
 
+func (n *NewExpr) isNil() bool {
+	return n == nil
+}
+
 // CallExpr is a call expression.
 type CallExpr struct {
 	X    IExpr
@@ -1694,6 +1892,10 @@ func (n CallExpr) String() string {
 
 func (n CallExpr) Raw() string {
 	return n.X.Raw() + "(" + n.Args.Raw() + ")"
+}
+
+func (n *CallExpr) isNil() bool {
+	return n == nil
 }
 
 // OptChainExpr is an optional chain.
@@ -1726,6 +1928,10 @@ func (n OptChainExpr) Raw() string {
 	}
 }
 
+func (n *OptChainExpr) isNil() bool {
+	return n == nil
+}
+
 // UnaryExpr is an update or unary expression.
 type UnaryExpr struct {
 	Op TokenType
@@ -1750,6 +1956,10 @@ func (n UnaryExpr) Raw() string {
 	return n.Op.String() + n.X.Raw()
 }
 
+func (n *UnaryExpr) isNil() bool {
+	return n == nil
+}
+
 // BinaryExpr is a binary expression.
 type BinaryExpr struct {
 	Op   TokenType
@@ -1767,6 +1977,10 @@ func (n BinaryExpr) Raw() string {
 	return n.X.Raw() + " " + n.Op.String() + " " + n.Y.Raw()
 }
 
+func (n *BinaryExpr) isNil() bool {
+	return n == nil
+}
+
 // CondExpr is a conditional expression.
 type CondExpr struct {
 	Cond, X, Y IExpr
@@ -1778,6 +1992,10 @@ func (n CondExpr) String() string {
 
 func (n CondExpr) Raw() string {
 	return n.Cond.Raw() + " ? " + n.X.Raw() + " : " + n.Y.Raw()
+}
+
+func (n *CondExpr) isNil() bool {
+	return n == nil
 }
 
 // YieldExpr is a yield expression.
@@ -1808,6 +2026,10 @@ func (n YieldExpr) Raw() string {
 	return s + " " + n.X.Raw()
 }
 
+func (n *YieldExpr) isNil() bool {
+	return n == nil
+}
+
 // ArrowFunc is an (async) arrow function.
 type ArrowFunc struct {
 	Async  bool
@@ -1829,6 +2051,10 @@ func (n ArrowFunc) Raw() string {
 		s += "async "
 	}
 	return s + n.Params.Raw() + " => " + n.Body.Raw()
+}
+
+func (n *ArrowFunc) isNil() bool {
+	return n == nil
 }
 
 func (v *Var) exprNode()           {}
