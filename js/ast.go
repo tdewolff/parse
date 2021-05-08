@@ -75,11 +75,11 @@ func (v *Var) Name() []byte {
 	return v.Data
 }
 
-func (v *Var) String() string {
+func (v Var) String() string {
 	return string(v.Name())
 }
 
-func (v *Var) Raw() string {
+func (v Var) Raw() string {
 	return v.String()
 }
 
@@ -313,24 +313,26 @@ func (s *Scope) UndeclareScope() {
 
 ////////////////////////////////////////////////////////////////
 
-// IStmt is a dummy interface for statements.
-type IStmt interface {
+type INode interface {
 	String() string
 	Raw() string
+}
+
+// IStmt is a dummy interface for statements.
+type IStmt interface {
+	INode
 	stmtNode()
 }
 
 // IBinding is a dummy interface for bindings.
 type IBinding interface {
-	String() string
-	Raw() string
+	INode
 	bindingNode()
 }
 
 // IExpr is a dummy interface for expressions.
 type IExpr interface {
-	String() string
-	Raw() string
+	INode
 	exprNode()
 }
 
@@ -438,7 +440,14 @@ func (n DoWhileStmt) String() string {
 }
 
 func (n DoWhileStmt) Raw() string {
-	return "do " + n.Body.Raw() + " while (" + n.Cond.Raw() + ")"
+	s := "do "
+	switch n.Body.(type) {
+	case *BlockStmt:
+		s += n.Body.Raw()
+	default:
+		s += "{ " + n.Body.Raw() + " }"
+	}
+	return s + " while (" + n.Cond.Raw() + ")"
 }
 
 // WhileStmt is a while iteration statement.
@@ -452,7 +461,7 @@ func (n WhileStmt) String() string {
 }
 
 func (n WhileStmt) Raw() string {
-	s := "while(" + n.Cond.Raw() + ") "
+	s := "while (" + n.Cond.Raw() + ") "
 	if n.Body != nil {
 		s += n.Body.Raw()
 	}
@@ -547,6 +556,29 @@ type CaseClause struct {
 	List []IStmt
 }
 
+func (n CaseClause) String() string {
+	s := " Clause(" + n.TokenType.String()
+	if n.Cond != nil {
+		s += " " + n.Cond.String()
+	}
+	for _, item := range n.List {
+		s += " " + item.String()
+	}
+	return s + ")"
+}
+
+func (n CaseClause) Raw() string {
+	s := " case "
+	if n.Cond != nil {
+		s += n.Cond.Raw()
+	}
+	s += ":"
+	for _, item := range n.List {
+		s += " " + item.Raw()
+	}
+	return s + ";"
+}
+
 // SwitchStmt is a switch statement.
 type SwitchStmt struct {
 	Init IExpr
@@ -556,14 +588,7 @@ type SwitchStmt struct {
 func (n SwitchStmt) String() string {
 	s := "Stmt(switch " + n.Init.String()
 	for _, clause := range n.List {
-		s += " Clause(" + clause.TokenType.String()
-		if clause.Cond != nil {
-			s += " " + clause.Cond.String()
-		}
-		for _, item := range clause.List {
-			s += " " + item.String()
-		}
-		s += ")"
+		s += clause.String()
 	}
 	return s + ")"
 }
@@ -571,15 +596,7 @@ func (n SwitchStmt) String() string {
 func (n SwitchStmt) Raw() string {
 	s := "switch (" + n.Init.Raw() + ") {"
 	for _, clause := range n.List {
-		s += " case "
-		if clause.Cond != nil {
-			s += clause.Cond.Raw()
-		}
-		s += ":"
-		for _, item := range clause.List {
-			s += " " + item.Raw()
-		}
-		s += ";"
+		s += clause.Raw()
 	}
 	return s + " }"
 }
@@ -780,7 +797,7 @@ func (n ImportStmt) Raw() string {
 		}
 	}
 	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
-		s += " " + n.List[0].String()
+		s += " " + n.List[0].Raw()
 	} else if 0 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
@@ -788,7 +805,7 @@ func (n ImportStmt) Raw() string {
 				s += " ,"
 			}
 			if item.Binding != nil {
-				s += " " + item.String()
+				s += " " + item.Raw()
 			}
 		}
 		s += " }"
@@ -979,6 +996,26 @@ type BindingObjectItem struct {
 	Value BindingElement
 }
 
+func (n BindingObjectItem) String() string {
+	s := ""
+	if n.Key != nil {
+		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
+			s += " " + n.Key.String() + ":"
+		}
+	}
+	return " " + n.Value.String()
+}
+
+func (n BindingObjectItem) Raw() string {
+	s := ""
+	if n.Key != nil {
+		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
+			s += " " + n.Key.Raw() + ":"
+		}
+	}
+	return " " + n.Value.Raw()
+}
+
 // BindingObject is an object binding pattern.
 type BindingObject struct {
 	List []BindingObjectItem
@@ -1079,7 +1116,10 @@ func (n VarDecl) String() string {
 
 func (n VarDecl) Raw() string {
 	s := n.TokenType.String()
-	for _, item := range n.List {
+	for i, item := range n.List {
+		if i != 0 {
+			s += ","
+		}
 		s += " " + item.Raw()
 	}
 	return s
@@ -1317,6 +1357,28 @@ type Element struct {
 	Spread bool
 }
 
+func (n Element) String() string {
+	s := ""
+	if n.Value != nil {
+		if n.Spread {
+			s += "..."
+		}
+		s += n.Value.String()
+	}
+	return s
+}
+
+func (n Element) Raw() string {
+	s := ""
+	if n.Value != nil {
+		if n.Spread {
+			s += "..."
+		}
+		s += n.Value.Raw()
+	}
+	return s
+}
+
 // ArrayExpr is an array literal.
 type ArrayExpr struct {
 	List []Element
@@ -1435,6 +1497,14 @@ type TemplatePart struct {
 	Expr  IExpr
 }
 
+func (n TemplatePart) String() string {
+	return string(n.Value) + n.Expr.String()
+}
+
+func (n TemplatePart) Raw() string {
+	return string(n.Value) + n.Expr.Raw()
+}
+
 // TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
 type TemplateExpr struct {
 	Tag  IExpr // can be nil
@@ -1449,7 +1519,7 @@ func (n TemplateExpr) String() string {
 		s += n.Tag.String()
 	}
 	for _, item := range n.List {
-		s += string(item.Value) + item.Expr.String()
+		s += item.String()
 	}
 	return s + string(n.Tail)
 }
@@ -1457,10 +1527,10 @@ func (n TemplateExpr) String() string {
 func (n TemplateExpr) Raw() string {
 	s := ""
 	if n.Tag != nil {
-		s += n.Tag.String()
+		s += n.Tag.Raw()
 	}
 	for _, item := range n.List {
-		s += string(item.Value) + item.Expr.Raw()
+		s += item.Raw()
 	}
 	return s + string(n.Tail)
 }
@@ -1505,7 +1575,7 @@ func (n DotExpr) String() string {
 }
 
 func (n DotExpr) Raw() string {
-	return n.X.String() + "." + n.Y.String()
+	return n.X.Raw() + "." + n.Y.Raw()
 }
 
 // NewTargetExpr is a new target meta property.
@@ -1537,6 +1607,22 @@ type Arg struct {
 	Rest  bool
 }
 
+func (n Arg) String() string {
+	s := ""
+	if n.Rest {
+		s += "..."
+	}
+	return s + n.Value.String()
+}
+
+func (n Arg) Raw() string {
+	s := ""
+	if n.Rest {
+		s += "..."
+	}
+	return s + n.Value.Raw()
+}
+
 // Args is a list of arguments as used by new and call expressions.
 type Args struct {
 	List []Arg
@@ -1548,10 +1634,7 @@ func (n Args) String() string {
 		if i != 0 {
 			s += ", "
 		}
-		if item.Rest {
-			s += "..."
-		}
-		s += item.Value.String()
+		s += item.String()
 	}
 	return s + ")"
 }
@@ -1562,10 +1645,7 @@ func (n Args) Raw() string {
 		if i != 0 {
 			s += ", "
 		}
-		if item.Rest {
-			s += "..."
-		}
-		s += item.Value.Raw()
+		s += item.Raw()
 	}
 	return s
 }

@@ -23,27 +23,33 @@ func TestRaw(t *testing.T) {
 
 		// DoWhileStmt
 		{"do { continue; } while (true);", "do { continue; } while (true); "},
+		{"do { x = 1; } while (true);", "do { x = 1; } while (true); "},
 
 		// WhileStmt
-		{"while (true) { true; };", "while(true) { true; }; "},
+		{"while (true) { true; };", "while (true) { true; }; "},
+		{"while (true) { x = 1; };", "while (true) { x = 1; }; "},
 
 		// ForStmt
 		{"for ( ; ; ) { true; };", "for ( ; ; ) { true; }; "},
 		{"for (x = 1; ; ) { true; };", "for (x = 1; ; ) { true; }; "},
 		{"for (x = 1; x < 2; ) { true; };", "for (x = 1; x < 2; ) { true; }; "},
 		{"for (x = 1; x < 2; x++) { true; };", "for (x = 1; x < 2; x++) { true; }; "},
+		{"for (x = 1; x < 2; x++) { x = 1; };", "for (x = 1; x < 2; x++) { x = 1; }; "},
 
 		// ForInStmt
 		{"for (var x in [1, 2]) { true; };", "for (var x in [1, 2]) { true; }; "},
+		{"for (var x in [1, 2]) { x = 1; };", "for (var x in [1, 2]) { x = 1; }; "},
 
 		// ForOfStmt
 		{"for (const element of [1, 2]) { true; };", "for (const element of [1, 2]) { true; }; "},
+		{"for (const element of [1, 2]) { x = 1; };", "for (const element of [1, 2]) { x = 1; }; "},
 
 		// SwitchStmt
 		{"switch (true) { case true: break; case false: false; };", "switch (true) { case true: break; case false: false; }; "},
 
 		// BranchStmt
 		{"for (i = 0; i < 3; i++) { continue; }; ", "for (i = 0; i < 3; i++) { continue; }; "},
+		{"for (i = 0; i < 3; i++) { x = 1; }; ", "for (i = 0; i < 3; i++) { x = 1; }; "},
 
 		// ReturnStmt
 		{"return;", "return; "},
@@ -51,6 +57,7 @@ func TestRaw(t *testing.T) {
 
 		// WithStmt
 		{"with (true) { true; };", "with (true) { true; }; "},
+		{"with (true) { x = 1; };", "with (true) { x = 1; }; "},
 
 		// LabelledStmt
 		{"loop: for (x = 0; x < 1; x++) { true; };", "loop: for (x = 0; x < 1; x++) { true; }; "},
@@ -61,6 +68,7 @@ func TestRaw(t *testing.T) {
 		// TryStmt
 		{"try { true; } catch(e) { };", "try { true; } catch(e) { }; "},
 		{"try { true; } catch(e) { true; };", "try { true; } catch(e) { true; }; "},
+		{"try { true; } catch(e) { x = 1; };", "try { true; } catch(e) { x = 1; }; "},
 
 		// DebuggerStmt
 		{"debugger;", "debugger; "},
@@ -97,7 +105,10 @@ func TestRaw(t *testing.T) {
 
 		// VarDecl
 		{"x = 1;", "x = 1; "},
+		{"var x;", "var x; "},
 		{"var x = 1;", "var x = 1; "},
+		{"var x, y = [];", "var x, y = []; "},
+		{"let x;", "let x; "},
 		{"let x = 1;", "let x = 1; "},
 		{"const x = 1;", "const x = 1; "},
 
@@ -174,7 +185,7 @@ func TestRaw(t *testing.T) {
 		{"a || b;", "a || b; "},
 
 		// YieldExpr
-		{"x = function* foo(x) { while(x < 2) { yield x; x++; }; };", "x = function* foo(x) { while(x < 2) { yield x; x++; }; }; "},
+		{"x = function* foo(x) { while (x < 2) { yield x; x++; }; };", "x = function* foo(x) { while (x < 2) { yield x; x++; }; }; "},
 
 		// ArrowFunc
 		{"(x) => { y(); };", "(x) => { y(); }; "},
