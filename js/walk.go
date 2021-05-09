@@ -2,8 +2,10 @@ package js
 
 // IVisitor represents the AST Visitor
 // Each INode encountered by `Walk` is passed to `Enter`, children nodes will be ignored if the returned IVisitor is nil
+// `Exit` is called upon the exit of a node
 type IVisitor interface {
 	Enter(n INode) IVisitor
+	Exit(n INode)
 }
 
 // Walk traverses an AST in depth-first order
@@ -20,6 +22,8 @@ func Walk(v IVisitor, n INode) {
 	if v = v.Enter(n); v == nil {
 		return
 	}
+
+	defer v.Exit(n)
 
 	switch n := n.(type) {
 	case *AST:
