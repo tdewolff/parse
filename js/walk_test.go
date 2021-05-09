@@ -21,6 +21,8 @@ func (w *walker) Enter(n INode) IVisitor {
 	return w
 }
 
+func (w *walker) Exit(n INode) {}
+
 func TestWalk(t *testing.T) {
 	js := `
 	if (true) {
