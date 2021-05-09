@@ -627,9 +627,9 @@ func (n CaseClause) Raw() string {
 	}
 	s += ":"
 	for _, item := range n.List {
-		s += " " + item.Raw()
+		s += " " + item.Raw() + ";"
 	}
-	return s + ";"
+	return s
 }
 
 func (n *CaseClause) isNil() bool {

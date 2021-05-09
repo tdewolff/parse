@@ -46,6 +46,7 @@ func TestRaw(t *testing.T) {
 
 		// SwitchStmt
 		{"switch (true) { case true: break; case false: false; };", "switch (true) { case true: break; case false: false; }; "},
+		{"switch (true) { case true: x(); break; case false: x(); false; };", "switch (true) { case true: x(); break; case false: x(); false; }; "},
 
 		// BranchStmt
 		{"for (i = 0; i < 3; i++) { continue; }; ", "for (i = 0; i < 3; i++) { continue; }; "},
