@@ -32,8 +32,8 @@ func Walk(v IVisitor, n INode) {
 		return
 	case *BlockStmt:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, n.List[i])
 			}
 		}
 	case *EmptyStmt:
@@ -65,16 +65,16 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Value)
 	case *CaseClause:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, n.List[i])
 			}
 		}
 
 		Walk(v, n.Cond)
 	case *SwitchStmt:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -101,14 +101,14 @@ func Walk(v IVisitor, n INode) {
 		return
 	case *ImportStmt:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 	case *ExportStmt:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -120,8 +120,8 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Computed)
 	case *BindingArray:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -131,8 +131,8 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, &n.Value)
 	case *BindingObject:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -142,14 +142,14 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Default)
 	case *VarDecl:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 	case *Params:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -170,14 +170,14 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Extends)
 
 		if n.Definitions != nil {
-			for _, item := range n.Definitions {
-				Walk(v, &item)
+			for i := 0; i < len(n.Definitions); i++ {
+				Walk(v, &n.Definitions[i])
 			}
 		}
 
 		if n.Methods != nil {
-			for _, item := range n.Methods {
-				Walk(v, &item)
+			for i := 0; i < len(n.Definitions); i++ {
+				Walk(v, &n.Definitions[i])
 			}
 		}
 	case *LiteralExpr:
@@ -186,8 +186,8 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Value)
 	case *ArrayExpr:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 	case *Property:
@@ -196,16 +196,16 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Init)
 	case *ObjectExpr:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 	case *TemplatePart:
 		Walk(v, n.Expr)
 	case *TemplateExpr:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 
@@ -226,8 +226,8 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Value)
 	case *Args:
 		if n.List != nil {
-			for _, item := range n.List {
-				Walk(v, &item)
+			for i := 0; i < len(n.List); i++ {
+				Walk(v, &n.List[i])
 			}
 		}
 	case *NewExpr:
