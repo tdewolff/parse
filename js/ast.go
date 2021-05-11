@@ -610,9 +610,11 @@ func (n CaseClause) String() string {
 }
 
 func (n CaseClause) Raw() string {
-	s := " case "
+	s := " "
 	if n.Cond != nil {
-		s += n.Cond.Raw()
+		s += "case " + n.Cond.Raw()
+	} else {
+		s += "default"
 	}
 	s += ":"
 	for _, item := range n.List {
