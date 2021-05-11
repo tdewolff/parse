@@ -1863,7 +1863,9 @@ func (n NewExpr) Raw() string {
 	if n.Args != nil {
 		return "new " + n.X.Raw() + "(" + n.Args.Raw() + ")"
 	}
-	return "new " + n.X.Raw()
+
+	// always use parentheses to prevent errors when chaining e.g. new Date().getTime()
+	return "new " + n.X.Raw() + "()"
 }
 
 func (n *NewExpr) isNil() bool {

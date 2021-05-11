@@ -167,8 +167,9 @@ func TestRaw(t *testing.T) {
 		{"x(1, 2);", "x(1, 2); "},
 
 		// NewExpr
-		{"new x;", "new x; "},
+		{"new x;", "new x(); "},
 		{"new x(1);", "new x(1); "},
+		{"new Date().getTime();", "new Date().getTime(); "},
 
 		// CallExpr
 		{"x();", "x(); "},
