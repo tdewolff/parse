@@ -115,10 +115,11 @@ func TestRaw(t *testing.T) {
 		{"const x = 1;", "const x = 1; "},
 
 		// Params
-		{"function xyz(a, b) { };", "function xyz(a, b) { }; "},
+		{"function xyz (a, b) { };", "function xyz (a, b) { }; "},
+		{"function xyz (a, b, ...c) { };", "function xyz (a, b, ...c) { }; "},
 
 		// FuncDecl
-		{"function xyz(a, b) { };", "function xyz(a, b) { }; "},
+		{"function xyz (a, b) { };", "function xyz (a, b) { }; "},
 
 		// MethodDecl
 		{"class A { field; static get method () { }; };", "class A { field; static get method () { }; }; "},
@@ -188,7 +189,7 @@ func TestRaw(t *testing.T) {
 		{"a || b;", "a || b; "},
 
 		// YieldExpr
-		{"x = function* foo(x) { while (x < 2) { yield x; x++; }; };", "x = function* foo(x) { while (x < 2) { yield x; x++; }; }; "},
+		{"x = function* foo (x) { while (x < 2) { yield x; x++; }; };", "x = function* foo (x) { while (x < 2) { yield x; x++; }; }; "},
 
 		// ArrowFunc
 		{"(x) => { y(); };", "(x) => { y(); }; "},
