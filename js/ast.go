@@ -1288,14 +1288,13 @@ func (n Params) Raw() string {
 		}
 		s += item.Raw()
 	}
-	s += ")"
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ", "
 		}
 		s += "..." + n.Rest.Raw()
 	}
-	return s
+	return s + ")"
 }
 
 func (n *Params) isNil() bool {
@@ -1340,7 +1339,7 @@ func (n FuncDecl) Raw() string {
 	if n.Name != nil {
 		s += " " + string(n.Name.Data)
 	}
-	return s + n.Params.Raw() + " " + n.Body.Raw()
+	return s + " " + n.Params.Raw() + " " + n.Body.Raw()
 }
 
 func (n *FuncDecl) isNil() bool {
