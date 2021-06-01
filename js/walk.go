@@ -51,16 +51,16 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Body)
 		Walk(v, n.Cond)
 	case *ForStmt:
-		Walk(v, &n.Body)
+		Walk(v, n.Body)
 		Walk(v, n.Init)
 		Walk(v, n.Cond)
 		Walk(v, n.Post)
 	case *ForInStmt:
-		Walk(v, &n.Body)
+		Walk(v, n.Body)
 		Walk(v, n.Init)
 		Walk(v, n.Value)
 	case *ForOfStmt:
-		Walk(v, &n.Body)
+		Walk(v, n.Body)
 		Walk(v, n.Init)
 		Walk(v, n.Value)
 	case *CaseClause:
@@ -91,7 +91,7 @@ func Walk(v IVisitor, n INode) {
 	case *ThrowStmt:
 		Walk(v, n.Value)
 	case *TryStmt:
-		Walk(v, &n.Body)
+		Walk(v, n.Body)
 		Walk(v, n.Catch)
 		Walk(v, n.Finally)
 		Walk(v, n.Binding)
