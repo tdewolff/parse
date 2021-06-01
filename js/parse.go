@@ -9,8 +9,6 @@ import (
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
-var evalBytes = []byte("eval")
-
 // Parser is the state for the parser.
 type Parser struct {
 	l   *Lexer
