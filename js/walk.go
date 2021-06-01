@@ -14,7 +14,7 @@ func Walk(v IVisitor, n INode) {
 		return
 	}
 
-	// check is pointer is nil
+	// check if pointer is nil
 	if n.isNil() {
 		return
 	}
