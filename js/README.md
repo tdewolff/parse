@@ -1,4 +1,4 @@
-# JS [![GoDoc](http://godoc.org/github.com/tdewolff/parse/js?status.svg)](http://godoc.org/github.com/tdewolff/parse/js)
+# JS [![API reference](https://img.shields.io/badge/godoc-reference-5272B4)](https://pkg.go.dev/github.com/tdewolff/minify/v2/parse/js?tab=doc)
 
 This package is a JS lexer (ECMAScript 2020) written in [Go][1]. It follows the specification at [ECMAScript 2020 Language Specification](https://tc39.es/ecma262/). The lexer takes an io.Reader and converts it into tokens until the EOF.
 

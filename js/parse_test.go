@@ -147,6 +147,9 @@ func TestParse(t *testing.T) {
 		{"async\n= a", "Stmt(async=a)"},
 		{"async a => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
 		{"async (a) => b", "Stmt(async Params(Binding(a)) => Stmt({ Stmt(return b) }))"},
+		{"async(a)", "Stmt(async(a))"},
+		{"async(a=6, ...b)", "Stmt(async((a=6), ...b))"},
+		{"async(function(){})", "Stmt(async(Decl(function Params() Stmt({ }))))"},
 		{"async\nawait => b", "Stmt(async) Stmt(Params(Binding(await)) => Stmt({ Stmt(return b) }))"},
 		{"a + async\nb", "Stmt(a+async) Stmt(b)"},
 		{"a + async\nfunction f(){}", "Stmt(a+async) Decl(function f Params() Stmt({ }))"},
@@ -491,8 +494,8 @@ func TestParseError(t *testing.T) {
 		{"x={a", "unexpected EOF in object literal"},
 		{"x=a[b", "expected ] instead of EOF in index expression"},
 		{"x=async a", "expected => instead of EOF in arrow function"},
-		{"x=async (a", "unexpected EOF in arrow function"},
-		{"x=async (a,", "unexpected EOF in arrow function"},
+		{"x=async (a", "unexpected EOF in expression"},
+		{"x=async (a,", "unexpected EOF in expression"},
 		{"x=async function", "expected Identifier or ( instead of EOF in function declaration"},
 		{"x=async function *", "expected Identifier or ( instead of EOF in function declaration"},
 		{"x=async function a", "expected ( instead of EOF in function declaration"},
@@ -549,7 +552,7 @@ func TestParseError(t *testing.T) {
 		{"function*a(){ (yield=5) => yield }", "unexpected = in expression"},
 		{"function*a(){ (...yield) => yield }", "unexpected yield in arrow function"},
 		{"x = await\n=> a++", "unexpected => in expression"},
-		{"x=async (await,", "unexpected await in binding"},
+		{"x=async (await,", "unexpected EOF in expression"},
 		{"async function a() { class a extends await", "unexpected await in expression"},
 		{"async function a() { await: var a", "unexpected : in expression"},
 		{"async function a() { let await", "unexpected await in binding"},
@@ -842,11 +845,11 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 	case *ThrowStmt:
 		sv.AddExpr(stmt.Value)
 	case *ForStmt:
-		sv.AddStmt(&stmt.Body)
+		sv.AddStmt(stmt.Body)
 	case *ForInStmt:
-		sv.AddStmt(&stmt.Body)
+		sv.AddStmt(stmt.Body)
 	case *ForOfStmt:
-		sv.AddStmt(&stmt.Body)
+		sv.AddStmt(stmt.Body)
 	case *IfStmt:
 		sv.AddStmt(stmt.Body)
 		if stmt.Else != nil {
@@ -854,7 +857,7 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 		}
 	case *TryStmt:
 		if 0 < len(stmt.Body.List) {
-			sv.AddStmt(&stmt.Body)
+			sv.AddStmt(stmt.Body)
 		}
 		if stmt.Catch != nil {
 			sv.AddStmt(stmt.Catch)
