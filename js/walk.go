@@ -14,11 +14,6 @@ func Walk(v IVisitor, n INode) {
 		return
 	}
 
-	// check if pointer is nil
-	if n.isNil() {
-		return
-	}
-
 	if v = v.Enter(n); v == nil {
 		return
 	}

@@ -39,6 +39,6 @@ func TestWalk(t *testing.T) {
 	Walk(&walker{}, ast)
 
 	t.Run("TestWalk", func(t *testing.T) {
-		test.String(t, ast.Raw(), "if (true) { for (i = 0; i < 1; i++) { obj.y = i; }; }; ")
+		test.String(t, ast.JS(), "if (true) { for (i = 0; i < 1; i++) { obj.y = i; }; }; ")
 	})
 }

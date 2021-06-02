@@ -79,12 +79,9 @@ func (v Var) String() string {
 	return string(v.Name())
 }
 
-func (v Var) Raw() string {
+// JS converts the node back to valid JavaScript
+func (v Var) JS() string {
 	return v.String()
-}
-
-func (v *Var) isNil() bool {
-	return v == nil
 }
 
 // VarsByUses is sortable by uses in descending order.
@@ -331,8 +328,7 @@ func (s *Scope) Unscope() {
 // INode is an interface for AST nodes
 type INode interface {
 	String() string
-	Raw() string
-	isNil() bool
+	JS() string
 }
 
 // IStmt is a dummy interface for statements.
@@ -369,22 +365,19 @@ func (n BlockStmt) String() string {
 	return s + " })"
 }
 
-func (n BlockStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BlockStmt) JS() string {
 	s := ""
 	if n.Scope.Parent != nil {
 		s += "{ "
 	}
 	for _, item := range n.List {
-		s += item.Raw() + "; "
+		s += item.JS() + "; "
 	}
 	if n.Scope.Parent != nil {
 		s += "}"
 	}
 	return s
-}
-
-func (n *BlockStmt) isNil() bool {
-	return n == nil
 }
 
 // EmptyStmt is an empty statement.
@@ -395,12 +388,9 @@ func (n EmptyStmt) String() string {
 	return "Stmt(;)"
 }
 
-func (n EmptyStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n EmptyStmt) JS() string {
 	return ";"
-}
-
-func (n *EmptyStmt) isNil() bool {
-	return n == nil
 }
 
 // ExprStmt is an expression statement.
@@ -416,12 +406,9 @@ func (n ExprStmt) String() string {
 	return "Stmt(" + n.Value.String() + ")"
 }
 
-func (n ExprStmt) Raw() string {
-	return n.Value.Raw()
-}
-
-func (n *ExprStmt) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n ExprStmt) JS() string {
+	return n.Value.JS()
 }
 
 // IfStmt is an if statement.
@@ -439,27 +426,24 @@ func (n IfStmt) String() string {
 	return s + ")"
 }
 
-func (n IfStmt) Raw() string {
-	s := "if (" + n.Cond.Raw() + ") "
+// JS converts the node back to valid JavaScript
+func (n IfStmt) JS() string {
+	s := "if (" + n.Cond.JS() + ") "
 	switch n.Body.(type) {
 	case *BlockStmt:
-		s += n.Body.Raw()
+		s += n.Body.JS()
 	default:
-		s += "{ " + n.Body.Raw() + " }"
+		s += "{ " + n.Body.JS() + " }"
 	}
 	if n.Else != nil {
 		switch n.Else.(type) {
 		case *BlockStmt:
-			s += " else " + n.Else.Raw()
+			s += " else " + n.Else.JS()
 		default:
-			s += " else { " + n.Else.Raw() + " }"
+			s += " else { " + n.Else.JS() + " }"
 		}
 	}
 	return s
-}
-
-func (n *IfStmt) isNil() bool {
-	return n == nil
 }
 
 // DoWhileStmt is a do-while iteration statement.
@@ -472,19 +456,16 @@ func (n DoWhileStmt) String() string {
 	return "Stmt(do " + n.Body.String() + " while " + n.Cond.String() + ")"
 }
 
-func (n DoWhileStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n DoWhileStmt) JS() string {
 	s := "do "
 	switch n.Body.(type) {
 	case *BlockStmt:
-		s += n.Body.Raw()
+		s += n.Body.JS()
 	default:
-		s += "{ " + n.Body.Raw() + " }"
+		s += "{ " + n.Body.JS() + " }"
 	}
-	return s + " while (" + n.Cond.Raw() + ")"
-}
-
-func (n *DoWhileStmt) isNil() bool {
-	return n == nil
+	return s + " while (" + n.Cond.JS() + ")"
 }
 
 // WhileStmt is a while iteration statement.
@@ -497,16 +478,13 @@ func (n WhileStmt) String() string {
 	return "Stmt(while " + n.Cond.String() + " " + n.Body.String() + ")"
 }
 
-func (n WhileStmt) Raw() string {
-	s := "while (" + n.Cond.Raw() + ") "
+// JS converts the node back to valid JavaScript
+func (n WhileStmt) JS() string {
+	s := "while (" + n.Cond.JS() + ") "
 	if n.Body != nil {
-		s += n.Body.Raw()
+		s += n.Body.JS()
 	}
 	return s
-}
-
-func (n *WhileStmt) isNil() bool {
-	return n == nil
 }
 
 // ForStmt is a regular for iteration statement.
@@ -533,26 +511,23 @@ func (n ForStmt) String() string {
 	return s + " " + n.Body.String() + ")"
 }
 
-func (n ForStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ForStmt) JS() string {
 	s := "for ("
 	if n.Init != nil {
-		s += n.Init.Raw()
+		s += n.Init.JS()
 	} else {
 		s += " "
 	}
 	s += "; "
 	if n.Cond != nil {
-		s += n.Cond.Raw()
+		s += n.Cond.JS()
 	}
 	s += "; "
 	if n.Post != nil {
-		s += n.Post.Raw()
+		s += n.Post.JS()
 	}
-	return s + ") " + n.Body.Raw()
-}
-
-func (n *ForStmt) isNil() bool {
-	return n == nil
+	return s + ") " + n.Body.JS()
 }
 
 // ForInStmt is a for-in iteration statement.
@@ -566,12 +541,9 @@ func (n ForInStmt) String() string {
 	return "Stmt(for " + n.Init.String() + " in " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
-func (n ForInStmt) Raw() string {
-	return "for (" + n.Init.Raw() + " in " + n.Value.Raw() + ") " + n.Body.Raw()
-}
-
-func (n *ForInStmt) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n ForInStmt) JS() string {
+	return "for (" + n.Init.JS() + " in " + n.Value.JS() + ") " + n.Body.JS()
 }
 
 // ForOfStmt is a for-of iteration statement.
@@ -590,16 +562,13 @@ func (n ForOfStmt) String() string {
 	return s + " " + n.Init.String() + " of " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
-func (n ForOfStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ForOfStmt) JS() string {
 	s := "for"
 	if n.Await {
 		s += " await"
 	}
-	return s + " (" + n.Init.Raw() + " of " + n.Value.Raw() + ") " + n.Body.Raw()
-}
-
-func (n *ForOfStmt) isNil() bool {
-	return n == nil
+	return s + " (" + n.Init.JS() + " of " + n.Value.JS() + ") " + n.Body.JS()
 }
 
 // CaseClause is a case clause or default clause for a switch statement.
@@ -620,22 +589,19 @@ func (n CaseClause) String() string {
 	return s + ")"
 }
 
-func (n CaseClause) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n CaseClause) JS() string {
 	s := " "
 	if n.Cond != nil {
-		s += "case " + n.Cond.Raw()
+		s += "case " + n.Cond.JS()
 	} else {
 		s += "default"
 	}
 	s += ":"
 	for _, item := range n.List {
-		s += " " + item.Raw() + ";"
+		s += " " + item.JS() + ";"
 	}
 	return s
-}
-
-func (n *CaseClause) isNil() bool {
-	return n == nil
 }
 
 // SwitchStmt is a switch statement.
@@ -653,16 +619,13 @@ func (n SwitchStmt) String() string {
 	return s + ")"
 }
 
-func (n SwitchStmt) Raw() string {
-	s := "switch (" + n.Init.Raw() + ") {"
+// JS converts the node back to valid JavaScript
+func (n SwitchStmt) JS() string {
+	s := "switch (" + n.Init.JS() + ") {"
 	for _, clause := range n.List {
-		s += clause.Raw()
+		s += clause.JS()
 	}
 	return s + " }"
-}
-
-func (n *SwitchStmt) isNil() bool {
-	return n == nil
 }
 
 // BranchStmt is a continue or break statement.
@@ -679,16 +642,13 @@ func (n BranchStmt) String() string {
 	return s + ")"
 }
 
-func (n BranchStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BranchStmt) JS() string {
 	s := n.Type.String()
 	if n.Label != nil {
 		s += " " + string(n.Label)
 	}
 	return s
-}
-
-func (n *BranchStmt) isNil() bool {
-	return n == nil
 }
 
 // ReturnStmt is a return statement.
@@ -704,16 +664,13 @@ func (n ReturnStmt) String() string {
 	return s + ")"
 }
 
-func (n ReturnStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ReturnStmt) JS() string {
 	s := "return"
 	if n.Value != nil {
-		s += " " + n.Value.Raw()
+		s += " " + n.Value.JS()
 	}
 	return s
-}
-
-func (n *ReturnStmt) isNil() bool {
-	return n == nil
 }
 
 // WithStmt is a with statement.
@@ -726,12 +683,9 @@ func (n WithStmt) String() string {
 	return "Stmt(with " + n.Cond.String() + " " + n.Body.String() + ")"
 }
 
-func (n WithStmt) Raw() string {
-	return "with (" + n.Cond.Raw() + ") " + n.Body.Raw()
-}
-
-func (n *WithStmt) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n WithStmt) JS() string {
+	return "with (" + n.Cond.JS() + ") " + n.Body.JS()
 }
 
 // LabelledStmt is a labelled statement.
@@ -744,12 +698,9 @@ func (n LabelledStmt) String() string {
 	return "Stmt(" + string(n.Label) + " : " + n.Value.String() + ")"
 }
 
-func (n LabelledStmt) Raw() string {
-	return string(n.Label) + ": " + n.Value.Raw()
-}
-
-func (n *LabelledStmt) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n LabelledStmt) JS() string {
+	return string(n.Label) + ": " + n.Value.JS()
 }
 
 // ThrowStmt is a throw statement.
@@ -761,12 +712,9 @@ func (n ThrowStmt) String() string {
 	return "Stmt(throw " + n.Value.String() + ")"
 }
 
-func (n ThrowStmt) Raw() string {
-	return "throw " + n.Value.Raw()
-}
-
-func (n *ThrowStmt) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n ThrowStmt) JS() string {
+	return "throw " + n.Value.JS()
 }
 
 // TryStmt is a try statement.
@@ -792,23 +740,20 @@ func (n TryStmt) String() string {
 	return s + ")"
 }
 
-func (n TryStmt) Raw() string {
-	s := "try " + n.Body.Raw()
+// JS converts the node back to valid JavaScript
+func (n TryStmt) JS() string {
+	s := "try " + n.Body.JS()
 	if n.Catch != nil {
 		s += " catch"
 		if n.Binding != nil {
-			s += "(" + n.Binding.Raw() + ")"
+			s += "(" + n.Binding.JS() + ")"
 		}
-		s += " " + n.Catch.Raw()
+		s += " " + n.Catch.JS()
 	}
 	if n.Finally != nil {
-		s += " finally " + n.Finally.Raw()
+		s += " finally " + n.Finally.JS()
 	}
 	return s
-}
-
-func (n *TryStmt) isNil() bool {
-	return n == nil
 }
 
 // DebuggerStmt is a debugger statement.
@@ -819,12 +764,9 @@ func (n DebuggerStmt) String() string {
 	return "Stmt(debugger)"
 }
 
-func (n DebuggerStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n DebuggerStmt) JS() string {
 	return "debugger"
-}
-
-func (n *DebuggerStmt) isNil() bool {
-	return n == nil
 }
 
 // Alias is a name space import or import/export specifier for import/export statements.
@@ -841,7 +783,8 @@ func (alias Alias) String() string {
 	return s + string(alias.Binding)
 }
 
-func (alias Alias) Raw() string {
+// JS converts the node back to valid JavaScript
+func (alias Alias) JS() string {
 	return alias.String()
 }
 
@@ -884,7 +827,8 @@ func (n ImportStmt) String() string {
 	return s + " " + string(n.Module) + ")"
 }
 
-func (n ImportStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ImportStmt) JS() string {
 	s := "import"
 	if n.Default != nil {
 		s += " " + string(n.Default)
@@ -893,7 +837,7 @@ func (n ImportStmt) Raw() string {
 		}
 	}
 	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
-		s += " " + n.List[0].Raw()
+		s += " " + n.List[0].JS()
 	} else if 0 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
@@ -901,7 +845,7 @@ func (n ImportStmt) Raw() string {
 				s += " ,"
 			}
 			if item.Binding != nil {
-				s += " " + item.Raw()
+				s += " " + item.JS()
 			}
 		}
 		s += " }"
@@ -910,10 +854,6 @@ func (n ImportStmt) Raw() string {
 		s += " from"
 	}
 	return s + " " + string(n.Module)
-}
-
-func (n *ImportStmt) isNil() bool {
-	return n == nil
 }
 
 // ExportStmt is an export statement.
@@ -951,15 +891,16 @@ func (n ExportStmt) String() string {
 	return s + ")"
 }
 
-func (n ExportStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ExportStmt) JS() string {
 	s := "export"
 	if n.Decl != nil {
 		if n.Default {
 			s += " default"
 		}
-		return s + " " + n.Decl.Raw()
+		return s + " " + n.Decl.JS()
 	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
-		s += " " + n.List[0].Raw()
+		s += " " + n.List[0].JS()
 	} else if 0 < len(n.List) {
 		s += " {"
 		for i, item := range n.List {
@@ -967,7 +908,7 @@ func (n ExportStmt) Raw() string {
 				s += " ,"
 			}
 			if item.Binding != nil {
-				s += " " + item.Raw()
+				s += " " + item.JS()
 			}
 		}
 		s += " }"
@@ -976,10 +917,6 @@ func (n ExportStmt) Raw() string {
 		s += " from " + string(n.Module)
 	}
 	return s
-}
-
-func (n *ExportStmt) isNil() bool {
-	return n == nil
 }
 
 // DirectivePrologueStmt is a string literal at the beginning of a function or module (usually "use strict").
@@ -991,12 +928,9 @@ func (n DirectivePrologueStmt) String() string {
 	return "Stmt(" + string(n.Value) + ")"
 }
 
-func (n DirectivePrologueStmt) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n DirectivePrologueStmt) JS() string {
 	return string(n.Value)
-}
-
-func (n *DirectivePrologueStmt) isNil() bool {
-	return n == nil
 }
 
 func (n BlockStmt) stmtNode()             {}
@@ -1054,12 +988,9 @@ func (n PropertyName) String() string {
 	return string(n.Literal.Data)
 }
 
-func (n PropertyName) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n PropertyName) JS() string {
 	return n.String()
-}
-
-func (n *PropertyName) isNil() bool {
-	return n == nil
 }
 
 // BindingArray is an array binding pattern.
@@ -1085,25 +1016,22 @@ func (n BindingArray) String() string {
 	return s + " ]"
 }
 
-func (n BindingArray) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BindingArray) JS() string {
 	s := "["
 	for i, item := range n.List {
 		if i != 0 {
 			s += ","
 		}
-		s += item.Raw()
+		s += item.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ","
 		}
-		s += " ..." + n.Rest.Raw()
+		s += " ..." + n.Rest.JS()
 	}
 	return s + "]"
-}
-
-func (n *BindingArray) isNil() bool {
-	return n == nil
 }
 
 // BindingObjectItem is a binding property.
@@ -1122,18 +1050,15 @@ func (n BindingObjectItem) String() string {
 	return " " + n.Value.String()
 }
 
-func (n BindingObjectItem) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BindingObjectItem) JS() string {
 	s := ""
 	if n.Key != nil {
 		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
-			s += " " + n.Key.Raw() + ":"
+			s += " " + n.Key.JS() + ":"
 		}
 	}
-	return " " + n.Value.Raw()
-}
-
-func (n *BindingObjectItem) isNil() bool {
-	return n == nil
+	return " " + n.Value.JS()
 }
 
 // BindingObject is an object binding pattern.
@@ -1164,7 +1089,8 @@ func (n BindingObject) String() string {
 	return s + " }"
 }
 
-func (n BindingObject) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BindingObject) JS() string {
 	s := "{"
 	for i, item := range n.List {
 		if i != 0 {
@@ -1172,10 +1098,10 @@ func (n BindingObject) Raw() string {
 		}
 		if item.Key != nil {
 			if v, ok := item.Value.Binding.(*Var); !ok || !item.Key.IsIdent(v.Data) {
-				s += " " + item.Key.Raw() + ":"
+				s += " " + item.Key.JS() + ":"
 			}
 		}
-		s += " " + item.Value.Raw()
+		s += " " + item.Value.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
@@ -1184,10 +1110,6 @@ func (n BindingObject) Raw() string {
 		s += " ..." + string(n.Rest.Data)
 	}
 	return s + " }"
-}
-
-func (n *BindingObject) isNil() bool {
-	return n == nil
 }
 
 // BindingElement is a binding element.
@@ -1207,19 +1129,16 @@ func (n BindingElement) String() string {
 	return s + ")"
 }
 
-func (n BindingElement) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n BindingElement) JS() string {
 	if n.Binding == nil {
 		return ""
 	}
-	s := n.Binding.Raw()
+	s := n.Binding.JS()
 	if n.Default != nil {
-		s += " = " + n.Default.Raw()
+		s += " = " + n.Default.JS()
 	}
 	return s
-}
-
-func (n *BindingElement) isNil() bool {
-	return n == nil
 }
 
 func (v *Var) bindingNode()          {}
@@ -1242,19 +1161,16 @@ func (n VarDecl) String() string {
 	return s + ")"
 }
 
-func (n VarDecl) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n VarDecl) JS() string {
 	s := n.TokenType.String()
 	for i, item := range n.List {
 		if i != 0 {
 			s += ","
 		}
-		s += " " + item.Raw()
+		s += " " + item.JS()
 	}
 	return s
-}
-
-func (n *VarDecl) isNil() bool {
-	return n == nil
 }
 
 // Params is a list of parameters for functions, methods, and arrow function.
@@ -1280,25 +1196,22 @@ func (n Params) String() string {
 	return s + ")"
 }
 
-func (n Params) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n Params) JS() string {
 	s := "("
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.Raw()
+		s += item.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
 			s += ", "
 		}
-		s += "..." + n.Rest.Raw()
+		s += "..." + n.Rest.JS()
 	}
 	return s + ")"
-}
-
-func (n *Params) isNil() bool {
-	return n == nil
 }
 
 // FuncDecl is an (async) (generator) function declaration or expression.
@@ -1326,7 +1239,8 @@ func (n FuncDecl) String() string {
 	return s + " " + n.Params.String() + " " + n.Body.String() + ")"
 }
 
-func (n FuncDecl) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n FuncDecl) JS() string {
 	s := ""
 	if n.Async {
 		s += "async function"
@@ -1339,11 +1253,7 @@ func (n FuncDecl) Raw() string {
 	if n.Name != nil {
 		s += " " + string(n.Name.Data)
 	}
-	return s + " " + n.Params.Raw() + " " + n.Body.Raw()
-}
-
-func (n *FuncDecl) isNil() bool {
-	return n == nil
+	return s + " " + n.Params.JS() + " " + n.Body.JS()
 }
 
 // MethodDecl is a method definition in a class declaration.
@@ -1379,7 +1289,8 @@ func (n MethodDecl) String() string {
 	return "Method(" + s[1:] + ")"
 }
 
-func (n MethodDecl) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n MethodDecl) JS() string {
 	s := ""
 	if n.Static {
 		s += " static"
@@ -1396,12 +1307,8 @@ func (n MethodDecl) Raw() string {
 	if n.Set {
 		s += " set"
 	}
-	s += " " + n.Name.Raw() + " " + n.Params.Raw() + " " + n.Body.Raw()
+	s += " " + n.Name.JS() + " " + n.Params.JS() + " " + n.Body.JS()
 	return s[1:]
-}
-
-func (n *MethodDecl) isNil() bool {
-	return n == nil
 }
 
 // FieldDefinition is a field definition in a class declaration.
@@ -1418,16 +1325,13 @@ func (n FieldDefinition) String() string {
 	return s + ")"
 }
 
-func (n FieldDefinition) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n FieldDefinition) JS() string {
 	s := n.Name.String()
 	if n.Init != nil {
-		s += " = " + n.Init.Raw()
+		s += " = " + n.Init.JS()
 	}
 	return s
-}
-
-func (n *FieldDefinition) isNil() bool {
-	return n == nil
 }
 
 // ClassDecl is a class declaration.
@@ -1455,26 +1359,23 @@ func (n ClassDecl) String() string {
 	return s + ")"
 }
 
-func (n ClassDecl) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ClassDecl) JS() string {
 	s := "class"
 	if n.Name != nil {
 		s += " " + string(n.Name.Data)
 	}
 	if n.Extends != nil {
-		s += " extends " + n.Extends.Raw()
+		s += " extends " + n.Extends.JS()
 	}
 	s += " { "
 	for _, item := range n.Definitions {
-		s += item.Raw() + "; "
+		s += item.JS() + "; "
 	}
 	for _, item := range n.Methods {
-		s += item.Raw() + "; "
+		s += item.JS() + "; "
 	}
 	return s + "}"
-}
-
-func (n *ClassDecl) isNil() bool {
-	return n == nil
 }
 
 func (n VarDecl) stmtNode()   {}
@@ -1498,12 +1399,9 @@ func (n LiteralExpr) String() string {
 	return string(n.Data)
 }
 
-func (n LiteralExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n LiteralExpr) JS() string {
 	return string(n.Data)
-}
-
-func (n *LiteralExpr) isNil() bool {
-	return n == nil
 }
 
 // Element is an array literal element.
@@ -1523,19 +1421,16 @@ func (n Element) String() string {
 	return s
 }
 
-func (n Element) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n Element) JS() string {
 	s := ""
 	if n.Value != nil {
 		if n.Spread {
 			s += "..."
 		}
-		s += n.Value.Raw()
+		s += n.Value.JS()
 	}
 	return s
-}
-
-func (n *Element) isNil() bool {
-	return n == nil
 }
 
 // ArrayExpr is an array literal.
@@ -1562,7 +1457,8 @@ func (n ArrayExpr) String() string {
 	return s + "]"
 }
 
-func (n ArrayExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ArrayExpr) JS() string {
 	s := "["
 	for i, item := range n.List {
 		if i != 0 {
@@ -1572,17 +1468,13 @@ func (n ArrayExpr) Raw() string {
 			if item.Spread {
 				s += "..."
 			}
-			s += item.Value.Raw()
+			s += item.Value.JS()
 		}
 	}
 	if 0 < len(n.List) && n.List[len(n.List)-1].Value == nil {
 		s += ","
 	}
 	return s + "]"
-}
-
-func (n *ArrayExpr) isNil() bool {
-	return n == nil
 }
 
 // Property is a property definition in an object literal.
@@ -1611,24 +1503,21 @@ func (n Property) String() string {
 	return s
 }
 
-func (n Property) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n Property) JS() string {
 	s := ""
 	if n.Name != nil {
 		if v, ok := n.Value.(*Var); !ok || !n.Name.IsIdent(v.Data) {
-			s += n.Name.Raw() + ": "
+			s += n.Name.JS() + ": "
 		}
 	} else if n.Spread {
 		s += "..."
 	}
-	s += n.Value.Raw()
+	s += n.Value.JS()
 	if n.Init != nil {
-		s += " = " + n.Init.Raw()
+		s += " = " + n.Init.JS()
 	}
 	return s
-}
-
-func (n *Property) isNil() bool {
-	return n == nil
 }
 
 // ObjectExpr is an object literal.
@@ -1647,19 +1536,16 @@ func (n ObjectExpr) String() string {
 	return s + "}"
 }
 
-func (n ObjectExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ObjectExpr) JS() string {
 	s := "{"
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.Raw()
+		s += item.JS()
 	}
 	return s + "}"
-}
-
-func (n *ObjectExpr) isNil() bool {
-	return n == nil
 }
 
 // TemplatePart is a template head or middle.
@@ -1672,12 +1558,9 @@ func (n TemplatePart) String() string {
 	return string(n.Value) + n.Expr.String()
 }
 
-func (n TemplatePart) Raw() string {
-	return string(n.Value) + n.Expr.Raw()
-}
-
-func (n *TemplatePart) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n TemplatePart) JS() string {
+	return string(n.Value) + n.Expr.JS()
 }
 
 // TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
@@ -1699,19 +1582,16 @@ func (n TemplateExpr) String() string {
 	return s + string(n.Tail)
 }
 
-func (n TemplateExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n TemplateExpr) JS() string {
 	s := ""
 	if n.Tag != nil {
-		s += n.Tag.Raw()
+		s += n.Tag.JS()
 	}
 	for _, item := range n.List {
-		s += item.Raw()
+		s += item.JS()
 	}
 	return s + string(n.Tail)
-}
-
-func (n *TemplateExpr) isNil() bool {
-	return n == nil
 }
 
 // GroupExpr is a parenthesized expression.
@@ -1723,12 +1603,9 @@ func (n GroupExpr) String() string {
 	return "(" + n.X.String() + ")"
 }
 
-func (n GroupExpr) Raw() string {
-	return "(" + n.X.Raw() + ")"
-}
-
-func (n *GroupExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n GroupExpr) JS() string {
+	return "(" + n.X.JS() + ")"
 }
 
 // IndexExpr is a member/call expression, super property, or optional chain with an index expression.
@@ -1742,12 +1619,9 @@ func (n IndexExpr) String() string {
 	return "(" + n.X.String() + "[" + n.Y.String() + "])"
 }
 
-func (n IndexExpr) Raw() string {
-	return n.X.Raw() + "[" + n.Y.Raw() + "]"
-}
-
-func (n *IndexExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n IndexExpr) JS() string {
+	return n.X.JS() + "[" + n.Y.JS() + "]"
 }
 
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
@@ -1761,12 +1635,9 @@ func (n DotExpr) String() string {
 	return "(" + n.X.String() + "." + n.Y.String() + ")"
 }
 
-func (n DotExpr) Raw() string {
-	return n.X.Raw() + "." + n.Y.Raw()
-}
-
-func (n *DotExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n DotExpr) JS() string {
+	return n.X.JS() + "." + n.Y.JS()
 }
 
 // NewTargetExpr is a new target meta property.
@@ -1777,12 +1648,9 @@ func (n NewTargetExpr) String() string {
 	return "(new.target)"
 }
 
-func (n NewTargetExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n NewTargetExpr) JS() string {
 	return "new.target"
-}
-
-func (n *NewTargetExpr) isNil() bool {
-	return n == nil
 }
 
 // ImportMetaExpr is a import meta meta property.
@@ -1793,12 +1661,9 @@ func (n ImportMetaExpr) String() string {
 	return "(import.meta)"
 }
 
-func (n ImportMetaExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ImportMetaExpr) JS() string {
 	return "import.meta"
-}
-
-func (n *ImportMetaExpr) isNil() bool {
-	return n == nil
 }
 
 type Arg struct {
@@ -1814,16 +1679,13 @@ func (n Arg) String() string {
 	return s + n.Value.String()
 }
 
-func (n Arg) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n Arg) JS() string {
 	s := ""
 	if n.Rest {
 		s += "..."
 	}
-	return s + n.Value.Raw()
-}
-
-func (n *Arg) isNil() bool {
-	return n == nil
+	return s + n.Value.JS()
 }
 
 // Args is a list of arguments as used by new and call expressions.
@@ -1842,19 +1704,16 @@ func (n Args) String() string {
 	return s + ")"
 }
 
-func (n Args) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n Args) JS() string {
 	s := ""
 	for i, item := range n.List {
 		if i != 0 {
 			s += ", "
 		}
-		s += item.Raw()
+		s += item.JS()
 	}
 	return s
-}
-
-func (n *Args) isNil() bool {
-	return n == nil
 }
 
 // NewExpr is a new expression or new member expression.
@@ -1870,17 +1729,14 @@ func (n NewExpr) String() string {
 	return "(new " + n.X.String() + ")"
 }
 
-func (n NewExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n NewExpr) JS() string {
 	if n.Args != nil {
-		return "new " + n.X.Raw() + "(" + n.Args.Raw() + ")"
+		return "new " + n.X.JS() + "(" + n.Args.JS() + ")"
 	}
 
 	// always use parentheses to prevent errors when chaining e.g. new Date().getTime()
-	return "new " + n.X.Raw() + "()"
-}
-
-func (n *NewExpr) isNil() bool {
-	return n == nil
+	return "new " + n.X.JS() + "()"
 }
 
 // CallExpr is a call expression.
@@ -1893,12 +1749,9 @@ func (n CallExpr) String() string {
 	return "(" + n.X.String() + n.Args.String() + ")"
 }
 
-func (n CallExpr) Raw() string {
-	return n.X.Raw() + "(" + n.Args.Raw() + ")"
-}
-
-func (n *CallExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n CallExpr) JS() string {
+	return n.X.JS() + "(" + n.Args.JS() + ")"
 }
 
 // OptChainExpr is an optional chain.
@@ -1919,20 +1772,17 @@ func (n OptChainExpr) String() string {
 	}
 }
 
-func (n OptChainExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n OptChainExpr) JS() string {
 	s := n.X.String() + "?."
 	switch y := n.Y.(type) {
 	case *CallExpr:
-		return s + y.Args.Raw() + ")"
+		return s + y.Args.JS() + ")"
 	case *IndexExpr:
-		return s + "[" + y.Y.Raw() + "])"
+		return s + "[" + y.Y.JS() + "])"
 	default:
-		return s + y.Raw()
+		return s + y.JS()
 	}
-}
-
-func (n *OptChainExpr) isNil() bool {
-	return n == nil
 }
 
 // UnaryExpr is an update or unary expression.
@@ -1950,17 +1800,14 @@ func (n UnaryExpr) String() string {
 	return "(" + n.Op.String() + n.X.String() + ")"
 }
 
-func (n UnaryExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n UnaryExpr) JS() string {
 	if n.Op == PostIncrToken || n.Op == PostDecrToken {
-		return n.X.Raw() + n.Op.String()
+		return n.X.JS() + n.Op.String()
 	} else if IsIdentifierName(n.Op) {
-		return n.Op.String() + " " + n.X.Raw()
+		return n.Op.String() + " " + n.X.JS()
 	}
-	return n.Op.String() + n.X.Raw()
-}
-
-func (n *UnaryExpr) isNil() bool {
-	return n == nil
+	return n.Op.String() + n.X.JS()
 }
 
 // BinaryExpr is a binary expression.
@@ -1976,12 +1823,9 @@ func (n BinaryExpr) String() string {
 	return "(" + n.X.String() + n.Op.String() + n.Y.String() + ")"
 }
 
-func (n BinaryExpr) Raw() string {
-	return n.X.Raw() + " " + n.Op.String() + " " + n.Y.Raw()
-}
-
-func (n *BinaryExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n BinaryExpr) JS() string {
+	return n.X.JS() + " " + n.Op.String() + " " + n.Y.JS()
 }
 
 // CondExpr is a conditional expression.
@@ -1993,12 +1837,9 @@ func (n CondExpr) String() string {
 	return "(" + n.Cond.String() + " ? " + n.X.String() + " : " + n.Y.String() + ")"
 }
 
-func (n CondExpr) Raw() string {
-	return n.Cond.Raw() + " ? " + n.X.Raw() + " : " + n.Y.Raw()
-}
-
-func (n *CondExpr) isNil() bool {
-	return n == nil
+// JS converts the node back to valid JavaScript
+func (n CondExpr) JS() string {
+	return n.Cond.JS() + " ? " + n.X.JS() + " : " + n.Y.JS()
 }
 
 // YieldExpr is a yield expression.
@@ -2018,7 +1859,8 @@ func (n YieldExpr) String() string {
 	return s + " " + n.X.String() + ")"
 }
 
-func (n YieldExpr) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n YieldExpr) JS() string {
 	if n.X == nil {
 		return "yield"
 	}
@@ -2026,11 +1868,7 @@ func (n YieldExpr) Raw() string {
 	if n.Generator {
 		s += "*"
 	}
-	return s + " " + n.X.Raw()
-}
-
-func (n *YieldExpr) isNil() bool {
-	return n == nil
+	return s + " " + n.X.JS()
 }
 
 // ArrowFunc is an (async) arrow function.
@@ -2048,16 +1886,13 @@ func (n ArrowFunc) String() string {
 	return s + n.Params.String() + " => " + n.Body.String() + ")"
 }
 
-func (n ArrowFunc) Raw() string {
+// JS converts the node back to valid JavaScript
+func (n ArrowFunc) JS() string {
 	s := ""
 	if n.Async {
 		s += "async "
 	}
-	return s + n.Params.Raw() + " => " + n.Body.Raw()
-}
-
-func (n *ArrowFunc) isNil() bool {
-	return n == nil
+	return s + n.Params.JS() + " => " + n.Body.JS()
 }
 
 func (v *Var) exprNode()           {}
