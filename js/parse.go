@@ -2192,7 +2192,9 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 			}
 			var bindingElement BindingElement
 			bindingElement.Binding = p.exprToBinding(item.Value)
-			if item.Init != nil {
+			if bindingElement.Binding == nil {
+				bindingElement = p.exprToBindingElement(item.Value)
+			} else if item.Init != nil {
 				bindingElement.Default = item.Init
 			}
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Name, Value: bindingElement})
