@@ -219,7 +219,7 @@ func TestJSRealWorldJS(t *testing.T) {
 
 	// reparse to make sure JS is still valid
 	_, err = Parse(parse.NewInputString(ast.JS()))
-	if err != nil && err == io.EOF {
+	if err != nil {
 		t.Error("Err: ", err)
 	}
 }

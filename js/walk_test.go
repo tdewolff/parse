@@ -42,3 +42,71 @@ func TestWalk(t *testing.T) {
 		test.String(t, ast.JS(), "if (true) { for (i = 0; i < 1; i++) { obj.y = i; }; }; ")
 	})
 }
+
+func TestWalkNilNode(t *testing.T) {
+	nodes := []INode{
+		&AST{},
+		&Var{},
+		&BlockStmt{},
+		&EmptyStmt{},
+		&ExprStmt{},
+		&IfStmt{},
+		&DoWhileStmt{},
+		&WhileStmt{},
+		&ForStmt{},
+		&ForInStmt{},
+		&ForOfStmt{},
+		&CaseClause{},
+		&SwitchStmt{},
+		&BranchStmt{},
+		&ReturnStmt{},
+		&WithStmt{},
+		&LabelledStmt{},
+		&ThrowStmt{},
+		&TryStmt{},
+		&DebuggerStmt{},
+		&Alias{},
+		&ImportStmt{},
+		&ExportStmt{},
+		&DirectivePrologueStmt{},
+		&PropertyName{},
+		&BindingArray{},
+		&BindingObjectItem{},
+		&BindingObject{},
+		&BindingElement{},
+		&VarDecl{},
+		&Params{},
+		&FuncDecl{},
+		&MethodDecl{},
+		&FieldDefinition{},
+		&ClassDecl{},
+		&LiteralExpr{},
+		&Element{},
+		&ArrayExpr{},
+		&Property{},
+		&ObjectExpr{},
+		&TemplatePart{},
+		&TemplateExpr{},
+		&GroupExpr{},
+		&IndexExpr{},
+		&DotExpr{},
+		&NewTargetExpr{},
+		&ImportMetaExpr{},
+		&Arg{},
+		&Args{},
+		&NewExpr{},
+		&CallExpr{},
+		&OptChainExpr{},
+		&UnaryExpr{},
+		&BinaryExpr{},
+		&CondExpr{},
+		&YieldExpr{},
+		&ArrowFunc{},
+	}
+
+	t.Run("TestWalkNilNode", func(t *testing.T) {
+		for _, n := range nodes {
+			Walk(&walker{}, n)
+		}
+	})
+}
