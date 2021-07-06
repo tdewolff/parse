@@ -75,6 +75,9 @@ func TestTokens(t *testing.T) {
 		{"\\u002", TTs{ErrorToken}},
 		{"`template", TTs{TemplateToken}},
 		{"`template${x}template", TTs{TemplateStartToken, IdentifierToken, TemplateEndToken}},
+		{"a++=1", TTs{IdentifierToken, IncrToken, EqToken, DecimalToken}},
+		{"a++==1", TTs{IdentifierToken, IncrToken, EqEqToken, DecimalToken}},
+		{"a++===1", TTs{IdentifierToken, IncrToken, EqEqEqToken, DecimalToken}},
 
 		// null characters
 		{"'string\x00'return", TTs{StringToken, ReturnToken}},
