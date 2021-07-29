@@ -387,6 +387,7 @@ func TestParse(t *testing.T) {
 		{"a?.b\n`c`", "Stmt((a?.b)`c`)"},
 
 		{"() => { const v=6; x={v} }", "Stmt(Params() => Stmt({ Decl(const Binding(v = 6)) Stmt(x={v}) }))"},
+		{`([]=l=>{let{e}={e}})`, `Stmt(([]=(Params(Binding(l)) => Stmt({ Decl(let Binding({ Binding(e) } = {e})) }))))`}, // go-fuzz
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
