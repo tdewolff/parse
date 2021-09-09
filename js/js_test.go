@@ -141,6 +141,7 @@ func TestJS(t *testing.T) {
 		// Property
 		{`x = {x: "value"};`, `x = {x: "value"}; `},
 		{`x = {"x": "value"};`, `x = {x: "value"}; `},
+		{`x = {"1a": 2};`, `x = {"1a": 2}; `},
 
 		// ObjectExpr
 		{`x = {x: "value", y: "value"};`, `x = {x: "value", y: "value"}; `},
