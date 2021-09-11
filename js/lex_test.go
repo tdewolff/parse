@@ -55,6 +55,7 @@ func TestTokens(t *testing.T) {
 		{"'str\\i\\'ng'", TTs{StringToken}},
 		{"'str\\\\'abc", TTs{StringToken, IdentifierToken}},
 		{"'str\\\ni\\\\u00A0ng'", TTs{StringToken}},
+		{"'str\u2028\u2029ing'", TTs{StringToken}},
 
 		{"0b0101 0o0707 0b17", TTs{BinaryToken, OctalToken, BinaryToken, DecimalToken}},
 		{"`template`", TTs{TemplateToken}},
@@ -104,7 +105,7 @@ func TestTokens(t *testing.T) {
 		{"\\u{0029FEF}ident", TTs{IdentifierToken}},
 		{"\\u{}", TTs{ErrorToken}},
 		{"\\ugident", TTs{ErrorToken}},
-		{"'str\u2028ing'", TTs{ErrorToken}},
+		{"'str\ring'", TTs{ErrorToken}},
 		{"a=/\\\n", TTs{IdentifierToken, EqToken, DivToken, ErrorToken}},
 		{"a=/x\n", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken, LineTerminatorToken}},
 		{"`\\``", TTs{TemplateToken}},
