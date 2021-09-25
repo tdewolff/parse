@@ -258,7 +258,7 @@ func TestTextAndAttrVal(t *testing.T) {
 
 	_, data = l.Next()
 	test.Bytes(t, data, []byte("js"))
-	test.Bytes(t, l.Text(), nil)
+	test.Bytes(t, l.Text(), []byte("js"))
 	test.Bytes(t, l.AttrVal(), nil)
 
 	_, data = l.Next()
