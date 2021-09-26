@@ -1751,7 +1751,6 @@ func (n Property) JSON() (string, error) {
 	var err error
 	ss, err = n.Value.JSON()
 	if err != nil {
-		fmt.Println("b")
 		return "", err
 	}
 	s += ss
