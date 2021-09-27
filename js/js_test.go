@@ -224,3 +224,19 @@ func TestJSRealWorldJS(t *testing.T) {
 		t.Error("Err: ", err)
 	}
 }
+
+func TestJSON(t *testing.T) {
+	json := `x=[{"key": [2.5, '\r'], '"': -2E+9}, null, false, true, 5.0e-6, "string", 'stri"ng']`
+
+	ast, err := Parse(parse.NewInputString(json))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	val := ast.List[0].(*ExprStmt).Value.(*BinaryExpr).Y
+	out, err := val.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	test.String(t, out, `[{"key": [2.5, "\r"], "\"": -2E+9}, null, false, true, 5.0e-6, "string", "stri\"ng"]`)
+}

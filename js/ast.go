@@ -390,10 +390,7 @@ func (n BlockStmt) JS() string {
 
 // JSON converts the node back to valid JSON
 func (n BlockStmt) JSON() (string, error) {
-	if len(n.List) != 1 {
-		return "", ErrInvalidJSON
-	}
-	return n.List[0].JSON()
+	return "", ErrInvalidJSON
 }
 
 // EmptyStmt is an empty statement.
@@ -434,7 +431,7 @@ func (n ExprStmt) JS() string {
 
 // JSON converts the node back to valid JSON
 func (n ExprStmt) JSON() (string, error) {
-	return n.Value.JSON()
+	return "", ErrInvalidJSON
 }
 
 // IfStmt is an if statement.
@@ -1582,6 +1579,7 @@ func (n LiteralExpr) JSON() (string, error) {
 		return string(n.Data), nil
 	} else if n.TokenType == StringToken {
 		if n.Data[0] == '\'' {
+			n.Data = bytes.ReplaceAll(n.Data, []byte(`"`), []byte(`\"`))
 			n.Data[0] = '"'
 			n.Data[len(n.Data)-1] = '"'
 		}
@@ -2125,6 +2123,9 @@ func (n UnaryExpr) JS() string {
 
 // JSON converts the node back to valid JSON
 func (n UnaryExpr) JSON() (string, error) {
+	if lit, ok := n.X.(*LiteralExpr); ok && n.Op == NegToken && lit.TokenType == DecimalToken {
+		return "-" + string(lit.Data), nil
+	}
 	return "", ErrInvalidJSON
 }
 
