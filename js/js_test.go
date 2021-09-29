@@ -1,6 +1,7 @@
 package js
 
 import (
+	"bytes"
 	"io"
 	"testing"
 
@@ -234,9 +235,9 @@ func TestJSON(t *testing.T) {
 	}
 
 	val := ast.List[0].(*ExprStmt).Value.(*BinaryExpr).Y.(JSONer)
-	out, err := val.JSON()
-	if err != nil {
+	buf := &bytes.Buffer{}
+	if err := val.JSON(buf); err != nil {
 		t.Fatal(err)
 	}
-	test.String(t, out, `[{"key": [2.5, "\r"], "\"": -2E+9}, null, false, true, 5.0e-6, "string", "stri\"ng"]`)
+	test.String(t, buf.String(), `[{"key": [2.5, "\r"], "\"": -2E+9}, null, false, true, 5.0e-6, "string", "stri\"ng"]`)
 }

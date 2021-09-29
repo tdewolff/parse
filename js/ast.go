@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+
+	"github.com/tdewolff/parse/v2"
 )
 
 var ErrInvalidJSON = fmt.Errorf("invalid JSON")
 
 type JSONer interface {
-	JSON() (string, error)
+	JSON(*bytes.Buffer) error
 }
 
 // AST is the full ECMAScript abstract syntax tree.
@@ -1407,18 +1409,22 @@ func (n LiteralExpr) JS() string {
 }
 
 // JSON converts the node back to valid JSON
-func (n LiteralExpr) JSON() (string, error) {
+func (n LiteralExpr) JSON(buf *bytes.Buffer) error {
 	if n.TokenType == TrueToken || n.TokenType == FalseToken || n.TokenType == NullToken || n.TokenType == DecimalToken {
-		return string(n.Data), nil
+		buf.Write(n.Data)
+		return nil
 	} else if n.TokenType == StringToken {
+		data := n.Data
 		if n.Data[0] == '\'' {
-			n.Data = bytes.ReplaceAll(n.Data, []byte(`"`), []byte(`\"`))
-			n.Data[0] = '"'
-			n.Data[len(n.Data)-1] = '"'
+			data = parse.Copy(data)
+			data = bytes.ReplaceAll(data, []byte(`"`), []byte(`\"`))
+			data[0] = '"'
+			data[len(data)-1] = '"'
 		}
-		return string(n.Data), nil
+		buf.Write(data)
+		return nil
 	}
-	return "", ErrInvalidJSON
+	return ErrInvalidJSON
 }
 
 // Element is an array literal element.
@@ -1495,26 +1501,24 @@ func (n ArrayExpr) JS() string {
 }
 
 // JSON converts the node back to valid JSON
-func (n ArrayExpr) JSON() (string, error) {
-	s := "["
+func (n ArrayExpr) JSON(buf *bytes.Buffer) error {
+	buf.WriteByte('[')
 	for i, item := range n.List {
 		if i != 0 {
-			s += ", "
+			buf.WriteString(", ")
 		}
 		if item.Value == nil || item.Spread {
-			return "", ErrInvalidJSON
+			return ErrInvalidJSON
 		}
 		val, ok := item.Value.(JSONer)
 		if !ok {
-			return "", ErrInvalidJSON
+			return ErrInvalidJSON
+		} else if err := val.JSON(buf); err != nil {
+			return err
 		}
-		ss, err := val.JSON()
-		if err != nil {
-			return "", err
-		}
-		s += ss
 	}
-	return s + "]", nil
+	buf.WriteByte(']')
+	return nil
 }
 
 // Property is a property definition in an object literal.
@@ -1561,29 +1565,25 @@ func (n Property) JS() string {
 }
 
 // JSON converts the node back to valid JSON
-func (n Property) JSON() (string, error) {
-	s := ""
+func (n Property) JSON(buf *bytes.Buffer) error {
 	if n.Name == nil || n.Name.Literal.TokenType != StringToken && n.Name.Literal.TokenType != IdentifierToken || n.Spread || n.Init != nil {
-		return "", ErrInvalidJSON
+		return ErrInvalidJSON
 	} else if n.Name.Literal.TokenType == IdentifierToken {
-		n.Name.Literal.TokenType = StringToken
-		n.Name.Literal.Data = append(append([]byte{'"'}, n.Name.Literal.Data...), '"')
+		buf.WriteByte('"')
+		buf.Write(n.Name.Literal.Data)
+		buf.WriteByte('"')
+	} else {
+		_ = n.Name.Literal.JSON(buf)
 	}
+	buf.WriteString(": ")
 
-	ss, _ := n.Name.Literal.JSON()
-	s += ss + ": "
-
-	var err error
 	val, ok := n.Value.(JSONer)
 	if !ok {
-		return "", ErrInvalidJSON
+		return ErrInvalidJSON
+	} else if err := val.JSON(buf); err != nil {
+		return err
 	}
-	ss, err = val.JSON()
-	if err != nil {
-		return "", err
-	}
-	s += ss
-	return s, nil
+	return nil
 }
 
 // ObjectExpr is an object literal.
@@ -1615,19 +1615,18 @@ func (n ObjectExpr) JS() string {
 }
 
 // JSON converts the node back to valid JSON
-func (n ObjectExpr) JSON() (string, error) {
-	s := "{"
+func (n ObjectExpr) JSON(buf *bytes.Buffer) error {
+	buf.WriteByte('{')
 	for i, item := range n.List {
 		if i != 0 {
-			s += ", "
+			buf.WriteString(", ")
 		}
-		ss, err := item.JSON()
-		if err != nil {
-			return "", err
+		if err := item.JSON(buf); err != nil {
+			return err
 		}
-		s += ss
 	}
-	return s + "}", nil
+	buf.WriteByte('}')
+	return nil
 }
 
 // TemplatePart is a template head or middle.
@@ -1893,11 +1892,13 @@ func (n UnaryExpr) JS() string {
 }
 
 // JSON converts the node back to valid JSON
-func (n UnaryExpr) JSON() (string, error) {
+func (n UnaryExpr) JSON(buf *bytes.Buffer) error {
 	if lit, ok := n.X.(*LiteralExpr); ok && n.Op == NegToken && lit.TokenType == DecimalToken {
-		return "-" + string(lit.Data), nil
+		buf.WriteByte('-')
+		buf.Write(lit.Data)
+		return nil
 	}
-	return "", ErrInvalidJSON
+	return ErrInvalidJSON
 }
 
 // BinaryExpr is a binary expression.
