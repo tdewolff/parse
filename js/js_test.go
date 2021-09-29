@@ -233,7 +233,7 @@ func TestJSON(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	val := ast.List[0].(*ExprStmt).Value.(*BinaryExpr).Y
+	val := ast.List[0].(*ExprStmt).Value.(*BinaryExpr).Y.(JSONer)
 	out, err := val.JSON()
 	if err != nil {
 		t.Fatal(err)
