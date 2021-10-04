@@ -197,6 +197,11 @@ func TestJS(t *testing.T) {
 		{"(x) => { y(); };", "(x) => { y(); }; "},
 		{"(x, y) => { z(); };", "(x, y) => { z(); }; "},
 		{"async (x, y) => { z(); };", "async (x, y) => { z(); }; "},
+
+		// Await keyword
+		{"await x;", "await x; "},
+		{"export default await x;", "export default await x; "},
+		{"export let a = await x;", "export let a = await x; "},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
