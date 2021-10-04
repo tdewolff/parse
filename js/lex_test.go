@@ -41,6 +41,7 @@ func TestTokens(t *testing.T) {
 		{"try typeof var void while with yield", TTs{TryToken, TypeofToken, VarToken, VoidToken, WhileToken, WithToken, YieldToken}},
 		{"implements interface let package private protected public static", TTs{ImplementsToken, InterfaceToken, LetToken, PackageToken, PrivateToken, ProtectedToken, PublicToken, StaticToken}},
 		{"as async from get meta of set target", TTs{AsToken, AsyncToken, FromToken, GetToken, MetaToken, OfToken, SetToken, TargetToken}},
+		{"#ident", TTs{PrivateIdentifierToken}},
 
 		{"/*co\nm\u2028m/*ent*/ //co//mment\u2029//comment", TTs{CommentLineTerminatorToken, CommentToken, LineTerminatorToken, CommentToken}},
 		{"<!-", TTs{LtToken, NotToken, SubToken}},
