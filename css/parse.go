@@ -137,7 +137,7 @@ func (p *Parser) Next() (GrammarType, TokenType, []byte) {
 	return gt, p.tt, p.data
 }
 
-// Return offset for current Grammar
+// Offset return offset for current Grammar
 func (p *Parser) Offset() int {
 	return p.l.r.Offset()
 }
