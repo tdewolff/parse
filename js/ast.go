@@ -133,7 +133,7 @@ type Scope struct {
 	Parent, Func   *Scope   // Parent is nil for global scope, Parent equals Func for function scope
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
-	NumVarDecls    uint16 // number of variable declaration statements in a function scope
+	VarDecls       []*VarDecl
 	NumForInit     uint16 // offset into Declared to mark variables used in for initializer
 	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
@@ -1154,7 +1154,8 @@ func (n BindingObject) bindingNode() {}
 // VarDecl is a variable statement or lexical declaration.
 type VarDecl struct {
 	TokenType
-	List []BindingElement
+	List             []BindingElement
+	InFor, InForInOf bool
 }
 
 func (n VarDecl) String() string {

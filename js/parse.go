@@ -9,9 +9,14 @@ import (
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
+type Options struct {
+	WhileToFor bool
+}
+
 // Parser is the state for the parser.
 type Parser struct {
 	l   *Lexer
+	o   Options
 	err error
 
 	data                   []byte
@@ -29,10 +34,11 @@ type Parser struct {
 }
 
 // Parse returns a JS AST tree of.
-func Parse(r *parse.Input) (*AST, error) {
+func Parse(r *parse.Input, o Options) (*AST, error) {
 	ast := &AST{}
 	p := &Parser{
 		l:     NewLexer(r),
+		o:     o,
 		tt:    WhitespaceToken, // trick so that next() works
 		await: true,
 	}
@@ -151,13 +157,7 @@ func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	parent := p.scope
 	p.scope = scope
 	*scope = Scope{
-		Parent:       parent,
-		Func:         nil,
-		Declared:     VarArray{},
-		Undeclared:   VarArray{},
-		NumVarDecls:  0,
-		NumArguments: 0,
-		HasWith:      false,
+		Parent: parent,
 	}
 	if isFunc {
 		scope.Func = scope
@@ -217,8 +217,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			return
 		}
 		p.next()
-		varDecl := p.parseVarDecl(tt)
-		stmt = &varDecl
+		varDecl := p.parseVarDecl(tt, true)
+		stmt = varDecl
 		if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 			if tt == ConstToken {
 				p.fail("const declaration")
@@ -231,8 +231,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		let := p.data
 		p.next()
 		if allowDeclaration && (IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken || p.tt == OpenBracketToken || p.tt == OpenBraceToken) {
-			varDecl := p.parseVarDecl(tt)
-			stmt = &varDecl
+			stmt = p.parseVarDecl(tt, false)
 			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				p.fail("let declaration")
 				return
@@ -313,7 +312,20 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		if !p.consume("while statement", CloseParenToken) {
 			return
 		}
-		stmt = &WhileStmt{cond, p.parseStmt(false)}
+		if p.o.WhileToFor {
+			varDecl := &VarDecl{TokenType: VarToken, InFor: true}
+			p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
+
+			body := &BlockStmt{}
+			if p.tt == OpenBraceToken {
+				body.List = p.parseStmtList("")
+			} else if p.tt != SemicolonToken {
+				body.List = []IStmt{p.parseStmt(false)}
+			}
+			stmt = &ForStmt{varDecl, cond, nil, body}
+		} else {
+			stmt = &WhileStmt{cond, p.parseStmt(false)}
+		}
 	case ForToken:
 		p.next()
 		await := p.await && p.tt == AwaitToken
@@ -332,7 +344,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		if p.tt == VarToken || p.tt == LetToken || p.tt == ConstToken {
 			tt := p.tt
 			p.next()
-			varDecl := p.parseVarDecl(tt)
+			varDecl := p.parseVarDecl(tt, true)
 			if p.tt != SemicolonToken && (1 < len(varDecl.List) || varDecl.List[0].Default != nil) {
 				p.fail("for statement")
 				return
@@ -343,7 +355,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 					return
 				}
 			}
-			init = &varDecl
+			init = varDecl
 		} else if p.tt != SemicolonToken {
 			init = p.parseExpression(OpExpr)
 		}
@@ -374,6 +386,13 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
 			}
+			if init == nil {
+				varDecl := &VarDecl{TokenType: VarToken, InFor: true}
+				p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
+				init = varDecl
+			} else if varDecl, ok := init.(*VarDecl); ok {
+				varDecl.InFor = true
+			}
 			stmt = &ForStmt{init, cond, post, body}
 		} else if p.tt == InToken {
 			if await {
@@ -391,6 +410,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
 			}
+			if varDecl, ok := init.(*VarDecl); ok {
+				varDecl.InForInOf = true
+			}
 			stmt = &ForInStmt{init, value, body}
 		} else if p.tt == OfToken {
 			p.next()
@@ -403,6 +425,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
+			}
+			if varDecl, ok := init.(*VarDecl); ok {
+				varDecl.InForInOf = true
 			}
 			stmt = &ForOfStmt{await, init, value, body}
 		} else {
@@ -731,8 +756,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	} else if p.tt == VarToken || p.tt == ConstToken || p.tt == LetToken {
 		tt := p.tt
 		p.next()
-		varDecl := p.parseVarDecl(tt)
-		exportStmt.Decl = &varDecl
+		exportStmt.Decl = p.parseVarDecl(tt, false)
 	} else if p.tt == FunctionToken {
 		exportStmt.Decl = p.parseFuncDecl()
 	} else if p.tt == AsyncToken { // async function
@@ -773,13 +797,17 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	return
 }
 
-func (p *Parser) parseVarDecl(tt TokenType) (varDecl VarDecl) {
+func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl) {
 	// assume we're past var, let or const
-	varDecl.TokenType = tt
+	varDecl = &VarDecl{
+		TokenType: tt,
+	}
 	declType := LexicalDecl
 	if tt == VarToken {
 		declType = VariableDecl
-		p.scope.Func.NumVarDecls++
+		if canBeHoisted {
+			p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
+		}
 	}
 	for {
 		// binding element, var declaration in for-in or for-of can never have a default
