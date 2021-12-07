@@ -49,7 +49,7 @@ func TestTokens(t *testing.T) {
 		{"x=y-->10\n", TTs{IdentifierToken, EqToken, IdentifierToken, DecrToken, GtToken, DecimalToken, LineTerminatorToken}},
 		{"  /*comment*/ -->nothing\n", TTs{CommentToken, DecrToken, GtToken, IdentifierToken, LineTerminatorToken}},
 		{"1 /*comment\nmultiline*/ -->nothing\n", TTs{DecimalToken, CommentLineTerminatorToken, CommentToken, LineTerminatorToken}},
-		{"$ _\u200C \\u2000 \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, ErrorToken}},
+		{"$ _\u200C \\u2000 _\\u200C \u200C", TTs{IdentifierToken, IdentifierToken, IdentifierToken, IdentifierToken, ErrorToken}},
 		{">>>=>>>>=", TTs{GtGtGtEqToken, GtGtGtToken, GtEqToken}},
 		{"1/", TTs{DecimalToken, DivToken}},
 		{"1/=", TTs{DecimalToken, DivEqToken}},
