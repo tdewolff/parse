@@ -31,7 +31,7 @@ func TestWalk(t *testing.T) {
 		}
 	}`
 
-	ast, err := Parse(parse.NewInputString(js))
+	ast, err := Parse(parse.NewInputString(js), Options{})
 	if err != nil {
 		t.Fatal(err)
 	}

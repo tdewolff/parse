@@ -505,7 +505,7 @@ type ForStmt struct {
 
 func (n ForStmt) String() string {
 	s := "Stmt(for"
-	if n.Init != nil {
+	if v, ok := n.Init.(*VarDecl); !ok && n.Init != nil || ok && len(v.List) != 0 {
 		s += " " + n.Init.String()
 	}
 	s += " ;"
@@ -522,7 +522,7 @@ func (n ForStmt) String() string {
 // JS converts the node back to valid JavaScript
 func (n ForStmt) JS() string {
 	s := "for ("
-	if n.Init != nil {
+	if v, ok := n.Init.(*VarDecl); !ok && n.Init != nil || ok && len(v.List) != 0 {
 		s += n.Init.JS()
 	} else {
 		s += " "

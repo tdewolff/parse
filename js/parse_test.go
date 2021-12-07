@@ -395,7 +395,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			ast, err := Parse(parse.NewInputString(tt.js))
+			ast, err := Parse(parse.NewInputString(tt.js), Options{})
 			if err != io.EOF {
 				test.Error(t, err)
 			}
@@ -685,7 +685,7 @@ func TestParseError(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			_, err := Parse(parse.NewInputString(tt.js))
+			_, err := Parse(parse.NewInputString(tt.js), Options{})
 			test.That(t, err != io.EOF && err != nil)
 
 			e := err.Error()
@@ -999,7 +999,7 @@ func TestParseScope(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
-			ast, err := Parse(parse.NewInputString(tt.js))
+			ast, err := Parse(parse.NewInputString(tt.js), Options{})
 			if err != io.EOF {
 				test.Error(t, err)
 			}
@@ -1016,7 +1016,7 @@ func TestParseScope(t *testing.T) {
 
 func TestScope(t *testing.T) {
 	js := "let a,b; b = 5; var c; {d}{{d}}"
-	ast, err := Parse(parse.NewInputString(js))
+	ast, err := Parse(parse.NewInputString(js), Options{})
 	if err != io.EOF {
 		test.Error(t, err)
 	}
@@ -1036,9 +1036,9 @@ func TestScope(t *testing.T) {
 }
 
 func TestParseInputError(t *testing.T) {
-	_, err := Parse(parse.NewInput(test.NewErrorReader(0)))
+	_, err := Parse(parse.NewInput(test.NewErrorReader(0)), Options{})
 	test.T(t, err, test.ErrPlain)
 
-	_, err = Parse(parse.NewInput(test.NewErrorReader(1)))
+	_, err = Parse(parse.NewInput(test.NewErrorReader(1)), Options{})
 	test.T(t, err, test.ErrPlain)
 }
