@@ -115,6 +115,9 @@ func TestTokens(t *testing.T) {
 
 		// go fuzz
 		{"`", TTs{TemplateToken}},
+
+		// issues
+		{"_\u00bare_unicode_escape_identifier", TTs{IdentifierToken}}, // tdewolff/minify#449
 	}
 
 	for _, tt := range tokenTests {

@@ -485,6 +485,7 @@ func TestParseError(t *testing.T) {
 		{"var {...a", "expected } instead of EOF in object binding pattern"},
 		{"var {a}", "expected = instead of EOF in var statement"},
 		{"var 0", "unexpected 0 in binding"},
+		{"const a", "expected = instead of EOF in const statement"},
 		{"x={", "expected } instead of EOF in object literal"},
 		{"x={[a", "expected ] instead of EOF in object literal"},
 		{"x={[a]", "expected : or ( instead of EOF in object literal"},

@@ -822,6 +822,8 @@ func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl
 		} else if _, ok := bindingElement.Binding.(*Var); !ok && (!p.inFor || 0 < len(varDecl.List)) {
 			p.fail("var statement", EqToken)
 			return
+		} else if tt == ConstToken && (!p.inFor || p.inFor && p.tt != OfToken && p.tt != InToken) {
+			p.fail("const statement", EqToken)
 		}
 
 		varDecl.List = append(varDecl.List, bindingElement)
