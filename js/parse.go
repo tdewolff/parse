@@ -313,7 +313,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			return
 		}
 		if p.o.WhileToFor {
-			varDecl := &VarDecl{TokenType: VarToken, InFor: true}
+			varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
 			p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
 
 			body := &BlockStmt{}
@@ -380,14 +380,14 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			p.scope.MarkForInit()
+			p.scope.MarkForStmt()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
 			}
 			if init == nil {
-				varDecl := &VarDecl{TokenType: VarToken, InFor: true}
+				varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
 				p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
 				init = varDecl
 			} else if varDecl, ok := init.(*VarDecl); ok {
@@ -404,7 +404,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			p.scope.MarkForInit()
+			p.scope.MarkForStmt()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
@@ -420,7 +420,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.consume("for statement", CloseParenToken) {
 				return
 			}
-			p.scope.MarkForInit()
+			p.scope.MarkForStmt()
 			if p.tt == OpenBraceToken {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
@@ -801,6 +801,7 @@ func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl
 	// assume we're past var, let or const
 	varDecl = &VarDecl{
 		TokenType: tt,
+		Scope:     p.scope,
 	}
 	declType := LexicalDecl
 	if tt == VarToken {

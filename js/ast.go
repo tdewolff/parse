@@ -130,11 +130,11 @@ func (vs VarArray) String() string {
 
 // Scope is a function or block scope with a list of variables declared and used.
 type Scope struct {
-	Parent, Func   *Scope   // Parent is nil for global scope, Parent equals Func for function scope
+	Parent, Func   *Scope   // Parent is nil for global scope
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
 	VarDecls       []*VarDecl
-	NumForInit     uint16 // offset into Declared to mark variables used in for initializer
+	NumForDeclared uint16 // offset into Declared to mark variables used in for statements
 	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
 	HasWith        bool
@@ -171,7 +171,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 		}
 		v.Uses++
 		for s != curScope {
-			curScope.addUndeclared(v) // add variable declaration as used variable to the current scope
+			curScope.AddUndeclared(v) // add variable declaration as used variable to the current scope
 			curScope = curScope.Parent
 		}
 		return v, true
@@ -199,7 +199,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	v.Uses++
 	s.Declared = append(s.Declared, v)
 	for s != curScope {
-		curScope.addUndeclared(v) // add variable declaration as used variable to the current scope
+		curScope.AddUndeclared(v) // add variable declaration as used variable to the current scope
 		curScope = curScope.Parent
 	}
 	return v, true
@@ -223,11 +223,11 @@ func (s *Scope) Use(name []byte) *Var {
 }
 
 // findDeclared finds a declared variable in the current scope.
-func (s *Scope) findDeclared(name []byte, skipForInit bool) *Var {
+func (s *Scope) findDeclared(name []byte, skipForDeclared bool) *Var {
 	start := 0
-	if skipForInit {
+	if skipForDeclared {
 		// we skip the for initializer for declarations (only has effect for let/const)
-		start = int(s.NumForInit)
+		start = int(s.NumForDeclared)
 	}
 	// reverse order to find the inner let first in `for(let a in []){let a; {a}}`
 	for i := len(s.Declared) - 1; start <= i; i-- {
@@ -252,7 +252,7 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 }
 
 // add undeclared variable to scope, this is called for the block scope when declaring a var in it
-func (s *Scope) addUndeclared(v *Var) {
+func (s *Scope) AddUndeclared(v *Var) {
 	// don't add undeclared symbol if it's already there
 	for _, vorig := range s.Undeclared {
 		if v == vorig {
@@ -262,9 +262,10 @@ func (s *Scope) addUndeclared(v *Var) {
 	s.Undeclared = append(s.Undeclared, v) // add variable declaration as used variable to the current scope
 }
 
-// MarkForInit marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
-func (s *Scope) MarkForInit() {
-	s.NumForInit = uint16(len(s.Declared))
+// MarkForStmt marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
+func (s *Scope) MarkForStmt() {
+	s.NumForDeclared = uint16(len(s.Declared))
+	s.MarkArguments() // ensures for different b's in for(var a in b){let b}
 }
 
 // MarkArguments marks the undeclared variables in the current scope as function arguments. It ensures different b's in `function f(a=b){var b}`.
@@ -1155,6 +1156,7 @@ func (n BindingObject) bindingNode() {}
 type VarDecl struct {
 	TokenType
 	List             []BindingElement
+	Scope            *Scope
 	InFor, InForInOf bool
 }
 

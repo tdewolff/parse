@@ -997,6 +997,7 @@ func TestParseScope(t *testing.T) {
 		{`for(let b of c){let b;{b}}`, "/b=2,b=3/", "c=1/c=1/b=3"},
 		{`for(var b of c){let b;{b}}`, "b=1/b=3/", "c=2/b=1,c=2/b=3"},
 		{`for(var b of c){var b;{b}}`, "b=1//", "c=2/b=1,c=2/b=1"},
+		{`function a(b){for(let c of b){let b;}}`, "a=1/b=2/c=3,b=4", "//b=2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {
