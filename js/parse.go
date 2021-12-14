@@ -312,19 +312,18 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		if !p.consume("while statement", CloseParenToken) {
 			return
 		}
+		body := p.parseStmt(false)
 		if p.o.WhileToFor {
 			varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
 			p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
 
-			body := &BlockStmt{}
-			if p.tt == OpenBraceToken {
-				body.List = p.parseStmtList("")
-			} else if p.tt != SemicolonToken {
-				body.List = []IStmt{p.parseStmt(false)}
+			block, ok := body.(*BlockStmt)
+			if !ok {
+				block = &BlockStmt{List: []IStmt{body}}
 			}
-			stmt = &ForStmt{varDecl, cond, nil, body}
+			stmt = &ForStmt{varDecl, cond, nil, block}
 		} else {
-			stmt = &WhileStmt{cond, p.parseStmt(false)}
+			stmt = &WhileStmt{cond, body}
 		}
 	case ForToken:
 		p.next()
