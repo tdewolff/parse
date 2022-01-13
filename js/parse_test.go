@@ -343,7 +343,7 @@ func TestParse(t *testing.T) {
 		{"a&b&c", "Stmt((a&b)&c)"},
 		{"a|b|c", "Stmt((a|b)|c)"},
 		{"a^b^c", "Stmt((a^b)^c)"},
-		{"a,b,c", "Stmt((a,b),c)"},
+		{"a,b,c", "Stmt(a,b,c)"},
 
 		// regular expressions
 		{"/abc/", "Stmt(/abc/)"},
@@ -796,6 +796,10 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 		sv.AddExpr(expr.Y)
 	case *GroupExpr:
 		sv.AddExpr(expr.X)
+	case *CommaExpr:
+		for _, item := range expr.List {
+			sv.AddExpr(item)
+		}
 	}
 }
 
