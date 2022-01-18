@@ -642,7 +642,7 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 			p.next()
 		} else if p.tt == OpenBraceToken {
 			p.next()
-			for IsIdentifierName(p.tt) {
+			for IsIdentifierName(p.tt) || p.tt == StringToken {
 				tt := p.tt
 				var name, binding []byte = nil, p.data
 				p.next()
@@ -655,8 +655,8 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 					name = binding
 					binding = p.data
 					p.next()
-				} else if !IsIdentifier(tt) && tt != YieldToken {
-					p.fail("import statement", IdentifierToken)
+				} else if !IsIdentifier(tt) && tt != YieldToken || tt == StringToken {
+					p.fail("import statement", IdentifierToken, StringToken)
 					return
 				}
 				importStmt.List = append(importStmt.List, Alias{name, binding})
@@ -702,8 +702,8 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			p.next()
 			if p.tt == AsToken {
 				p.next()
-				if !IsIdentifierName(p.tt) {
-					p.fail("export statement", IdentifierToken)
+				if !IsIdentifierName(p.tt) && p.tt != StringToken {
+					p.fail("export statement", IdentifierToken, StringToken)
 					return
 				}
 				exportStmt.List = []Alias{Alias{star, p.data}}
@@ -717,13 +717,13 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			}
 		} else {
 			p.next()
-			for IsIdentifierName(p.tt) {
+			for IsIdentifierName(p.tt) || p.tt == StringToken {
 				var name, binding []byte = nil, p.data
 				p.next()
 				if p.tt == AsToken {
 					p.next()
-					if !IsIdentifierName(p.tt) {
-						p.fail("export statement", IdentifierToken)
+					if !IsIdentifierName(p.tt) && p.tt != StringToken {
+						p.fail("export statement", IdentifierToken, StringToken)
 						return
 					}
 					name = binding
