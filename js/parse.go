@@ -1462,7 +1462,7 @@ func (p *Parser) parseIdentifierArrowFunc(v *Var) (arrowFunc *ArrowFunc) {
 
 	if 1 < v.Uses {
 		v.Uses--
-		v, _ = p.scope.Declare(ArgumentDecl, v.Data) // cannot fail
+		v, _ = p.scope.Declare(ArgumentDecl, parse.Copy(v.Data)) // cannot fail
 	} else {
 		// if v.Uses==1 it must be undeclared and be the last added
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
