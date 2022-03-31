@@ -19,6 +19,7 @@ func TestTokens(t *testing.T) {
 		{" \t\v\f\u00A0\uFEFF\u2000", TTs{}}, // WhitespaceToken
 		{"\n\r\r\n\u2028\u2029", TTs{LineTerminatorToken}},
 		{"5.2 .04 1. 2.e3 0x0F 5e99", TTs{DecimalToken, DecimalToken, DecimalToken, DecimalToken, HexadecimalToken, DecimalToken}},
+		{"2_3 5_4.1_2 1_1n 0o2_3 0b1_1 0xF_F", TTs{DecimalToken, DecimalToken, BigIntToken, OctalToken, BinaryToken, HexadecimalToken}},
 		{"0o22 0b11", TTs{OctalToken, BinaryToken}},
 		{"0n 2345n 435.333n", TTs{BigIntToken, BigIntToken, DecimalToken, ErrorToken}},
 		{"a = 'string'", TTs{IdentifierToken, EqToken, StringToken}},

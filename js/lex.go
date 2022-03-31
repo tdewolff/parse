@@ -515,6 +515,18 @@ func (l *Lexer) consumeIdentifierToken() bool {
 	return true
 }
 
+func (l *Lexer) consumeNumericSeparator(f func() bool) bool {
+	if l.r.Peek(0) != '_' {
+		return false
+	}
+	l.r.Move(1)
+	if !f() {
+		l.r.Move(-1)
+		return false
+	}
+	return true
+}
+
 func (l *Lexer) consumeNumericToken() TokenType {
 	// assume to be on 0 1 2 3 4 5 6 7 8 9 .
 	first := l.r.Peek(0)
@@ -523,7 +535,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 		if l.r.Peek(0) == 'x' || l.r.Peek(0) == 'X' {
 			l.r.Move(1)
 			if l.consumeHexDigit() {
-				for l.consumeHexDigit() {
+				for l.consumeHexDigit() || l.consumeNumericSeparator(l.consumeHexDigit) {
 				}
 				return HexadecimalToken
 			}
@@ -532,7 +544,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 		} else if l.r.Peek(0) == 'b' || l.r.Peek(0) == 'B' {
 			l.r.Move(1)
 			if l.consumeBinaryDigit() {
-				for l.consumeBinaryDigit() {
+				for l.consumeBinaryDigit() || l.consumeNumericSeparator(l.consumeBinaryDigit) {
 				}
 				return BinaryToken
 			}
@@ -541,7 +553,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 		} else if l.r.Peek(0) == 'o' || l.r.Peek(0) == 'O' {
 			l.r.Move(1)
 			if l.consumeOctalDigit() {
-				for l.consumeOctalDigit() {
+				for l.consumeOctalDigit() || l.consumeNumericSeparator(l.consumeOctalDigit) {
 				}
 				return OctalToken
 			}
@@ -555,7 +567,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			return ErrorToken
 		}
 	} else if first != '.' {
-		for l.consumeDigit() {
+		for l.consumeDigit() || l.consumeNumericSeparator(l.consumeDigit) {
 		}
 	}
 	// we have parsed a 0 or an integer number
@@ -563,7 +575,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 	if c == '.' {
 		l.r.Move(1)
 		if l.consumeDigit() {
-			for l.consumeDigit() {
+			for l.consumeDigit() || l.consumeNumericSeparator(l.consumeDigit) {
 			}
 			c = l.r.Peek(0)
 		} else if first == '.' {
@@ -587,7 +599,7 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			l.err = parse.NewErrorLexer(l.r, "invalid number")
 			return ErrorToken
 		}
-		for l.consumeDigit() {
+		for l.consumeDigit() || l.consumeNumericSeparator(l.consumeDigit) {
 		}
 	}
 	return DecimalToken
