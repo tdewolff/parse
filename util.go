@@ -397,8 +397,9 @@ var URLEncodingTable = [256]bool{
 }
 
 // DataURIEncodingTable is a charmap for which characters need escaping in the Data URI encoding scheme
-// Escape only non-printable characters, unicode and %, #, &. IE11 additionally requires encoding of
-// \, [, ], ", <, >, `, {, }, |, ^ which is not required by Chrome, Firefox, Opera, Edge, Safari, Yandex
+// Escape only non-printable characters, unicode and %, #, &.
+// IE11 additionally requires encoding of \, [, ], ", <, >, `, {, }, |, ^ which is not required by Chrome, Firefox, Opera, Edge, Safari, Yandex
+// To pass the HTML validator, restricted URL characters must be escaped: non-printable characters, space, <, >, #, %, "
 var DataURIEncodingTable = [256]bool{
 	// ASCII
 	true, true, true, true, true, true, true, true,
@@ -406,7 +407,7 @@ var DataURIEncodingTable = [256]bool{
 	true, true, true, true, true, true, true, true,
 	true, true, true, true, true, true, true, true,
 
-	false, false, true, true, false, true, true, false, // ", #, %, &
+	true, false, true, true, false, true, true, false, // space, ", #, %, &
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, false, false, false, false,
 	false, false, false, false, true, false, true, false, // <, >
