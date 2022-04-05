@@ -274,6 +274,22 @@ func TestEncodeURL(t *testing.T) {
 	}
 }
 
+func TestEncodeDataURI(t *testing.T) {
+	var urlTests = []struct {
+		url      string
+		expected string
+	}{
+		{"a b", "a+b"},
+		{`<svg xmlns="http://www.w3.org/2000/svg"></svg>`, `%3Csvg+xmlns=%22http://www.w3.org/2000/svg%22%3E%3C/svg%3E`},
+	}
+	for _, tt := range urlTests {
+		t.Run(tt.url, func(t *testing.T) {
+			b := EncodeURL([]byte(tt.url), DataURIEncodingTable)
+			test.T(t, string(b), tt.expected, "in '"+tt.url+"'")
+		})
+	}
+}
+
 func TestEncodeURLRandom(t *testing.T) {
 	for _, e := range urlSlices {
 		reference := url.QueryEscape(string(e))
