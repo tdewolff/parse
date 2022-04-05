@@ -449,15 +449,11 @@ func EncodeURL(b []byte, table [256]bool) []byte {
 	for i := 0; i < len(b); i++ {
 		c := b[i]
 		if table[c] {
-			if c == ' ' {
-				b[i] = '+'
-			} else {
-				b = append(b, 0, 0)
-				copy(b[i+3:], b[i+1:])
-				b[i+0] = '%'
-				b[i+1] = "0123456789ABCDEF"[c>>4]
-				b[i+2] = "0123456789ABCDEF"[c&15]
-			}
+			b = append(b, 0, 0)
+			copy(b[i+3:], b[i+1:])
+			b[i+0] = '%'
+			b[i+1] = "0123456789ABCDEF"[c>>4]
+			b[i+2] = "0123456789ABCDEF"[c&15]
 		}
 	}
 	return b
