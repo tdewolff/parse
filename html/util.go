@@ -6,11 +6,10 @@ var (
 )
 
 // EscapeAttrVal returns the escaped attribute value bytes with quotes. Either single or double quotes are used, whichever is shorter. If there are no quotes present in the value and the value is in HTML (not XML), it will return the value without quotes.
-func EscapeAttrVal(buf *[]byte, orig, b []byte, isXML bool) []byte {
+func EscapeAttrVal(buf *[]byte, b []byte, origQuote byte, mustQuote, isXML bool) []byte {
 	singles := 0
 	doubles := 0
 	unquoted := true
-	entities := false
 	for _, c := range b {
 		if charTable[c] {
 			unquoted = false
@@ -21,10 +20,14 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte, isXML bool) []byte {
 			}
 		}
 	}
-	if unquoted && !isXML {
+	if unquoted && (!mustQuote || origQuote == 0) && !isXML {
 		return b
-	} else if !entities && len(orig) == len(b)+2 && (singles == 0 && orig[0] == '\'' || doubles == 0 && orig[0] == '"') {
-		return orig
+	} else if singles == 0 && origQuote == '\'' || doubles == 0 && origQuote == '"' {
+		t := (*buf)[:len(b)+2]
+		t[0] = origQuote
+		copy(t[1:], b)
+		t[1+len(b)] = origQuote
+		return t
 	}
 
 	n := len(b) + 2
@@ -34,6 +37,10 @@ func EscapeAttrVal(buf *[]byte, orig, b []byte, isXML bool) []byte {
 		n += doubles * 4
 		quote = '"'
 		escapedQuote = doubleQuoteEntityBytes
+		if singles == doubles && origQuote == '\'' {
+			quote = '\''
+			escapedQuote = singleQuoteEntityBytes
+		}
 	} else {
 		n += singles * 4
 		quote = '\''
