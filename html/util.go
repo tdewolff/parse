@@ -22,7 +22,10 @@ func EscapeAttrVal(buf *[]byte, b []byte, origQuote byte, mustQuote, isXML bool)
 	}
 	if unquoted && (!mustQuote || origQuote == 0) && !isXML {
 		return b
-	} else if singles == 0 && origQuote == '\'' || doubles == 0 && origQuote == '"' {
+	} else if singles == 0 && origQuote == '\'' && !isXML || doubles == 0 && origQuote == '"' {
+		if len(b)+2 > cap(*buf) {
+			*buf = make([]byte, 0, len(b)+2)
+		}
 		t := (*buf)[:len(b)+2]
 		t[0] = origQuote
 		copy(t[1:], b)
@@ -37,7 +40,7 @@ func EscapeAttrVal(buf *[]byte, b []byte, origQuote byte, mustQuote, isXML bool)
 		n += doubles * 4
 		quote = '"'
 		escapedQuote = doubleQuoteEntityBytes
-		if singles == doubles && origQuote == '\'' {
+		if singles == doubles && origQuote == '\'' && !isXML {
 			quote = '\''
 			escapedQuote = singleQuoteEntityBytes
 		}

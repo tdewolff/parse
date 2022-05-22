@@ -29,11 +29,14 @@ func TestEscapeAttrVal(t *testing.T) {
 	for _, tt := range escapeAttrValTests {
 		t.Run(tt.attrVal, func(t *testing.T) {
 			b := []byte(tt.attrVal)
-			orig := b
+			var quote byte
+			if 0 < len(b) && (b[0] == '\'' || b[0] == '"') {
+				quote = b[0]
+			}
 			if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
 				b = b[1 : len(b)-1]
 			}
-			val := EscapeAttrVal(&buf, orig, b, false)
+			val := EscapeAttrVal(&buf, b, quote, false, false)
 			test.String(t, string(val), tt.expected)
 		})
 	}
@@ -44,18 +47,23 @@ func TestEscapeAttrValXML(t *testing.T) {
 		attrVal  string
 		expected string
 	}{
+		{`"xyz"`, `"xyz"`},
 		{`xyz`, `"xyz"`},
+		{`'xyz'`, `"xyz"`},
 		{``, `""`},
 	}
 	var buf []byte
 	for _, tt := range escapeAttrValTests {
 		t.Run(tt.attrVal, func(t *testing.T) {
 			b := []byte(tt.attrVal)
-			orig := b
+			var quote byte
+			if 0 < len(b) && (b[0] == '\'' || b[0] == '"') {
+				quote = b[0]
+			}
 			if len(b) > 1 && (b[0] == '"' || b[0] == '\'') && b[0] == b[len(b)-1] {
 				b = b[1 : len(b)-1]
 			}
-			val := EscapeAttrVal(&buf, orig, b, true)
+			val := EscapeAttrVal(&buf, b, quote, false, true)
 			test.String(t, string(val), tt.expected)
 		})
 	}
