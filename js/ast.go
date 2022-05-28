@@ -135,8 +135,9 @@ type Scope struct {
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
 	VarDecls       []*VarDecl
-	NumForDeclared uint16 // offset into Declared to mark variables used in for statements
-	NumArguments   uint16 // offset into Undeclared to mark variables used in arguments
+	NumForDecls    uint16 // offset into Declared to mark variables used in for statements
+	NumFuncArgs    uint16 // offset into Declared to mark variables used in function arguments
+	NumArgUses     uint16 // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
 	HasWith        bool
 }
@@ -181,12 +182,12 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	var v *Var
 	// reuse variable if previously used, as in:  a;var a
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
-		for i, uv := range s.Undeclared[s.NumArguments:] {
+		for i, uv := range s.Undeclared[s.NumArgUses:] {
 			// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
 			if 0 < uv.Uses && uv.Decl == NoDecl && bytes.Equal(name, uv.Data) {
 				// must be NoDecl so that it can't be a var declaration that has been added
 				v = uv
-				s.Undeclared = append(s.Undeclared[:int(s.NumArguments)+i], s.Undeclared[int(s.NumArguments)+i+1:]...)
+				s.Undeclared = append(s.Undeclared[:int(s.NumArgUses)+i], s.Undeclared[int(s.NumArgUses)+i+1:]...)
 				break
 			}
 		}
@@ -228,7 +229,7 @@ func (s *Scope) findDeclared(name []byte, skipForDeclared bool) *Var {
 	start := 0
 	if skipForDeclared {
 		// we skip the for initializer for declarations (only has effect for let/const)
-		start = int(s.NumForDeclared)
+		start = int(s.NumForDecls)
 	}
 	// reverse order to find the inner let first in `for(let a in []){let a; {a}}`
 	for i := len(s.Declared) - 1; start <= i; i-- {
@@ -265,13 +266,14 @@ func (s *Scope) AddUndeclared(v *Var) {
 
 // MarkForStmt marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
 func (s *Scope) MarkForStmt() {
-	s.NumForDeclared = uint16(len(s.Declared))
-	s.MarkArguments() // ensures for different b's in for(var a in b){let b}
+	s.NumForDecls = uint16(len(s.Declared))
+	s.NumArgUses = uint16(len(s.Undeclared)) // ensures for different b's in for(var a in b){let b}
 }
 
-// MarkArguments marks the undeclared variables in the current scope as function arguments. It ensures different b's in `function f(a=b){var b}`.
-func (s *Scope) MarkArguments() {
-	s.NumArguments = uint16(len(s.Undeclared))
+// MarkFuncArgs marks the declared/undeclared variables in the current scope as function arguments.
+func (s *Scope) MarkFuncArgs() {
+	s.NumFuncArgs = uint16(len(s.Declared))
+	s.NumArgUses = uint16(len(s.Undeclared)) // ensures different b's in `function f(a=b){var b}`.
 }
 
 // HoistUndeclared copies all undeclared variables of the current scope to the parent scope.

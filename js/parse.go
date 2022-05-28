@@ -862,7 +862,7 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 	p.next()
 
 	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
-	p.scope.MarkArguments()
+	p.scope.MarkFuncArgs()
 	return
 }
 
@@ -1491,7 +1491,7 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	p.next()
 
 	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
-	p.scope.MarkArguments()
+	p.scope.MarkFuncArgs()
 
 	if p.tt == OpenBraceToken {
 		parentInFor := p.inFor
