@@ -1854,7 +1854,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if p.tt != PrivateIdentifierToken {
 				p.tt = IdentifierToken
 			}
-			left = &DotExpr{left, LiteralExpr{p.tt, p.data}, exprPrec}
+			left = &DotExpr{left, LiteralExpr{p.tt, p.data}, exprPrec, false}
 			p.next()
 			if precLeft < OpMember {
 				precLeft = OpCall
@@ -1874,7 +1874,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 			parentInFor := p.inFor
 			p.inFor = false
-			left = &IndexExpr{left, p.parseExpression(OpExpr), exprPrec}
+			left = &IndexExpr{left, p.parseExpression(OpExpr), exprPrec, false}
 			p.inFor = parentInFor
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
@@ -1893,7 +1893,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 			parentInFor := p.inFor
 			p.inFor = false
-			left = &CallExpr{left, p.parseArguments()}
+			left = &CallExpr{left, p.parseArguments(), false}
 			precLeft = OpCall
 			p.inFor = parentInFor
 		case TemplateToken, TemplateStartToken:
@@ -1919,21 +1919,24 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			}
 			p.next()
 			if p.tt == OpenParenToken {
-				left = &OptChainExpr{left, &CallExpr{nil, p.parseArguments()}}
+				left = &CallExpr{left, p.parseArguments(), true}
 			} else if p.tt == OpenBracketToken {
 				p.next()
-				left = &OptChainExpr{left, &IndexExpr{nil, p.parseExpression(OpExpr), OpCall}}
+				left = &IndexExpr{left, p.parseExpression(OpExpr), OpCall, true}
 				if !p.consume("optional chaining expression", CloseBracketToken) {
 					return nil
 				}
 			} else if p.tt == TemplateToken || p.tt == TemplateStartToken {
 				template := p.parseTemplateLiteral(precLeft)
-				left = &OptChainExpr{left, &template}
+				template.Prec = OpCall
+				template.Tag = left
+				template.Optional = true
+				left = &template
 			} else if IsIdentifierName(p.tt) {
-				left = &OptChainExpr{left, &LiteralExpr{IdentifierToken, p.data}}
+				left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}, OpCall, true}
 				p.next()
 			} else if p.tt == PrivateIdentifierToken {
-				left = &OptChainExpr{left, &LiteralExpr{p.tt, p.data}}
+				left = &DotExpr{left, LiteralExpr{p.tt, p.data}, OpCall, true}
 				p.next()
 			} else {
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
@@ -2198,7 +2201,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 				args.List = append(args.List, Arg{Value: rest, Rest: true})
 			}
 			left = p.scope.Use(async)
-			left = &CallExpr{left, args}
+			left = &CallExpr{left, args, false}
 			precLeft = OpCall
 		} else {
 			// parenthesized expression

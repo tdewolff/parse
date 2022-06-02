@@ -96,7 +96,6 @@ func TestWalkNilNode(t *testing.T) {
 		&Args{},
 		&NewExpr{},
 		&CallExpr{},
-		&OptChainExpr{},
 		&UnaryExpr{},
 		&BinaryExpr{},
 		&CondExpr{},

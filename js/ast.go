@@ -1652,16 +1652,20 @@ func (n TemplatePart) JS() string {
 
 // TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
 type TemplateExpr struct {
-	Tag  IExpr // can be nil
-	List []TemplatePart
-	Tail []byte
-	Prec OpPrec
+	Tag      IExpr // can be nil
+	List     []TemplatePart
+	Tail     []byte
+	Prec     OpPrec
+	Optional bool
 }
 
 func (n TemplateExpr) String() string {
 	s := ""
 	if n.Tag != nil {
 		s += n.Tag.String()
+		if n.Optional {
+			s += "?."
+		}
 	}
 	for _, item := range n.List {
 		s += item.String()
@@ -1674,6 +1678,9 @@ func (n TemplateExpr) JS() string {
 	s := ""
 	if n.Tag != nil {
 		s += n.Tag.JS()
+		if n.Optional {
+			s += "?."
+		}
 	}
 	for _, item := range n.List {
 		s += item.JS()
@@ -1697,33 +1704,47 @@ func (n GroupExpr) JS() string {
 
 // IndexExpr is a member/call expression, super property, or optional chain with an index expression.
 type IndexExpr struct {
-	X    IExpr
-	Y    IExpr
-	Prec OpPrec
+	X        IExpr
+	Y        IExpr
+	Prec     OpPrec
+	Optional bool
 }
 
 func (n IndexExpr) String() string {
+	if n.Optional {
+		return "(" + n.X.String() + "?.[" + n.Y.String() + "])"
+	}
 	return "(" + n.X.String() + "[" + n.Y.String() + "])"
 }
 
 // JS converts the node back to valid JavaScript
 func (n IndexExpr) JS() string {
+	if n.Optional {
+		return n.X.JS() + "?.[" + n.Y.JS() + "]"
+	}
 	return n.X.JS() + "[" + n.Y.JS() + "]"
 }
 
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
 type DotExpr struct {
-	X    IExpr
-	Y    LiteralExpr
-	Prec OpPrec
+	X        IExpr
+	Y        LiteralExpr
+	Prec     OpPrec
+	Optional bool
 }
 
 func (n DotExpr) String() string {
+	if n.Optional {
+		return "(" + n.X.String() + "?." + n.Y.String() + ")"
+	}
 	return "(" + n.X.String() + "." + n.Y.String() + ")"
 }
 
 // JS converts the node back to valid JavaScript
 func (n DotExpr) JS() string {
+	if n.Optional {
+		return n.X.JS() + "?." + n.Y.JS()
+	}
 	return n.X.JS() + "." + n.Y.JS()
 }
 
@@ -1828,48 +1849,24 @@ func (n NewExpr) JS() string {
 
 // CallExpr is a call expression.
 type CallExpr struct {
-	X    IExpr
-	Args Args
+	X        IExpr
+	Args     Args
+	Optional bool
 }
 
 func (n CallExpr) String() string {
+	if n.Optional {
+		return "(" + n.X.String() + "?." + n.Args.String() + ")"
+	}
 	return "(" + n.X.String() + n.Args.String() + ")"
 }
 
 // JS converts the node back to valid JavaScript
 func (n CallExpr) JS() string {
+	if n.Optional {
+		return n.X.String() + "?.(" + n.Args.JS() + ")"
+	}
 	return n.X.JS() + "(" + n.Args.JS() + ")"
-}
-
-// OptChainExpr is an optional chain.
-type OptChainExpr struct {
-	X IExpr
-	Y IExpr // can be CallExpr, IndexExpr, LiteralExpr, or TemplateExpr
-}
-
-func (n OptChainExpr) String() string {
-	s := "(" + n.X.String() + "?."
-	switch y := n.Y.(type) {
-	case *CallExpr:
-		return s + y.Args.String() + ")"
-	case *IndexExpr:
-		return s + "[" + y.Y.String() + "])"
-	default:
-		return s + y.String() + ")"
-	}
-}
-
-// JS converts the node back to valid JavaScript
-func (n OptChainExpr) JS() string {
-	s := n.X.String() + "?."
-	switch y := n.Y.(type) {
-	case *CallExpr:
-		return s + y.Args.JS() + ")"
-	case *IndexExpr:
-		return s + "[" + y.Y.JS() + "])"
-	default:
-		return s + y.JS()
-	}
 }
 
 // UnaryExpr is an update or unary expression.
@@ -2032,7 +2029,6 @@ func (n NewTargetExpr) exprNode()  {}
 func (n ImportMetaExpr) exprNode() {}
 func (n NewExpr) exprNode()        {}
 func (n CallExpr) exprNode()       {}
-func (n OptChainExpr) exprNode()   {}
 func (n UnaryExpr) exprNode()      {}
 func (n BinaryExpr) exprNode()     {}
 func (n CondExpr) exprNode()       {}

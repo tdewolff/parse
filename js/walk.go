@@ -266,9 +266,6 @@ func Walk(v IVisitor, n INode) {
 	case *CallExpr:
 		Walk(v, &n.Args)
 		Walk(v, n.X)
-	case *OptChainExpr:
-		Walk(v, n.X)
-		Walk(v, n.Y)
 	case *UnaryExpr:
 		Walk(v, n.X)
 	case *BinaryExpr:
