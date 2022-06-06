@@ -281,13 +281,13 @@ func (s *Scope) HoistUndeclared() {
 	for i, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
-			if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
-				// check if variable is declared in parent scope
+			if v := s.Parent.findUndeclared(vorig.Data); v != nil {
+				// check if variable is already used before in parent scope
 				v.Uses += vorig.Uses
 				vorig.Link = v
 				s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
-			} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
-				// check if variable is already used before in parent scope
+			} else if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
+				// check if variable is declared in parent scope
 				v.Uses += vorig.Uses
 				vorig.Link = v
 				s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
@@ -306,12 +306,12 @@ func (s *Scope) UndeclareScope() {
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
-		if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
-			// check if variable has been declared in this scope
+		if v := s.Parent.findUndeclared(vorig.Data); v != nil {
+			// check if variable is already used before in the current or lower scopes
 			v.Uses += vorig.Uses
 			vorig.Link = v
-		} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
-			// check if variable is already used before in the current or lower scopes
+		} else if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
+			// check if variable has been declared in this scope
 			v.Uses += vorig.Uses
 			vorig.Link = v
 		} else {
