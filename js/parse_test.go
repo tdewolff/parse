@@ -106,12 +106,15 @@ func TestParse(t *testing.T) {
 		{"class A { static() {} }", "Decl(class A Method(static Params() Stmt({ })))"},
 		{"class A { static a(b) {} }", "Decl(class A Method(static a Params(Binding(b)) Stmt({ })))"},
 		{"class A { [5](b) {} }", "Decl(class A Method([5] Params(Binding(b)) Stmt({ })))"},
-		{"class A { field }", "Decl(class A Definition(field))"},
-		{"class A { #field }", "Decl(class A Definition(#field))"},
-		{"class A { field=5 }", "Decl(class A Definition(field = 5))"},
-		{"class A { #field=5 }", "Decl(class A Definition(#field = 5))"},
-		{"class A { get }", "Decl(class A Definition(get))"},
-		{"class A { field static get method(){} }", "Decl(class A Definition(field) Method(static get method Params() Stmt({ })))"},
+		{"class A { field }", "Decl(class A Field(field))"},
+		{"class A { #field }", "Decl(class A Field(#field))"},
+		{"class A { static field }", "Decl(class A Field(static field))"},
+		{"class A { field=5 }", "Decl(class A Field(field = 5))"},
+		{"class A { #field=5 }", "Decl(class A Field(#field = 5))"},
+		{"class A { static field=5 }", "Decl(class A Field(static field = 5))"},
+		{"class A { get }", "Decl(class A Field(get))"},
+		{"class A { field static get method(){} }", "Decl(class A Field(field) Method(static get method Params() Stmt({ })))"},
+		{"class A { static { this.field = 5 } }", "Decl(class A Static(Stmt({ Stmt((this.field)=5) })))"},
 		//{"class A { get get get(){} }", "Decl(class A Definition(get) Method(get get Params() Stmt({ })))"}, // doesn't look like this should be supported
 		{"`tmpl`", "Stmt(`tmpl`)"},
 		{"`tmpl${x}`", "Stmt(`tmpl${x}`)"},
@@ -478,8 +481,8 @@ func TestParseError(t *testing.T) {
 		{"class A", "expected { instead of EOF in class declaration"},
 		{"class A{", "unexpected EOF in class declaration"},
 		{"class A extends a b {}", "expected { instead of b in class declaration"},
-		{"class A{+", "expected Identifier, String, Numeric, or [ instead of + in method definition"},
-		{"class A{[a", "expected ] instead of EOF in method definition"},
+		{"class A{+", "expected Identifier, String, Numeric, or [ instead of + in method or field definition"},
+		{"class A{[a", "expected ] instead of EOF in method or field definition"},
 		{"var [...a", "expected ] instead of EOF in array binding pattern"},
 		{"var [a", "expected , or ] instead of EOF in array binding pattern"},
 		{"var [a]", "expected = instead of EOF in var statement"},
@@ -770,8 +773,10 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 			sv.AddStmt(item)
 		}
 	case *ClassDecl:
-		for _, method := range expr.Methods {
-			sv.AddScope(method.Body.Scope)
+		for _, item := range expr.List {
+			if item.Method != nil {
+				sv.AddScope(item.Method.Body.Scope)
+			}
 		}
 	case *ArrowFunc:
 		sv.AddScope(expr.Body.Scope)
@@ -860,8 +865,10 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 			sv.AddStmt(item)
 		}
 	case *ClassDecl:
-		for _, method := range stmt.Methods {
-			sv.AddScope(method.Body.Scope)
+		for _, item := range stmt.List {
+			if item.Method != nil {
+				sv.AddScope(item.Method.Body.Scope)
+			}
 		}
 	case *ReturnStmt:
 		sv.AddExpr(stmt.Value)

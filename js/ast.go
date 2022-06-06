@@ -1321,14 +1321,19 @@ func (n MethodDecl) JS() string {
 	return s[1:]
 }
 
-// FieldDefinition is a field definition in a class declaration.
-type FieldDefinition struct {
-	Name PropertyName
-	Init IExpr
+// Field is a field definition in a class declaration.
+type Field struct {
+	Static bool
+	Name   PropertyName
+	Init   IExpr
 }
 
-func (n FieldDefinition) String() string {
-	s := "Definition(" + n.Name.String()
+func (n Field) String() string {
+	s := "Field("
+	if n.Static {
+		s += "static "
+	}
+	s += n.Name.String()
 	if n.Init != nil {
 		s += " = " + n.Init.String()
 	}
@@ -1336,20 +1341,49 @@ func (n FieldDefinition) String() string {
 }
 
 // JS converts the node back to valid JavaScript
-func (n FieldDefinition) JS() string {
-	s := n.Name.String()
+func (n Field) JS() string {
+	s := ""
+	if n.Static {
+		s += "static "
+	}
+	s += n.Name.String()
 	if n.Init != nil {
 		s += " = " + n.Init.JS()
 	}
 	return s
 }
 
+// ClassElement is a class element that is either a static block, a field definition, or a class method
+type ClassElement struct {
+	StaticBlock *BlockStmt  // can be nil
+	Method      *MethodDecl // can be nil
+	Field
+}
+
+func (n ClassElement) String() string {
+	if n.StaticBlock != nil {
+		return "Static(" + n.StaticBlock.String() + ")"
+	} else if n.Method != nil {
+		return n.Method.String()
+	}
+	return n.Field.String()
+}
+
+// JS converts the node back to valid JavaScript
+func (n ClassElement) JS() string {
+	if n.StaticBlock != nil {
+		return "static " + n.StaticBlock.JS()
+	} else if n.Method != nil {
+		return n.Method.JS()
+	}
+	return n.Field.JS()
+}
+
 // ClassDecl is a class declaration.
 type ClassDecl struct {
-	Name        *Var  // can be nil
-	Extends     IExpr // can be nil
-	Definitions []FieldDefinition
-	Methods     []*MethodDecl
+	Name    *Var  // can be nil
+	Extends IExpr // can be nil
+	List    []ClassElement
 }
 
 func (n ClassDecl) String() string {
@@ -1360,10 +1394,7 @@ func (n ClassDecl) String() string {
 	if n.Extends != nil {
 		s += " extends " + n.Extends.String()
 	}
-	for _, item := range n.Definitions {
-		s += " " + item.String()
-	}
-	for _, item := range n.Methods {
+	for _, item := range n.List {
 		s += " " + item.String()
 	}
 	return s + ")"
@@ -1379,10 +1410,7 @@ func (n ClassDecl) JS() string {
 		s += " extends " + n.Extends.JS()
 	}
 	s += " { "
-	for _, item := range n.Definitions {
-		s += item.JS() + "; "
-	}
-	for _, item := range n.Methods {
+	for _, item := range n.List {
 		s += item.JS() + "; "
 	}
 	return s + "}"

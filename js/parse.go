@@ -1,6 +1,7 @@
 package js
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -975,23 +976,21 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl *ClassDecl) {
 			break
 		}
 
-		method, definition := p.parseClassElement()
-		if method != nil {
-			classDecl.Methods = append(classDecl.Methods, method)
-		} else {
-			classDecl.Definitions = append(classDecl.Definitions, definition)
-		}
+		classDecl.List = append(classDecl.List, p.parseClassElement())
 	}
 	return
 }
 
-func (p *Parser) parseClassElement() (method *MethodDecl, definition FieldDefinition) {
-	method = &MethodDecl{}
+func (p *Parser) parseClassElement() ClassElement {
+	method := &MethodDecl{}
 	var data []byte
 	if p.tt == StaticToken {
 		method.Static = true
 		data = p.data
 		p.next()
+		if p.tt == OpenBraceToken {
+			return ClassElement{StaticBlock: p.parseBlockStmt("class static block")}
+		}
 	}
 	if p.tt == MulToken {
 		method.Generator = true
@@ -1017,7 +1016,7 @@ func (p *Parser) parseClassElement() (method *MethodDecl, definition FieldDefini
 		p.next()
 	}
 
-	isFieldDefinition := false
+	isField := false
 	if data != nil && p.tt == OpenParenToken {
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
 		if method.Async || method.Get || method.Set {
@@ -1029,27 +1028,25 @@ func (p *Parser) parseClassElement() (method *MethodDecl, definition FieldDefini
 		}
 	} else if data != nil && (p.tt == EqToken || p.tt == SemicolonToken || p.tt == CloseBraceToken) {
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
-		isFieldDefinition = true
+		isField = true
 	} else if data == nil && p.tt == PrivateIdentifierToken {
 		method.Name.Literal = LiteralExpr{p.tt, p.data}
 		p.next()
-		isFieldDefinition = true
+		isField = true
 	} else {
-		method.Name = p.parsePropertyName("method definition")
-		if data == nil && p.tt != OpenParenToken {
-			isFieldDefinition = true
+		method.Name = p.parsePropertyName("method or field definition")
+		if (data == nil || bytes.Equal(data, []byte("static"))) && p.tt != OpenParenToken {
+			isField = true
 		}
 	}
 
-	if isFieldDefinition {
-		// FieldDefinition
-		definition.Name = method.Name
+	if isField {
+		var init IExpr
 		if p.tt == EqToken {
 			p.next()
-			definition.Init = p.parseExpression(OpAssign)
+			init = p.parseExpression(OpAssign)
 		}
-		method = nil
-		return
+		return ClassElement{Field: Field{Static: method.Static, Name: method.Name, Init: init}}
 	}
 
 	parent := p.enterScope(&method.Body.Scope, true)
@@ -1062,7 +1059,7 @@ func (p *Parser) parseClassElement() (method *MethodDecl, definition FieldDefini
 
 	p.await, p.yield = parentAwait, parentYield
 	p.exitScope(parent)
-	return
+	return ClassElement{Method: method}
 }
 
 func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
