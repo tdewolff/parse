@@ -111,7 +111,7 @@ func TestParse(t *testing.T) {
 		{"class A { static field }", "Decl(class A Field(static field))"},
 		{"class A { field=5 }", "Decl(class A Field(field = 5))"},
 		{"class A { #field=5 }", "Decl(class A Field(#field = 5))"},
-		{"class A { static field=5 }", "Decl(class A Field(static field = 5))"},
+		{"class A { static #field=5 }", "Decl(class A Field(static #field = 5))"},
 		{"class A { get }", "Decl(class A Field(get))"},
 		{"class A { field static get method(){} }", "Decl(class A Field(field) Method(static get method Params() Stmt({ })))"},
 		{"class A { static { this.field = 5 } }", "Decl(class A Static(Stmt({ Stmt((this.field)=5) })))"},

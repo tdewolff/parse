@@ -1029,7 +1029,7 @@ func (p *Parser) parseClassElement() ClassElement {
 	} else if data != nil && (p.tt == EqToken || p.tt == SemicolonToken || p.tt == CloseBraceToken) {
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
 		isField = true
-	} else if data == nil && p.tt == PrivateIdentifierToken {
+	} else if (data == nil || bytes.Equal(data, []byte("static"))) && p.tt == PrivateIdentifierToken {
 		method.Name.Literal = LiteralExpr{p.tt, p.data}
 		p.next()
 		isField = true
