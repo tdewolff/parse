@@ -167,9 +167,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.r.Move(1)
 		return ColonToken, l.r.Shift()
 	case '\'', '"':
-		if l.consumeStringToken() {
-			return StringToken, l.r.Shift()
-		}
+		return l.consumeStringToken(), l.r.Shift()
 	case ']':
 		l.r.Move(1)
 		return CloseBracketToken, l.r.Shift()
@@ -605,9 +603,8 @@ func (l *Lexer) consumeNumericToken() TokenType {
 	return DecimalToken
 }
 
-func (l *Lexer) consumeStringToken() bool {
+func (l *Lexer) consumeStringToken() TokenType {
 	// assume to be on ' or "
-	mark := l.r.Pos()
 	delim := l.r.Peek(0)
 	l.r.Move(1)
 	for {
@@ -624,12 +621,12 @@ func (l *Lexer) consumeStringToken() bool {
 			}
 			continue
 		} else if c == '\n' || c == '\r' || c == 0 && l.r.Err() != nil {
-			l.r.Rewind(mark)
-			return false
+			l.err = parse.NewErrorLexer(l.r, "unterminated string literal")
+			return ErrorToken
 		}
 		l.r.Move(1)
 	}
-	return true
+	return StringToken
 }
 
 func (l *Lexer) consumeRegExpToken() bool {
@@ -700,10 +697,8 @@ func (l *Lexer) consumeTemplateToken() TokenType {
 			}
 			continue
 		} else if c == 0 && l.r.Err() != nil {
-			if continuation {
-				return TemplateEndToken
-			}
-			return TemplateToken
+			l.err = parse.NewErrorLexer(l.r, "unterminated template literal")
+			return ErrorToken
 		}
 		l.r.Move(1)
 	}

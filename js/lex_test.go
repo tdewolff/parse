@@ -76,8 +76,8 @@ func TestTokens(t *testing.T) {
 		{"/*comment", TTs{CommentToken}},
 		{"a=/regexp", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken}},
 		{"\\u002", TTs{ErrorToken}},
-		{"`template", TTs{TemplateToken}},
-		{"`template${x}template", TTs{TemplateStartToken, IdentifierToken, TemplateEndToken}},
+		{"`template", TTs{ErrorToken}},
+		{"`template${x}template", TTs{TemplateStartToken, IdentifierToken, ErrorToken}},
 		{"a++=1", TTs{IdentifierToken, IncrToken, EqToken, DecimalToken}},
 		{"a++==1", TTs{IdentifierToken, IncrToken, EqEqToken, DecimalToken}},
 		{"a++===1", TTs{IdentifierToken, IncrToken, EqEqEqToken, DecimalToken}},
@@ -115,7 +115,7 @@ func TestTokens(t *testing.T) {
 		{"`\\\r\n`", TTs{TemplateToken}},
 
 		// go fuzz
-		{"`", TTs{TemplateToken}},
+		{"`", TTs{ErrorToken}},
 
 		// issues
 		{"_\u00bare_unicode_escape_identifier", TTs{IdentifierToken}}, // tdewolff/minify#449
@@ -243,27 +243,33 @@ func TestOffset(t *testing.T) {
 }
 
 func TestLexerErrors(t *testing.T) {
-	l := NewLexer(parse.NewInputString("@"))
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected @")
+	var tests = []struct {
+		js  string
+		err string
+	}{
+		{"@", "unexpected @"},
+		{"\x00", "unexpected 0x00"},
+		{"\x7f", "unexpected 0x7F"},
+		{"\u200F", "unexpected U+200F"},
+		{"\u2010", "unexpected \u2010"},
+		{"5a", "unexpected identifier after number"},
+		{".0E", "invalid number"},
+		{`"a`, "unterminated string literal"},
+		{"'a\nb'", "unterminated string literal"},
+		{"`", "unterminated template literal"},
+	}
 
-	l = NewLexer(parse.NewInputString("\x00"))
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected 0x00")
+	for _, tt := range tests {
+		t.Run(tt.js, func(t *testing.T) {
+			l := NewLexer(parse.NewInputString(tt.js))
+			for l.Err() == nil {
+				l.Next()
+			}
+			test.T(t, l.Err().(*parse.Error).Message, tt.err)
+		})
+	}
 
-	l = NewLexer(parse.NewInputString("\x7f"))
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected 0x7F")
-
-	l = NewLexer(parse.NewInputString("\u200F"))
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected U+200F")
-
-	l = NewLexer(parse.NewInputString("\u2010"))
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected \u2010")
-
-	l = NewLexer(parse.NewInputString(""))
+	l := NewLexer(parse.NewInputString(""))
 	l.RegExp()
 	test.T(t, l.Err().(*parse.Error).Message, "expected / or /=")
 
@@ -271,16 +277,6 @@ func TestLexerErrors(t *testing.T) {
 	l.Next()
 	l.RegExp()
 	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline")
-
-	l = NewLexer(parse.NewInputString("5a"))
-	l.Next()
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "unexpected identifier after number")
-
-	l = NewLexer(parse.NewInputString(".0E"))
-	l.Next()
-	l.Next()
-	test.T(t, l.Err().(*parse.Error).Message, "invalid number")
 }
 
 ////////////////////////////////////////////////////////////////
