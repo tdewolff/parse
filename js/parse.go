@@ -1,7 +1,6 @@
 package js
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -983,7 +982,7 @@ func (p *Parser) parseAnyClass(inExpr bool) (classDecl *ClassDecl) {
 
 func (p *Parser) parseClassElement() ClassElement {
 	method := &MethodDecl{}
-	var data []byte
+	var data []byte // either static, async, get, or set
 	if p.tt == StaticToken {
 		method.Static = true
 		data = p.data
@@ -1018,6 +1017,7 @@ func (p *Parser) parseClassElement() ClassElement {
 
 	isField := false
 	if data != nil && p.tt == OpenParenToken {
+		// (static) method name is: static, async, get, or set
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
 		if method.Async || method.Get || method.Set {
 			method.Async = false
@@ -1027,15 +1027,20 @@ func (p *Parser) parseClassElement() ClassElement {
 			method.Static = false
 		}
 	} else if data != nil && (p.tt == EqToken || p.tt == SemicolonToken || p.tt == CloseBraceToken) {
+		// (static) field name is: static, async, get, or set
 		method.Name.Literal = LiteralExpr{IdentifierToken, data}
-		isField = true
-	} else if (data == nil || bytes.Equal(data, []byte("static"))) && p.tt == PrivateIdentifierToken {
-		method.Name.Literal = LiteralExpr{p.tt, p.data}
-		p.next()
+		if !method.Async && !method.Get && !method.Set {
+			method.Static = false
+		}
 		isField = true
 	} else {
-		method.Name = p.parsePropertyName("method or field definition")
-		if (data == nil || bytes.Equal(data, []byte("static"))) && p.tt != OpenParenToken {
+		if p.tt == PrivateIdentifierToken {
+			method.Name.Literal = LiteralExpr{p.tt, p.data}
+			p.next()
+		} else {
+			method.Name = p.parsePropertyName("method or field definition")
+		}
+		if (data == nil || method.Static) && p.tt != OpenParenToken {
 			isField = true
 		}
 	}
