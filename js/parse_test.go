@@ -381,13 +381,11 @@ func TestParse(t *testing.T) {
 		{"var a; var a", "Decl(var Binding(a)) Decl(var Binding(a))"},
 		{"var a; {let a}", "Decl(var Binding(a)) Stmt({ Decl(let Binding(a)) })"},
 		{"{let a} var a", "Stmt({ Decl(let Binding(a)) }) Decl(var Binding(a))"},
-		{"function a(b,b){}", "Decl(function a Params(Binding(b), Binding(b)) Stmt({ }))"},
 		{"function a(b){var b}", "Decl(function a Params(Binding(b)) Stmt({ Decl(var Binding(b)) }))"},
 		{"a=function(b){var b}", "Stmt(a=Decl(function Params(Binding(b)) Stmt({ Decl(var Binding(b)) })))"},
 		{"a=function b(){var b}", "Stmt(a=Decl(function b Params() Stmt({ Decl(var Binding(b)) })))"},
 		{"a=function b(){let b}", "Stmt(a=Decl(function b Params() Stmt({ Decl(let Binding(b)) })))"},
 		{"a=>{var a}", "Stmt(Params(Binding(a)) => Stmt({ Decl(var Binding(a)) }))"},
-		{"var a;function a(){}", "Decl(var Binding(a)) Decl(function a Params() Stmt({ }))"},
 		{"try{}catch(a){var a}", "Stmt(try Stmt({ }) catch Binding(a) Stmt({ Decl(var Binding(a)) }))"},
 
 		// ASI
@@ -684,6 +682,9 @@ func TestParseError(t *testing.T) {
 		{"let {a, ...a}", "identifier a has already been declared"},
 		{"for(let a in [0,1,2]){var a = 5}", "identifier a has already been declared"},
 		{"for(let a=0; a<10; a++){var a = 5}", "identifier a has already been declared"},
+		{"function a(){}; var a", "identifier a has already been declared"},
+		{"export function a(){}; var a", "identifier a has already been declared"},
+		{"export default function a(){}; var a", "identifier a has already been declared"},
 
 		// other
 		{"\x00", "unexpected 0x00"},
@@ -931,13 +932,11 @@ func TestParseScope(t *testing.T) {
 		{"function a(b=c,c){}", "a=1/b=3,c=4", "c=2/c=2"},
 		{"function a(b=c){var c}", "a=1/b=3,c=4", "c=2/c=2"},
 		{"function a(b){var b}", "a=1/b=2", "/"},
-		{"function a(b,b){}", "a=1/b=2", "/"},
 		{"!function a(b,c){var d; e = 5; a}", "/a=2,b=3,c=4,d=5", "e=1/e=1"},
 		{"a=function(b,c=b){}", "/b=2,c=3", "a=1/"},
 		{"a=function(b=c,c){}", "/b=3,c=4", "a=1,c=2/c=2"},
 		{"a=function(b=c){var c}", "/b=3,c=4", "a=1,c=2/c=2"},
 		{"a=function(b){var b}", "/b=2", "a=1/"},
-		{"a=function(b,b){}", "/b=2", "a=1/"},
 		{"export function a(){}", "a=1", ""},
 		{"export default function a(){}", "a=1", ""},
 		{"class a{b(){}}", "a=1/", "/"}, // classes are not tracked
@@ -996,8 +995,7 @@ func TestParseScope(t *testing.T) {
 		{"var a;try{}catch(a){var a}", "a=1/a=2", "/a=1"},
 		{"var a;try{}catch(b){var a}", "a=1/b=2", "/a=1"},
 		{"function r(o){function l(t){if(!z[t]){if(!o[t]);}}}", "r=1/o=3,l=4/t=5/", "z=2/z=2/z=2,o=3/o=3*,t=5"},
-		{"function a(){var name;{var name}}", "a=1/name=2/", "//name=2"},            // may remove name from uses
-		{"function a(){var name;{function name(){}}}", "a=1/name=2//", "//name=2/"}, // may remove name from uses
+		{"function a(){var name;{var name}}", "a=1/name=2/", "//name=2"}, // may remove name from uses
 		{"function a(){var name;{var name=7}}", "a=1/name=2/", "//name=2"},
 		{"!function(){a};!function(){a};var a", "a=1//", "/a=1/a=1"},
 		{"!function(){var a;!function(){a;var a}}", "/a=1/a=2", "//"},
