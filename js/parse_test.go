@@ -938,6 +938,8 @@ func TestParseScope(t *testing.T) {
 		{"a=function(b=c){var c}", "/b=3,c=4", "a=1,c=2/c=2"},
 		{"a=function(b){var b}", "/b=2", "a=1/"},
 		{"a=function(b,b){}", "/b=2", "a=1/"},
+		{"export function a(){}", "a=1", ""},
+		{"export default function a(){}", "a=1", ""},
 		{"class a{b(){}}", "a=1/", "/"}, // classes are not tracked
 		{"!class a{b(){}}", "/", "/"},
 		{"a => a%5", "/a=1", "/"},
