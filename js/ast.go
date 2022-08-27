@@ -384,7 +384,9 @@ func (n BlockStmt) JS() string {
 		s += "{ "
 	}
 	for _, item := range n.List {
-		s += item.JS() + "; "
+		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
+			s += item.JS() + "; "
+		}
 	}
 	if n.Scope.Parent != nil {
 		s += "}"
