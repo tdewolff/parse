@@ -624,6 +624,9 @@ func TestParseError(t *testing.T) {
 		{"x = ({...5}) =>", "unexpected => in expression"},
 		{"x = ({5: 5}) =>", "unexpected => in expression"},
 		{"x = ({[4+5]: 5}) =>", "unexpected => in expression"},
+		{"x = (a, a) =>", "unexpected => in expression"},
+		{"x = (a, a, ...a) =>", "unexpected ... in expression"},
+		{"x = (a, ...a) =>", "identifier a has already been declared"},
 
 		// expression precedence
 		{"x = a + yield b", "unexpected b in expression"},
@@ -952,7 +955,6 @@ func TestParseScope(t *testing.T) {
 		{"(a,b=a) => {}", "/a=1,b=2", "/"},
 		{"(a=b,b)=>{}", "/a=2,b=3", "b=1/b=1"},
 		{"a=>{var a}", "/a=1", "/"},
-		{"(a,a)=>{}", "/a=1", "/"},
 		{"(a=b) => {var b}", "/a=2,b=3", "b=1/b=1"},
 		{"({[a+b]:c}) => {}", "/c=3", "a=1,b=2/a=1,b=2"},
 		{"({a:b, c=d, ...e}=f) => 5", "/b=3,c=4,e=5", "d=1,f=2/d=1,f=2"},

@@ -1447,7 +1447,7 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc *ArrowFunc) {
 	p.await, p.yield = true, false
 
 	if IsIdentifier(p.tt) || !p.yield && p.tt == YieldToken {
-		ref, _ := p.scope.Declare(ArgumentDecl, p.data)
+		ref, _ := p.scope.Declare(ArgumentDecl, p.data) // cannot fail
 		p.next()
 		arrowFunc.Params.List = []BindingElement{{Binding: ref}}
 	} else {
@@ -2104,12 +2104,15 @@ func (p *Parser) parseAssignmentExpression() IExpr {
 		data := p.data
 		p.next()
 		if p.tt == EqToken || p.tt == CommaToken || p.tt == CloseParenToken || p.tt == CloseBraceToken || p.tt == CloseBracketToken {
+			var ok bool
 			var left IExpr
-			left, _ = p.scope.Declare(ArgumentDecl, data) // cannot fail
-			p.assumeArrowFunc = false
-			left = p.parseExpressionSuffix(left, OpAssign, OpPrimary)
-			p.assumeArrowFunc = true
-			return left
+			left, ok = p.scope.Declare(ArgumentDecl, data)
+			if ok {
+				p.assumeArrowFunc = false
+				left = p.parseExpressionSuffix(left, OpAssign, OpPrimary)
+				p.assumeArrowFunc = true
+				return left
+			}
 		}
 		p.assumeArrowFunc = false
 		if tt == AsyncToken {
@@ -2148,7 +2151,12 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 					p.next()
 				}
 			} else if p.isIdentifierReference(p.tt) {
-				rest, _ = p.scope.Declare(ArgumentDecl, p.data) // cannot fail
+				var ok bool
+				rest, ok = p.scope.Declare(ArgumentDecl, p.data)
+				if !ok {
+					p.failMessage("identifier %s has already been declared", string(p.data))
+					return nil
+				}
 				p.next()
 			} else if p.tt == OpenBracketToken {
 				array := p.parseArrayLiteral()
