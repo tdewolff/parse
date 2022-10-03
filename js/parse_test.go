@@ -685,9 +685,9 @@ func TestParseError(t *testing.T) {
 		{"let {a, ...a}", "identifier a has already been declared"},
 		{"for(let a in [0,1,2]){var a = 5}", "identifier a has already been declared"},
 		{"for(let a=0; a<10; a++){var a = 5}", "identifier a has already been declared"},
-		{"function a(){}; var a", "identifier a has already been declared"},
-		{"export function a(){}; var a", "identifier a has already been declared"},
-		{"export default function a(){}; var a", "identifier a has already been declared"},
+		//{"function a(){}; var a", "identifier a has already been declared"},
+		//{"export function a(){}; var a", "identifier a has already been declared"},
+		//{"export default function a(){}; var a", "identifier a has already been declared"},
 
 		// other
 		{"\x00", "unexpected 0x00"},

@@ -164,8 +164,8 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 
 	if v := s.findDeclared(name, true); v != nil {
 		// variable already declared, might be an error or a duplicate declaration
-		if (decl != VariableDecl && decl != FunctionDecl || v.Decl != decl && v.Decl != ArgumentDecl) && v.Decl != ExprDecl {
-			// only allow (v.Decl,decl) of: (var|argument,var), (function|argument,function), (expr,*), any other combination is a syntax error
+		if (ArgumentDecl < v.Decl || FunctionDecl < decl) && v.Decl != ExprDecl {
+			// only allow (v.Decl,decl) of: (var|function|argument,var|function), (expr,*), any other combination is a syntax error
 			return nil, false
 		}
 		if v.Decl == ExprDecl {
