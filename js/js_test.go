@@ -3,6 +3,7 @@ package js
 import (
 	"bytes"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -210,6 +211,212 @@ func TestJS(t *testing.T) {
 				test.Error(t, err)
 			}
 			test.String(t, ast.JS(), tt.expected)
+		})
+	}
+}
+func TestJSWriteTo(t *testing.T) {
+	var tests = []struct {
+		js       string
+		expected string
+	}{
+		// BlockStmt
+		{"if (true) { x(1, 2, 3); };", "if (true) { x(1, 2, 3); }; "},
+
+		// IfStmt
+		{"if (true) { true; };", "if (true) { true; }; "},
+		{"if (true) { true; } else { false; };", "if (true) { true; } else { false; }; "},
+		{"if (true) { true; } else { if(true) { true; } else { false; } };", "if (true) { true; } else { if (true) { true; } else { false; }; }; "},
+
+		// DoWhileStmt
+		{"do { continue; } while (true);", "do { continue; } while (true); "},
+		{"do { x = 1; } while (true);", "do { x = 1; } while (true); "},
+
+		// WhileStmt
+		{"while (true) { true; };", "while (true) { true; }; "},
+		{"while (true) { x = 1; };", "while (true) { x = 1; }; "},
+
+		// ForStmt
+		{"for ( ; ; ) { true; };", "for ( ; ; ) { true; }; "},
+		{"for (x = 1; ; ) { true; };", "for (x = 1; ; ) { true; }; "},
+		{"for (x = 1; x < 2; ) { true; };", "for (x = 1; x < 2; ) { true; }; "},
+		{"for (x = 1; x < 2; x++) { true; };", "for (x = 1; x < 2; x++) { true; }; "},
+		{"for (x = 1; x < 2; x++) { x = 1; };", "for (x = 1; x < 2; x++) { x = 1; }; "},
+
+		// ForInStmt
+		{"for (var x in [1, 2]) { true; };", "for (var x in [1, 2]) { true; }; "},
+		{"for (var x in [1, 2]) { x = 1; };", "for (var x in [1, 2]) { x = 1; }; "},
+
+		// ForOfStmt
+		{"for (const element of [1, 2]) { true; };", "for (const element of [1, 2]) { true; }; "},
+		{"for (const element of [1, 2]) { x = 1; };", "for (const element of [1, 2]) { x = 1; }; "},
+
+		// SwitchStmt
+		{"switch (true) { case true: break; case false: false; };", "switch (true) { case true: break; case false: false; }; "},
+		{"switch (true) { case true: x(); break; case false: x(); false; };", "switch (true) { case true: x(); break; case false: x(); false; }; "},
+		{"switch (true) { default: false; };", "switch (true) { default: false; }; "},
+
+		// BranchStmt
+		{"for (i = 0; i < 3; i++) { continue; }; ", "for (i = 0; i < 3; i++) { continue; }; "},
+		{"for (i = 0; i < 3; i++) { x = 1; }; ", "for (i = 0; i < 3; i++) { x = 1; }; "},
+
+		// ReturnStmt
+		{"return;", "return; "},
+		{"return 1;", "return 1; "},
+
+		// WithStmt
+		{"with (true) { true; };", "with (true) { true; }; "},
+		{"with (true) { x = 1; };", "with (true) { x = 1; }; "},
+
+		// LabelledStmt
+		{"loop: for (x = 0; x < 1; x++) { true; };", "loop: for (x = 0; x < 1; x++) { true; }; "},
+
+		// ThrowStmt
+		{"throw x;", "throw x; "},
+
+		// TryStmt
+		{"try { true; } catch(e) { };", "try { true; } catch(e) { }; "},
+		{"try { true; } catch(e) { true; };", "try { true; } catch(e) { true; }; "},
+		{"try { true; } catch(e) { x = 1; };", "try { true; } catch(e) { x = 1; }; "},
+
+		// DebuggerStmt
+		{"debugger;", "debugger; "},
+
+		// Alias
+		{"import * as name from 'module-name';", "import * as name from 'module-name'; "},
+
+		// ImportStmt
+		{"import defaultExport from 'module-name';", "import defaultExport from 'module-name'; "},
+		{"import * as name from 'module-name';", "import * as name from 'module-name'; "},
+		{"import { export1 } from 'module-name';", "import { export1 } from 'module-name'; "},
+		{"import { export1 as alias1 } from 'module-name';", "import { export1 as alias1 } from 'module-name'; "},
+		{"import { export1 , export2 } from 'module-name';", "import { export1 , export2 } from 'module-name'; "},
+		{"import { foo , bar } from 'module-name/path/to/specific/un-exported/file';", "import { foo , bar } from 'module-name/path/to/specific/un-exported/file'; "},
+		{"import defaultExport, * as name from 'module-name';", "import defaultExport , * as name from 'module-name'; "},
+		{"import 'module-name';", "import 'module-name'; "},
+		{"var promise = import('module-name');", "var promise = import('module-name'); "},
+
+		// ExportStmt
+		{"export { myFunction as default };", "export { myFunction as default }; "},
+		{"export default k = 12;", "export default k = 12; "},
+
+		// DirectivePrologueStmt
+		{"'use strict';", "'use strict'; "},
+
+		// BindingArray
+		{"let [name = 5] = z;", "let [name = 5] = z; "},
+
+		// BindingObject
+		{"let {} = z;", "let { } = z; "},
+
+		// BindingElement
+		{"let [name = 5] = z;", "let [name = 5] = z; "},
+
+		// VarDecl
+		{"x = 1;", "x = 1; "},
+		{"var x;", "var x; "},
+		{"var x = 1;", "var x = 1; "},
+		{"var x, y = [];", "var x, y = []; "},
+		{"let x;", "let x; "},
+		{"let x = 1;", "let x = 1; "},
+		{"const x = 1;", "const x = 1; "},
+
+		// Params
+		{"function xyz (a, b) { };", "function xyz (a, b) { }; "},
+		{"function xyz (a, b, ...c) { };", "function xyz (a, b, ...c) { }; "},
+
+		// FuncDecl
+		{"function xyz (a, b) { };", "function xyz (a, b) { }; "},
+
+		// MethodDecl
+		{"class A { field; static get method () { }; };", "class A { field; static get method () { }; }; "},
+
+		// FieldDefinition
+		{"class A { field; };", "class A { field; }; "},
+		{"class A { field = 5; };", "class A { field = 5; }; "},
+
+		// ClassDecl
+		{"class A { field; static get method () { }; };", "class A { field; static get method () { }; }; "},
+		{"class B extends A { field; static get method () { }; };", "class B extends A { field; static get method () { }; }; "},
+
+		// LiteralExpr
+		{"'test';", "'test'; "},
+
+		// ArrayExpr
+		{"[1, 2, 3];", "[1, 2, 3]; "},
+
+		// Property
+		{`x = {x: "value"};`, `x = {x: "value"}; `},
+		{`x = {"x": "value"};`, `x = {x: "value"}; `},
+		{`x = {"1a": 2};`, `x = {"1a": 2}; `},
+
+		// ObjectExpr
+		{`x = {x: "value", y: "value"};`, `x = {x: "value", y: "value"}; `},
+
+		// TemplateExpr
+		{"x = `value`;", "x = `value`; "},
+		{"x = `value${'hi'}`;", "x = `value${'hi'}`; "},
+
+		// GroupExpr
+		{"x = (1 + 1) / 1;", "x = (1 + 1) / 1; "},
+
+		// IndexExpr
+		{"x = y[1];", "x = y[1]; "},
+
+		// DotExpr
+		{"x = y.z;", "x = y.z; "},
+
+		// NewTargetExpr
+		{"x = new.target;", "x = new.target; "},
+
+		// ImportMetaExpr
+		{"x = import.meta;", "x = import.meta; "},
+
+		// Args
+		{"x(1, 2);", "x(1, 2); "},
+
+		// NewExpr
+		{"new x;", "new x(); "},
+		{"new x(1);", "new x(1); "},
+		{"new Date().getTime();", "new Date().getTime(); "},
+
+		// CallExpr
+		{"x();", "x(); "},
+
+		// OptChainExpr
+		{"x = y?.z;", "x = y?.z; "},
+
+		// UnaryExpr
+		{"x = 1 + 1;", "x = 1 + 1; "},
+
+		// BinaryExpr
+		{"a << b;", "a << b; "},
+
+		// CondExpr
+		{"a && b;", "a && b; "},
+		{"a || b;", "a || b; "},
+
+		// YieldExpr
+		{"x = function* foo (x) { while (x < 2) { yield x; x++; }; };", "x = function* foo (x) { while (x < 2) { yield x; x++; }; }; "},
+
+		// ArrowFunc
+		{"(x) => { y(); };", "(x) => { y(); }; "},
+		{"(x, y) => { z(); };", "(x, y) => { z(); }; "},
+		{"async (x, y) => { z(); };", "async (x, y) => { z(); }; "},
+
+		// Await keyword
+		{"await x;", "await x; "},
+		{"export default await x;", "export default await x; "},
+		{"export let a = await x;", "export let a = await x; "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.js, func(t *testing.T) {
+			ast, err := Parse(parse.NewInputString(tt.js), Options{})
+			if err != io.EOF {
+				test.Error(t, err)
+			}
+			var buf strings.Builder
+			ast.JSWriteTo(&buf)
+			test.String(t, buf.String(), tt.expected)
 		})
 	}
 }

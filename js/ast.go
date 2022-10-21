@@ -2479,44 +2479,74 @@ func (n MethodDecl) JSWriteTo(w io.Writer) (i int64, err error) {
 	var wn int
 	var wn64 int64
 	if n.Static {
-		wn, err = w.Write([]byte(" static"))
+		wn, err = w.Write([]byte("static"))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
 	}
 	if n.Async {
-		wn, err = w.Write([]byte(" async"))
+		if wn > 0 {
+			wn, err = w.Write([]byte(" "))
+			i += int64(wn)
+			if err != nil {
+				return
+			}
+		}
+		wn, err = w.Write([]byte("async"))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
 	}
 	if n.Generator {
-		wn, err = w.Write([]byte(" *"))
+		if wn > 0 {
+			wn, err = w.Write([]byte(" "))
+			i += int64(wn)
+			if err != nil {
+				return
+			}
+		}
+		wn, err = w.Write([]byte("*"))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
 	}
 	if n.Get {
-		wn, err = w.Write([]byte(" get"))
+		if wn > 0 {
+			wn, err = w.Write([]byte(" "))
+			i += int64(wn)
+			if err != nil {
+				return
+			}
+		}
+		wn, err = w.Write([]byte("get"))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
 	}
 	if n.Set {
-		wn, err = w.Write([]byte(" set"))
+		if wn > 0 {
+			wn, err = w.Write([]byte(" "))
+			i += int64(wn)
+			if err != nil {
+				return
+			}
+		}
+		wn, err = w.Write([]byte("set"))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
 	}
-	wn, err = w.Write([]byte(" "))
-	i += int64(wn)
-	if err != nil {
-		return
+	if wn > 0 {
+		wn, err = w.Write([]byte(" "))
+		i += int64(wn)
+		if err != nil {
+			return
+		}
 	}
 	wn64, err = n.Name.JSWriteTo(w)
 	i += wn64
