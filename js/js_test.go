@@ -98,13 +98,13 @@ func TestJS(t *testing.T) {
 		{"'use strict';", "'use strict'; "},
 
 		// BindingArray
-		{"let [name = 5] = z;", "let [name = 5] = z; "},
+		{"let [name1, name2 = 6] = z;", "let [name1, name2 = 6] = z; "},
 
 		// BindingObject
-		{"let {} = z;", "let { } = z; "},
+		{"let {name1, key2: name2} = z;", "let {name1, key2: name2} = z; "},
 
 		// BindingElement
-		{"let [name = 5] = z;", "let [name = 5] = z; "},
+		{"let [{name: key, ...rest}, ...[c,d=9]] = z;", "let [{name: key, ...rest}, ...[c, d = 9]] = z; "},
 
 		// VarDecl
 		{"x = 1;", "x = 1; "},

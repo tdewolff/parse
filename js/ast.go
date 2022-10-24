@@ -1000,7 +1000,10 @@ func (n PropertyName) String() string {
 
 // JS converts the node back to valid JavaScript
 func (n PropertyName) JS() string {
-	return n.String()
+	if n.Computed != nil {
+		return "[" + n.Computed.JS() + "]"
+	}
+	return string(n.Literal.Data)
 }
 
 // BindingArray is an array binding pattern.
@@ -1031,15 +1034,15 @@ func (n BindingArray) JS() string {
 	s := "["
 	for i, item := range n.List {
 		if i != 0 {
-			s += ","
+			s += ", "
 		}
 		s += item.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			s += ","
+			s += ", "
 		}
-		s += " ..." + n.Rest.JS()
+		s += "..." + n.Rest.JS()
 	}
 	return s + "]"
 }
@@ -1057,7 +1060,7 @@ func (n BindingObjectItem) String() string {
 			s += " " + n.Key.String() + ":"
 		}
 	}
-	return " " + n.Value.String()
+	return s + " " + n.Value.String()
 }
 
 // JS converts the node back to valid JavaScript
@@ -1065,10 +1068,10 @@ func (n BindingObjectItem) JS() string {
 	s := ""
 	if n.Key != nil {
 		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
-			s += " " + n.Key.JS() + ":"
+			s += n.Key.JS() + ": "
 		}
 	}
-	return " " + n.Value.JS()
+	return s + n.Value.JS()
 }
 
 // BindingObject is an object binding pattern.
@@ -1083,12 +1086,7 @@ func (n BindingObject) String() string {
 		if i != 0 {
 			s += ","
 		}
-		if item.Key != nil {
-			if v, ok := item.Value.Binding.(*Var); !ok || !item.Key.IsIdent(v.Data) {
-				s += " " + item.Key.String() + ":"
-			}
-		}
-		s += " " + item.Value.String()
+		s += item.String()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
@@ -1104,22 +1102,17 @@ func (n BindingObject) JS() string {
 	s := "{"
 	for i, item := range n.List {
 		if i != 0 {
-			s += ","
+			s += ", "
 		}
-		if item.Key != nil {
-			if v, ok := item.Value.Binding.(*Var); !ok || !item.Key.IsIdent(v.Data) {
-				s += " " + item.Key.JS() + ":"
-			}
-		}
-		s += " " + item.Value.JS()
+		s += item.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			s += ","
+			s += ", "
 		}
-		s += " ..." + string(n.Rest.Data)
+		s += "..." + string(n.Rest.Data)
 	}
-	return s + " }"
+	return s + "}"
 }
 
 // BindingElement is a binding element.
@@ -1894,7 +1887,7 @@ func (n CallExpr) String() string {
 // JS converts the node back to valid JavaScript
 func (n CallExpr) JS() string {
 	if n.Optional {
-		return n.X.String() + "?.(" + n.Args.JS() + ")"
+		return n.X.JS() + "?.(" + n.Args.JS() + ")"
 	}
 	return n.X.JS() + "(" + n.Args.JS() + ")"
 }
