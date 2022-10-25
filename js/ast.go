@@ -1812,34 +1812,19 @@ func (n PropertyName) JS() string {
 // JS converts the node back to valid JavaScript (writes to io.Writer)
 func (n PropertyName) JSWriteTo(w io.Writer) (i int64, err error) {
 	var wn int
+	var wn64 int64
 	if n.Computed != nil {
-		val := n.Computed.String()
-		if val[0] == '(' {
-			wn, err = w.Write([]byte("["))
-			i += int64(wn)
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte(val[1 : len(val)-1]))
-			i += int64(wn)
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte("["))
-			i += int64(wn)
-			return
-		}
 		wn, err = w.Write([]byte("["))
 		i += int64(wn)
 		if err != nil {
 			return
 		}
-		wn, err = w.Write([]byte(val))
-		i += int64(wn)
+		wn64, err = n.Computed.JSWriteTo(w)
+		i += wn64
 		if err != nil {
 			return
 		}
-		wn, err = w.Write([]byte("["))
+		wn, err = w.Write([]byte("]"))
 		i += int64(wn)
 		return
 	}
@@ -1900,7 +1885,7 @@ func (n BindingArray) JSWriteTo(w io.Writer) (i int64, err error) {
 	}
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(","))
+			wn, err = w.Write([]byte(", "))
 			i += int64(wn)
 			if err != nil {
 				return
@@ -1914,13 +1899,13 @@ func (n BindingArray) JSWriteTo(w io.Writer) (i int64, err error) {
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(","))
+			wn, err = w.Write([]byte(", "))
 			i += int64(wn)
 			if err != nil {
 				return
 			}
 		}
-		wn, err = w.Write([]byte(" ..."))
+		wn, err = w.Write([]byte("..."))
 		i += int64(wn)
 		if err != nil {
 			return
@@ -1969,27 +1954,17 @@ func (n BindingObjectItem) JSWriteTo(w io.Writer) (i int64, err error) {
 	var wn64 int64
 	if n.Key != nil {
 		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
-			wn, err = w.Write([]byte(" "))
-			i += int64(wn)
-			if err != nil {
-				return
-			}
 			wn64, err = n.Key.JSWriteTo(w)
 			i += wn64
 			if err != nil {
 				return
 			}
-			wn, err = w.Write([]byte(":"))
+			wn, err = w.Write([]byte(": "))
 			i += int64(wn)
 			if err != nil {
 				return
 			}
 		}
-	}
-	wn, err = w.Write([]byte(" "))
-	i += int64(wn)
-	if err != nil {
-		return
 	}
 	wn64, err = n.Value.JSWriteTo(w)
 	i += wn64
@@ -2048,37 +2023,13 @@ func (n BindingObject) JSWriteTo(w io.Writer) (i int64, err error) {
 	}
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(","))
+			wn, err = w.Write([]byte(", "))
 			i += int64(wn)
 			if err != nil {
 				return
 			}
 		}
-		if item.Key != nil {
-			if v, ok := item.Value.Binding.(*Var); !ok || !item.Key.IsIdent(v.Data) {
-				wn, err = w.Write([]byte(" "))
-				i += int64(wn)
-				if err != nil {
-					return
-				}
-				wn64, err = item.Key.JSWriteTo(w)
-				i += wn64
-				if err != nil {
-					return
-				}
-				wn, err = w.Write([]byte(":"))
-				i += int64(wn)
-				if err != nil {
-					return
-				}
-			}
-		}
-		wn, err = w.Write([]byte(" "))
-		i += int64(wn)
-		if err != nil {
-			return
-		}
-		wn64, err = item.Value.JSWriteTo(w)
+		wn64, err = item.JSWriteTo(w)
 		i += wn64
 		if err != nil {
 			return
@@ -2086,13 +2037,13 @@ func (n BindingObject) JSWriteTo(w io.Writer) (i int64, err error) {
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(","))
+			wn, err = w.Write([]byte(", "))
 			i += int64(wn)
 			if err != nil {
 				return
 			}
 		}
-		wn, err = w.Write([]byte(" ..."))
+		wn, err = w.Write([]byte("..."))
 		i += int64(wn)
 		if err != nil {
 			return
@@ -2103,7 +2054,7 @@ func (n BindingObject) JSWriteTo(w io.Writer) (i int64, err error) {
 			return
 		}
 	}
-	wn, err = w.Write([]byte(" }"))
+	wn, err = w.Write([]byte("}"))
 	i += int64(wn)
 	return
 }
