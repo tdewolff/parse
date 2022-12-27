@@ -232,7 +232,7 @@ func (p *Parser) parseDeclarationList() GrammarType {
 
 func (p *Parser) parseAtRule() GrammarType {
 	p.initBuf()
-	parse.ToLower(p.data)
+	p.data = parse.ToLower(parse.Copy(p.data))
 	atRuleName := p.data
 	if len(atRuleName) > 0 && atRuleName[1] == '-' {
 		if i := bytes.IndexByte(atRuleName[2:], '-'); i != -1 {
@@ -378,7 +378,7 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 
 func (p *Parser) parseDeclaration() GrammarType {
 	p.initBuf()
-	parse.ToLower(p.data)
+	p.data = parse.ToLower(parse.Copy(p.data))
 
 	ttName, dataName := p.tt, p.data
 	tt, data := p.popToken(false)
