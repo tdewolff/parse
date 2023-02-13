@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"unicode"
 
 	"github.com/tdewolff/parse/v2"
 )
@@ -501,6 +502,10 @@ func (n IfStmt) JS() string {
 		s += n.Body.JS()
 	case *EmptyStmt:
 		s += ";"
+	case *ExprStmt:
+		// expr stmts do not come with their own semicolons,
+		// but _will_ come with a semicolon in a block stmt
+		s += "{ " + n.Body.JS() + "; }"
 	default:
 		s += "{ " + n.Body.JS() + " }"
 	}
@@ -1614,7 +1619,7 @@ func (n ExportStmt) JS() string {
 		return s + " " + n.Decl.JS()
 	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
 		s += " " + n.List[0].JS()
-	} else if 0 < len(n.List) {
+	} else {
 		s += " {"
 		for i, item := range n.List {
 			if i != 0 {
@@ -3283,10 +3288,28 @@ func (n DotExpr) String() string {
 
 // JS converts the node back to valid JavaScript
 func (n DotExpr) JS() string {
-	if n.Optional {
-		return n.X.JS() + "?." + n.Y.JS()
+	s := n.X.JS()
+
+	// edge-case: numeric literal followed by a
+	// dot should be parenthesized. Otherwise it will
+	// parse as an invalid number literal.
+	if literal, isLiteral := n.X.(*LiteralExpr); isLiteral {
+		isNumericLiteral := false
+		for _, r := range string(literal.Data) {
+			if unicode.IsNumber(r) {
+				isNumericLiteral = true
+				break
+			}
+		}
+		if isNumericLiteral {
+			s = "(" + s + ")"
+		}
 	}
-	return n.X.JS() + "." + n.Y.JS()
+
+	if n.Optional {
+		return s + "?." + n.Y.JS()
+	}
+	return s + "." + n.Y.JS()
 }
 
 // JS converts the node back to valid JavaScript (writes to io.Writer)

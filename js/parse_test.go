@@ -4,8 +4,11 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
@@ -1074,24 +1077,44 @@ func FuzzIdempotentJsStringification(f *testing.F) {
 	f.Fuzz(fuzzIdempotent)
 }
 
+func escapeOutOfRange(s string) string {
+	out := ""
+	for _, r := range s {
+		if r > unicode.MaxASCII || !unicode.IsPrint(r) {
+			out += strconv.QuoteRuneToASCII(r)
+		} else {
+			out += string(r)
+		}
+	}
+	return out
+}
+
 // wrap the meat of the fuzz in its own function so you can easily add
 // individual TestFoo(*testing.T) for debugging
 func fuzzIdempotent(t *testing.T, src string) {
+	// precondition: input is unicode
+	if !utf8.ValidString(src) {
+		return
+	}
+
 	// precondition check that the input string parses
 	parsedAst, err := Parse(parse.NewInputString(src), Options{})
 	if err != nil {
 		return
 	}
-	t.Log("\n=== input string ===\n", src)
+	srcEncoded := escapeOutOfRange(src)
+	t.Log("\n=== input string ===\n", srcEncoded)
 
 	// if it parses, check that it stringifies without crashing
 	parsedAstString := parsedAst.JS()
-	t.Log("\n=== parsed ===\n", parsedAstString)
+	parsedAstStringEncoded := escapeOutOfRange(parsedAstString)
+	t.Log("\n=== parsed ===\n", parsedAstStringEncoded)
+	t.Log("\n=== parsed AST: ===\n", parsedAst.String())
 
 	// check that the output string is parseable
 	reParsedAst, err := Parse(parse.NewInputString(parsedAstString), Options{})
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	// if it parses, check that it parsed to an equivalent
@@ -1099,7 +1122,9 @@ func fuzzIdempotent(t *testing.T, src string) {
 	//
 	// Just use string comparison here since it's easy enough.
 	reParsedAstString := reParsedAst.JS()
-	t.Log("\n=== re-parsed ===\n", reParsedAstString)
+	reParsedAstStringEncoded := escapeOutOfRange(reParsedAstString)
+	t.Log("\n=== re-parsed ===\n", reParsedAstStringEncoded)
+	t.Log("\n=== re-parsed AST: ===\n", reParsedAst.String())
 	test.String(t, reParsedAstString, parsedAstString, "parsed AST did not match re-parsed AST")
 }
 
@@ -1112,6 +1137,11 @@ func FuzzCrashJsStringification(f *testing.F) {
 }
 
 func fuzzCrash(t *testing.T, src string) {
+	// precondition: input is unicode
+	if !utf8.ValidString(src) {
+		return
+	}
+
 	parsedAst, err := Parse(parse.NewInputString(src), Options{})
 	if err != nil {
 		return
