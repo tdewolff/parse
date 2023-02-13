@@ -385,21 +385,29 @@ func (n BlockStmt) String() string {
 	return s + " })"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BlockStmt) JS() string {
+func jsPseudoScopeForStatments(includeBrackets bool, statements []IStmt) string {
 	s := ""
-	if n.Scope.Parent != nil {
+	if includeBrackets {
 		s += "{ "
 	}
-	for _, item := range n.List {
+	for _, item := range statements {
 		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
 			s += item.JS() + "; "
 		}
 	}
-	if n.Scope.Parent != nil {
+	if includeBrackets {
 		s += "}"
 	}
 	return s
+
+}
+
+// JS converts the node back to valid JavaScript
+func (n BlockStmt) JS() string {
+	return jsPseudoScopeForStatments(
+		n.Scope.Parent != nil,
+		n.List,
+	)
 }
 
 // JS converts the node back to valid JavaScript (writes to io.Writer)
@@ -503,8 +511,7 @@ func (n IfStmt) JS() string {
 	case *EmptyStmt:
 		s += ";"
 	default:
-		// re-use the logic from blockStmt here
-		s += BlockStmt{List: []IStmt{n.Body}}.JS()
+		s += jsPseudoScopeForStatments(true, []IStmt{n.Body})
 	}
 	if n.Else != nil {
 		s += " else "
@@ -512,8 +519,7 @@ func (n IfStmt) JS() string {
 		case *BlockStmt:
 			s += n.Else.JS()
 		default:
-			// re-use the logic from blockStmt here
-			s += BlockStmt{List: []IStmt{n.Else}}.JS()
+			s += jsPseudoScopeForStatments(true, []IStmt{n.Else})
 		}
 	}
 	return s
@@ -612,8 +618,7 @@ func (n DoWhileStmt) JS() string {
 	case *BlockStmt:
 		s += n.Body.JS()
 	default:
-		block := BlockStmt{List: []IStmt{n.Body}}
-		s += block.JS()
+		s += jsPseudoScopeForStatments(true, []IStmt{n.Body})
 	}
 	return s + " while (" + n.Cond.JS() + ")"
 }

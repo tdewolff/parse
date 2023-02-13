@@ -1610,5 +1610,5 @@ func fuzzIdempotent(t *testing.T, src string) {
 }
 
 func TestXxx(t *testing.T) {
-	fuzzIdempotent(t, "([A00,,])=>0")
+	fuzzIdempotent(t, "do;while(0)0")
 }
