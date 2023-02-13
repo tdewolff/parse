@@ -630,6 +630,7 @@ func TestParseError(t *testing.T) {
 		{"x = (a, a) =>", "unexpected => in expression"},
 		{"x = (a, a, ...a) =>", "unexpected ... in expression"},
 		{"x = (a, ...a) =>", "identifier a has already been declared"},
+		{"(A,{}%0%{})=>0", "invalid variable binding pattern"},
 
 		// expression precedence
 		{"x = a + yield b", "unexpected b in expression"},
@@ -1126,10 +1127,6 @@ func fuzzIdempotent(t *testing.T, src string) {
 	t.Log("\n=== re-parsed ===\n", reParsedAstStringEncoded)
 	t.Log("\n=== re-parsed AST: ===\n", reParsedAst.String())
 	test.String(t, reParsedAstString, parsedAstString, "parsed AST did not match re-parsed AST")
-}
-
-func TestXxx(t *testing.T) {
-	fuzzIdempotent(t, "{throw\n}")
 }
 
 func FuzzCrashJsStringification(f *testing.F) {

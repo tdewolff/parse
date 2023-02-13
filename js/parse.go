@@ -2274,6 +2274,8 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Name, Value: bindingElement})
 		}
 		binding = &bindingObject
+	} else {
+		p.fail("invalid variable binding pattern")
 	}
 	return
 }
