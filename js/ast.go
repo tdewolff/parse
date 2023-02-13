@@ -502,19 +502,17 @@ func (n IfStmt) JS() string {
 		s += n.Body.JS()
 	case *EmptyStmt:
 		s += ";"
-	case *ExprStmt:
-		// expr stmts do not come with their own semicolons,
-		// but _will_ come with a semicolon in a block stmt
-		s += "{ " + n.Body.JS() + "; }"
 	default:
-		s += "{ " + n.Body.JS() + " }"
+		// re-use the logic from blockStmt here
+		s += BlockStmt{List: []IStmt{n.Body}}.JS()
 	}
 	if n.Else != nil {
 		switch n.Else.(type) {
 		case *BlockStmt:
 			s += " else " + n.Else.JS()
 		default:
-			s += " else { " + n.Else.JS() + " }"
+			// re-use the logic from blockStmt here
+			s += BlockStmt{List: []IStmt{n.Else}}.JS()
 		}
 	}
 	return s
