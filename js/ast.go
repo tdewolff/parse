@@ -1834,11 +1834,16 @@ type BindingArray struct {
 
 func (n BindingArray) String() string {
 	s := "["
+	finalIdx := len(n.List) - 1
 	for i, item := range n.List {
-		if i != 0 {
-			s += ","
+		elem := item.String()
+		s += elem
+		// if the final element is empty, include a trailing
+		// comma after it to ensure that the len of the binding array
+		// is stable through serialisation
+		if i != finalIdx || len(elem) == 0 {
+			s += ", "
 		}
-		s += " " + item.String()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
@@ -1852,11 +1857,16 @@ func (n BindingArray) String() string {
 // JS converts the node back to valid JavaScript
 func (n BindingArray) JS() string {
 	s := "["
+	finalIdx := len(n.List) - 1
 	for i, item := range n.List {
-		if i != 0 {
+		elem := item.JS()
+		s += elem
+		// if the final element is empty, include a trailing
+		// comma after it to ensure that the len of the binding array
+		// is stable through serialisation
+		if i != finalIdx || len(elem) == 0 {
 			s += ", "
 		}
-		s += item.JS()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
