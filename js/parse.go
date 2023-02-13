@@ -2274,8 +2274,6 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Name, Value: bindingElement})
 		}
 		binding = &bindingObject
-	} else {
-		p.fail("invalid variable binding pattern")
 	}
 	return
 }
@@ -2284,8 +2282,10 @@ func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement
 	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
 		bindingElement.Binding = p.exprToBinding(assign.X)
 		bindingElement.Default = assign.Y
-	} else {
-		bindingElement.Binding = p.exprToBinding(expr)
+	} else if expr != nil {
+		if bindingElement.Binding = p.exprToBinding(expr); bindingElement.Binding == nil {
+			p.failMessage("invalid variable binding pattern")
+		}
 	}
 	return
 }

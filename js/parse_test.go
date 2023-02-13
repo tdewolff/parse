@@ -1128,25 +1128,3 @@ func fuzzIdempotent(t *testing.T, src string) {
 	t.Log("\n=== re-parsed AST: ===\n", reParsedAst.String())
 	test.String(t, reParsedAstString, parsedAstString, "parsed AST did not match re-parsed AST")
 }
-
-func FuzzCrashJsStringification(f *testing.F) {
-	for _, testCase := range tests {
-		f.Add(testCase.js)
-	}
-
-	f.Fuzz(fuzzCrash)
-}
-
-func fuzzCrash(t *testing.T, src string) {
-	// precondition: input is unicode
-	if !utf8.ValidString(src) {
-		return
-	}
-
-	parsedAst, err := Parse(parse.NewInputString(src), Options{})
-	if err != nil {
-		return
-	}
-	t.Log("\n=== input string ===\n", src)
-	parsedAst.JS()
-}
