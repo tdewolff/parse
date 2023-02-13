@@ -631,6 +631,7 @@ func TestParseError(t *testing.T) {
 		{"x = (a, a, ...a) =>", "unexpected ... in expression"},
 		{"x = (a, ...a) =>", "identifier a has already been declared"},
 		{"(A,{}%0%{})=>0", "invalid variable binding pattern"},
+		{"({}``=1)=>0", "Invalid left-hand side in binding assignment expression"},
 
 		// expression precedence
 		{"x = a + yield b", "unexpected b in expression"},

@@ -2281,6 +2281,9 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement) {
 	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
 		bindingElement.Binding = p.exprToBinding(assign.X)
+		if bindingElement.Binding == nil {
+			p.failMessage("Invalid left-hand side in binding assignment expression")
+		}
 		bindingElement.Default = assign.Y
 	} else if expr != nil {
 		if bindingElement.Binding = p.exprToBinding(expr); bindingElement.Binding == nil {
