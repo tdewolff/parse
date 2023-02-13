@@ -1128,6 +1128,10 @@ func fuzzIdempotent(t *testing.T, src string) {
 	test.String(t, reParsedAstString, parsedAstString, "parsed AST did not match re-parsed AST")
 }
 
+func TestXxx(t *testing.T) {
+	fuzzIdempotent(t, "{throw\n}")
+}
+
 func FuzzCrashJsStringification(f *testing.F) {
 	for _, testCase := range tests {
 		f.Add(testCase.js)

@@ -514,11 +514,12 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		stmt = p.parseClassDecl()
 	case ThrowToken:
 		p.next()
-		var value IExpr
-		if !p.prevLT {
-			value = p.parseExpression(OpExpr)
+		if p.prevLT {
+			// https://tc39.es/ecma262/#sec-throw-statement
+			// newline after 'throw' is illegal
+			p.fail("illegal newline following throw statement")
 		}
-		stmt = &ThrowStmt{value}
+		stmt = &ThrowStmt{Value: p.parseExpression(OpExpr)}
 	case TryToken:
 		p.next()
 		body := p.parseBlockStmt("try statement")
