@@ -1834,16 +1834,11 @@ type BindingArray struct {
 
 func (n BindingArray) String() string {
 	s := "["
-	finalIdx := len(n.List) - 1
 	for i, item := range n.List {
-		elem := item.String()
-		s += elem
-		// if the final element is empty, include a trailing
-		// comma after it to ensure that the len of the binding array
-		// is stable through serialisation
-		if i != finalIdx || len(elem) == 0 {
-			s += ", "
+		if i != 0 {
+			s += ","
 		}
+		s += " " + item.String()
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
