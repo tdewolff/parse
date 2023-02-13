@@ -1608,7 +1608,3 @@ func fuzzIdempotent(t *testing.T, src string) {
 	t.Log("\n=== re-parsed AST: ===\n", reParsedAst.String())
 	test.String(t, reParsedAstString, parsedAstString, "parsed AST did not match re-parsed AST")
 }
-
-func TestXxx(t *testing.T) {
-	fuzzIdempotent(t, "do;while(0)0")
-}
