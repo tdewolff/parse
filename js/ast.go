@@ -507,9 +507,10 @@ func (n IfStmt) JS() string {
 		s += BlockStmt{List: []IStmt{n.Body}}.JS()
 	}
 	if n.Else != nil {
+		s += " else "
 		switch n.Else.(type) {
 		case *BlockStmt:
-			s += " else " + n.Else.JS()
+			s += n.Else.JS()
 		default:
 			// re-use the logic from blockStmt here
 			s += BlockStmt{List: []IStmt{n.Else}}.JS()
@@ -611,7 +612,8 @@ func (n DoWhileStmt) JS() string {
 	case *BlockStmt:
 		s += n.Body.JS()
 	default:
-		s += "{ " + n.Body.JS() + " }"
+		block := BlockStmt{List: []IStmt{n.Body}}
+		s += block.JS()
 	}
 	return s + " while (" + n.Cond.JS() + ")"
 }
@@ -1859,7 +1861,7 @@ func (n BindingArray) JS() string {
 		// if the final element is empty, include a trailing
 		// comma after it to ensure that the len of the binding array
 		// is stable through serialisation
-		if i != finalIdx || len(elem) == 0 {
+		if i != finalIdx || (len(elem) == 0 && n.Rest == nil) {
 			s += ", "
 		}
 	}

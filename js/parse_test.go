@@ -1100,7 +1100,7 @@ func FuzzIdempotentJsStringification(f *testing.F) {
 		"continue",
 		"continue LABEL",
 		"if (a == 5) return true",
-		"if (a == 5) return true else return false",
+		"if (a == 5) return true; else return false",
 		"if (a) b; else if (c) d;",
 		"if (a) 1; else if (b) 2; else 3",
 		"with (a = 5) return true",
