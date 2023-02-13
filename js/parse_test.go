@@ -255,6 +255,7 @@ func TestParse(t *testing.T) {
 		{"x = function() {}", "Stmt(x=Decl(function Params() Stmt({ })))"},
 		{"x = async function() {}", "Stmt(x=Decl(async function Params() Stmt({ })))"},
 		{"x = class {}", "Stmt(x=Decl(class))"},
+		{"x = class A { [(0())]; };", "Stmt(x=Decl(class A Field([(0())])))"},
 		{"x = class {a(){}}", "Stmt(x=Decl(class Method(a Params() Stmt({ }))))"},
 		{"x = a => a++", "Stmt(x=(Params(Binding(a)) => Stmt({ Stmt(return (a++)) })))"},
 		{"x = a => {a++}", "Stmt(x=(Params(Binding(a)) => Stmt({ Stmt(a++) })))"},

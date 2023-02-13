@@ -2539,7 +2539,7 @@ func (n Field) JS() string {
 	if n.Static {
 		s += "static "
 	}
-	s += n.Name.String()
+	s += n.Name.JS()
 	if n.Init != nil {
 		s += " = " + n.Init.JS()
 	}
