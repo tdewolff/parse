@@ -1,0 +1,2 @@
+go test fuzz v1
+string("switch(0){ case 0:;}")

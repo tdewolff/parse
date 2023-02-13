@@ -499,6 +499,8 @@ func (n IfStmt) JS() string {
 	switch n.Body.(type) {
 	case *BlockStmt:
 		s += n.Body.JS()
+	case *EmptyStmt:
+		s += ";"
 	default:
 		s += "{ " + n.Body.JS() + " }"
 	}
@@ -950,7 +952,12 @@ func (n CaseClause) JS() string {
 	}
 	s += ":"
 	for _, item := range n.List {
-		s += " " + item.JS() + ";"
+		// don't add duplicate semicolons after empty case clauses.
+		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
+			s += " " + item.JS() + ";"
+		} else {
+			s += item.JS()
+		}
 	}
 	return s
 }
@@ -997,7 +1004,10 @@ func (n CaseClause) JSWriteTo(w io.Writer) (i int, err error) {
 		if err != nil {
 			return
 		}
-		wn, err = w.Write([]byte(";"))
+		// don't add duplicate semicolons after empty case clauses.
+		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
+			wn, err = w.Write([]byte(";"))
+		}
 		i += wn
 		if err != nil {
 			return
