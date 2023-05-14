@@ -1,6 +1,7 @@
 package js
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -207,6 +208,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		p.failMessage("too many nested statements")
 		return nil
 	}
+
+	allowDirectivePrologue := p.allowDirectivePrologue
+	p.allowDirectivePrologue = false
 
 	switch tt := p.tt; tt {
 	case OpenBraceToken:
@@ -573,13 +577,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
 				p.fail("expression")
 				return
-			}
-			if p.allowDirectivePrologue {
-				if lit, ok := stmt.(*ExprStmt).Value.(*LiteralExpr); ok && lit.TokenType == StringToken {
-					stmt = &DirectivePrologueStmt{lit.Data}
-				} else {
-					p.allowDirectivePrologue = false
-				}
+			} else if lit, ok := stmt.(*ExprStmt).Value.(*LiteralExpr); ok && allowDirectivePrologue && lit.TokenType == StringToken && len(lit.Data) == 12 && bytes.Equal(lit.Data[1:11], []byte("use strict")) {
+				stmt = &DirectivePrologueStmt{lit.Data}
+				p.allowDirectivePrologue = true
 			}
 		}
 	}
