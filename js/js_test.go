@@ -182,7 +182,8 @@ func TestJS(t *testing.T) {
 		{"x = y?.z;", "x = y?.z; "},
 
 		// UnaryExpr
-		{"x = 1 + 1;", "x = 1 + 1; "},
+		{"x = -a;", "x = -a; "},
+		{"x = - --a;", "x = - --a; "},
 
 		// BinaryExpr
 		{"a << b;", "a << b; "},

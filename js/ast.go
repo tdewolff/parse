@@ -3569,7 +3569,7 @@ func (n UnaryExpr) String() string {
 func (n UnaryExpr) JS() string {
 	if n.Op == PostIncrToken || n.Op == PostDecrToken {
 		return n.X.JS() + n.Op.String()
-	} else if IsIdentifierName(n.Op) {
+	} else if unary, ok := n.X.(*UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
 		return n.Op.String() + " " + n.X.JS()
 	}
 	return n.Op.String() + n.X.JS()
@@ -3587,7 +3587,7 @@ func (n UnaryExpr) JSWriteTo(w io.Writer) (i int, err error) {
 		wn, err = w.Write(n.Op.Bytes())
 		i += wn
 		return
-	} else if IsIdentifierName(n.Op) {
+	} else if unary, ok := n.X.(UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
 		wn, err = w.Write(n.Op.Bytes())
 		i += wn
 		if err != nil {
