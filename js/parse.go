@@ -44,26 +44,21 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 		await: true,
 	}
 
-	// process shebang
+	// catch shebang in first line
+	var shebang []byte
 	if r.Peek(0) == '#' && r.Peek(1) == '!' {
 		r.Move(2)
 		p.l.consumeSingleLineComment() // consume till end-of-line
-		ast.Comments = append(ast.Comments, r.Shift())
+		shebang = r.Shift()
 	}
 
-	p.tt, p.data = p.l.Next()
-	for p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
-		ast.Comments = append(ast.Comments, p.data)
-		p.tt, p.data = p.l.Next()
-		if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
-			p.tt, p.data = p.l.Next()
-		}
-	}
-	if p.tt == WhitespaceToken || p.tt == LineTerminatorToken {
-		p.next()
-	}
-	// prevLT may be wrong but that is not a problem
+	// parse JS module
+	p.next()
 	ast.BlockStmt = p.parseModule()
+
+	if 0 < len(shebang) {
+		ast.BlockStmt.List = append([]IStmt{&Comment{shebang}}, ast.BlockStmt.List...)
+	}
 
 	if p.err == nil {
 		p.err = p.l.Err()
@@ -82,7 +77,7 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 func (p *Parser) next() {
 	p.prevLT = false
 	p.tt, p.data = p.l.Next()
-	for p.tt == WhitespaceToken || p.tt == LineTerminatorToken || p.tt == CommentToken || p.tt == CommentLineTerminatorToken {
+	for p.tt == WhitespaceToken || p.tt == LineTerminatorToken || (p.tt == CommentToken || p.tt == CommentLineTerminatorToken) && (p.exprLevel != 0 || len(p.data) < 3 || p.data[2] != '!') {
 		if p.tt == LineTerminatorToken || p.tt == CommentLineTerminatorToken {
 			p.prevLT = true
 		}
@@ -555,6 +550,10 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		stmt = &DebuggerStmt{}
 	case SemicolonToken, ErrorToken:
 		stmt = &EmptyStmt{}
+	case CommentToken, CommentLineTerminatorToken:
+		// bang comment
+		stmt = &Comment{p.data}
+		p.next()
 	default:
 		if p.isIdentifierReference(p.tt) {
 			// labelled statement or expression

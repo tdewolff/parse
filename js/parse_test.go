@@ -21,7 +21,10 @@ func TestParse(t *testing.T) {
 		// grammar
 		{"", ""},
 		{"\n", ""},
+		{"#!/usr/bin/env node", "Stmt(#!/usr/bin/env node)"},
 		{"/* comment */", ""},
+		{"/*! comment */", "Stmt(/*! comment */)"},
+		{"5 + /*! comment */ 6", "Stmt(5+6)"},
 		{"{}", "Stmt({ })"},
 		{`"use strict"`, `Stmt("use strict")`},
 		{"var a = b;", "Decl(var Binding(a = b))"},
