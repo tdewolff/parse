@@ -260,6 +260,15 @@ func (p *Parser) parseAtRule() GrammarType {
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			if p.level == 0 {
+				// TODO: buggy
+				p.pushBuf(tt, data)
+				if 1 < len(p.state) {
+					p.state = p.state[:len(p.state)-1]
+				}
+				p.err, p.errPos = "CSS parse error: unexpected ending in at rule", p.l.r.Offset()
+				return ErrorGrammar
+			}
 			p.level--
 		}
 		if first {
@@ -344,6 +353,15 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			if p.level == 0 {
+				// TODO: buggy
+				p.pushBuf(tt, data)
+				if 1 < len(p.state) {
+					p.state = p.state[:len(p.state)-1]
+				}
+				p.err, p.errPos = "CSS parse error: unexpected ending in qualified rule", p.l.r.Offset()
+				return ErrorGrammar
+			}
 			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '>' || data[0] == '+' || data[0] == '~') {
@@ -399,6 +417,13 @@ func (p *Parser) parseDeclaration() GrammarType {
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			if p.level == 0 {
+				// TODO: buggy
+				p.err, p.errPos = "CSS parse error: unexpected ending in declaration", p.l.r.Offset()
+				p.pushBuf(ttName, dataName)
+				p.pushBuf(ColonToken, []byte{':'})
+				return p.parseDeclarationError(tt, data)
+			}
 			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
@@ -455,6 +480,12 @@ func (p *Parser) parseCustomProperty() GrammarType {
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+			if p.level == 0 {
+				// TODO: buggy
+				p.pushBuf(tt, data)
+				p.err, p.errPos = "CSS parse error: unexpected ending in custom property", p.l.r.Offset()
+				return ErrorGrammar
+			}
 			p.level--
 		}
 		val = append(val, data...)

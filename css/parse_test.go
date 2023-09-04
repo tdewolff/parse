@@ -81,6 +81,7 @@ func TestParse(t *testing.T) {
 		{false, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}"},
 		{false, "@media { @viewport }", "@media{@viewport;}"},
 		{false, "table { @unknown }", "table{@unknown;}"},
+		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(width:70%;})ERROR(b{width:60%;})}"},
 
 		// early endings
 		{false, "selector{", "selector{"},
