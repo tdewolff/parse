@@ -513,11 +513,11 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		stmt = p.parseClassDecl()
 	case ThrowToken:
 		p.next()
-		var value IExpr
-		if !p.prevLT {
-			value = p.parseExpression(OpExpr)
+		if p.prevLT {
+			p.failMessage("unexpected newline in throw statement")
+			return
 		}
-		stmt = &ThrowStmt{value}
+		stmt = &ThrowStmt{p.parseExpression(OpExpr)}
 	case TryToken:
 		p.next()
 		body := p.parseBlockStmt("try statement")

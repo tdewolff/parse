@@ -554,6 +554,8 @@ func TestParseError(t *testing.T) {
 		{"export {} from", "expected String instead of EOF in export statement"},
 		{"export {} from", "expected String instead of EOF in export statement"},
 		{"export async", "expected function instead of EOF in export statement"},
+		{"throw", "unexpected EOF in expression"},
+		{"throw\n", "unexpected newline in throw statement"},
 
 		// no declarations
 		{"if(a) function f(){}", "unexpected function in statement"},
