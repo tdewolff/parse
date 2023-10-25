@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 
 	"github.com/tdewolff/parse/v2"
 )
@@ -12,7 +13,7 @@ import (
 var ErrInvalidJSON = fmt.Errorf("invalid JSON")
 
 type JSONer interface {
-	JSON(*bytes.Buffer) error
+	JSON(io.Writer) error
 }
 
 // AST is the full ECMAScript abstract syntax tree.
@@ -20,7 +21,7 @@ type AST struct {
 	BlockStmt // module
 }
 
-func (ast *AST) String() string {
+func (ast AST) String() string {
 	s := ""
 	for i, item := range ast.BlockStmt.List {
 		if i != 0 {
@@ -29,6 +30,42 @@ func (ast *AST) String() string {
 		s += item.String()
 	}
 	return s
+}
+
+// JS writes JavaScript to writer.
+func (ast AST) JS(w io.Writer) {
+	for _, item := range ast.List {
+		item.JS(w)
+		w.Write([]byte("; "))
+	}
+}
+
+// JSONString returns a string of JavaScript.
+func (ast AST) JSString() string {
+	sb := strings.Builder{}
+	ast.JS(&sb)
+	return sb.String()
+}
+
+// JSON writes JSON to writer.
+func (ast AST) JSON(w io.Writer) error {
+	if 1 < len(ast.List) {
+		return ErrInvalidJSON
+	} else if len(ast.List) == 0 {
+		return nil
+	} else if val, ok := ast.List[0].(JSONer); !ok {
+		return ErrInvalidJSON
+	} else {
+		return val.JSON(w)
+	}
+	return nil
+}
+
+// JSONString returns a string of JSON if valid.
+func (ast AST) JSONString() (string, error) {
+	sb := strings.Builder{}
+	err := ast.JSON(&sb)
+	return sb.String(), err
 }
 
 ////////////////////////////////////////////////////////////////
@@ -87,14 +124,9 @@ func (v Var) String() string {
 	return string(v.Name())
 }
 
-// JS converts the node back to valid JavaScript
-func (v Var) JS() string {
-	return v.String()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (v Var) JSWriteTo(w io.Writer) (i int, err error) {
-	return w.Write(v.Name())
+// JS writes JavaScript to writer.
+func (v Var) JS(w io.Writer) {
+	w.Write(v.Name())
 }
 
 // VarsByUses is sortable by uses in descending order.
@@ -345,8 +377,7 @@ func (s *Scope) Unscope() {
 // INode is an interface for AST nodes
 type INode interface {
 	String() string
-	JS() string
-	JSWriteTo(io.Writer) (int, error)
+	JS(io.Writer)
 }
 
 // IStmt is a dummy interface for statements.
@@ -378,14 +409,9 @@ func (n Comment) String() string {
 	return "Stmt(" + string(n.Value) + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n Comment) JS() string {
-	return string(n.Value)
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Comment) JSWriteTo(w io.Writer) (i int, err error) {
-	return w.Write(n.Value)
+// JS writes JavaScript to writer.
+func (n Comment) JS(w io.Writer) {
+	w.Write(n.Value)
 }
 
 // BlockStmt is a block statement.
@@ -402,76 +428,28 @@ func (n BlockStmt) String() string {
 	return s + " })"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BlockStmt) JS() string {
-	s := ""
-	if n.Scope.Parent != nil {
-		s += "{ "
+// JS writes JavaScript to writer.
+func (n BlockStmt) JS(w io.Writer) {
+	if n.Scope.Parent == nil {
+		panic("X")
 	}
+	w.Write([]byte("{ "))
 	for _, item := range n.List {
-		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
-			s += item.JS() + "; "
-		}
+		item.JS(w)
+		w.Write([]byte("; "))
 	}
-	if n.Scope.Parent != nil {
-		s += "}"
-	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BlockStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Scope.Parent != nil {
-		wn, err = w.Write([]byte("{ "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	for _, item := range n.List {
-		if _, isEmpty := item.(*EmptyStmt); !isEmpty {
-			wn, err = item.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte("; "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	}
-	if n.Scope.Parent != nil {
-		wn, err = w.Write([]byte{'}'})
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
+	w.Write([]byte("}"))
 }
 
 // EmptyStmt is an empty statement.
-type EmptyStmt struct {
-}
+type EmptyStmt struct{}
 
 func (n EmptyStmt) String() string {
-	return "Stmt(;)"
+	return "Stmt()"
 }
 
-// JS converts the node back to valid JavaScript
-func (n EmptyStmt) JS() string {
-	return ";"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n EmptyStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	wn, err := w.Write([]byte{';'})
-	i = wn
-	return
-}
+// JS writes JavaScript to writer.
+func (n EmptyStmt) JS(w io.Writer) {}
 
 // ExprStmt is an expression statement.
 type ExprStmt struct {
@@ -486,14 +464,9 @@ func (n ExprStmt) String() string {
 	return "Stmt(" + n.Value.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ExprStmt) JS() string {
-	return n.Value.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ExprStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	return n.Value.JSWriteTo(w)
+// JS writes JavaScript to writer.
+func (n ExprStmt) JS(w io.Writer) {
+	n.Value.JS(w)
 }
 
 // IfStmt is an if statement.
@@ -511,100 +484,30 @@ func (n IfStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n IfStmt) JS() string {
-	s := "if (" + n.Cond.JS() + ") "
+// JS writes JavaScript to writer.
+func (n IfStmt) JS(w io.Writer) {
+	w.Write([]byte("if ("))
+	n.Cond.JS(w)
+	w.Write([]byte(") "))
 	switch n.Body.(type) {
 	case *BlockStmt:
-		s += n.Body.JS()
+		n.Body.JS(w)
 	default:
-		s += "{ " + n.Body.JS() + " }"
+		w.Write([]byte("{ "))
+		n.Body.JS(w)
+		w.Write([]byte(" }"))
 	}
 	if n.Else != nil {
 		switch n.Else.(type) {
 		case *BlockStmt:
-			s += " else " + n.Else.JS()
+			w.Write([]byte(" else "))
+			n.Else.JS(w)
 		default:
-			s += " else { " + n.Else.JS() + " }"
+			w.Write([]byte(" else { "))
+			n.Else.JS(w)
+			w.Write([]byte(" }"))
 		}
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n IfStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("if ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Cond.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	switch n.Body.(type) {
-	case *BlockStmt:
-		wn, err = n.Body.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	default:
-		wn, err = w.Write([]byte("{ "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Body.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(" }"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if n.Else != nil {
-		switch n.Else.(type) {
-		case *BlockStmt:
-			wn, err = w.Write([]byte(" else "))
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = n.Else.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-		default:
-			wn, err = w.Write([]byte(" else { "))
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = n.Else.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte(" }"))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	}
-	return
 }
 
 // DoWhileStmt is a do-while iteration statement.
@@ -617,63 +520,20 @@ func (n DoWhileStmt) String() string {
 	return "Stmt(do " + n.Body.String() + " while " + n.Cond.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n DoWhileStmt) JS() string {
-	s := "do "
+// JS writes JavaScript to writer.
+func (n DoWhileStmt) JS(w io.Writer) {
+	w.Write([]byte("do "))
 	switch n.Body.(type) {
 	case *BlockStmt:
-		s += n.Body.JS()
+		n.Body.JS(w)
 	default:
-		s += "{ " + n.Body.JS() + " }"
+		w.Write([]byte("{ "))
+		n.Body.JS(w)
+		w.Write([]byte(" }"))
 	}
-	return s + " while (" + n.Cond.JS() + ")"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n DoWhileStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("do "))
-	i += wn
-	if err != nil {
-		return
-	}
-	switch n.Body.(type) {
-	case *BlockStmt:
-		wn, err = n.Body.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	default:
-		wn, err = w.Write([]byte("{ "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Body.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(" }"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(" while ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Cond.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(")"))
-	i += wn
-	return
+	w.Write([]byte(" while ("))
+	n.Cond.JS(w)
+	w.Write([]byte(")"))
 }
 
 // WhileStmt is a while iteration statement.
@@ -686,41 +546,14 @@ func (n WhileStmt) String() string {
 	return "Stmt(while " + n.Cond.String() + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n WhileStmt) JS() string {
-	s := "while (" + n.Cond.JS() + ") "
+// JS writes JavaScript to writer.
+func (n WhileStmt) JS(w io.Writer) {
+	w.Write([]byte("while ("))
+	n.Cond.JS(w)
+	w.Write([]byte(") "))
 	if n.Body != nil {
-		s += n.Body.JS()
+		n.Body.JS(w)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n WhileStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("while ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Cond.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Body != nil {
-		wn, err = n.Body.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
 }
 
 // ForStmt is a regular for iteration statement.
@@ -747,78 +580,24 @@ func (n ForStmt) String() string {
 	return s + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ForStmt) JS() string {
-	s := "for ("
+// JS writes JavaScript to writer.
+func (n ForStmt) JS(w io.Writer) {
+	w.Write([]byte("for ("))
 	if v, ok := n.Init.(*VarDecl); !ok && n.Init != nil || ok && len(v.List) != 0 {
-		s += n.Init.JS()
+		n.Init.JS(w)
 	} else {
-		s += " "
+		w.Write([]byte(" "))
 	}
-	s += "; "
+	w.Write([]byte("; "))
 	if n.Cond != nil {
-		s += n.Cond.JS()
+		n.Cond.JS(w)
 	}
-	s += "; "
+	w.Write([]byte("; "))
 	if n.Post != nil {
-		s += n.Post.JS()
+		n.Post.JS(w)
 	}
-	return s + ") " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ForStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("for ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	if v, ok := n.Init.(*VarDecl); !ok && n.Init != nil || ok && len(v.List) != 0 {
-		wn, err = n.Init.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	} else {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte("; "))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Cond != nil {
-		wn, err = n.Cond.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte("; "))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Post != nil {
-		wn, err = n.Post.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+	w.Write([]byte(") "))
+	n.Body.JS(w)
 }
 
 // ForInStmt is a for-in iteration statement.
@@ -832,42 +611,14 @@ func (n ForInStmt) String() string {
 	return "Stmt(for " + n.Init.String() + " in " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ForInStmt) JS() string {
-	return "for (" + n.Init.JS() + " in " + n.Value.JS() + ") " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ForInStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("for ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Init.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" in "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n ForInStmt) JS(w io.Writer) {
+	w.Write([]byte("for ("))
+	n.Init.JS(w)
+	w.Write([]byte(" in "))
+	n.Value.JS(w)
+	w.Write([]byte(") "))
+	n.Body.JS(w)
 }
 
 // ForOfStmt is a for-of iteration statement.
@@ -886,58 +637,18 @@ func (n ForOfStmt) String() string {
 	return s + " " + n.Init.String() + " of " + n.Value.String() + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ForOfStmt) JS() string {
-	s := "for"
+// JS writes JavaScript to writer.
+func (n ForOfStmt) JS(w io.Writer) {
+	w.Write([]byte("for"))
 	if n.Await {
-		s += " await"
+		w.Write([]byte(" await"))
 	}
-	return s + " (" + n.Init.JS() + " of " + n.Value.JS() + ") " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ForOfStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("for"))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Await {
-		wn, err = w.Write([]byte(" await"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(" ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Init.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" of "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+	w.Write([]byte(" ("))
+	n.Init.JS(w)
+	w.Write([]byte(" of "))
+	n.Value.JS(w)
+	w.Write([]byte(") "))
+	n.Body.JS(w)
 }
 
 // CaseClause is a case clause or default clause for a switch statement.
@@ -958,70 +669,21 @@ func (n CaseClause) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n CaseClause) JS() string {
-	s := " "
+// JS writes JavaScript to writer.
+func (n CaseClause) JS(w io.Writer) {
+	w.Write([]byte(" "))
 	if n.Cond != nil {
-		s += "case " + n.Cond.JS()
+		w.Write([]byte("case "))
+		n.Cond.JS(w)
 	} else {
-		s += "default"
+		w.Write([]byte("default"))
 	}
-	s += ":"
+	w.Write([]byte(":"))
 	for _, item := range n.List {
-		s += " " + item.JS() + ";"
+		w.Write([]byte(" "))
+		item.JS(w)
+		w.Write([]byte(";"))
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n CaseClause) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Cond != nil {
-		wn, err = w.Write([]byte("case "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Cond.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	} else {
-		wn, err = w.Write([]byte("default"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(":"))
-	i += wn
-	if err != nil {
-		return
-	}
-	for _, item := range n.List {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(";"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
 }
 
 // SwitchStmt is a switch statement.
@@ -1039,43 +701,15 @@ func (n SwitchStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n SwitchStmt) JS() string {
-	s := "switch (" + n.Init.JS() + ") {"
+// JS writes JavaScript to writer.
+func (n SwitchStmt) JS(w io.Writer) {
+	w.Write([]byte("switch ("))
+	n.Init.JS(w)
+	w.Write([]byte(") {"))
 	for _, clause := range n.List {
-		s += clause.JS()
+		clause.JS(w)
 	}
-	return s + " }"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n SwitchStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("switch ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Init.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") {"))
-	i += wn
-	if err != nil {
-		return
-	}
-	for _, clause := range n.List {
-		wn, err = clause.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(" }"))
-	i += wn
-	return
+	w.Write([]byte(" }"))
 }
 
 // BranchStmt is a continue or break statement.
@@ -1092,36 +726,13 @@ func (n BranchStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BranchStmt) JS() string {
-	s := n.Type.String()
+// JS writes JavaScript to writer.
+func (n BranchStmt) JS(w io.Writer) {
+	w.Write(n.Type.Bytes())
 	if n.Label != nil {
-		s += " " + string(n.Label)
+		w.Write([]byte(" "))
+		w.Write(n.Label)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BranchStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write(n.Type.Bytes())
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Label != nil {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Label)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
 }
 
 // ReturnStmt is a return statement.
@@ -1137,36 +748,13 @@ func (n ReturnStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ReturnStmt) JS() string {
-	s := "return"
+// JS writes JavaScript to writer.
+func (n ReturnStmt) JS(w io.Writer) {
+	w.Write([]byte("return"))
 	if n.Value != nil {
-		s += " " + n.Value.JS()
+		w.Write([]byte(" "))
+		n.Value.JS(w)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ReturnStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("return"))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Value != nil {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Value.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
 }
 
 // WithStmt is a with statement.
@@ -1179,32 +767,12 @@ func (n WithStmt) String() string {
 	return "Stmt(with " + n.Cond.String() + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n WithStmt) JS() string {
-	return "with (" + n.Cond.JS() + ") " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n WithStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("with ("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Cond.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(") "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n WithStmt) JS(w io.Writer) {
+	w.Write([]byte("with ("))
+	n.Cond.JS(w)
+	w.Write([]byte(") "))
+	n.Body.JS(w)
 }
 
 // LabelledStmt is a labelled statement.
@@ -1217,27 +785,11 @@ func (n LabelledStmt) String() string {
 	return "Stmt(" + string(n.Label) + " : " + n.Value.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n LabelledStmt) JS() string {
-	return string(n.Label) + ": " + n.Value.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n LabelledStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write(n.Label)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(": "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n LabelledStmt) JS(w io.Writer) {
+	w.Write(n.Label)
+	w.Write([]byte(": "))
+	n.Value.JS(w)
 }
 
 // ThrowStmt is a throw statement.
@@ -1249,22 +801,10 @@ func (n ThrowStmt) String() string {
 	return "Stmt(throw " + n.Value.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ThrowStmt) JS() string {
-	return "throw " + n.Value.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ThrowStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("throw "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n ThrowStmt) JS(w io.Writer) {
+	w.Write([]byte("throw "))
+	n.Value.JS(w)
 }
 
 // TryStmt is a try statement.
@@ -1290,100 +830,36 @@ func (n TryStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n TryStmt) JS() string {
-	s := "try " + n.Body.JS()
+// JS writes JavaScript to writer.
+func (n TryStmt) JS(w io.Writer) {
+	w.Write([]byte("try "))
+	n.Body.JS(w)
 	if n.Catch != nil {
-		s += " catch"
+		w.Write([]byte(" catch"))
 		if n.Binding != nil {
-			s += "(" + n.Binding.JS() + ")"
+			w.Write([]byte("("))
+			n.Binding.JS(w)
+			w.Write([]byte(")"))
 		}
-		s += " " + n.Catch.JS()
+		w.Write([]byte(" "))
+		n.Catch.JS(w)
 	}
 	if n.Finally != nil {
-		s += " finally " + n.Finally.JS()
+		w.Write([]byte(" finally "))
+		n.Finally.JS(w)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n TryStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("try "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Catch != nil {
-		wn, err = w.Write([]byte(" catch"))
-		i += wn
-		if err != nil {
-			return
-		}
-		if n.Binding != nil {
-			wn, err = w.Write([]byte("("))
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = n.Binding.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte(")"))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Catch.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if n.Finally != nil {
-		wn, err = w.Write([]byte(" finally "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Finally.JSWriteTo(w)
-		i += wn
-	}
-	return
 }
 
 // DebuggerStmt is a debugger statement.
-type DebuggerStmt struct {
-}
+type DebuggerStmt struct{}
 
 func (n DebuggerStmt) String() string {
 	return "Stmt(debugger)"
 }
 
-// JS converts the node back to valid JavaScript
-func (n DebuggerStmt) JS() string {
-	return "debugger"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n DebuggerStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("debugger"))
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n DebuggerStmt) JS(w io.Writer) {
+	w.Write([]byte("debugger"))
 }
 
 // Alias is a name space import or import/export specifier for import/export statements.
@@ -1400,29 +876,13 @@ func (alias Alias) String() string {
 	return s + string(alias.Binding)
 }
 
-// JS converts the node back to valid JavaScript
-func (alias Alias) JS() string {
-	return alias.String()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (alias Alias) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
+// JS writes JavaScript to writer.
+func (alias Alias) JS(w io.Writer) {
 	if alias.Name != nil {
-		wn, err = w.Write(alias.Name)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(" as "))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write(alias.Name)
+		w.Write([]byte(" as "))
 	}
-	wn, err = w.Write(alias.Binding)
-	i += wn
-	return
+	w.Write(alias.Binding)
 }
 
 // ImportStmt is an import statement.
@@ -1460,121 +920,37 @@ func (n ImportStmt) String() string {
 	return s + " " + string(n.Module) + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ImportStmt) JS() string {
-	s := "import"
+// JS writes JavaScript to writer.
+func (n ImportStmt) JS(w io.Writer) {
+	w.Write([]byte("import"))
 	if n.Default != nil {
-		s += " " + string(n.Default)
+		w.Write([]byte(" "))
+		w.Write(n.Default)
 		if len(n.List) != 0 {
-			s += " ,"
+			w.Write([]byte(" ,"))
 		}
 	}
 	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
-		s += " " + n.List[0].JS()
+		w.Write([]byte(" "))
+		n.List[0].JS(w)
 	} else if 0 < len(n.List) {
-		s += " {"
-		for i, item := range n.List {
-			if i != 0 {
-				s += " ,"
-			}
-			if item.Binding != nil {
-				s += " " + item.JS()
-			}
-		}
-		s += " }"
-	}
-	if n.Default != nil || len(n.List) != 0 {
-		s += " from"
-	}
-	return s + " " + string(n.Module)
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ImportStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("import"))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Default != nil {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Default)
-		i += wn
-		if err != nil {
-			return
-		}
-		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(" ,"))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	}
-	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.List[0].JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	} else if 0 < len(n.List) {
-		wn, err = w.Write([]byte(" {"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" {"))
 		for j, item := range n.List {
 			if j != 0 {
-				wn, err = w.Write([]byte(" ,"))
-				i += wn
-				if err != nil {
-					return
-				}
+				w.Write([]byte(" ,"))
 			}
 			if item.Binding != nil {
-				wn, err = w.Write([]byte(" "))
-				i += wn
-				if err != nil {
-					return
-				}
-				wn, err = item.JSWriteTo(w)
-				i += wn
-				if err != nil {
-					return
-				}
+				w.Write([]byte(" "))
+				item.JS(w)
 			}
 		}
-		wn, err = w.Write([]byte(" }"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" }"))
 	}
 	if n.Default != nil || len(n.List) != 0 {
-		wn, err = w.Write([]byte(" from"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" from"))
 	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write(n.Module)
-	i += wn
-	return
+	w.Write([]byte(" "))
+	w.Write(n.Module)
 }
 
 // ExportStmt is an export statement.
@@ -1612,115 +988,36 @@ func (n ExportStmt) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ExportStmt) JS() string {
-	s := "export"
+// JS writes JavaScript to writer.
+func (n ExportStmt) JS(w io.Writer) {
+	w.Write([]byte("export"))
 	if n.Decl != nil {
 		if n.Default {
-			s += " default"
+			w.Write([]byte(" default"))
 		}
-		return s + " " + n.Decl.JS()
-	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
-		s += " " + n.List[0].JS()
-	} else if 0 < len(n.List) {
-		s += " {"
-		for i, item := range n.List {
-			if i != 0 {
-				s += " ,"
-			}
-			if item.Binding != nil {
-				s += " " + item.JS()
-			}
-		}
-		s += " }"
-	}
-	if n.Module != nil {
-		s += " from " + string(n.Module)
-	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ExportStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("export"))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Decl != nil {
-		if n.Default {
-			wn, err = w.Write([]byte(" default"))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Decl.JSWriteTo(w)
-		i += wn
+		w.Write([]byte(" "))
+		n.Decl.JS(w)
 		return
 	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.List[0].JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	} else if 0 < len(n.List) {
-		wn, err = w.Write([]byte(" {"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" "))
+		n.List[0].JS(w)
+	} else {
+		w.Write([]byte(" {"))
 		for j, item := range n.List {
 			if j != 0 {
-				wn, err = w.Write([]byte(" ,"))
-				i += wn
-				if err != nil {
-					return
-				}
+				w.Write([]byte(" ,"))
 			}
 			if item.Binding != nil {
-				wn, err = w.Write([]byte(" "))
-				i += wn
-				if err != nil {
-					return
-				}
-				wn, err = item.JSWriteTo(w)
-				i += wn
-				if err != nil {
-					return
-				}
+				w.Write([]byte(" "))
+				item.JS(w)
 			}
 		}
-		wn, err = w.Write([]byte(" }"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" }"))
 	}
 	if n.Module != nil {
-		wn, err = w.Write([]byte(" from "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Module)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" from "))
+		w.Write(n.Module)
 	}
-	return
 }
 
 // DirectivePrologueStmt is a string literal at the beginning of a function or module (usually "use strict").
@@ -1732,14 +1029,9 @@ func (n DirectivePrologueStmt) String() string {
 	return "Stmt(" + string(n.Value) + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n DirectivePrologueStmt) JS() string {
-	return string(n.Value)
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n DirectivePrologueStmt) JSWriteTo(w io.Writer) (i int, err error) {
-	return w.Write(n.Value)
+// JS writes JavaScript to writer.
+func (n DirectivePrologueStmt) JS(w io.Writer) {
+	w.Write(n.Value)
 }
 
 func (n Comment) stmtNode()               {}
@@ -1798,35 +1090,15 @@ func (n PropertyName) String() string {
 	return string(n.Literal.Data)
 }
 
-// JS converts the node back to valid JavaScript
-func (n PropertyName) JS() string {
+// JS writes JavaScript to writer.
+func (n PropertyName) JS(w io.Writer) {
 	if n.Computed != nil {
-		return "[" + n.Computed.JS() + "]"
-	}
-	return string(n.Literal.Data)
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n PropertyName) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Computed != nil {
-		wn, err = w.Write([]byte("["))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Computed.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte("]"))
-		i += wn
+		w.Write([]byte("["))
+		n.Computed.JS(w)
+		w.Write([]byte("]"))
 		return
 	}
-	wn, err = w.Write(n.Literal.Data)
-	i += wn
-	return
+	w.Write(n.Literal.Data)
 }
 
 // BindingArray is an array binding pattern.
@@ -1852,68 +1124,23 @@ func (n BindingArray) String() string {
 	return s + " ]"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BindingArray) JS() string {
-	s := "["
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.JS()
-	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
-		}
-		s += "..." + n.Rest.JS()
-	}
-	return s + "]"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BindingArray) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("["))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n BindingArray) JS(w io.Writer) {
+	w.Write([]byte("["))
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = w.Write([]byte("..."))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Rest.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("..."))
+		n.Rest.JS(w)
 	}
-	wn, err = w.Write([]byte("]"))
-	i += wn
-	return
+	w.Write([]byte("]"))
 }
 
 // BindingObjectItem is a binding property.
@@ -1932,37 +1159,15 @@ func (n BindingObjectItem) String() string {
 	return s + " " + n.Value.String()
 }
 
-// JS converts the node back to valid JavaScript
-func (n BindingObjectItem) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n BindingObjectItem) JS(w io.Writer) {
 	if n.Key != nil {
 		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
-			s += n.Key.JS() + ": "
+			n.Key.JS(w)
+			w.Write([]byte(": "))
 		}
 	}
-	return s + n.Value.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BindingObjectItem) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Key != nil {
-		if v, ok := n.Value.Binding.(*Var); !ok || !n.Key.IsIdent(v.Data) {
-			wn, err = n.Key.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte(": "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	return
+	n.Value.JS(w)
 }
 
 // BindingObject is an object binding pattern.
@@ -1988,68 +1193,23 @@ func (n BindingObject) String() string {
 	return s + " }"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BindingObject) JS() string {
-	s := "{"
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.JS()
-	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
-		}
-		s += "..." + string(n.Rest.Data)
-	}
-	return s + "}"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BindingObject) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("{"))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n BindingObject) JS(w io.Writer) {
+	w.Write([]byte("{"))
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = w.Write([]byte("..."))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Rest.Data)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("..."))
+		w.Write(n.Rest.Data)
 	}
-	wn, err = w.Write([]byte("}"))
-	i += wn
-	return
+	w.Write([]byte("}"))
 }
 
 // BindingElement is a binding element.
@@ -2069,42 +1229,17 @@ func (n BindingElement) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BindingElement) JS() string {
+// JS writes JavaScript to writer.
+func (n BindingElement) JS(w io.Writer) {
 	if n.Binding == nil {
-		return ""
+		return
 	}
-	s := n.Binding.JS()
-	if n.Default != nil {
-		s += " = " + n.Default.JS()
-	}
-	return s
-}
 
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BindingElement) JSWriteTo(w io.Writer) (i int, err error) {
-	if n.Binding == nil {
-		return
-	}
-	var wn int
-	wn, err = n.Binding.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
+	n.Binding.JS(w)
 	if n.Default != nil {
-		wn, err = w.Write([]byte(" = "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Default.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" = "))
+		n.Default.JS(w)
 	}
-	return
 }
 
 func (v *Var) bindingNode()          {}
@@ -2129,46 +1264,16 @@ func (n VarDecl) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n VarDecl) JS() string {
-	s := n.TokenType.String()
-	for i, item := range n.List {
-		if i != 0 {
-			s += ","
-		}
-		s += " " + item.JS()
-	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n VarDecl) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write(n.TokenType.Bytes())
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n VarDecl) JS(w io.Writer) {
+	w.Write(n.TokenType.Bytes())
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(","))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(","))
 		}
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" "))
+		item.JS(w)
 	}
-	return
 }
 
 // Params is a list of parameters for functions, methods, and arrow function.
@@ -2194,68 +1299,23 @@ func (n Params) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n Params) JS() string {
-	s := "("
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.JS()
-	}
-	if n.Rest != nil {
-		if len(n.List) != 0 {
-			s += ", "
-		}
-		s += "..." + n.Rest.JS()
-	}
-	return s + ")"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Params) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("("))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n Params) JS(w io.Writer) {
+	w.Write([]byte("("))
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
 	if n.Rest != nil {
 		if len(n.List) != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = w.Write([]byte("..."))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Rest.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("..."))
+		n.Rest.JS(w)
 	}
-	wn, err = w.Write([]byte(")"))
-	i += wn
-	return
+	w.Write([]byte(")"))
 }
 
 // FuncDecl is an (async) (generator) function declaration or expression.
@@ -2283,73 +1343,25 @@ func (n FuncDecl) String() string {
 	return s + " " + n.Params.String() + " " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n FuncDecl) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n FuncDecl) JS(w io.Writer) {
 	if n.Async {
-		s += "async function"
+		w.Write([]byte("async function"))
 	} else {
-		s += "function"
-	}
-	if n.Generator {
-		s += "*"
-	}
-	if n.Name != nil {
-		s += " " + string(n.Name.Data)
-	}
-	return s + " " + n.Params.JS() + " " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n FuncDecl) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Async {
-		wn, err = w.Write([]byte("async function"))
-	} else {
-		wn, err = w.Write([]byte("function"))
-	}
-	i += wn
-	if err != nil {
-		return
+		w.Write([]byte("function"))
 	}
 
 	if n.Generator {
-		wn, err = w.Write([]byte("*"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("*"))
 	}
 	if n.Name != nil {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Name.Data)
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(" "))
+		w.Write(n.Name.Data)
 	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Params.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+	w.Write([]byte(" "))
+	n.Params.JS(w)
+	w.Write([]byte(" "))
+	n.Body.JS(w)
 }
 
 // MethodDecl is a method definition in a class declaration.
@@ -2385,124 +1397,49 @@ func (n MethodDecl) String() string {
 	return "Method(" + s[1:] + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n MethodDecl) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n MethodDecl) JS(w io.Writer) {
+	writen := false
 	if n.Static {
-		s += " static"
+		w.Write([]byte("static"))
+		writen = true
 	}
 	if n.Async {
-		s += " async"
+		if writen {
+			w.Write([]byte(" "))
+		}
+		w.Write([]byte("async"))
+		writen = true
 	}
 	if n.Generator {
-		s += " *"
+		if writen {
+			w.Write([]byte(" "))
+		}
+		w.Write([]byte("*"))
+		writen = true
 	}
 	if n.Get {
-		s += " get"
+		if writen {
+			w.Write([]byte(" "))
+		}
+		w.Write([]byte("get"))
+		writen = true
 	}
 	if n.Set {
-		s += " set"
-	}
-	s += " " + n.Name.JS() + " " + n.Params.JS() + " " + n.Body.JS()
-	return s[1:]
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n MethodDecl) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Static {
-		wn, err = w.Write([]byte("static"))
-		i += wn
-		if err != nil {
-			return
+		if writen {
+			w.Write([]byte(" "))
 		}
+		w.Write([]byte("set"))
+		writen = true
 	}
-	if n.Async {
-		if wn > 0 {
-			wn, err = w.Write([]byte(" "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte("async"))
-		i += wn
-		if err != nil {
-			return
-		}
+	if writen {
+		w.Write([]byte(" "))
 	}
-	if n.Generator {
-		if wn > 0 {
-			wn, err = w.Write([]byte(" "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte("*"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if n.Get {
-		if wn > 0 {
-			wn, err = w.Write([]byte(" "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte("get"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if n.Set {
-		if wn > 0 {
-			wn, err = w.Write([]byte(" "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = w.Write([]byte("set"))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if wn > 0 {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = n.Name.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Params.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+	n.Name.JS(w)
+	w.Write([]byte(" "))
+	n.Params.JS(w)
+	w.Write([]byte(" "))
+	n.Body.JS(w)
 }
 
 // Field is a field definition in a class declaration.
@@ -2524,47 +1461,16 @@ func (n Field) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n Field) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n Field) JS(w io.Writer) {
 	if n.Static {
-		s += "static "
+		w.Write([]byte("static "))
 	}
-	s += n.Name.String()
+	n.Name.JS(w)
 	if n.Init != nil {
-		s += " = " + n.Init.JS()
+		w.Write([]byte(" = "))
+		n.Init.JS(w)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Field) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Static {
-		wn, err = w.Write([]byte("static "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = n.Name.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Init != nil {
-		wn, err = w.Write([]byte(" = "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Init.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
 }
 
 // ClassElement is a class element that is either a static block, a field definition, or a class method
@@ -2583,36 +1489,17 @@ func (n ClassElement) String() string {
 	return n.Field.String()
 }
 
-// JS converts the node back to valid JavaScript
-func (n ClassElement) JS() string {
+// JS writes JavaScript to writer.
+func (n ClassElement) JS(w io.Writer) {
 	if n.StaticBlock != nil {
-		return "static " + n.StaticBlock.JS()
-	} else if n.Method != nil {
-		return n.Method.JS()
-	}
-	return n.Field.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ClassElement) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.StaticBlock != nil {
-		wn, err = w.Write([]byte("static "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.StaticBlock.JSWriteTo(w)
-		i += wn
+		w.Write([]byte("static "))
+		n.StaticBlock.JS(w)
 		return
 	} else if n.Method != nil {
-		wn, err = n.Method.JSWriteTo(w)
-		i += wn
+		n.Method.JS(w)
 		return
 	}
-	wn, err = n.Field.JSWriteTo(w)
-	i += wn
-	return
+	n.Field.JS(w)
 }
 
 // ClassDecl is a class declaration.
@@ -2636,74 +1523,23 @@ func (n ClassDecl) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ClassDecl) JS() string {
-	s := "class"
+// JS writes JavaScript to writer.
+func (n ClassDecl) JS(w io.Writer) {
+	w.Write([]byte("class"))
 	if n.Name != nil {
-		s += " " + string(n.Name.Data)
+		w.Write([]byte(" "))
+		w.Write(n.Name.Data)
 	}
 	if n.Extends != nil {
-		s += " extends " + n.Extends.JS()
+		w.Write([]byte(" extends "))
+		n.Extends.JS(w)
 	}
-	s += " { "
+	w.Write([]byte(" { "))
 	for _, item := range n.List {
-		s += item.JS() + "; "
+		item.JS(w)
+		w.Write([]byte("; "))
 	}
-	return s + "}"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ClassDecl) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("class"))
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Name != nil {
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Name.Data)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	if n.Extends != nil {
-		wn, err = w.Write([]byte(" extends "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Extends.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte(" { "))
-	i += wn
-	if err != nil {
-		return
-	}
-	for _, item := range n.List {
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte("; "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write([]byte("}"))
-	i += wn
-	return
+	w.Write([]byte("}"))
 }
 
 func (n VarDecl) stmtNode()   {}
@@ -2727,23 +1563,15 @@ func (n LiteralExpr) String() string {
 	return string(n.Data)
 }
 
-// JS converts the node back to valid JavaScript
-func (n LiteralExpr) JS() string {
-	return string(n.Data)
+// JS writes JavaScript to writer.
+func (n LiteralExpr) JS(w io.Writer) {
+	w.Write(n.Data)
 }
 
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n LiteralExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write(n.Data)
-	i += wn
-	return
-}
-
-// JSON converts the node back to valid JSON
-func (n LiteralExpr) JSON(buf *bytes.Buffer) error {
+// JSON writes JSON to writer.
+func (n LiteralExpr) JSON(w io.Writer) error {
 	if n.TokenType == TrueToken || n.TokenType == FalseToken || n.TokenType == NullToken || n.TokenType == DecimalToken {
-		buf.Write(n.Data)
+		w.Write(n.Data)
 		return nil
 	} else if n.TokenType == StringToken {
 		data := n.Data
@@ -2753,7 +1581,7 @@ func (n LiteralExpr) JSON(buf *bytes.Buffer) error {
 			data[0] = '"'
 			data[len(data)-1] = '"'
 		}
-		buf.Write(data)
+		w.Write(data)
 		return nil
 	}
 	return ErrInvalidJSON
@@ -2776,33 +1604,14 @@ func (n Element) String() string {
 	return s
 }
 
-// JS converts the node back to valid JavaScript
-func (n Element) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n Element) JS(w io.Writer) {
 	if n.Value != nil {
 		if n.Spread {
-			s += "..."
+			w.Write([]byte("..."))
 		}
-		s += n.Value.JS()
+		n.Value.JS(w)
 	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Element) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Value != nil {
-		if n.Spread {
-			wn, err = w.Write([]byte("..."))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-		wn, err = n.Value.JSWriteTo(w)
-		i += wn
-	}
-	return
 }
 
 // ArrayExpr is an array literal.
@@ -2829,87 +1638,43 @@ func (n ArrayExpr) String() string {
 	return s + "]"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ArrayExpr) JS() string {
-	s := "["
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		if item.Value != nil {
-			if item.Spread {
-				s += "..."
-			}
-			s += item.Value.JS()
-		}
-	}
-	if 0 < len(n.List) && n.List[len(n.List)-1].Value == nil {
-		s += ","
-	}
-	return s + "]"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ArrayExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("["))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n ArrayExpr) JS(w io.Writer) {
+	w.Write([]byte("["))
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
 		if item.Value != nil {
 			if item.Spread {
-				wn, err = w.Write([]byte("..."))
-				i += wn
-				if err != nil {
-					return
-				}
+				w.Write([]byte("..."))
 			}
-			wn, err = item.Value.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
+			item.Value.JS(w)
 		}
 	}
 	if 0 < len(n.List) && n.List[len(n.List)-1].Value == nil {
-		wn, err = w.Write([]byte(","))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte(","))
 	}
-	wn, err = w.Write([]byte("]"))
-	i += wn
-	return
+	w.Write([]byte("]"))
 }
 
-// JSON converts the node back to valid JSON
-func (n ArrayExpr) JSON(buf *bytes.Buffer) error {
-	buf.WriteByte('[')
+// JSON writes JSON to writer.
+func (n ArrayExpr) JSON(w io.Writer) error {
+	w.Write([]byte("["))
 	for i, item := range n.List {
 		if i != 0 {
-			buf.WriteString(", ")
+			w.Write([]byte(", "))
 		}
 		if item.Value == nil || item.Spread {
 			return ErrInvalidJSON
 		}
-		val, ok := item.Value.(JSONer)
-		if !ok {
+		if val, ok := item.Value.(JSONer); !ok {
 			return ErrInvalidJSON
-		} else if err := val.JSON(buf); err != nil {
+		} else if err := val.JSON(w); err != nil {
 			return err
 		}
 	}
-	buf.WriteByte(']')
+	w.Write([]byte("]"))
 	return nil
 }
 
@@ -2939,83 +1704,39 @@ func (n Property) String() string {
 	return s
 }
 
-// JS converts the node back to valid JavaScript
-func (n Property) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n Property) JS(w io.Writer) {
 	if n.Name != nil {
 		if v, ok := n.Value.(*Var); !ok || !n.Name.IsIdent(v.Data) {
-			s += n.Name.JS() + ": "
+			n.Name.JS(w)
+			w.Write([]byte(": "))
 		}
 	} else if n.Spread {
-		s += "..."
+		w.Write([]byte("..."))
 	}
-	s += n.Value.JS()
+	n.Value.JS(w)
 	if n.Init != nil {
-		s += " = " + n.Init.JS()
+		w.Write([]byte(" = "))
+		n.Init.JS(w)
 	}
-	return s
 }
 
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Property) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Name != nil {
-		if v, ok := n.Value.(*Var); !ok || !n.Name.IsIdent(v.Data) {
-			wn, err = n.Name.JSWriteTo(w)
-			i += wn
-			if err != nil {
-				return
-			}
-			wn, err = w.Write([]byte(": "))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	} else if n.Spread {
-		wn, err = w.Write([]byte("..."))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Init != nil {
-		wn, err = w.Write([]byte(" = "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Init.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-// JSON converts the node back to valid JSON
-func (n Property) JSON(buf *bytes.Buffer) error {
+// JSON writes JSON to writer.
+func (n Property) JSON(w io.Writer) error {
 	if n.Name == nil || n.Name.Literal.TokenType != StringToken && n.Name.Literal.TokenType != IdentifierToken || n.Spread || n.Init != nil {
 		return ErrInvalidJSON
 	} else if n.Name.Literal.TokenType == IdentifierToken {
-		buf.WriteByte('"')
-		buf.Write(n.Name.Literal.Data)
-		buf.WriteByte('"')
+		w.Write([]byte("\"'"))
+		w.Write(n.Name.Literal.Data)
+		w.Write([]byte("\""))
 	} else {
-		_ = n.Name.Literal.JSON(buf)
+		_ = n.Name.Literal.JSON(w)
 	}
-	buf.WriteString(": ")
+	w.Write([]byte(": "))
 
-	val, ok := n.Value.(JSONer)
-	if !ok {
+	if val, ok := n.Value.(JSONer); !ok {
 		return ErrInvalidJSON
-	} else if err := val.JSON(buf); err != nil {
+	} else if err := val.JSON(w); err != nil {
 		return err
 	}
 	return nil
@@ -3037,57 +1758,30 @@ func (n ObjectExpr) String() string {
 	return s + "}"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ObjectExpr) JS() string {
-	s := "{"
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.JS()
-	}
-	return s + "}"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ObjectExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("{"))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n ObjectExpr) JS(w io.Writer) {
+	w.Write([]byte("{"))
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
-	wn, err = w.Write([]byte("}"))
-	i += wn
-	return
+	w.Write([]byte("}"))
 }
 
-// JSON converts the node back to valid JSON
-func (n ObjectExpr) JSON(buf *bytes.Buffer) error {
-	buf.WriteByte('{')
+// JSON writes JSON to writer.
+func (n ObjectExpr) JSON(w io.Writer) error {
+	w.Write([]byte("{"))
 	for i, item := range n.List {
 		if i != 0 {
-			buf.WriteString(", ")
+			w.Write([]byte(", "))
 		}
-		if err := item.JSON(buf); err != nil {
+		if err := item.JSON(w); err != nil {
 			return err
 		}
 	}
-	buf.WriteByte('}')
+	w.Write([]byte("}"))
 	return nil
 }
 
@@ -3101,22 +1795,10 @@ func (n TemplatePart) String() string {
 	return string(n.Value) + n.Expr.String()
 }
 
-// JS converts the node back to valid JavaScript
-func (n TemplatePart) JS() string {
-	return string(n.Value) + n.Expr.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n TemplatePart) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write(n.Value)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Expr.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n TemplatePart) JS(w io.Writer) {
+	w.Write(n.Value)
+	n.Expr.JS(w)
 }
 
 // TemplateExpr is a template literal or member/call expression, super property, or optional chain with template literal.
@@ -3142,48 +1824,18 @@ func (n TemplateExpr) String() string {
 	return s + string(n.Tail)
 }
 
-// JS converts the node back to valid JavaScript
-func (n TemplateExpr) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n TemplateExpr) JS(w io.Writer) {
 	if n.Tag != nil {
-		s += n.Tag.JS()
+		n.Tag.JS(w)
 		if n.Optional {
-			s += "?."
+			w.Write([]byte("?."))
 		}
 	}
 	for _, item := range n.List {
-		s += item.JS()
+		item.JS(w)
 	}
-	return s + string(n.Tail)
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n TemplateExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Tag != nil {
-		wn, err = n.Tag.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		if n.Optional {
-			wn, err = w.Write([]byte("?."))
-			i += wn
-			if err != nil {
-				return
-			}
-		}
-	}
-	for _, item := range n.List {
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = w.Write(n.Tail)
-	i += wn
-	return
+	w.Write(n.Tail)
 }
 
 // GroupExpr is a parenthesized expression.
@@ -3195,27 +1847,11 @@ func (n GroupExpr) String() string {
 	return "(" + n.X.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n GroupExpr) JS() string {
-	return "(" + n.X.JS() + ")"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n GroupExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("("))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(")"))
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n GroupExpr) JS(w io.Writer) {
+	w.Write([]byte("("))
+	n.X.JS(w)
+	w.Write([]byte(")"))
 }
 
 // IndexExpr is a member/call expression, super property, or optional chain with an index expression.
@@ -3233,43 +1869,16 @@ func (n IndexExpr) String() string {
 	return "(" + n.X.String() + "[" + n.Y.String() + "])"
 }
 
-// JS converts the node back to valid JavaScript
-func (n IndexExpr) JS() string {
+// JS writes JavaScript to writer.
+func (n IndexExpr) JS(w io.Writer) {
+	n.X.JS(w)
 	if n.Optional {
-		return n.X.JS() + "?.[" + n.Y.JS() + "]"
-	}
-	return n.X.JS() + "[" + n.Y.JS() + "]"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n IndexExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Optional {
-		wn, err = w.Write([]byte("?.["))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("?.["))
 	} else {
-		wn, err = w.Write([]byte("["))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("["))
 	}
-	wn, err = n.Y.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte("]"))
-	i += wn
-	return
+	n.Y.JS(w)
+	w.Write([]byte("]"))
 }
 
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
@@ -3287,80 +1896,47 @@ func (n DotExpr) String() string {
 	return "(" + n.X.String() + "." + n.Y.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n DotExpr) JS() string {
-	if n.Optional {
-		return n.X.JS() + "?." + n.Y.JS()
+// JS writes JavaScript to writer.
+func (n DotExpr) JS(w io.Writer) {
+	lit, ok := n.X.(*LiteralExpr)
+	group := ok && !n.Optional && lit.TokenType == DecimalToken
+	if group {
+		w.Write([]byte("("))
 	}
-	return n.X.JS() + "." + n.Y.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n DotExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
+	n.X.JS(w)
 	if n.Optional {
-		wn, err = w.Write([]byte("?."))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("?."))
 	} else {
-		wn, err = w.Write([]byte("."))
-		i += wn
-		if err != nil {
-			return
+		if group {
+			w.Write([]byte(")"))
 		}
+		w.Write([]byte("."))
 	}
-	wn, err = n.Y.JSWriteTo(w)
-	i += wn
-	return
+	n.Y.JS(w)
 }
 
 // NewTargetExpr is a new target meta property.
-type NewTargetExpr struct {
-}
+type NewTargetExpr struct{}
 
 func (n NewTargetExpr) String() string {
 	return "(new.target)"
 }
 
-// JS converts the node back to valid JavaScript
-func (n NewTargetExpr) JS() string {
-	return "new.target"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n NewTargetExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("new.target"))
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n NewTargetExpr) JS(w io.Writer) {
+	w.Write([]byte("new.target"))
 }
 
 // ImportMetaExpr is a import meta meta property.
-type ImportMetaExpr struct {
-}
+type ImportMetaExpr struct{}
 
 func (n ImportMetaExpr) String() string {
 	return "(import.meta)"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ImportMetaExpr) JS() string {
-	return "import.meta"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ImportMetaExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("import.meta"))
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n ImportMetaExpr) JS(w io.Writer) {
+	w.Write([]byte("import.meta"))
 }
 
 type Arg struct {
@@ -3376,28 +1952,12 @@ func (n Arg) String() string {
 	return s + n.Value.String()
 }
 
-// JS converts the node back to valid JavaScript
-func (n Arg) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n Arg) JS(w io.Writer) {
 	if n.Rest {
-		s += "..."
+		w.Write([]byte("..."))
 	}
-	return s + n.Value.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Arg) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Rest {
-		wn, err = w.Write([]byte("..."))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = n.Value.JSWriteTo(w)
-	i += wn
-	return
+	n.Value.JS(w)
 }
 
 // Args is a list of arguments as used by new and call expressions.
@@ -3416,36 +1976,14 @@ func (n Args) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n Args) JS() string {
-	s := ""
-	for i, item := range n.List {
-		if i != 0 {
-			s += ", "
-		}
-		s += item.JS()
-	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n Args) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
+// JS writes JavaScript to writer.
+func (n Args) JS(w io.Writer) {
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(", "))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(", "))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
-	return
 }
 
 // NewExpr is a new expression or new member expression.
@@ -3461,53 +1999,17 @@ func (n NewExpr) String() string {
 	return "(new " + n.X.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n NewExpr) JS() string {
+// JS writes JavaScript to writer.
+func (n NewExpr) JS(w io.Writer) {
+	w.Write([]byte("new "))
+	n.X.JS(w)
 	if n.Args != nil {
-		return "new " + n.X.JS() + "(" + n.Args.JS() + ")"
-	}
-
-	// always use parentheses to prevent errors when chaining e.g. new Date().getTime()
-	return "new " + n.X.JS() + "()"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n NewExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("new "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Args != nil {
-		wn, err = w.Write([]byte("("))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.Args.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(")"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("("))
+		n.Args.JS(w)
+		w.Write([]byte(")"))
 	} else {
-		wn, err = w.Write([]byte("()"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("()"))
 	}
-	return
 }
 
 // CallExpr is a call expression.
@@ -3524,46 +2026,16 @@ func (n CallExpr) String() string {
 	return "(" + n.X.String() + n.Args.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n CallExpr) JS() string {
+// JS writes JavaScript to writer.
+func (n CallExpr) JS(w io.Writer) {
+	n.X.JS(w)
 	if n.Optional {
-		return n.X.JS() + "?.(" + n.Args.JS() + ")"
-	}
-	return n.X.JS() + "(" + n.Args.JS() + ")"
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n CallExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	if n.Optional {
-		wn, err = w.Write([]byte("?.("))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("?.("))
 	} else {
-		wn, err = w.Write([]byte("("))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("("))
 	}
-	wn, err = n.Args.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(")"))
-	i += wn
-	if err != nil {
-		return
-	}
-	return
+	n.Args.JS(w)
+	w.Write([]byte(")"))
 }
 
 // UnaryExpr is an update or unary expression.
@@ -3581,58 +2053,27 @@ func (n UnaryExpr) String() string {
 	return "(" + n.Op.String() + n.X.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n UnaryExpr) JS() string {
+// JS writes JavaScript to writer.
+func (n UnaryExpr) JS(w io.Writer) {
 	if n.Op == PostIncrToken || n.Op == PostDecrToken {
-		return n.X.JS() + n.Op.String()
-	} else if unary, ok := n.X.(*UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
-		return n.Op.String() + " " + n.X.JS()
-	}
-	return n.Op.String() + n.X.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n UnaryExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Op == PostIncrToken || n.Op == PostDecrToken {
-		wn, err = n.X.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write(n.Op.Bytes())
-		i += wn
+		n.X.JS(w)
+		w.Write(n.Op.Bytes())
 		return
 	} else if unary, ok := n.X.(UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
-		wn, err = w.Write(n.Op.Bytes())
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = w.Write([]byte(" "))
-		i += wn
-		if err != nil {
-			return
-		}
-		wn, err = n.X.JSWriteTo(w)
-		i += wn
+		w.Write(n.Op.Bytes())
+		w.Write([]byte(" "))
+		n.X.JS(w)
 		return
 	}
-	wn, err = w.Write(n.Op.Bytes())
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	return
+	w.Write(n.Op.Bytes())
+	n.X.JS(w)
 }
 
-// JSON converts the node back to valid JSON
-func (n UnaryExpr) JSON(buf *bytes.Buffer) error {
+// JSON writes JSON to writer.
+func (n UnaryExpr) JSON(w io.Writer) error {
 	if lit, ok := n.X.(*LiteralExpr); ok && n.Op == NegToken && lit.TokenType == DecimalToken {
-		buf.WriteByte('-')
-		buf.Write(lit.Data)
+		w.Write([]byte("-"))
+		w.Write(lit.Data)
 		return nil
 	}
 	return ErrInvalidJSON
@@ -3651,37 +2092,13 @@ func (n BinaryExpr) String() string {
 	return "(" + n.X.String() + n.Op.String() + n.Y.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n BinaryExpr) JS() string {
-	return n.X.JS() + " " + n.Op.String() + " " + n.Y.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n BinaryExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write(n.Op.Bytes())
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Y.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n BinaryExpr) JS(w io.Writer) {
+	n.X.JS(w)
+	w.Write([]byte(" "))
+	w.Write(n.Op.Bytes())
+	w.Write([]byte(" "))
+	n.Y.JS(w)
 }
 
 // CondExpr is a conditional expression.
@@ -3693,37 +2110,13 @@ func (n CondExpr) String() string {
 	return "(" + n.Cond.String() + " ? " + n.X.String() + " : " + n.Y.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n CondExpr) JS() string {
-	return n.Cond.JS() + " ? " + n.X.JS() + " : " + n.Y.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n CondExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = n.Cond.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" ? "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" : "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Y.JSWriteTo(w)
-	i += wn
-	return
+// JS writes JavaScript to writer.
+func (n CondExpr) JS(w io.Writer) {
+	n.Cond.JS(w)
+	w.Write([]byte(" ? "))
+	n.X.JS(w)
+	w.Write([]byte(" : "))
+	n.Y.JS(w)
 }
 
 // YieldExpr is a yield expression.
@@ -3743,44 +2136,17 @@ func (n YieldExpr) String() string {
 	return s + " " + n.X.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n YieldExpr) JS() string {
-	if n.X == nil {
-		return "yield"
-	}
-	s := "yield"
-	if n.Generator {
-		s += "*"
-	}
-	return s + " " + n.X.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n YieldExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	wn, err = w.Write([]byte("yield"))
-	i += wn
-	if err != nil {
-		return
-	}
+// JS writes JavaScript to writer.
+func (n YieldExpr) JS(w io.Writer) {
+	w.Write([]byte("yield"))
 	if n.X == nil {
 		return
 	}
 	if n.Generator {
-		wn, err = w.Write([]byte("*"))
-		i += wn
-		if err != nil {
-			return
-		}
+		w.Write([]byte("*"))
 	}
-	wn, err = w.Write([]byte(" "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.X.JSWriteTo(w)
-	i += wn
-	return
+	w.Write([]byte(" "))
+	n.X.JS(w)
 }
 
 // ArrowFunc is an (async) arrow function.
@@ -3798,38 +2164,14 @@ func (n ArrowFunc) String() string {
 	return s + n.Params.String() + " => " + n.Body.String() + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n ArrowFunc) JS() string {
-	s := ""
+// JS writes JavaScript to writer.
+func (n ArrowFunc) JS(w io.Writer) {
 	if n.Async {
-		s += "async "
+		w.Write([]byte("async "))
 	}
-	return s + n.Params.JS() + " => " + n.Body.JS()
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n ArrowFunc) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
-	if n.Async {
-		wn, err = w.Write([]byte("async "))
-		i += wn
-		if err != nil {
-			return
-		}
-	}
-	wn, err = n.Params.JSWriteTo(w)
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = w.Write([]byte(" => "))
-	i += wn
-	if err != nil {
-		return
-	}
-	wn, err = n.Body.JSWriteTo(w)
-	i += wn
-	return
+	n.Params.JS(w)
+	w.Write([]byte(" => "))
+	n.Body.JS(w)
 }
 
 // CommaExpr is a series of comma expressions.
@@ -3848,36 +2190,14 @@ func (n CommaExpr) String() string {
 	return s + ")"
 }
 
-// JS converts the node back to valid JavaScript
-func (n CommaExpr) JS() string {
-	s := ""
-	for i, item := range n.List {
-		if i != 0 {
-			s += ","
-		}
-		s += item.JS()
-	}
-	return s
-}
-
-// JS converts the node back to valid JavaScript (writes to io.Writer)
-func (n CommaExpr) JSWriteTo(w io.Writer) (i int, err error) {
-	var wn int
+// JS writes JavaScript to writer.
+func (n CommaExpr) JS(w io.Writer) {
 	for j, item := range n.List {
 		if j != 0 {
-			wn, err = w.Write([]byte(","))
-			i += wn
-			if err != nil {
-				return
-			}
+			w.Write([]byte(","))
 		}
-		wn, err = item.JSWriteTo(w)
-		i += wn
-		if err != nil {
-			return
-		}
+		item.JS(w)
 	}
-	return
 }
 
 func (v *Var) exprNode()           {}
