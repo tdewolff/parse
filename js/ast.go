@@ -53,7 +53,9 @@ func (ast AST) JSON(w io.Writer) error {
 		return ErrInvalidJSON
 	} else if len(ast.List) == 0 {
 		return nil
-	} else if val, ok := ast.List[0].(JSONer); !ok {
+	} else if expr, ok := ast.List[0].(*ExprStmt); !ok {
+		return ErrInvalidJSON
+	} else if val, ok := expr.Value.(JSONer); !ok {
 		return ErrInvalidJSON
 	} else {
 		return val.JSON(w)
@@ -1577,6 +1579,7 @@ func (n LiteralExpr) JSON(w io.Writer) error {
 		data := n.Data
 		if n.Data[0] == '\'' {
 			data = parse.Copy(data)
+			data = bytes.ReplaceAll(data, []byte(`\'`), []byte(`'`))
 			data = bytes.ReplaceAll(data, []byte(`"`), []byte(`\"`))
 			data[0] = '"'
 			data[len(data)-1] = '"'
@@ -1726,9 +1729,9 @@ func (n Property) JSON(w io.Writer) error {
 	if n.Name == nil || n.Name.Literal.TokenType != StringToken && n.Name.Literal.TokenType != IdentifierToken || n.Spread || n.Init != nil {
 		return ErrInvalidJSON
 	} else if n.Name.Literal.TokenType == IdentifierToken {
-		w.Write([]byte("\"'"))
+		w.Write([]byte(`"`))
 		w.Write(n.Name.Literal.Data)
-		w.Write([]byte("\""))
+		w.Write([]byte(`"`))
 	} else {
 		_ = n.Name.Literal.JSON(w)
 	}
@@ -2059,7 +2062,7 @@ func (n UnaryExpr) JS(w io.Writer) {
 		n.X.JS(w)
 		w.Write(n.Op.Bytes())
 		return
-	} else if unary, ok := n.X.(UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
+	} else if unary, ok := n.X.(*UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
 		w.Write(n.Op.Bytes())
 		w.Write([]byte(" "))
 		n.X.JS(w)
