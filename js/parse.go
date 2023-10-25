@@ -2239,7 +2239,9 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 // exprToBinding converts a CoverParenthesizedExpressionAndArrowParameterList into FormalParameters
 // Any unbound variables of the parameters (Initializer, ComputedPropertyName) are kept in the parent scope
 func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
-	if v, ok := expr.(*Var); ok {
+	if expr == nil {
+		// no-op
+	} else if v, ok := expr.(*Var); ok {
 		binding = v
 	} else if array, ok := expr.(*ArrayExpr); ok {
 		bindingArray := BindingArray{}
@@ -2272,6 +2274,8 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Name, Value: bindingElement})
 		}
 		binding = &bindingObject
+	} else {
+		p.failMessage("invalid parameters in arrow function")
 	}
 	return
 }

@@ -256,6 +256,7 @@ func TestParse(t *testing.T) {
 		{"x = async function() {}", "Stmt(x=Decl(async function Params() Stmt({ })))"},
 		{"x = class {}", "Stmt(x=Decl(class))"},
 		{"x = class {a(){}}", "Stmt(x=Decl(class Method(a Params() Stmt({ }))))"},
+		{"x = class A { [(0())]; };", "Stmt(x=Decl(class A Field([(0())])))"},
 		{"x = a => a++", "Stmt(x=(Params(Binding(a)) => Stmt({ Stmt(return (a++)) })))"},
 		{"x = a => {a++}", "Stmt(x=(Params(Binding(a)) => Stmt({ Stmt(a++) })))"},
 		{"x = a => {return}", "Stmt(x=(Params(Binding(a)) => Stmt({ Stmt(return) })))"},
@@ -632,6 +633,8 @@ func TestParseError(t *testing.T) {
 		{"x = (a, a) =>", "unexpected => in expression"},
 		{"x = (a, a, ...a) =>", "unexpected ... in expression"},
 		{"x = (a, ...a) =>", "identifier a has already been declared"},
+		{"(A,{}%0%{})=>0", "invalid parameters in arrow function"},
+		{"({}``=1)=>0", "invalid parameters in arrow function"},
 
 		// expression precedence
 		{"x = a + yield b", "unexpected b in expression"},
