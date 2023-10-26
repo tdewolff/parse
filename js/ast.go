@@ -523,9 +523,18 @@ func (n IfStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 	}
 	n.Body.JS(w)
+	if _, ok := n.Body.(*VarDecl); ok {
+		w.Write([]byte(";"))
+	}
 	if n.Else != nil {
-		w.Write([]byte(" else "))
+		w.Write([]byte(" else"))
+		if _, ok := n.Else.(*EmptyStmt); !ok {
+			w.Write([]byte(" "))
+		}
 		n.Else.JS(w)
+		if _, ok := n.Else.(*VarDecl); ok {
+			w.Write([]byte(";"))
+		}
 	}
 }
 
@@ -546,6 +555,9 @@ func (n DoWhileStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 	}
 	n.Body.JS(w)
+	if _, ok := n.Body.(*VarDecl); ok {
+		w.Write([]byte(";"))
+	}
 	w.Write([]byte(" while ("))
 	n.Cond.JS(w)
 	w.Write([]byte(");"))
@@ -570,6 +582,9 @@ func (n WhileStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 	}
 	n.Body.JS(w)
+	if _, ok := n.Body.(*VarDecl); ok {
+		w.Write([]byte(";"))
+	}
 }
 
 // ForStmt is a regular for iteration statement.
@@ -698,6 +713,9 @@ func (n CaseClause) JS(w io.Writer) {
 	for _, item := range n.List {
 		wi.Write([]byte("\n"))
 		item.JS(wi)
+		if _, ok := item.(*VarDecl); ok {
+			w.Write([]byte(";"))
+		}
 	}
 }
 
@@ -793,8 +811,14 @@ func (n WithStmt) String() string {
 func (n WithStmt) JS(w io.Writer) {
 	w.Write([]byte("with ("))
 	n.Cond.JS(w)
-	w.Write([]byte(") "))
+	w.Write([]byte(")"))
+	if _, ok := n.Body.(*EmptyStmt); !ok {
+		w.Write([]byte(" "))
+	}
 	n.Body.JS(w)
+	if _, ok := n.Body.(*VarDecl); ok {
+		w.Write([]byte(";"))
+	}
 }
 
 // LabelledStmt is a labelled statement.
@@ -810,8 +834,14 @@ func (n LabelledStmt) String() string {
 // JS writes JavaScript to writer.
 func (n LabelledStmt) JS(w io.Writer) {
 	w.Write(n.Label)
-	w.Write([]byte(": "))
+	w.Write([]byte(":"))
+	if _, ok := n.Value.(*EmptyStmt); !ok {
+		w.Write([]byte(" "))
+	}
 	n.Value.JS(w)
+	if _, ok := n.Value.(*VarDecl); ok {
+		w.Write([]byte(";"))
+	}
 }
 
 // ThrowStmt is a throw statement.
