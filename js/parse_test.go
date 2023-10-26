@@ -545,6 +545,7 @@ func TestParseError(t *testing.T) {
 		{"import {yield as", "expected Identifier instead of EOF in import statement"},
 		{"import {yield,", "expected } instead of EOF in import statement"},
 		{"import yield", "expected from instead of EOF in import statement"},
+		{"import yield,", "expected * or { instead of EOF in import statement"},
 		{"import yield from", "expected String instead of EOF in import statement"},
 		{"export", "expected *, {, var, let, const, function, async, class, or default instead of EOF in export statement"},
 		{"export *", "expected from instead of EOF in export statement"},

@@ -920,7 +920,7 @@ func (n ImportStmt) String() string {
 	}
 	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
 		s += " " + n.List[0].String()
-	} else if 0 < len(n.List) {
+	} else if n.List != nil {
 		s += " {"
 		for i, item := range n.List {
 			if i != 0 {
@@ -932,7 +932,7 @@ func (n ImportStmt) String() string {
 		}
 		s += " }"
 	}
-	if n.Default != nil || len(n.List) != 0 {
+	if n.Default != nil || n.List != nil {
 		s += " from"
 	}
 	return s + " " + string(n.Module) + ")"
@@ -945,26 +945,30 @@ func (n ImportStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 		w.Write(n.Default)
 		if len(n.List) != 0 {
-			w.Write([]byte(" ,"))
+			w.Write([]byte(","))
 		}
 	}
 	if len(n.List) == 1 && len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' {
 		w.Write([]byte(" "))
 		n.List[0].JS(w)
-	} else if 0 < len(n.List) {
-		w.Write([]byte(" {"))
-		for j, item := range n.List {
-			if j != 0 {
-				w.Write([]byte(" ,"))
+	} else if n.List != nil {
+		if len(n.List) == 0 {
+			w.Write([]byte(" {}"))
+		} else {
+			w.Write([]byte(" {"))
+			for j, item := range n.List {
+				if j != 0 {
+					w.Write([]byte(","))
+				}
+				if item.Binding != nil {
+					w.Write([]byte(" "))
+					item.JS(w)
+				}
 			}
-			if item.Binding != nil {
-				w.Write([]byte(" "))
-				item.JS(w)
-			}
+			w.Write([]byte(" }"))
 		}
-		w.Write([]byte(" }"))
 	}
-	if n.Default != nil || len(n.List) != 0 {
+	if n.Default != nil || n.List != nil {
 		w.Write([]byte(" from"))
 	}
 	w.Write([]byte(" "))
@@ -1021,11 +1025,13 @@ func (n ExportStmt) JS(w io.Writer) {
 	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
 		w.Write([]byte(" "))
 		n.List[0].JS(w)
+	} else if len(n.List) == 0 {
+		w.Write([]byte(" {}"))
 	} else {
 		w.Write([]byte(" {"))
 		for j, item := range n.List {
 			if j != 0 {
-				w.Write([]byte(" ,"))
+				w.Write([]byte(","))
 			}
 			if item.Binding != nil {
 				w.Write([]byte(" "))
@@ -1038,6 +1044,7 @@ func (n ExportStmt) JS(w io.Writer) {
 		w.Write([]byte(" from "))
 		w.Write(n.Module)
 	}
+	w.Write([]byte(";"))
 }
 
 // DirectivePrologueStmt is a string literal at the beginning of a function or module (usually "use strict").

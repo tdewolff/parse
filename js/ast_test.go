@@ -51,12 +51,12 @@ func TestJS(t *testing.T) {
 		{"import * as name from 'module-name';", "import * as name from 'module-name';"},
 		{"import { export1 } from 'module-name';", "import { export1 } from 'module-name';"},
 		{"import { export1 as alias1 } from 'module-name';", "import { export1 as alias1 } from 'module-name';"},
-		{"import { export1 , export2 } from 'module-name';", "import { export1 , export2 } from 'module-name';"},
-		{"import { foo , bar } from 'module-name/path/to/specific/un-exported/file';", "import { foo , bar } from 'module-name/path/to/specific/un-exported/file';"},
-		{"import defaultExport, * as name from 'module-name';", "import defaultExport , * as name from 'module-name';"},
+		{"import { export1 , export2 } from 'module-name';", "import { export1, export2 } from 'module-name';"},
+		{"import { foo , bar } from 'module-name/path/to/specific/un-exported/file';", "import { foo, bar } from 'module-name/path/to/specific/un-exported/file';"},
+		{"import defaultExport, * as name from 'module-name';", "import defaultExport, * as name from 'module-name';"},
 		{"import 'module-name';", "import 'module-name';"},
 		{"var promise = import('module-name');", "var promise = import('module-name');"},
-		{"export { myFunction as default }", "export { myFunction as default }"},
+		{"export { myFunction as default }", "export { myFunction as default };"},
 		{"export default k = 12;", "export default k = 12;"},
 		{"'use strict';", "'use strict';"},
 		{"let [name1, name2 = 6] = z;", "let [name1, name2 = 6] = z;"},
@@ -110,6 +110,8 @@ func TestJS(t *testing.T) {
 		{"export default await x;", "export default await x;"},
 		{"export let a = await x;", "export let a = await x;"},
 		{"if(k00)while((0))", "if (k00) while ((0));"},
+		{"export{};from", "export {}; from;"},
+		{"import{} from 'a'", "import {} from 'a';"},
 	}
 
 	re := regexp.MustCompile("\n *")

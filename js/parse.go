@@ -620,14 +620,16 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 		importStmt.Module = p.data
 		p.next()
 	} else {
+		expectClause := true
 		if IsIdentifier(p.tt) || p.tt == YieldToken {
 			importStmt.Default = p.data
 			p.next()
-			if p.tt == CommaToken {
+			expectClause = p.tt == CommaToken
+			if expectClause {
 				p.next()
 			}
 		}
-		if p.tt == MulToken {
+		if expectClause && p.tt == MulToken {
 			star := p.data
 			p.next()
 			if !p.consume("import statement", AsToken) {
@@ -639,8 +641,9 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 			}
 			importStmt.List = []Alias{Alias{star, p.data}}
 			p.next()
-		} else if p.tt == OpenBraceToken {
+		} else if expectClause && p.tt == OpenBraceToken {
 			p.next()
+			importStmt.List = []Alias{}
 			for IsIdentifierName(p.tt) || p.tt == StringToken {
 				tt := p.tt
 				var name, binding []byte = nil, p.data
@@ -670,8 +673,10 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 			if !p.consume("import statement", CloseBraceToken) {
 				return
 			}
-		}
-		if importStmt.Default == nil && len(importStmt.List) == 0 {
+		} else if expectClause && importStmt.Default != nil {
+			p.fail("import statement", MulToken, OpenBraceToken)
+			return
+		} else if importStmt.Default == nil {
 			p.fail("import statement", StringToken, IdentifierToken, MulToken, OpenBraceToken)
 			return
 		}
