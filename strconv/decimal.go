@@ -4,6 +4,7 @@ import (
 	"math"
 )
 
+// ParseDecimal parses number of the format 1.2e3
 func ParseDecimal(b []byte) (float64, int) {
 	i := 0
 	start := i
