@@ -112,6 +112,7 @@ func TestJS(t *testing.T) {
 		{"if(k00)while((0))", "if (k00) while ((0));"},
 		{"export{};from", "export {}; from;"},
 		{"import{} from 'a'", "import {} from 'a';"},
+		{"import o,{} from''", "import o, {} from '';"},
 		{"if(0)var s;else", "if (0) var s; else;"},
 	}
 

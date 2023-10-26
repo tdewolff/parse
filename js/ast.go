@@ -949,7 +949,7 @@ func (n ImportStmt) String() string {
 	s := "Stmt(import"
 	if n.Default != nil {
 		s += " " + string(n.Default)
-		if len(n.List) != 0 {
+		if n.List != nil {
 			s += " ,"
 		}
 	}
@@ -979,7 +979,7 @@ func (n ImportStmt) JS(w io.Writer) {
 	if n.Default != nil {
 		w.Write([]byte(" "))
 		w.Write(n.Default)
-		if len(n.List) != 0 {
+		if n.List != nil {
 			w.Write([]byte(","))
 		}
 	}
