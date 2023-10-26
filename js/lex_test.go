@@ -73,7 +73,7 @@ func TestTokens(t *testing.T) {
 		{"'\u2028", TTs{ErrorToken}},
 		{"'str\\\U00100000ing\\0'", TTs{StringToken}},
 		{"'strin\\00g'", TTs{StringToken}},
-		{"/*comment", TTs{CommentToken}},
+		{"/*comment", TTs{ErrorToken}},
 		{"a=/regexp", TTs{IdentifierToken, EqToken, DivToken, IdentifierToken}},
 		{"\\u002", TTs{ErrorToken}},
 		{"`template", TTs{ErrorToken}},

@@ -147,7 +147,10 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		l.r.Move(1)
 		return CloseParenToken, l.r.Shift()
 	case '/':
-		if tt := l.consumeCommentToken(); tt != ErrorToken {
+		if tt := l.consumeCommentToken(); tt != ErrorToken || l.err != nil {
+			if l.err != nil {
+				return ErrorToken, nil
+			}
 			return tt, l.r.Shift()
 		} else if tt := l.consumeOperatorToken(); tt != ErrorToken {
 			return tt, l.r.Shift()
@@ -376,7 +379,8 @@ func (l *Lexer) consumeCommentToken() TokenType {
 				l.r.Move(2)
 				break
 			} else if c == 0 && l.r.Err() != nil {
-				break
+				l.err = parse.NewErrorLexer(l.r, "unexpected EOF in comment")
+				return ErrorToken
 			} else if l.consumeLineTerminator() {
 				l.prevLineTerminator = true
 				tt = CommentLineTerminatorToken
