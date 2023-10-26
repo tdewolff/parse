@@ -127,6 +127,19 @@ func (v *Var) Name() []byte {
 	return v.Data
 }
 
+func (v *Var) Info() string {
+	s := fmt.Sprintf("%p type=%s name='%s' uses=%d", v, v.Decl, string(v.Data), v.Uses)
+	links := 0
+	for v.Link != nil {
+		v = v.Link
+		links++
+	}
+	if 0 < links {
+		s += fmt.Sprintf(" links=%d => %p", links, v)
+	}
+	return s
+}
+
 func (v Var) String() string {
 	return string(v.Name())
 }
