@@ -176,6 +176,7 @@ func TestParse(t *testing.T) {
 		{"function*a(){ (yield) }", "Decl(function* a Params() Stmt({ Stmt((yield)) }))"},
 		{"function*a(){ (yield a) }", "Decl(function* a Params() Stmt({ Stmt((yield a)) }))"},
 		{"function a(){ let\nawait }", "Decl(function a Params() Stmt({ Decl(let Binding(await)) }))"},
+		{"function*a(){ b => yield%5 }", "Decl(function* a Params() Stmt({ Stmt(Params(Binding(b)) => Stmt({ Stmt(return (yield%5)) })) }))"},
 		{"x = {await}", "Stmt(x={await})"},
 		{"async function a(){ x = {await: 5} }", "Decl(async function a Params() Stmt({ Stmt(x={await: 5}) }))"},
 		{"async function a(){ x = await a }", "Decl(async function a Params() Stmt({ Stmt(x=(await a)) }))"},
@@ -592,7 +593,7 @@ func TestParseError(t *testing.T) {
 		{"let\nawait", "unexpected await in binding"},
 		{"let {await = 5} = z", "expected : instead of = in object binding"},
 		{"x = await => a++", "unexpected => in expression"},
-		{"function*a(){ b => yield%5 }", "unexpected % in expression"},
+		{"function*a(){ b => yield 0 }", "unexpected 0 in expression"},
 
 		// specific cases
 		{"{a, if: b, do(){}, ...d}", "unexpected if in expression"}, // block stmt

@@ -1506,16 +1506,18 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
 	p.scope.MarkFuncArgs()
 
+	parentYield := p.yield
+	p.yield = false
 	if p.tt == OpenBraceToken {
-		parentInFor := p.inFor
-		p.inFor = false
-		p.yield = false
+		parentInFor, parentAwait := p.inFor, p.await
+		p.inFor, p.await = false, false
 		p.allowDirectivePrologue = true
 		list = p.parseStmtList("arrow function")
-		p.inFor = parentInFor
+		p.inFor, p.await = parentInFor, parentAwait
 	} else {
 		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
 	}
+	p.yield = parentYield
 	return
 }
 
