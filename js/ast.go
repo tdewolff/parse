@@ -687,7 +687,6 @@ func (n CaseClause) String() string {
 
 // JS writes JavaScript to writer.
 func (n CaseClause) JS(w io.Writer) {
-	w.Write([]byte(" "))
 	if n.Cond != nil {
 		w.Write([]byte("case "))
 		n.Cond.JS(w)
@@ -695,9 +694,10 @@ func (n CaseClause) JS(w io.Writer) {
 		w.Write([]byte("default"))
 	}
 	w.Write([]byte(":"))
+	wi := NewIndenter(w, 4)
 	for _, item := range n.List {
-		w.Write([]byte(" "))
-		item.JS(w)
+		wi.Write([]byte("\n"))
+		item.JS(wi)
 	}
 }
 
@@ -720,11 +720,16 @@ func (n SwitchStmt) String() string {
 func (n SwitchStmt) JS(w io.Writer) {
 	w.Write([]byte("switch ("))
 	n.Init.JS(w)
+	if len(n.List) == 0 {
+		w.Write([]byte(") {}"))
+		return
+	}
 	w.Write([]byte(") {"))
 	for _, clause := range n.List {
+		w.Write([]byte("\n"))
 		clause.JS(w)
 	}
-	w.Write([]byte(" }"))
+	w.Write([]byte("\n}"))
 }
 
 // BranchStmt is a continue or break statement.
@@ -1386,7 +1391,6 @@ func (n FuncDecl) JS(w io.Writer) {
 		w.Write([]byte(" "))
 		w.Write(n.Name.Data)
 	}
-	w.Write([]byte(" "))
 	n.Params.JS(w)
 	w.Write([]byte(" "))
 	n.Body.JS(w)
@@ -1563,12 +1567,17 @@ func (n ClassDecl) JS(w io.Writer) {
 		w.Write([]byte(" extends "))
 		n.Extends.JS(w)
 	}
-	w.Write([]byte(" {"))
-	for _, item := range n.List {
-		w.Write([]byte(" "))
-		item.JS(w)
+	if len(n.List) == 0 {
+		w.Write([]byte(" {}"))
+		return
 	}
-	w.Write([]byte(" }"))
+	w.Write([]byte(" {"))
+	wi := NewIndenter(w, 4)
+	for _, item := range n.List {
+		wi.Write([]byte("\n"))
+		item.JS(wi)
+	}
+	w.Write([]byte("\n}"))
 }
 
 func (n VarDecl) stmtNode()   {}
