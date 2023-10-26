@@ -1,5 +1,9 @@
 package js
 
+import (
+	"io"
+)
+
 // AsIdentifierName returns true if a valid identifier name is given.
 func AsIdentifierName(b []byte) bool {
 	if len(b) == 0 || !identifierStartTable[b[0]] {
@@ -35,4 +39,40 @@ func AsDecimalLiteral(b []byte) bool {
 		}
 	}
 	return i == len(b)
+}
+
+type Indenter struct {
+	w io.Writer
+	b []byte
+}
+
+func NewIndenter(w io.Writer, n int) Indenter {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+		n += len(wi.b)
+	}
+
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = ' '
+	}
+	return Indenter{
+		w: w,
+		b: b,
+	}
+}
+
+func (in Indenter) Write(b []byte) (int, error) {
+	n, j := 0, 0
+	for i, c := range b {
+		if c == '\n' {
+			m, _ := in.w.Write(b[j : i+1])
+			n += m
+			m, _ = in.w.Write(in.b)
+			n += m
+			j = i + 1
+		}
+	}
+	m, err := in.w.Write(b[j:])
+	return n + m, err
 }

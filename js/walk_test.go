@@ -2,6 +2,7 @@ package js
 
 import (
 	"bytes"
+	"regexp"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -38,8 +39,11 @@ func TestWalk(t *testing.T) {
 
 	Walk(&walker{}, ast)
 
+	re := regexp.MustCompile("\n *")
 	t.Run("TestWalk", func(t *testing.T) {
-		test.String(t, ast.JSString(), "if (true) { for (i = 0; i < 1; i++) { obj.y = i; }; }; ")
+		src := ast.JSString()
+		src = re.ReplaceAllString(src, " ")
+		test.String(t, src, "if (true) { for (i = 0; i < 1; i++) { obj.y = i; } }")
 	})
 }
 

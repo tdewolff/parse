@@ -34,9 +34,14 @@ func (ast AST) String() string {
 
 // JS writes JavaScript to writer.
 func (ast AST) JS(w io.Writer) {
-	for _, item := range ast.List {
+	for i, item := range ast.List {
+		if i != 0 {
+			w.Write([]byte("\n"))
+		}
 		item.JS(w)
-		w.Write([]byte("; "))
+		if _, ok := item.(*VarDecl); ok {
+			w.Write([]byte(";"))
+		}
 	}
 }
 
@@ -414,6 +419,7 @@ func (n Comment) String() string {
 // JS writes JavaScript to writer.
 func (n Comment) JS(w io.Writer) {
 	w.Write(n.Value)
+	w.Write([]byte("\n"))
 }
 
 // BlockStmt is a block statement.
@@ -432,15 +438,21 @@ func (n BlockStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n BlockStmt) JS(w io.Writer) {
-	if n.Scope.Parent == nil {
-		panic("X")
+	if len(n.List) == 0 {
+		w.Write([]byte("{}"))
+		return
 	}
-	w.Write([]byte("{ "))
+
+	w.Write([]byte("{"))
+	wi := NewIndenter(w, 4)
 	for _, item := range n.List {
-		item.JS(w)
-		w.Write([]byte("; "))
+		wi.Write([]byte("\n"))
+		item.JS(wi)
+		if _, ok := item.(*VarDecl); ok {
+			w.Write([]byte(";"))
+		}
 	}
-	w.Write([]byte("}"))
+	w.Write([]byte("\n}"))
 }
 
 // EmptyStmt is an empty statement.
@@ -451,7 +463,9 @@ func (n EmptyStmt) String() string {
 }
 
 // JS writes JavaScript to writer.
-func (n EmptyStmt) JS(w io.Writer) {}
+func (n EmptyStmt) JS(w io.Writer) {
+	w.Write([]byte(";"))
+}
 
 // ExprStmt is an expression statement.
 type ExprStmt struct {
@@ -469,6 +483,7 @@ func (n ExprStmt) String() string {
 // JS writes JavaScript to writer.
 func (n ExprStmt) JS(w io.Writer) {
 	n.Value.JS(w)
+	w.Write([]byte(";"))
 }
 
 // IfStmt is an if statement.
@@ -490,25 +505,14 @@ func (n IfStmt) String() string {
 func (n IfStmt) JS(w io.Writer) {
 	w.Write([]byte("if ("))
 	n.Cond.JS(w)
-	w.Write([]byte(") "))
-	switch n.Body.(type) {
-	case *BlockStmt:
-		n.Body.JS(w)
-	default:
-		w.Write([]byte("{ "))
-		n.Body.JS(w)
-		w.Write([]byte(" }"))
+	w.Write([]byte(")"))
+	if _, ok := n.Body.(*EmptyStmt); !ok {
+		w.Write([]byte(" "))
 	}
+	n.Body.JS(w)
 	if n.Else != nil {
-		switch n.Else.(type) {
-		case *BlockStmt:
-			w.Write([]byte(" else "))
-			n.Else.JS(w)
-		default:
-			w.Write([]byte(" else { "))
-			n.Else.JS(w)
-			w.Write([]byte(" }"))
-		}
+		w.Write([]byte(" else "))
+		n.Else.JS(w)
 	}
 }
 
@@ -524,18 +528,14 @@ func (n DoWhileStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n DoWhileStmt) JS(w io.Writer) {
-	w.Write([]byte("do "))
-	switch n.Body.(type) {
-	case *BlockStmt:
-		n.Body.JS(w)
-	default:
-		w.Write([]byte("{ "))
-		n.Body.JS(w)
-		w.Write([]byte(" }"))
+	w.Write([]byte("do"))
+	if _, ok := n.Body.(*EmptyStmt); !ok {
+		w.Write([]byte(" "))
 	}
+	n.Body.JS(w)
 	w.Write([]byte(" while ("))
 	n.Cond.JS(w)
-	w.Write([]byte(")"))
+	w.Write([]byte(");"))
 }
 
 // WhileStmt is a while iteration statement.
@@ -552,10 +552,11 @@ func (n WhileStmt) String() string {
 func (n WhileStmt) JS(w io.Writer) {
 	w.Write([]byte("while ("))
 	n.Cond.JS(w)
-	w.Write([]byte(") "))
-	if n.Body != nil {
-		n.Body.JS(w)
+	w.Write([]byte(")"))
+	if _, ok := n.Body.(*EmptyStmt); !ok {
+		w.Write([]byte(" "))
 	}
+	n.Body.JS(w)
 }
 
 // ForStmt is a regular for iteration statement.
@@ -684,7 +685,6 @@ func (n CaseClause) JS(w io.Writer) {
 	for _, item := range n.List {
 		w.Write([]byte(" "))
 		item.JS(w)
-		w.Write([]byte(";"))
 	}
 }
 
@@ -735,6 +735,7 @@ func (n BranchStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 		w.Write(n.Label)
 	}
+	w.Write([]byte(";"))
 }
 
 // ReturnStmt is a return statement.
@@ -757,6 +758,7 @@ func (n ReturnStmt) JS(w io.Writer) {
 		w.Write([]byte(" "))
 		n.Value.JS(w)
 	}
+	w.Write([]byte(";"))
 }
 
 // WithStmt is a with statement.
@@ -807,6 +809,7 @@ func (n ThrowStmt) String() string {
 func (n ThrowStmt) JS(w io.Writer) {
 	w.Write([]byte("throw "))
 	n.Value.JS(w)
+	w.Write([]byte(";"))
 }
 
 // TryStmt is a try statement.
@@ -861,7 +864,7 @@ func (n DebuggerStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n DebuggerStmt) JS(w io.Writer) {
-	w.Write([]byte("debugger"))
+	w.Write([]byte("debugger;"))
 }
 
 // Alias is a name space import or import/export specifier for import/export statements.
@@ -953,6 +956,7 @@ func (n ImportStmt) JS(w io.Writer) {
 	}
 	w.Write([]byte(" "))
 	w.Write(n.Module)
+	w.Write([]byte(";"))
 }
 
 // ExportStmt is an export statement.
@@ -999,6 +1003,7 @@ func (n ExportStmt) JS(w io.Writer) {
 		}
 		w.Write([]byte(" "))
 		n.Decl.JS(w)
+		w.Write([]byte(";"))
 		return
 	} else if len(n.List) == 1 && (len(n.List[0].Name) == 1 && n.List[0].Name[0] == '*' || n.List[0].Name == nil && len(n.List[0].Binding) == 1 && n.List[0].Binding[0] == '*') {
 		w.Write([]byte(" "))
@@ -1034,6 +1039,7 @@ func (n DirectivePrologueStmt) String() string {
 // JS writes JavaScript to writer.
 func (n DirectivePrologueStmt) JS(w io.Writer) {
 	w.Write(n.Value)
+	w.Write([]byte(";"))
 }
 
 func (n Comment) stmtNode()               {}
@@ -1502,6 +1508,7 @@ func (n ClassElement) JS(w io.Writer) {
 		return
 	}
 	n.Field.JS(w)
+	w.Write([]byte(";"))
 }
 
 // ClassDecl is a class declaration.
@@ -1536,12 +1543,12 @@ func (n ClassDecl) JS(w io.Writer) {
 		w.Write([]byte(" extends "))
 		n.Extends.JS(w)
 	}
-	w.Write([]byte(" { "))
+	w.Write([]byte(" {"))
 	for _, item := range n.List {
+		w.Write([]byte(" "))
 		item.JS(w)
-		w.Write([]byte("; "))
 	}
-	w.Write([]byte("}"))
+	w.Write([]byte(" }"))
 }
 
 func (n VarDecl) stmtNode()   {}
