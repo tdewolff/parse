@@ -332,6 +332,7 @@ func TestParse(t *testing.T) {
 		{"x = ([{a: b}]) => {a++}", "Stmt(x=(Params(Binding([ Binding({ a: Binding(b) }) ])) => Stmt({ Stmt(a++) })))"},
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
 		{"x = ({a = 5}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a = 5) })) => Stmt({ Stmt(a++) })))"},
+		{`({a:b=1}={})=>b`, `Stmt(Params(Binding({ a: Binding(b = 1) } = {})) => Stmt({ Stmt(return b) }))`},
 
 		// expression precedence
 		{"!!a", "Stmt(!(!a))"},

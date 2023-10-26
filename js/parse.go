@@ -2238,8 +2238,18 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 	return p.parseExpressionSuffix(left, prec, precLeft)
 }
 
-// exprToBinding converts a CoverParenthesizedExpressionAndArrowParameterList into FormalParameters
+// exprToBindingElement and exprToBinding convert a CoverParenthesizedExpressionAndArrowParameterList into FormalParameters.
 // Any unbound variables of the parameters (Initializer, ComputedPropertyName) are kept in the parent scope
+func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement) {
+	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
+		bindingElement.Binding = p.exprToBinding(assign.X)
+		bindingElement.Default = assign.Y
+	} else {
+		bindingElement.Binding = p.exprToBinding(expr)
+	}
+	return
+}
+
 func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 	if expr == nil {
 		// no-op
@@ -2266,11 +2276,10 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 				bindingObject.Rest = item.Value.(*Var)
 				break
 			}
-			var bindingElement BindingElement
-			bindingElement.Binding = p.exprToBinding(item.Value)
-			if bindingElement.Binding == nil {
-				bindingElement = p.exprToBindingElement(item.Value)
-			} else if item.Init != nil {
+
+			bindingElement := p.exprToBindingElement(item.Value)
+			if v, ok := item.Value.(*Var); item.Name == nil || (ok && item.Name.IsIdent(v.Data)) {
+				// IdentifierReference : Initializer
 				bindingElement.Default = item.Init
 			}
 			bindingObject.List = append(bindingObject.List, BindingObjectItem{Key: item.Name, Value: bindingElement})
@@ -2278,16 +2287,6 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 		binding = &bindingObject
 	} else {
 		p.failMessage("invalid parameters in arrow function")
-	}
-	return
-}
-
-func (p *Parser) exprToBindingElement(expr IExpr) (bindingElement BindingElement) {
-	if assign, ok := expr.(*BinaryExpr); ok && assign.Op == EqToken {
-		bindingElement.Binding = p.exprToBinding(assign.X)
-		bindingElement.Default = assign.Y
-	} else {
-		bindingElement.Binding = p.exprToBinding(expr)
 	}
 	return
 }
