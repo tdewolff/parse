@@ -53,6 +53,44 @@ func TestParseIntError(t *testing.T) {
 	}
 }
 
+func TestParseUint(t *testing.T) {
+	intTests := []struct {
+		i        string
+		expected uint64
+	}{
+		{"5", 5},
+		{"99", 99},
+		{"999", 999},
+		{"18446744073709551615", 18446744073709551615},
+	}
+	for _, tt := range intTests {
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			i, n := ParseUint([]byte(tt.i))
+			test.T(t, n, len(tt.i))
+			test.T(t, i, tt.expected)
+		})
+	}
+}
+
+func TestParseUintError(t *testing.T) {
+	intTests := []struct {
+		i        string
+		n        int
+		expected uint64
+	}{
+		{"a", 0, 0},
+		{"18446744073709551616", 0, 0},
+		{"-1", 0, 0},
+	}
+	for _, tt := range intTests {
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			i, n := ParseUint([]byte(tt.i))
+			test.T(t, n, tt.n)
+			test.T(t, i, tt.expected)
+		})
+	}
+}
+
 func TestLenInt(t *testing.T) {
 	lenIntTests := []struct {
 		i        int64

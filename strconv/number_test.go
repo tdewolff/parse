@@ -16,11 +16,13 @@ func TestParseNumber(t *testing.T) {
 		{"5", 5, 0, 1},
 		{"-5", -5, 0, 2},
 		{"5,0", 50, 1, 3},
-		{"5,0", 50, 1, 3},
+		{"5,0a", 50, 1, 3},
 		{"-1000,00", -100000, 2, 8},
 		{"9223372036854775807", 9223372036854775807, 0, 19},
 		{"-9223372036854775807", -9223372036854775807, 0, 20},
 		{"-9223372036854775808", -9223372036854775808, 0, 20},
+		{"92233720368547758070", 9223372036854775807, 0, 19},
+		{"-92233720368547758080", -9223372036854775808, 0, 20},
 	}
 	for _, tt := range tests {
 		t.Run(tt.s, func(t *testing.T) {
@@ -37,6 +39,7 @@ func TestAppendNumber(t *testing.T) {
 		s   string
 	}{
 		{0, 0, "0"},
+		{0, -1, "0"},
 		{0, 2, "0,00"},
 		{1, 2, "0,01"},
 		{-1, 2, "-0,01"},
@@ -51,10 +54,11 @@ func TestAppendNumber(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.s, func(t *testing.T) {
-			num := AppendPrice(make([]byte, 0, 4), tt.num, tt.dec, 3, '.', ',')
+			num := AppendNumber(make([]byte, 0, 4), tt.num, tt.dec, 3, '.', ',')
 			test.String(t, string(num), tt.s)
 		})
 	}
 
 	// coverage
+	test.String(t, string(AppendNumber(make([]byte, 0, 7), 12345, 1, 3, -1, -1)), "1.234,5")
 }

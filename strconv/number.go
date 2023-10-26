@@ -2,7 +2,6 @@ package strconv
 
 import (
 	"math"
-	"unicode"
 	"unicode/utf8"
 )
 
@@ -21,9 +20,9 @@ func ParseNumber(b []byte, groupSym rune, decSym rune) (int64, int, int) {
 		if '0' <= b[n] && b[n] <= '9' {
 			digit := sign * int64(b[n]-'0')
 			if sign == 1 && (math.MaxInt64/10 < price || math.MaxInt64-digit < price*10) {
-				panic("overflow")
+				break
 			} else if sign == -1 && (price < math.MinInt64/10 || price*10 < math.MinInt64-digit) {
-				panic("underflow")
+				break
 			}
 			price *= 10
 			price += digit
@@ -46,17 +45,13 @@ func ParseNumber(b []byte, groupSym rune, decSym rune) (int64, int, int) {
 // AppendNumber will append an int64 formatted as a number with the given number of decimal digits.
 func AppendNumber(b []byte, price int64, dec int, groupSize int, groupSym rune, decSym rune) []byte {
 	if dec < 0 {
-		return b
-	} else if utf8.RuneLen(groupSym) == -1 {
-		return b
-	} else if utf8.RuneLen(decSym) == -1 {
-		return b
+		dec = 0
 	}
-	if unicode.IsSpace(groupSym) {
-		groupSym = '\u00A0'
+	if utf8.RuneLen(groupSym) == -1 {
+		groupSym = '.'
 	}
-	if unicode.IsSpace(decSym) {
-		decSym = '\u00A0'
+	if utf8.RuneLen(decSym) == -1 {
+		decSym = ','
 	}
 
 	sign := int64(1)

@@ -4,7 +4,7 @@ import (
 	"math"
 )
 
-// ParseDecimal parses number of the format 1.2e3
+// ParseDecimal parses number of the format 1.2
 func ParseDecimal(b []byte) (float64, int) {
 	i := 0
 	start := i
@@ -55,10 +55,10 @@ func ParseDecimal(b []byte) (float64, int) {
 			exp = 22
 		}
 		if -1e15 <= f && f <= 1e15 {
-			return f * float64pow10[exp], i
+			return f * float64pow10[exp], i // TODO: can't get coverage here
 		}
 	} else if exp < 0 && -22 <= exp { // int / 10^k
 		return f / float64pow10[-exp], i
 	}
-	return f * math.Pow10(int(-mantExp)), i
+	return f * math.Pow10(int(-mantExp)), i // TODO: bad exponent for very large numbers
 }
