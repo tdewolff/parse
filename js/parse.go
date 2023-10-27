@@ -1531,9 +1531,9 @@ func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
 	if !p.prevLT && p.tt == FunctionToken {
 		// primary expression
 		left = p.parseAsyncFuncExpr()
-	} else if !p.prevLT && prec <= OpAssign && (p.tt == OpenParenToken || IsIdentifier(p.tt) || !p.yield && p.tt == YieldToken || p.tt == AwaitToken) {
-		// async arrow function expression
-		if p.tt == AwaitToken {
+	} else if !p.prevLT && prec <= OpAssign && (p.tt == OpenParenToken || IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken) {
+		// async arrow function expression or call expression
+		if p.tt == AwaitToken || p.yield && p.tt == YieldToken {
 			p.fail("arrow function")
 			return nil
 		} else if p.tt == OpenParenToken {
