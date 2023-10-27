@@ -140,14 +140,6 @@ func (p *Parser) consume(in string, tt TokenType) bool {
 	return true
 }
 
-// TODO: refactor
-//type ScopeState struct {
-//	scope           *Scope
-//	async           bool
-//	generator       bool
-//	assumeArrowFunc bool
-//}
-
 func (p *Parser) enterScope(scope *Scope, isFunc bool) *Scope {
 	// create a new scope object and add it to the parent
 	parent := p.scope
@@ -846,6 +838,7 @@ func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl
 }
 
 func (p *Parser) parseFuncParams(in string) (params Params) {
+	// FormalParameters
 	if !p.consume(in, OpenParenToken) {
 		return
 	}
@@ -1068,14 +1061,14 @@ func (p *Parser) parseClassElement() ClassElement {
 	}
 
 	parent := p.enterScope(&method.Body.Scope, true)
-	parentAwait, parentYield := p.await, p.yield
+	prevAwait, prevYield := p.await, p.yield
 	p.await, p.yield = method.Async, method.Generator
 
 	method.Params = p.parseFuncParams("method definition")
 	p.allowDirectivePrologue = true
 	method.Body.List = p.parseStmtList("method definition")
 
-	p.await, p.yield = parentAwait, parentYield
+	p.await, p.yield = prevAwait, prevYield
 	p.exitScope(parent)
 	return ClassElement{Method: method}
 }
@@ -1111,7 +1104,7 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 }
 
 func (p *Parser) parseBindingElement(decl DeclType) (bindingElement BindingElement) {
-	// binding element
+	// BindingElement
 	bindingElement.Binding = p.parseBinding(decl)
 	if p.tt == EqToken {
 		p.next()
@@ -1121,7 +1114,7 @@ func (p *Parser) parseBindingElement(decl DeclType) (bindingElement BindingEleme
 }
 
 func (p *Parser) parseBinding(decl DeclType) (binding IBinding) {
-	// binding identifier or binding pattern
+	// BindingIdentifier, BindingPattern
 	if p.isIdentifierReference(p.tt) {
 		var ok bool
 		binding, ok = p.scope.Declare(decl, p.data)
@@ -1342,13 +1335,13 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			if p.tt == OpenParenToken {
 				// MethodDefinition
 				parent := p.enterScope(&method.Body.Scope, true)
-				parentAwait, parentYield := p.await, p.yield
+				prevAwait, prevYield := p.await, p.yield
 				p.await, p.yield = method.Async, method.Generator
 
 				method.Params = p.parseFuncParams("method definition")
 				method.Body.List = p.parseStmtList("method definition")
 
-				p.await, p.yield = parentAwait, parentYield
+				p.await, p.yield = prevAwait, prevYield
 				p.exitScope(parent)
 				property.Value = &method
 				p.assumeArrowFunc = false
@@ -1377,10 +1370,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				}
 				if p.tt == EqToken {
 					p.next()
-					parentAssumeArrowFunc := p.assumeArrowFunc
+					prevAssumeArrowFunc := p.assumeArrowFunc
 					p.assumeArrowFunc = false
 					property.Init = p.parseExpression(OpAssign)
-					p.assumeArrowFunc = parentAssumeArrowFunc
+					p.assumeArrowFunc = prevAssumeArrowFunc
 				}
 			}
 		}
@@ -1444,7 +1437,7 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc *ArrowFunc) {
 	// expect we're at Identifier or Yield or (
 	arrowFunc = &ArrowFunc{}
 	parent := p.enterScope(&arrowFunc.Body.Scope, true)
-	parentAwait, parentYield := p.await, p.yield
+	prevAwait, prevYield := p.await, p.yield
 	p.await, p.yield = true, false
 
 	if IsIdentifier(p.tt) || !p.yield && p.tt == YieldToken {
@@ -1460,11 +1453,11 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc *ArrowFunc) {
 		}
 	}
 
-	p.await, p.yield = true, parentYield
+	p.await, p.yield = true, prevYield
 	arrowFunc.Async = true
 	arrowFunc.Body.List = p.parseArrowFuncBody()
 
-	p.await, p.yield = parentAwait, parentYield
+	p.await, p.yield = prevAwait, prevYield
 	p.exitScope(parent)
 	return
 }
@@ -1530,6 +1523,8 @@ func (p *Parser) parseIdentifierExpression(prec OpPrec, ident []byte) IExpr {
 }
 
 func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
+	// IdentifierReference, AsyncFunctionExpression, AsyncGeneratorExpression
+	// CoverCallExpressionAndAsyncArrowHead, AsyncArrowFunction
 	// assume we're at a token after async
 	var left IExpr
 	precLeft := OpPrimary
@@ -1549,6 +1544,7 @@ func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
 	} else {
 		left = p.scope.Use(async)
 	}
+	// can be async(), async => ..., or e.g. async + ...
 	return p.parseExpressionSuffix(left, prec, precLeft)
 }
 
@@ -2148,7 +2144,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 	prevAssumeArrowFunc, prevIn := p.assumeArrowFunc, p.in
 	p.assumeArrowFunc, p.in = true, true
 
-	// parse a parenthesized expression but assume we might be parsing an (async) arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables an undeclared and merge them with the parent scope.
+	// parse a parenthesized expression but assume we might be parsing an (async) arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables as undeclared and merge them with the parent scope.
 
 	var list []IExpr
 	var rest IExpr
@@ -2196,7 +2192,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 	p.assumeArrowFunc, p.in = prevAssumeArrowFunc, prevIn
 
 	if isArrowFunc {
-		parentAwait, parentYield := p.await, p.yield
+		prevAwait, prevYield := p.await, p.yield
 		p.await = isAsync
 
 		// arrow function
@@ -2208,7 +2204,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 		arrowFunc.Params.Rest = p.exprToBinding(rest)
 		arrowFunc.Body.List = p.parseArrowFuncBody()
 
-		p.await, p.yield = parentAwait, parentYield
+		p.await, p.yield = prevAwait, prevYield
 		p.exitScope(parent)
 
 		left = arrowFunc
@@ -2301,5 +2297,5 @@ func (p *Parser) exprToBinding(expr IExpr) (binding IBinding) {
 }
 
 func (p *Parser) isIdentifierReference(tt TokenType) bool {
-	return IsIdentifier(tt) || tt == YieldToken && !p.yield || tt == AwaitToken && !p.await
+	return IsIdentifier(tt) || !p.yield && tt == YieldToken || !p.await && tt == AwaitToken
 }
