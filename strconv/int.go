@@ -68,6 +68,10 @@ func LenInt(i int64) int {
 		}
 		i = -i
 	}
+	return LenUint(uint64(i))
+}
+
+func LenUint(i uint64) int {
 	switch {
 	case i < 10:
 		return 1
@@ -105,6 +109,8 @@ func LenInt(i int64) int {
 		return 17
 	case i < 1000000000000000000:
 		return 18
+	case i < 10000000000000000000:
+		return 19
 	}
-	return 19
+	return 20
 }
