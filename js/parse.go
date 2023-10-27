@@ -697,6 +697,8 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	// assume we're at export
 	p.next()
+	prevYield, prevAwait, prevDeflt := p.yield, p.await, p.deflt
+	p.yield, p.await, p.deflt = false, true, true
 	if p.tt == MulToken || p.tt == OpenBraceToken {
 		if p.tt == MulToken {
 			star := p.data
@@ -771,8 +773,6 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	} else if p.tt == DefaultToken {
 		exportStmt.Default = true
 		p.next()
-		prevYield, prevAwait, prevDeflt := p.yield, p.await, p.deflt
-		p.yield, p.await, p.deflt = false, true, true
 		if p.tt == FunctionToken {
 			exportStmt.Decl = p.parseFuncDecl()
 		} else if p.tt == AsyncToken { // async function or async arrow function
@@ -789,7 +789,6 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		} else {
 			exportStmt.Decl = p.parseExpression(OpAssign)
 		}
-		p.yield, p.await, p.deflt = prevYield, prevAwait, prevDeflt
 	} else {
 		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
 		return
@@ -797,6 +796,7 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	if p.tt == SemicolonToken {
 		p.next()
 	}
+	p.yield, p.await, p.deflt = prevYield, prevAwait, prevDeflt
 	return
 }
 
