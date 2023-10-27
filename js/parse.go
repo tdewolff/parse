@@ -20,13 +20,12 @@ type Parser struct {
 	o   Options
 	err error
 
-	data                   []byte
-	tt                     TokenType
-	prevLT                 bool
-	inFor                  bool
-	await, yield           bool
-	assumeArrowFunc        bool
-	allowDirectivePrologue bool
+	data                           []byte
+	tt                             TokenType
+	prevLT                         bool
+	in, await, yield, deflt, retrn bool
+	assumeArrowFunc                bool
+	allowDirectivePrologue         bool
 
 	stmtLevel int
 	exprLevel int
@@ -41,6 +40,7 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 		l:     NewLexer(r),
 		o:     o,
 		tt:    WhitespaceToken, // trick so that next() works
+		in:    true,
 		await: true,
 	}
 
@@ -338,7 +338,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		parent := p.enterScope(&body.Scope, false)
 
 		var init IExpr
-		p.inFor = true
+		p.in = false
 		if p.tt == VarToken || p.tt == LetToken || p.tt == ConstToken {
 			tt := p.tt
 			p.next()
@@ -357,7 +357,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		} else if p.tt != SemicolonToken {
 			init = p.parseExpression(OpExpr)
 		}
-		p.inFor = false
+		p.in = true
 
 		if p.tt == SemicolonToken {
 			var cond, post IExpr
@@ -816,17 +816,14 @@ func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl
 	for {
 		// binding element, var declaration in for-in or for-of can never have a default
 		var bindingElement BindingElement
-		parentInFor := p.inFor
-		p.inFor = false
 		bindingElement.Binding = p.parseBinding(declType)
-		p.inFor = parentInFor
 		if p.tt == EqToken {
 			p.next()
 			bindingElement.Default = p.parseExpression(OpAssign)
-		} else if _, ok := bindingElement.Binding.(*Var); !ok && (!p.inFor || 0 < len(varDecl.List)) {
+		} else if _, ok := bindingElement.Binding.(*Var); !ok && (p.in || 0 < len(varDecl.List)) {
 			p.fail("var statement", EqToken)
 			return
-		} else if tt == ConstToken && (!p.inFor || p.inFor && p.tt != OfToken && p.tt != InToken) {
+		} else if tt == ConstToken && (p.in || !p.in && p.tt != OfToken && p.tt != InToken) {
 			p.fail("const statement", EqToken)
 		}
 
@@ -1511,18 +1508,18 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
 	p.scope.MarkFuncArgs()
 
-	parentYield := p.yield
+	prevYield := p.yield
 	p.yield = false
 	if p.tt == OpenBraceToken {
-		parentInFor, parentAwait := p.inFor, p.await
-		p.inFor, p.await = false, false
+		prevIn, prevRetrn := p.in, p.retrn
+		p.in, p.retrn = true, true
 		p.allowDirectivePrologue = true
 		list = p.parseStmtList("arrow function")
-		p.inFor, p.await = parentInFor, parentAwait
+		p.in, p.retrn = prevIn, prevRetrn
 	} else {
 		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
 	}
-	p.yield = parentYield
+	p.yield = prevYield
 	return
 }
 
@@ -1594,26 +1591,26 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 	case OpenBracketToken:
-		parentInFor := p.inFor
-		p.inFor = false
+		prevIn := p.in
+		p.in = true
 		array := p.parseArrayLiteral()
+		p.in = prevIn
 		left = &array
-		p.inFor = parentInFor
 	case OpenBraceToken:
-		parentInFor := p.inFor
-		p.inFor = false
+		prevIn := p.in
+		p.in = true
 		object := p.parseObjectLiteral()
+		p.in = prevIn
 		left = &object
-		p.inFor = parentInFor
 	case OpenParenToken:
 		// parenthesized expression or arrow parameter list
 		if OpAssign < prec {
 			// must be a parenthesized expression
 			p.next()
-			parentInFor := p.inFor
-			p.inFor = false
+			prevIn := p.in
+			p.in = true
 			left = &GroupExpr{p.parseExpression(OpExpr)}
-			p.inFor = parentInFor
+			p.in = prevIn
 			if !p.consume("expression", CloseParenToken) {
 				return nil
 			}
@@ -1760,23 +1757,27 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	case AsyncToken:
 		async := p.data
 		p.next()
+		prevIn := p.in
+		p.in = true
 		left = p.parseAsyncExpression(prec, async)
+		p.in = prevIn
 	case ClassToken:
-		parentInFor := p.inFor
-		p.inFor = false
+		prevIn := p.in
+		p.in = true
 		left = p.parseClassExpr()
-		p.inFor = parentInFor
+		p.in = prevIn
 	case FunctionToken:
-		parentInFor := p.inFor
-		p.inFor = false
+		prevIn := p.in
+		p.in = true
 		left = p.parseFuncExpr()
-		p.inFor = parentInFor
+		p.in = prevIn
 	case TemplateToken, TemplateStartToken:
-		parentInFor := p.inFor
-		p.inFor = false
+		prevIn := p.in
+		p.in = true
 		template := p.parseTemplateLiteral(precLeft)
 		left = &template
-		p.inFor = parentInFor
+		p.in = prevIn
+		// TODO: private identifier for relational operators
 	default:
 		p.fail("expression")
 		return nil
@@ -1805,7 +1806,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign)}
 			precLeft = OpAssign
 		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
-			if OpCompare < prec || p.inFor && tt == InToken {
+			if OpCompare < prec || !p.in && tt == InToken {
 				return left
 			} else if precLeft < OpCompare {
 				// can only fail after a yield or arrow function expression
@@ -1892,10 +1893,10 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if precLeft < OpMember {
 				exprPrec = OpCall
 			}
-			parentInFor := p.inFor
-			p.inFor = false
+			prevIn := p.in
+			p.in = true
 			left = &IndexExpr{left, p.parseExpression(OpExpr), exprPrec, false}
-			p.inFor = parentInFor
+			p.in = prevIn
 			if !p.consume("index expression", CloseBracketToken) {
 				return nil
 			}
@@ -1911,19 +1912,19 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				p.fail("expression")
 				return nil
 			}
-			parentInFor := p.inFor
-			p.inFor = false
+			prevIn := p.in
+			p.in = true
 			left = &CallExpr{left, p.parseArguments(), false}
 			precLeft = OpCall
-			p.inFor = parentInFor
+			p.in = prevIn
 		case TemplateToken, TemplateStartToken:
 			// OpMember < prec does never happen
 			if precLeft < OpCall {
 				p.fail("expression")
 				return nil
 			}
-			parentInFor := p.inFor
-			p.inFor = false
+			prevIn := p.in
+			p.in = true
 			template := p.parseTemplateLiteral(precLeft)
 			template.Tag = left
 			left = &template
@@ -1932,7 +1933,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			} else {
 				precLeft = OpMember
 			}
-			p.inFor = parentInFor
+			p.in = prevIn
 		case OptChainToken:
 			if OpCall < prec {
 				return left
@@ -2061,7 +2062,10 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				return nil
 			}
 			p.next()
+			prevIn := p.in
+			p.in = true
 			ifExpr := p.parseExpression(OpAssign)
+			p.in = prevIn
 			if !p.consume("conditional expression", ColonToken) {
 				return nil
 			}
@@ -2141,8 +2145,8 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 	isAsync := async != nil
 	arrowFunc := &ArrowFunc{}
 	parent := p.enterScope(&arrowFunc.Body.Scope, true)
-	parentAssumeArrowFunc, parentInFor := p.assumeArrowFunc, p.inFor
-	p.assumeArrowFunc, p.inFor = true, false
+	prevAssumeArrowFunc, prevIn := p.assumeArrowFunc, p.in
+	p.assumeArrowFunc, p.in = true, true
 
 	// parse a parenthesized expression but assume we might be parsing an (async) arrow function. If this is really an arrow function, parsing as a parenthesized expression cannot fail as AssignmentExpression, ArrayLiteral, and ObjectLiteral are supersets of SingleNameBinding, ArrayBindingPattern, and ObjectBindingPattern respectively. Any identifier that would be a BindingIdentifier in case of an arrow function, will be added as such. If finally this is not an arrow function, we will demote those variables an undeclared and merge them with the parent scope.
 
@@ -2189,7 +2193,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 	}
 	p.next()
 	isArrowFunc := p.tt == ArrowToken && p.assumeArrowFunc
-	p.assumeArrowFunc, p.inFor = parentAssumeArrowFunc, parentInFor
+	p.assumeArrowFunc, p.in = prevAssumeArrowFunc, prevIn
 
 	if isArrowFunc {
 		parentAwait, parentYield := p.await, p.yield
