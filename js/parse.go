@@ -1440,20 +1440,15 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc *ArrowFunc) {
 	prevAwait, prevYield := p.await, p.yield
 	p.await, p.yield = true, false
 
-	if IsIdentifier(p.tt) || !p.yield && p.tt == YieldToken {
+	if IsIdentifier(p.tt) || !prevYield && p.tt == YieldToken {
 		ref, _ := p.scope.Declare(ArgumentDecl, p.data) // cannot fail
 		p.next()
 		arrowFunc.Params.List = []BindingElement{{Binding: ref}}
 	} else {
 		arrowFunc.Params = p.parseFuncParams("arrow function")
-
-		// could be CallExpression of: async(params)
-		if p.tt != ArrowToken {
-			// TODO?
-		}
+		// CallExpression of 'async(params)' already handled
 	}
 
-	p.await, p.yield = true, prevYield
 	arrowFunc.Async = true
 	arrowFunc.Body.List = p.parseArrowFuncBody()
 
@@ -1466,7 +1461,8 @@ func (p *Parser) parseIdentifierArrowFunc(v *Var) (arrowFunc *ArrowFunc) {
 	// expect we're at =>
 	arrowFunc = &ArrowFunc{}
 	parent := p.enterScope(&arrowFunc.Body.Scope, true)
-	parentAwait, parentYield := p.await, p.yield
+	prevAwait, prevYield := p.await, p.yield
+	p.await, p.yield = false, false
 
 	if 1 < v.Uses {
 		v.Uses--
@@ -1478,11 +1474,10 @@ func (p *Parser) parseIdentifierArrowFunc(v *Var) (arrowFunc *ArrowFunc) {
 		p.scope.Declared = append(p.scope.Declared, v)
 	}
 
-	p.await = false
 	arrowFunc.Params.List = []BindingElement{{v, nil}}
 	arrowFunc.Body.List = p.parseArrowFuncBody()
 
-	p.await, p.yield = parentAwait, parentYield
+	p.await, p.yield = prevAwait, prevYield
 	p.exitScope(parent)
 	return
 }
@@ -1501,8 +1496,6 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	// mark undeclared vars as arguments in `function f(a=b){var b}` where the b's are different vars
 	p.scope.MarkFuncArgs()
 
-	prevYield := p.yield
-	p.yield = false
 	if p.tt == OpenBraceToken {
 		prevIn, prevRetrn := p.in, p.retrn
 		p.in, p.retrn = true, true
@@ -1512,7 +1505,6 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	} else {
 		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
 	}
-	p.yield = prevYield
 	return
 }
 
@@ -2193,7 +2185,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 
 	if isArrowFunc {
 		prevAwait, prevYield := p.await, p.yield
-		p.await = isAsync
+		p.await, p.yield = isAsync, false
 
 		// arrow function
 		arrowFunc.Params = Params{List: make([]BindingElement, len(list))}
