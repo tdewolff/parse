@@ -453,6 +453,7 @@ func TestParseError(t *testing.T) {
 		{"for(a;a;a", "expected ) instead of EOF in for statement"},
 		{"for(var [a],b;", "unexpected ; in for statement"},
 		{"for(var [a]=5,{b};", "expected = instead of ; in var statement"},
+		{`for(let{[(`, `unexpected EOF in expression`},
 		{"for await", "expected ( instead of EOF in for statement"},
 		{"function a(){for await", "expected ( instead of await in for statement"},
 		{"async function a(){ for await(a;", "expected of instead of ; in for statement"},

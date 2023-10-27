@@ -328,7 +328,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			tt := p.tt
 			p.next()
 			varDecl := p.parseVarDecl(tt, true)
-			if p.tt != SemicolonToken && (1 < len(varDecl.List) || varDecl.List[0].Default != nil) {
+			if p.err != nil {
+				return
+			} else if p.tt != SemicolonToken && (1 < len(varDecl.List) || varDecl.List[0].Default != nil) {
 				p.fail("for statement")
 				return
 			} else if p.tt == SemicolonToken && varDecl.List[0].Default == nil {
