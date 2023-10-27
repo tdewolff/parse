@@ -65,7 +65,7 @@ func AppendNumber(b []byte, price int64, dec int, groupSize int, groupSym rune, 
 		n += utf8.RuneLen(groupSym) * (n - dec - 1) / groupSize
 	}
 	if 0 < dec {
-		if n < dec {
+		if n <= dec {
 			n = 1 + dec // zero and decimals
 		}
 		n += utf8.RuneLen(decSym)
