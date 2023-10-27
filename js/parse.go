@@ -269,13 +269,6 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			p.next()
 		}
 		stmt = &BranchStmt{tt, label}
-	case ReturnToken:
-		p.next()
-		var value IExpr
-		if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
-			value = p.parseExpression(OpExpr)
-		}
-		stmt = &ReturnStmt{value}
 	case WithToken:
 		p.next()
 		if !p.consume("with statement", OpenParenToken) {
@@ -555,13 +548,25 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		stmt = &Comment{p.data}
 		p.next()
 	default:
-		if p.isIdentifierReference(p.tt) {
-			// labelled statement or expression
+		if p.retrn && p.tt == ReturnToken {
+			p.next()
+			var value IExpr
+			if !p.prevLT && p.tt != SemicolonToken && p.tt != CloseBraceToken && p.tt != ErrorToken {
+				value = p.parseExpression(OpExpr)
+			}
+			stmt = &ReturnStmt{value}
+		} else if p.isIdentifierReference(p.tt) {
+			// LabelledStatement, Expression
 			label := p.data
 			p.next()
 			if p.tt == ColonToken {
 				p.next()
+				prevDeflt := p.deflt
+				if p.tt == FunctionToken {
+					p.deflt = false
+				}
 				stmt = &LabelledStmt{label, p.parseStmt(true)} // allows illegal async function, generator function, let, const, or class declarations
+				p.deflt = prevDeflt
 			} else {
 				// expression
 				stmt = &ExprStmt{p.parseIdentifierExpression(OpExpr, label)}
@@ -774,22 +779,25 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 	} else if p.tt == DefaultToken {
 		exportStmt.Default = true
 		p.next()
+		prevYield, prevAwait, prevDeflt := p.yield, p.await, p.deflt
+		p.yield, p.await, p.deflt = false, true, true
 		if p.tt == FunctionToken {
-			exportStmt.Decl = p.parseFuncDeclDefault()
+			exportStmt.Decl = p.parseFuncDecl()
 		} else if p.tt == AsyncToken { // async function or async arrow function
 			async := p.data
 			p.next()
 			if p.tt == FunctionToken && !p.prevLT {
-				exportStmt.Decl = p.parseAsyncFuncDeclDefault()
+				exportStmt.Decl = p.parseAsyncFuncDecl()
 			} else {
 				// expression
 				exportStmt.Decl = p.parseAsyncExpression(OpExpr, async)
 			}
 		} else if p.tt == ClassToken {
-			exportStmt.Decl = p.parseClassDeclDefault()
+			exportStmt.Decl = p.parseClassDecl()
 		} else {
 			exportStmt.Decl = p.parseExpression(OpAssign)
 		}
+		p.yield, p.await, p.deflt = prevYield, prevAwait, prevDeflt
 	} else {
 		p.fail("export statement", MulToken, OpenBraceToken, VarToken, LetToken, ConstToken, FunctionToken, AsyncToken, ClassToken, DefaultToken)
 		return
@@ -868,30 +876,22 @@ func (p *Parser) parseFuncParams(in string) (params Params) {
 }
 
 func (p *Parser) parseFuncDecl() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(false, false, false)
-}
-
-func (p *Parser) parseFuncDeclDefault() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(false, true, false)
+	return p.parseFunc(false, false)
 }
 
 func (p *Parser) parseAsyncFuncDecl() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(true, false, false)
-}
-
-func (p *Parser) parseAsyncFuncDeclDefault() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(true, true, false)
+	return p.parseFunc(true, false)
 }
 
 func (p *Parser) parseFuncExpr() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(false, false, true)
+	return p.parseFunc(false, true)
 }
 
 func (p *Parser) parseAsyncFuncExpr() (funcDecl *FuncDecl) {
-	return p.parseAnyFunc(true, false, true)
+	return p.parseFunc(true, true)
 }
 
-func (p *Parser) parseAnyFunc(async, exportDefault, expr bool) (funcDecl *FuncDecl) {
+func (p *Parser) parseFunc(async, expr bool) (funcDecl *FuncDecl) {
 	// assume we're at function
 	p.next()
 	funcDecl = &FuncDecl{}
@@ -912,7 +912,7 @@ func (p *Parser) parseAnyFunc(async, exportDefault, expr bool) (funcDecl *FuncDe
 			}
 		}
 		p.next()
-	} else if !expr && !exportDefault {
+	} else if !expr && !p.deflt {
 		p.fail("function declaration", IdentifierToken)
 		return
 	} else if p.tt != OpenParenToken {
@@ -920,8 +920,8 @@ func (p *Parser) parseAnyFunc(async, exportDefault, expr bool) (funcDecl *FuncDe
 		return
 	}
 	parent := p.enterScope(&funcDecl.Body.Scope, true)
-	parentAwait, parentYield := p.await, p.yield
-	p.await, p.yield = funcDecl.Async, funcDecl.Generator
+	prevAwait, prevYield, prevRetrn := p.await, p.yield, p.retrn
+	p.await, p.yield, p.retrn = funcDecl.Async, funcDecl.Generator, true
 
 	if expr && name != nil {
 		funcDecl.Name, _ = p.scope.Declare(ExprDecl, name) // cannot fail
@@ -930,24 +930,20 @@ func (p *Parser) parseAnyFunc(async, exportDefault, expr bool) (funcDecl *FuncDe
 	p.allowDirectivePrologue = true
 	funcDecl.Body.List = p.parseStmtList("function declaration")
 
-	p.await, p.yield = parentAwait, parentYield
+	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
 	return
 }
 
 func (p *Parser) parseClassDecl() (classDecl *ClassDecl) {
-	return p.parseAnyClass(false, false)
-}
-
-func (p *Parser) parseClassDeclDefault() (classDecl *ClassDecl) {
-	return p.parseAnyClass(true, false)
+	return p.parseAnyClass(false)
 }
 
 func (p *Parser) parseClassExpr() (classDecl *ClassDecl) {
-	return p.parseAnyClass(false, true)
+	return p.parseAnyClass(true)
 }
 
-func (p *Parser) parseAnyClass(exportDefault, expr bool) (classDecl *ClassDecl) {
+func (p *Parser) parseAnyClass(expr bool) (classDecl *ClassDecl) {
 	// assume we're at class
 	p.next()
 	classDecl = &ClassDecl{}
@@ -964,7 +960,7 @@ func (p *Parser) parseAnyClass(exportDefault, expr bool) (classDecl *ClassDecl) 
 			classDecl.Name = &Var{p.data, nil, 1, ExprDecl}
 		}
 		p.next()
-	} else if !expr && !exportDefault {
+	} else if !expr && !p.deflt {
 		p.fail("class declaration", IdentifierToken)
 		return
 	}
@@ -1001,7 +997,11 @@ func (p *Parser) parseClassElement() ClassElement {
 		data = p.data
 		p.next()
 		if p.tt == OpenBraceToken {
-			return ClassElement{StaticBlock: p.parseBlockStmt("class static block")}
+			prevYield, prevAwait, prevRetrn := p.yield, p.await, p.retrn
+			p.yield, p.await, p.retrn = false, true, false
+			elem := ClassElement{StaticBlock: p.parseBlockStmt("class static block")}
+			p.yield, p.await, p.retrn = prevYield, prevAwait, prevRetrn
+			return elem
 		}
 	}
 	if p.tt == MulToken {
