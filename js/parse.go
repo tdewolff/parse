@@ -1767,7 +1767,13 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		template := p.parseTemplateLiteral(precLeft)
 		left = &template
 		p.in = prevIn
-		// TODO: private identifier for relational operators
+	case PrivateIdentifierToken:
+		left = &LiteralExpr{p.tt, p.data}
+		p.next()
+		if p.tt != InToken {
+			p.fail("relational expression", InToken)
+			return left
+		}
 	default:
 		p.fail("expression")
 		return nil

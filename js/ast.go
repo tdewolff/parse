@@ -150,7 +150,6 @@ func (v Var) JS(w io.Writer) {
 }
 
 // VarsByUses is sortable by uses in descending order.
-// TODO: write custom sorter for varsbyuses
 type VarsByUses VarArray
 
 func (vs VarsByUses) Len() int {

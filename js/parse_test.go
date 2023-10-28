@@ -317,6 +317,7 @@ func TestParse(t *testing.T) {
 		{"protected = 0", "Stmt(protected=0)"},
 		{"public = 0", "Stmt(public=0)"},
 		{"static = 0", "Stmt(static=0)"},
+		{"#x in a", "Stmt(#x in a)"},
 
 		// expression to arrow function parameters
 		{"x = (a,b,c) => {a++}", "Stmt(x=(Params(Binding(a), Binding(b), Binding(c)) => Stmt({ Stmt(a++) })))"},
