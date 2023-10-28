@@ -53,6 +53,16 @@ func TestParseIntError(t *testing.T) {
 	}
 }
 
+func FuzzParseInt(f *testing.F) {
+	f.Add("5")
+	f.Add("-99")
+	f.Add("9223372036854775807")
+	f.Add("-9223372036854775808")
+	f.Fuzz(func(t *testing.T, s string) {
+		ParseInt([]byte(s))
+	})
+}
+
 func TestParseUint(t *testing.T) {
 	intTests := []struct {
 		i        string
@@ -89,6 +99,15 @@ func TestParseUintError(t *testing.T) {
 			test.T(t, i, tt.expected)
 		})
 	}
+}
+
+func FuzzParseUint(f *testing.F) {
+	f.Add("5")
+	f.Add("99")
+	f.Add("18446744073709551615")
+	f.Fuzz(func(t *testing.T, s string) {
+		ParseUint([]byte(s))
+	})
 }
 
 func TestLenInt(t *testing.T) {

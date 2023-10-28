@@ -62,3 +62,37 @@ func TestAppendNumber(t *testing.T) {
 	// coverage
 	test.String(t, string(AppendNumber(make([]byte, 0, 7), 12345, 1, 3, -1, -1)), "1.234,5")
 }
+
+func FuzzParseNumber(f *testing.F) {
+	f.Add("5")
+	f.Add("-5")
+	f.Add("5,0")
+	f.Add("5,0a")
+	f.Add("-1000,00")
+	f.Add("9223372036854775807")
+	f.Add("-9223372036854775807")
+	f.Add("-9223372036854775808")
+	f.Add("92233720368547758070")
+	f.Add("-92233720368547758080")
+	f.Fuzz(func(t *testing.T, s string) {
+		ParseNumber([]byte(s), '.', ',')
+	})
+}
+
+func FuzzAppendNumber(f *testing.F) {
+	f.Add(int64(0), 0)
+	f.Add(int64(0), -1)
+	f.Add(int64(0), 2)
+	f.Add(int64(1), 2)
+	f.Add(int64(-1), 2)
+	f.Add(int64(100), 2)
+	f.Add(int64(-100), 2)
+	f.Add(int64(1000), 0)
+	f.Add(int64(100000), 2)
+	f.Add(int64(123456789012), 2)
+	f.Add(int64(9223372036854775807), 2)
+	f.Add(int64(-9223372036854775808), 2)
+	f.Fuzz(func(t *testing.T, num int64, dec int) {
+		AppendNumber([]byte{}, num, dec, 3, '.', ',')
+	})
+}

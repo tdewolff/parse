@@ -115,6 +115,66 @@ func TestAppendFloat(t *testing.T) {
 	test.String(t, string(b[:5]), "12.34", "in buffer")
 }
 
+func FuzzParseFloat(f *testing.F) {
+	f.Add("5")
+	f.Add("99")
+	f.Add("18446744073709551615")
+	f.Add("5")
+	f.Add("5.1")
+	f.Add("-5.1")
+	f.Add("5.1e-2")
+	f.Add("5.1e+2")
+	f.Add("0.0e1")
+	f.Add("18446744073709551620")
+	f.Add("1e23")
+	f.Fuzz(func(t *testing.T, s string) {
+		ParseFloat([]byte(s))
+	})
+}
+
+func FuzzAppendFloat(f *testing.F) {
+	f.Add(0.0, 6)
+	f.Add(1.0, 6)
+	f.Add(9.0, 6)
+	f.Add(9.99999, 6)
+	f.Add(123.0, 6)
+	f.Add(0.123456, 6)
+	f.Add(0.066, 6)
+	f.Add(0.0066, 6)
+	f.Add(12e2, 6)
+	f.Add(12e3, 6)
+	f.Add(0.1, 6)
+	f.Add(0.001, 6)
+	f.Add(0.0001, 6)
+	f.Add(-1.0, 6)
+	f.Add(-123.0, 6)
+	f.Add(-123.456, 6)
+	f.Add(-12e3, 6)
+	f.Add(-0.1, 6)
+	f.Add(-0.0001, 6)
+	f.Add(0.000100009, 10)
+	f.Add(0.0001000009, 10)
+	f.Add(1e18, 0)
+	f.Add(1e1, 0)
+	f.Add(1e2, 1)
+	f.Add(1e3, 2)
+	f.Add(1e10, -1)
+	f.Add(1e15, -1)
+	f.Add(1e-5, 6)
+	f.Add(math.NaN(), 0)
+	f.Add(math.Inf(1), 0)
+	f.Add(math.Inf(-1), 0)
+	f.Add(0.0, 19)
+	f.Add(0.000923361977200859392, -1)
+	f.Add(1234.0, 2)
+	f.Add(12345.0, 2)
+	f.Add(12.345, 2)
+	f.Add(12.345, 3)
+	f.Fuzz(func(t *testing.T, f float64, prec int) {
+		AppendFloat([]byte{}, f, prec)
+	})
+}
+
 ////////////////////////////////////////////////////////////////
 
 func TestAppendFloatRandom(t *testing.T) {
