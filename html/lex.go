@@ -23,7 +23,6 @@ const (
 	TextToken
 	SvgToken
 	MathToken
-	TemplateToken
 )
 
 // String returns the string representation of a TokenType.
@@ -51,8 +50,6 @@ func (tt TokenType) String() string {
 		return "Svg"
 	case MathToken:
 		return "Math"
-	case TemplateToken:
-		return "Template"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -76,9 +73,9 @@ type Lexer struct {
 	rawTag Hash
 	inTag  bool
 
-	text     []byte
-	attrVal  []byte
-	attrTmpl bool
+	text    []byte
+	attrVal []byte
+	hasTmpl bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
@@ -120,13 +117,14 @@ func (l *Lexer) AttrVal() []byte {
 }
 
 // AttrHasTemplate returns the true if the attribute value contains a template.
-func (l *Lexer) AttrHasTemplate() bool {
-	return l.attrTmpl
+func (l *Lexer) HasTemplate() bool {
+	return l.hasTmpl
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
 	l.text = nil
+	l.hasTmpl = false
 	var c byte
 	if l.inTag {
 		l.attrVal = nil
@@ -191,15 +189,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 				return CommentToken, l.shiftBogusComment()
 			}
 		} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
-			if 0 < l.r.Pos() {
-				// return currently buffered texttoken so that we can return tag next iteration
-				l.text = l.r.Shift()
-				return TextToken, l.text
-			} else {
-				l.r.Move(len(l.tmplBegin))
-				l.moveTemplate()
-				return TemplateToken, l.r.Shift()
-			}
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			l.hasTmpl = true
 		} else if c == 0 && l.r.Err() != nil {
 			if l.r.Pos() > 0 {
 				l.text = l.r.Shift()
@@ -401,7 +393,6 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		break
 	}
-	l.attrTmpl = false
 	if c == '=' {
 		l.r.Move(1)
 		for { // before attribute value state
@@ -423,7 +414,7 @@ func (l *Lexer) shiftAttribute() []byte {
 				} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
 					l.r.Move(len(l.tmplBegin))
 					l.moveTemplate()
-					l.attrTmpl = true
+					l.hasTmpl = true
 				} else if c == 0 && l.r.Err() != nil {
 					break
 				} else {
@@ -433,7 +424,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
 			l.r.Move(len(l.tmplBegin))
 			l.moveTemplate()
-			l.attrTmpl = true
+			l.hasTmpl = true
 		} else { // attribute value unquoted state
 			for {
 				if c := l.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
@@ -532,9 +523,13 @@ func (l *Lexer) moveTemplate() {
 			}
 			break
 		} else if c == '"' || c == '\'' {
+			l.r.Move(1)
 			escape := false
 			for {
-				if c2 := l.r.Peek(1); !escape && c2 == c || c2 == 0 && l.r.Err() != nil {
+				if c2 := l.r.Peek(0); !escape && c2 == c || c2 == 0 && l.r.Err() != nil {
+					if c2 != 0 {
+						l.r.Move(1)
+					}
 					break
 				} else if c2 == '\\' {
 					escape = !escape
@@ -543,8 +538,9 @@ func (l *Lexer) moveTemplate() {
 				}
 				l.r.Move(1)
 			}
+		} else {
+			l.r.Move(1)
 		}
-		l.r.Move(1)
 	}
 }
 
