@@ -23,6 +23,7 @@ const (
 	TextToken
 	SvgToken
 	MathToken
+	TemplateToken
 )
 
 // String returns the string representation of a TokenType.
@@ -50,28 +51,48 @@ func (tt TokenType) String() string {
 		return "Svg"
 	case MathToken:
 		return "Math"
+	case TemplateToken:
+		return "Template"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
 
 ////////////////////////////////////////////////////////////////
 
+var GoTemplate = [2]string{"{{", "}}"}
+var HandlebarsTemplate = [2]string{"{{", "}}"}
+var MustacheTemplate = [2]string{"{{", "}}"}
+var EJSTemplate = [2]string{"<%", "%>"}
+var ASPTemplate = [2]string{"<%", "%>"}
+var PHPTemplate = [2]string{"<?", "?>"}
+
 // Lexer is the state for the lexer.
 type Lexer struct {
-	r   *parse.Input
-	err error
+	r         *parse.Input
+	tmplBegin []byte
+	tmplEnd   []byte
+	err       error
 
 	rawTag Hash
 	inTag  bool
 
-	text    []byte
-	attrVal []byte
+	text     []byte
+	attrVal  []byte
+	attrTmpl bool
 }
 
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r *parse.Input) *Lexer {
 	return &Lexer{
 		r: r,
+	}
+}
+
+func NewTemplateLexer(r *parse.Input, tmpl [2]string) *Lexer {
+	return &Lexer{
+		r:         r,
+		tmplBegin: []byte(tmpl[0]),
+		tmplEnd:   []byte(tmpl[1]),
 	}
 }
 
@@ -88,9 +109,19 @@ func (l *Lexer) Text() []byte {
 	return l.text
 }
 
+// AttrKey returns the attribute key when an AttributeToken was returned from Next.
+func (l *Lexer) AttrKey() []byte {
+	return l.text
+}
+
 // AttrVal returns the attribute value when an AttributeToken was returned from Next.
 func (l *Lexer) AttrVal() []byte {
 	return l.attrVal
+}
+
+// AttrHasTemplate returns the true if the attribute value contains a template.
+func (l *Lexer) AttrHasTemplate() bool {
+	return l.attrTmpl
 }
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
@@ -135,12 +166,12 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		if c == '<' {
 			c = l.r.Peek(1)
 			isEndTag := c == '/' && l.r.Peek(2) != '>' && (l.r.Peek(2) != 0 || l.r.PeekErr(2) == nil)
-			if l.r.Pos() > 0 {
-				if isEndTag || 'a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || c == '!' || c == '?' {
-					// return currently buffered texttoken so that we can return tag next iteration
-					l.text = l.r.Shift()
-					return TextToken, l.text
-				}
+			if !isEndTag && (c < 'a' || 'z' < c) && (c < 'A' || 'Z' < c) && c != '!' && c != '?' {
+				// not a tag
+			} else if 0 < l.r.Pos() {
+				// return currently buffered texttoken so that we can return tag next iteration
+				l.text = l.r.Shift()
+				return TextToken, l.text
 			} else if isEndTag {
 				l.r.Move(2)
 				// only endtags that are not followed by > or EOF arrive here
@@ -158,6 +189,16 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			} else if c == '?' {
 				l.r.Move(1)
 				return CommentToken, l.shiftBogusComment()
+			}
+		} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+			if 0 < l.r.Pos() {
+				// return currently buffered texttoken so that we can return tag next iteration
+				l.text = l.r.Shift()
+				return TextToken, l.text
+			} else {
+				l.r.Move(len(l.tmplBegin))
+				l.moveTemplate()
+				return TemplateToken, l.r.Shift()
 			}
 		} else if c == 0 && l.r.Err() != nil {
 			if l.r.Pos() > 0 {
@@ -360,6 +401,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		break
 	}
+	l.attrTmpl = false
 	if c == '=' {
 		l.r.Move(1)
 		for { // before attribute value state
@@ -378,11 +420,20 @@ func (l *Lexer) shiftAttribute() []byte {
 				if c == delim {
 					l.r.Move(1)
 					break
+				} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+					l.r.Move(len(l.tmplBegin))
+					l.moveTemplate()
+					l.attrTmpl = true
 				} else if c == 0 && l.r.Err() != nil {
 					break
+				} else {
+					l.r.Move(1)
 				}
-				l.r.Move(1)
 			}
+		} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			l.attrTmpl = true
 		} else { // attribute value unquoted state
 			for {
 				if c := l.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
@@ -471,6 +522,30 @@ func (l *Lexer) shiftXML(rawTag Hash) []byte {
 		l.r.Move(1)
 	}
 	return l.r.Shift()
+}
+
+func (l *Lexer) moveTemplate() {
+	for {
+		if c := l.r.Peek(0); l.at(l.tmplEnd...) || c == 0 && l.r.Err() != nil {
+			if c != 0 {
+				l.r.Move(len(l.tmplEnd))
+			}
+			break
+		} else if c == '"' || c == '\'' {
+			escape := false
+			for {
+				if c2 := l.r.Peek(1); !escape && c2 == c || c2 == 0 && l.r.Err() != nil {
+					break
+				} else if c2 == '\\' {
+					escape = !escape
+				} else {
+					escape = false
+				}
+				l.r.Move(1)
+			}
+		}
+		l.r.Move(1)
+	}
 }
 
 ////////////////////////////////////////////////////////////////
