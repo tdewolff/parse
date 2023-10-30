@@ -398,6 +398,7 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		break
 	}
+	nameHasTmpl := l.hasTmpl
 	if c == '=' {
 		l.r.Move(1)
 		for { // before attribute value state
@@ -448,7 +449,10 @@ func (l *Lexer) shiftAttribute() []byte {
 		l.moveTemplate()
 		l.hasTmpl = true
 	}
-	l.text = parse.ToLower(l.r.Lexeme()[nameStart:nameEnd])
+	l.text = l.r.Lexeme()[nameStart:nameEnd]
+	if !nameHasTmpl {
+		l.text = parse.ToLower(l.text)
+	}
 	return l.r.Shift()
 }
 
