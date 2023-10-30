@@ -1063,14 +1063,14 @@ func (p *Parser) parseClassElement() ClassElement {
 	}
 
 	parent := p.enterScope(&method.Body.Scope, true)
-	prevAwait, prevYield := p.await, p.yield
-	p.await, p.yield = method.Async, method.Generator
+	prevAwait, prevYield, prevRetrn := p.await, p.yield, p.retrn
+	p.await, p.yield, p.retrn = method.Async, method.Generator, true
 
 	method.Params = p.parseFuncParams("method definition")
 	p.allowDirectivePrologue = true
 	method.Body.List = p.parseStmtList("method definition")
 
-	p.await, p.yield = prevAwait, prevYield
+	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
 	return ClassElement{Method: method}
 }
@@ -1337,13 +1337,13 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			if p.tt == OpenParenToken {
 				// MethodDefinition
 				parent := p.enterScope(&method.Body.Scope, true)
-				prevAwait, prevYield := p.await, p.yield
-				p.await, p.yield = method.Async, method.Generator
+				prevAwait, prevYield, prevRetrn := p.await, p.yield, p.retrn
+				p.await, p.yield, p.retrn = method.Async, method.Generator, true
 
 				method.Params = p.parseFuncParams("method definition")
 				method.Body.List = p.parseStmtList("method definition")
 
-				p.await, p.yield = prevAwait, prevYield
+				p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 				p.exitScope(parent)
 				property.Value = &method
 				p.assumeArrowFunc = false

@@ -117,7 +117,7 @@ func TestParse(t *testing.T) {
 		{"class A { static #field=5 }", "Decl(class A Field(static #field = 5))"},
 		{"class A { #method(){} }", "Decl(class A Method(#method Params() Stmt({ })))"},
 		{"class A { get }", "Decl(class A Field(get))"},
-		{"class A { field static get method(){} }", "Decl(class A Field(field) Method(static get method Params() Stmt({ })))"},
+		{"class A { field static get method(){ return 5 } }", "Decl(class A Field(field) Method(static get method Params() Stmt({ Stmt(return 5) })))"},
 		{"class A { static { this.field = 5 } }", "Decl(class A Static(Stmt({ Stmt((this.field)=5) })))"},
 		//{"class A { get get get(){} }", "Decl(class A Definition(get) Method(get get Params() Stmt({ })))"}, // doesn't look like this should be supported
 		{"`tmpl`", "Stmt(`tmpl`)"},
@@ -250,7 +250,7 @@ func TestParse(t *testing.T) {
 		{"x = {async*a(){}}", "Stmt(x={Method(async * a Params() Stmt({ }))})"},
 		{"x = {get a(){}}", "Stmt(x={Method(get a Params() Stmt({ }))})"},
 		{"x = {set a(){}}", "Stmt(x={Method(set a Params() Stmt({ }))})"},
-		{"x = {get(){}}", "Stmt(x={Method(get Params() Stmt({ }))})"},
+		{"x = {get(){ return 5 }}", "Stmt(x={Method(get Params() Stmt({ Stmt(return 5) }))})"},
 		{"x = {set(){}}", "Stmt(x={Method(set Params() Stmt({ }))})"},
 		{"x = (a, b)", "Stmt(x=((a,b)))"},
 		{"x = function() {}", "Stmt(x=Decl(function Params() Stmt({ })))"},
