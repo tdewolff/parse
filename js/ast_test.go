@@ -115,6 +115,8 @@ func TestJS(t *testing.T) {
 		{"import o,{} from''", "import o, {} from '';"},
 		{"if(0)var s;else", "if (0) var s; else;"},
 		{"async\n()", "async();"},
+		{"{};;", "{} ;"},
+		{"{}\n;", "{} ;"},
 	}
 
 	re := regexp.MustCompile("\n *")

@@ -533,10 +533,11 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		}
 		stmt = &TryStmt{body, binding, catch, finally}
 	case DebuggerToken:
-		p.next()
 		stmt = &DebuggerStmt{}
+		p.next()
 	case SemicolonToken, ErrorToken:
 		stmt = &EmptyStmt{}
+		p.next()
 	case CommentToken, CommentLineTerminatorToken:
 		// bang comment
 		stmt = &Comment{p.data}
@@ -581,7 +582,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 		}
 	}
-	if p.tt == SemicolonToken {
+	if !p.prevLT && p.tt == SemicolonToken {
 		p.next()
 	}
 	p.stmtLevel--
