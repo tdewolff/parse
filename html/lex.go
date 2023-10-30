@@ -116,7 +116,7 @@ func (l *Lexer) AttrVal() []byte {
 	return l.attrVal
 }
 
-// AttrHasTemplate returns the true if the attribute value contains a template.
+// HasTemplate returns the true if the token value contains a template.
 func (l *Lexer) HasTemplate() bool {
 	return l.hasTmpl
 }
@@ -379,6 +379,11 @@ func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 func (l *Lexer) shiftAttribute() []byte {
 	nameStart := l.r.Pos()
 	var c byte
+	if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+		l.r.Move(len(l.tmplBegin))
+		l.moveTemplate()
+		l.hasTmpl = true
+	}
 	for { // attribute name state
 		if c = l.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
 			break
@@ -437,6 +442,11 @@ func (l *Lexer) shiftAttribute() []byte {
 	} else {
 		l.r.Rewind(nameEnd)
 		l.attrVal = nil
+	}
+	if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+		l.r.Move(len(l.tmplBegin))
+		l.moveTemplate()
+		l.hasTmpl = true
 	}
 	l.text = parse.ToLower(l.r.Lexeme()[nameStart:nameEnd])
 	return l.r.Shift()

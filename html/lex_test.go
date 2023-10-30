@@ -182,54 +182,30 @@ func TestAttributes(t *testing.T) {
 
 func TestTemplates(t *testing.T) {
 	var tests = []struct {
-		html     string
-		expected []TokenType
+		html string
+		tmpl []bool
 	}{
-		{"<p>{{.}}</p>", TTs{StartTagToken, StartTagCloseToken, TemplateToken, EndTagToken}},
-		{"<p> {{.}} </p>", TTs{StartTagToken, StartTagCloseToken, TextToken, TemplateToken, TextToken, EndTagToken}},
-		{"<input type='{{.}}'/>", TTs{StartTagToken, AttributeToken, StartTagVoidToken}},
-		{"<input type={{.}} />", TTs{StartTagToken, AttributeToken, StartTagVoidToken}},
+		{"<p>{{.}}</p>", []bool{true}},
+		{"<p> {{.}} </p>", []bool{true}},
+		{"<input type='{{.}}'/>", []bool{true}},
+		{"<input type={{.}} />", []bool{true}},
+		{"<input {{if eq .Type 0}}selected{{end}}>", []bool{true}},
+		{"<input {{if eq .Type 0}} selected {{end}}>", []bool{true, false, true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {
 			l := NewTemplateLexer(parse.NewInputString(tt.html), GoTemplate)
-			i := 0
-			tokens := []TokenType{}
+			tmpl := []bool{}
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
 					test.T(t, l.Err(), io.EOF)
 					break
-				}
-				tokens = append(tokens, token)
-				i++
-			}
-			test.T(t, tokens, tt.expected, "token types must match")
-		})
-	}
-}
-
-func TestTemplateAttributess(t *testing.T) {
-	var tests = []struct {
-		html    string
-		hasTmpl bool
-	}{
-		{"<input type='{value}'/>", false},
-		{"<input type='{{.}}'/>", true},
-		{"<input type={{.}} />", true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.html, func(t *testing.T) {
-			l := NewTemplateLexer(parse.NewInputString(tt.html), GoTemplate)
-			for {
-				token, _ := l.Next()
-				if token == ErrorToken {
-					test.T(t, l.Err(), io.EOF)
-					break
-				} else if token == AttributeToken {
-					test.T(t, l.AttrHasTemplate(), tt.hasTmpl)
+				} else if token == TextToken || token == AttributeToken {
+					tmpl = append(tmpl, l.HasTemplate())
 				}
 			}
+			test.T(t, tmpl, tt.tmpl, "HasTemplate must match")
 		})
 	}
 }
