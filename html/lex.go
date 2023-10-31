@@ -151,7 +151,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	}
 
 	if l.rawTag != 0 {
-		if rawText := l.shiftRawText(); len(rawText) > 0 {
+		if rawText := l.shiftRawText(); 0 < len(rawText) {
 			l.text = rawText
 			l.rawTag = 0
 			return TextToken, rawText
@@ -193,7 +193,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			l.moveTemplate()
 			l.hasTmpl = true
 		} else if c == 0 && l.r.Err() != nil {
-			if l.r.Pos() > 0 {
+			if 0 < l.r.Pos() {
 				l.text = l.r.Shift()
 				return TextToken, l.text
 			}
@@ -274,6 +274,10 @@ func (l *Lexer) shiftRawText() []byte {
 				} else {
 					l.r.Move(1)
 				}
+			} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+				l.r.Move(len(l.tmplBegin))
+				l.moveTemplate()
+				l.hasTmpl = true
 			} else if c == 0 && l.r.Err() != nil {
 				return l.r.Shift()
 			} else {
