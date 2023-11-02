@@ -191,7 +191,6 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		if l.consumeIdentifierToken() {
 			return PrivateIdentifierToken, l.r.Shift()
 		}
-		return ErrorToken, nil
 	default:
 		if l.consumeIdentifierToken() {
 			if prevNumericLiteral {

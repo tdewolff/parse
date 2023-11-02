@@ -118,7 +118,6 @@ func TestJS(t *testing.T) {
 		{"{};;", "{} ;"},
 		{"{}\n;", "{} ;"},
 		{"- - --3", "- - --3;"},
-		//{"A:#0XbBB", ""},
 	}
 
 	re := regexp.MustCompile("\n *")

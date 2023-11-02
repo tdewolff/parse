@@ -562,6 +562,7 @@ func TestParseError(t *testing.T) {
 		{"export async", "expected function instead of EOF in export statement"},
 		{"throw", "unexpected EOF in expression"},
 		{"throw\n", "unexpected newline in throw statement"},
+		{"#private", "expected in instead of EOF in relational expression"},
 
 		// no declarations
 		{"if(a) function f(){}", "unexpected function in statement"},

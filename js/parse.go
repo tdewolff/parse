@@ -549,13 +549,16 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 	case DebuggerToken:
 		stmt = &DebuggerStmt{}
 		p.next()
-	case SemicolonToken, ErrorToken:
+	case SemicolonToken:
 		stmt = &EmptyStmt{}
 		p.next()
 	case CommentToken, CommentLineTerminatorToken:
 		// bang comment
 		stmt = &Comment{p.data}
 		p.next()
+	case ErrorToken:
+		stmt = &EmptyStmt{}
+		return
 	default:
 		if p.retrn && p.tt == ReturnToken {
 			p.next()
