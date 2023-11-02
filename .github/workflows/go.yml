@@ -11,19 +11,25 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v2
+
     - name: Set up Go
       uses: actions/setup-go@v2
       with:
         go-version: 1.18
+
     - name: Build
       run: go build -v ./...
+
     - name: Tests with coverage
-      run: go test -race -v -count=1 -coverprofile=coverage.out ./...
-    - name: Upload Code Coverage
-      uses: codecov/codecov-action@v1
-      with:
-        name: codecov
-        fail_ci_if_error: true
+      run: go test -race -v -count=1 ./...
+        #run: go test -race -v -count=1 -coverprofile=coverage.out ./...
+
+        #- name: Upload Code Coverage
+        #  uses: codecov/codecov-action@v1
+        #  with:
+        #    name: codecov
+        #    fail_ci_if_error: true
+
   golangci:
     name: lint
     runs-on: ubuntu-latest
