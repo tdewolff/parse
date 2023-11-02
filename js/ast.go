@@ -2127,7 +2127,7 @@ func (n UnaryExpr) JS(w io.Writer) {
 		n.X.JS(w)
 		w.Write(n.Op.Bytes())
 		return
-	} else if unary, ok := n.X.(*UnaryExpr); ok && (n.Op == PosToken && unary.Op == PreIncrToken || n.Op == NegToken && unary.Op == PreDecrToken) || IsIdentifierName(n.Op) {
+	} else if unary, ok := n.X.(*UnaryExpr); ok && (n.Op == PosToken && (unary.Op == PreIncrToken || unary.Op == PosToken) || n.Op == NegToken && (unary.Op == PreDecrToken || unary.Op == NegToken)) || IsIdentifierName(n.Op) {
 		w.Write(n.Op.Bytes())
 		w.Write([]byte(" "))
 		n.X.JS(w)
