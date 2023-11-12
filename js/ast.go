@@ -1632,6 +1632,9 @@ func (n LiteralExpr) String() string {
 
 // JS writes JavaScript to writer.
 func (n LiteralExpr) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	w.Write(n.Data)
 }
 
@@ -1894,6 +1897,9 @@ func (n TemplateExpr) String() string {
 
 // JS writes JavaScript to writer.
 func (n TemplateExpr) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	if n.Tag != nil {
 		n.Tag.JS(w)
 		if n.Optional {
