@@ -1786,6 +1786,9 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		left = &template
 		p.in = prevIn
 	case PrivateIdentifierToken:
+		if OpCompare < prec || !p.in {
+			return left
+		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 		if p.tt != InToken {
