@@ -564,6 +564,7 @@ func TestParseError(t *testing.T) {
 		{"throw\n", "unexpected newline in throw statement"},
 		{"#private", "expected in instead of EOF in relational expression"},
 		{"new #private in z", "unexpected #private in expression"},
+		{"new\n#private in z", "unexpected #private in expression"},
 
 		// no declarations
 		{"if(a) function f(){}", "unexpected function in statement"},
