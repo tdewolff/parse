@@ -1787,13 +1787,14 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 		p.in = prevIn
 	case PrivateIdentifierToken:
 		if OpCompare < prec || !p.in {
-			return left
+			p.fail("expression")
+			return nil
 		}
 		left = &LiteralExpr{p.tt, p.data}
 		p.next()
 		if p.tt != InToken {
 			p.fail("relational expression", InToken)
-			return left
+			return nil
 		}
 	default:
 		p.fail("expression")

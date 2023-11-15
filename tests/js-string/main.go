@@ -4,6 +4,7 @@ package fuzz
 
 import (
 	"fmt"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/tdewolff/parse/v2"
@@ -22,7 +23,9 @@ func Fuzz(data []byte) int {
 		src := ast.JSString()
 		input2 := parse.NewInputString(src)
 		if ast2, err := js.Parse(input2, o); err != nil {
-			panic(err)
+			if !strings.HasPrefix(err.Error(), "too many nested expressions") {
+				panic(err)
+			}
 		} else if src2 := ast2.JSString(); src != src2 {
 			fmt.Println("JS1:", src)
 			fmt.Println("JS2:", src2)
