@@ -384,6 +384,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
+			} else {
+				p.next()
 			}
 			if init == nil {
 				varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
@@ -408,6 +410,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
+			} else {
+				p.next()
 			}
 			if varDecl, ok := init.(*VarDecl); ok {
 				varDecl.InForInOf = true
@@ -424,6 +428,8 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				body.List = p.parseStmtList("")
 			} else if p.tt != SemicolonToken {
 				body.List = []IStmt{p.parseStmt(false)}
+			} else {
+				p.next()
 			}
 			if varDecl, ok := init.(*VarDecl); ok {
 				varDecl.InForInOf = true

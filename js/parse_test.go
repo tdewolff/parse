@@ -402,8 +402,10 @@ func TestParse(t *testing.T) {
 		{"function f(){return /*comment*/ a}", "Decl(function f Params() Stmt({ Stmt(return a) }))"},
 		{"function f(){return /*com\nment*/ a}", "Decl(function f Params() Stmt({ Stmt(return) Stmt(a) }))"},
 		{"function f(){return //comment\n a}", "Decl(function f Params() Stmt({ Stmt(return) Stmt(a) }))"},
-		{"a?.b\n`c`", "Stmt((a?.b)`c`)"},
+		{"if(a)while(true)\n;else;", "Stmt(if a Stmt(while true Stmt()) else Stmt())"},
+		{"if(a)for(;;)\n;else;", "Stmt(if a Stmt(for ; ; Stmt({ })) else Stmt())"},
 
+		{"a?.b\n`c`", "Stmt((a?.b)`c`)"},
 		{"() => { const v=6; x={v} }", "Stmt(Params() => Stmt({ Decl(const Binding(v = 6)) Stmt(x={v}) }))"},
 		{`([]=l=>{let{e}={e}})`, `Stmt(([]=(Params(Binding(l)) => Stmt({ Decl(let Binding({ Binding(e) } = {e})) }))))`}, // go-fuzz
 	}
