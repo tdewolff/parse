@@ -974,6 +974,9 @@ func (n ImportStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n ImportStmt) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	w.Write([]byte("import"))
 	if n.Default != nil {
 		w.Write([]byte(" "))
@@ -1047,6 +1050,9 @@ func (n ExportStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n ExportStmt) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	w.Write([]byte("export"))
 	if n.Decl != nil {
 		if n.Default {
@@ -1092,6 +1098,9 @@ func (n DirectivePrologueStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n DirectivePrologueStmt) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	w.Write(n.Value)
 	w.Write([]byte(";"))
 }
@@ -1159,6 +1168,9 @@ func (n PropertyName) JS(w io.Writer) {
 		n.Computed.JS(w)
 		w.Write([]byte("]"))
 		return
+	}
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
 	}
 	w.Write(n.Literal.Data)
 }
