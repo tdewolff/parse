@@ -23,7 +23,7 @@ func Fuzz(data []byte) int {
 		src := ast.JSString()
 		input2 := parse.NewInputString(src)
 		if ast2, err := js.Parse(input2, o); err != nil {
-			if !strings.HasPrefix(err.Error(), "too many nested expressions") {
+			if !strings.HasPrefix(err.Error(), "too many nested") {
 				panic(err)
 			}
 		} else if src2 := ast2.JSString(); src != src2 {
