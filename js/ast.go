@@ -430,6 +430,9 @@ func (n Comment) String() string {
 
 // JS writes JavaScript to writer.
 func (n Comment) JS(w io.Writer) {
+	if wi, ok := w.(Indenter); ok {
+		w = wi.w
+	}
 	w.Write(n.Value)
 	w.Write([]byte("\n"))
 }
