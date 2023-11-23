@@ -187,6 +187,7 @@ func TestParse(t *testing.T) {
 		{"async function a(){ for await (var a of b) {} }", "Decl(async function a Params() Stmt({ Stmt(for await Decl(var Binding(a)) of b Stmt({ })) }))"},
 		{"async function a(){ (await a) }", "Decl(async function a Params() Stmt({ Stmt((await a)) }))"},
 		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
+		{"async(...a)", "Stmt(async(...a))"},
 
 		// bindings
 		{"let [] = z", "Decl(let Binding([ ] = z))"},

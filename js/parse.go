@@ -2242,7 +2242,7 @@ func (p *Parser) parseParenthesizedExpressionOrArrowFunc(prec OpPrec, async []by
 		left = p.scope.Use(async)
 		left = &CallExpr{left, Args{}, false}
 		precLeft = OpCall
-	} else if len(list) == 0 || !isAsync && rest != nil || isAsync && OpCall < prec {
+	} else if len(list) == 0 && rest == nil || !isAsync && rest != nil || isAsync && OpCall < prec {
 		p.fail("arrow function", ArrowToken)
 		return nil
 	} else {
