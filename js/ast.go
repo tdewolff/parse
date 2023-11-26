@@ -434,7 +434,6 @@ func (n Comment) JS(w io.Writer) {
 		w = wi.w
 	}
 	w.Write(n.Value)
-	w.Write([]byte("\n"))
 }
 
 // BlockStmt is a block statement.

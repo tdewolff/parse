@@ -946,8 +946,11 @@ func (p *Parser) parseFunc(async, expr bool) (funcDecl *FuncDecl) {
 		funcDecl.Name, _ = p.scope.Declare(ExprDecl, name) // cannot fail
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
-	p.allowDirectivePrologue = true
+
+	prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
+	p.allowDirectivePrologue, p.exprLevel = true, 0
 	funcDecl.Body.List = p.parseStmtList("function declaration")
+	p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1091,8 +1094,11 @@ func (p *Parser) parseClassElement() ClassElement {
 	p.await, p.yield, p.retrn = method.Async, method.Generator, true
 
 	method.Params = p.parseFuncParams("method definition")
-	p.allowDirectivePrologue = true
-	method.Body.List = p.parseStmtList("method definition")
+
+	prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
+	p.allowDirectivePrologue, p.exprLevel = true, 0
+	method.Body.List = p.parseStmtList("method function")
+	p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1525,8 +1531,12 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 	if p.tt == OpenBraceToken {
 		prevIn, prevRetrn := p.in, p.retrn
 		p.in, p.retrn = true, true
-		p.allowDirectivePrologue = true
+
+		prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
+		p.allowDirectivePrologue, p.exprLevel = true, 0
 		list = p.parseStmtList("arrow function")
+		p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
+
 		p.in, p.retrn = prevIn, prevRetrn
 	} else {
 		list = []IStmt{&ReturnStmt{p.parseExpression(OpAssign)}}
