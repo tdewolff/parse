@@ -1444,21 +1444,22 @@ func (p *Parser) parseArguments() (args Args) {
 	// assume we're on (
 	p.next()
 	args.List = make([]Arg, 0, 4)
-	for {
+	for p.tt != CloseParenToken && p.tt != ErrorToken {
 		rest := p.tt == EllipsisToken
 		if rest {
 			p.next()
-		}
-
-		if p.tt == CloseParenToken || p.tt == ErrorToken {
-			break
 		}
 		args.List = append(args.List, Arg{
 			Value: p.parseExpression(OpAssign),
 			Rest:  rest,
 		})
-		if p.tt == CommaToken {
-			p.next()
+		if p.tt != CloseParenToken {
+			if p.tt != CommaToken {
+				p.fail("arguments", CommaToken, CloseParenToken)
+				return
+			} else {
+				p.next() // CommaToken
+			}
 		}
 	}
 	p.consume("arguments", CloseParenToken)
