@@ -356,46 +356,11 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 			init = varDecl
 		} else if p.tt != SemicolonToken {
-			init = p.parseExpression(OpExpr)
+			init = p.parseExpression(OpLHS)
 		}
 		p.in = true
 
-		if p.tt == SemicolonToken {
-			var cond, post IExpr
-			if await {
-				p.fail("for statement", OfToken)
-				return
-			}
-			p.next()
-			if p.tt != SemicolonToken {
-				cond = p.parseExpression(OpExpr)
-			}
-			if !p.consume("for statement", SemicolonToken) {
-				return
-			}
-			if p.tt != CloseParenToken {
-				post = p.parseExpression(OpExpr)
-			}
-			if !p.consume("for statement", CloseParenToken) {
-				return
-			}
-			p.scope.MarkForStmt()
-			if p.tt == OpenBraceToken {
-				body.List = p.parseStmtList("")
-			} else if p.tt != SemicolonToken {
-				body.List = []IStmt{p.parseStmt(false)}
-			} else {
-				p.next()
-			}
-			if init == nil {
-				varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
-				p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
-				init = varDecl
-			} else if varDecl, ok := init.(*VarDecl); ok {
-				varDecl.InFor = true
-			}
-			stmt = &ForStmt{init, cond, post, body}
-		} else if p.tt == InToken {
+		if p.tt == InToken {
 			if await {
 				p.fail("for statement", OfToken)
 				return
@@ -436,8 +401,46 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 			stmt = &ForOfStmt{await, init, value, body}
 		} else {
-			p.fail("for statement", InToken, OfToken, SemicolonToken)
-			return
+			init = p.parseExpressionSuffix(init, OpExpr, OpLHS)
+			if p.tt != SemicolonToken {
+				p.fail("for statement", InToken, OfToken, SemicolonToken)
+				return
+			}
+
+			var cond, post IExpr
+			if await {
+				p.fail("for statement", OfToken)
+				return
+			}
+			p.next()
+			if p.tt != SemicolonToken {
+				cond = p.parseExpression(OpExpr)
+			}
+			if !p.consume("for statement", SemicolonToken) {
+				return
+			}
+			if p.tt != CloseParenToken {
+				post = p.parseExpression(OpExpr)
+			}
+			if !p.consume("for statement", CloseParenToken) {
+				return
+			}
+			p.scope.MarkForStmt()
+			if p.tt == OpenBraceToken {
+				body.List = p.parseStmtList("")
+			} else if p.tt != SemicolonToken {
+				body.List = []IStmt{p.parseStmt(false)}
+			} else {
+				p.next()
+			}
+			if init == nil {
+				varDecl := &VarDecl{TokenType: VarToken, Scope: p.scope, InFor: true}
+				p.scope.Func.VarDecls = append(p.scope.Func.VarDecls, varDecl)
+				init = varDecl
+			} else if varDecl, ok := init.(*VarDecl); ok {
+				varDecl.InFor = true
+			}
+			stmt = &ForStmt{init, cond, post, body}
 		}
 		p.exitScope(parent)
 	case SwitchToken:

@@ -70,6 +70,7 @@ func TestParse(t *testing.T) {
 		{"for (a in b) {}", "Stmt(for a in b Stmt({ }))"},
 		{"for (a = b;;) {}", "Stmt(for (a=b) ; ; Stmt({ }))"},
 		{"for (var [a] in b) {}", "Stmt(for Decl(var Binding([ Binding(a) ])) in b Stmt({ }))"},
+		{"for(async of b);", "Stmt(for async of b Stmt({ }))"},
 		{"throw 5", "Stmt(throw 5)"},
 		{"try {} catch {b}", "Stmt(try Stmt({ }) catch Stmt({ Stmt(b) }))"},
 		{"try {} finally {c}", "Stmt(try Stmt({ }) finally Stmt({ Stmt(c) }))"},
