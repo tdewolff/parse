@@ -191,6 +191,8 @@ func TestTemplates(t *testing.T) {
 		{"<input type={{.}} />", []bool{true}},
 		{"<input {{if eq .Type 0}}selected{{end}}>", []bool{true}},
 		{"<input {{if eq .Type 0}} selected {{end}}>", []bool{true, false, true}},
+		{"{{", []bool{true}},
+		{"{{'", []bool{true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {
