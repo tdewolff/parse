@@ -189,6 +189,7 @@ func TestParse(t *testing.T) {
 		{"async function a(){ (await a) }", "Decl(async function a Params() Stmt({ Stmt((await a)) }))"},
 		{"x = {async a(b){}}", "Stmt(x={Method(async a Params(Binding(b)) Stmt({ }))})"},
 		{"async(...a)", "Stmt(async(...a))"},
+		{"async(...a,...b)", "Stmt(async(...a, ...b))"},
 
 		// bindings
 		{"let [] = z", "Decl(let Binding([ ] = z))"},
@@ -582,7 +583,7 @@ func TestParseError(t *testing.T) {
 		{"function a(b = yield c){}", "unexpected c in function declaration"},
 		{"function*a(){ (yield) => yield }", "unexpected => in expression"},
 		{"function*a(){ (yield=5) => yield }", "unexpected = in expression"},
-		{"function*a(){ (...yield) => yield }", "unexpected yield in expression"},
+		{"function*a(){ (...yield) => yield }", "unexpected => in expression"},
 		{"x = await\n=> a++", "unexpected => in expression"},
 		{"x=async (await,", "unexpected , in expression"},
 		{"async function a() { class a extends await", "unexpected await in expression"},
@@ -593,7 +594,7 @@ func TestParseError(t *testing.T) {
 		{"async function a() { x = await =>", "unexpected => in expression"},
 		{"async function a(){ (await) => await }", "unexpected ) in expression"},
 		{"async function a(){ (await=5) => await }", "unexpected = in expression"},
-		{"async function a(){ (...await) => await }", "unexpected await in expression"},
+		{"async function a(){ (...await) => await }", "unexpected ) in expression"},
 		{"async+a b", "unexpected b in expression"},
 		{"(async\nfunction(){})", "unexpected function in expression"},
 		{"a + async b", "unexpected b in expression"},
@@ -643,8 +644,8 @@ func TestParseError(t *testing.T) {
 		{"x = ({5: 5}) =>", "unexpected => in expression"},
 		{"x = ({[4+5]: 5}) =>", "unexpected => in expression"},
 		{"x = (a, a) =>", "unexpected => in expression"},
-		{"x = (a, a, ...a) =>", "unexpected ... in expression"},
-		{"x = (a, ...a) =>", "identifier a has already been declared"},
+		{"x = (a, a, ...a) =>", "unexpected => in expression"},
+		{"x = (a, ...a) =>", "unexpected => in expression"},
 		{"(A,{}%0%{})=>0", "invalid parameters in arrow function"},
 		{"({}``=1)=>0", "invalid parameters in arrow function"},
 
