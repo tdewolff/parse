@@ -190,6 +190,9 @@ func (p *Parser) parseModule() (module BlockStmt) {
 				suffix := p.parseExpressionSuffix(left, OpExpr, OpCall)
 				p.exprLevel--
 				module.List = append(module.List, &ExprStmt{suffix})
+				if !p.prevLT && p.tt == SemicolonToken {
+					p.next()
+				}
 			} else {
 				importStmt := p.parseImportStmt()
 				module.List = append(module.List, &importStmt)
