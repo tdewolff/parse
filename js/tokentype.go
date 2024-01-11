@@ -28,7 +28,7 @@ const (
 	BinaryToken
 	OctalToken
 	HexadecimalToken
-	BigIntToken
+	IntegerToken
 )
 
 // Punctuator token values.
@@ -369,8 +369,8 @@ func (tt TokenType) Bytes() []byte {
 		return []byte("Octal")
 	case HexadecimalToken:
 		return []byte("Hexadecimal")
-	case BigIntToken:
-		return []byte("BigInt")
+	case IntegerToken:
+		return []byte("Integer")
 	case PunctuatorToken:
 		return []byte("Punctuator")
 	case OpenBraceToken:

@@ -442,6 +442,7 @@ func TestParseError(t *testing.T) {
 		js  string
 		err string
 	}{
+		{"5a", "unexpected a in expression"},
 		{"{a", "unexpected EOF"},
 		{"if", "expected ( instead of EOF in if statement"},
 		{"if(a", "expected ) instead of EOF in if statement"},
