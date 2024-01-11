@@ -358,12 +358,15 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				}
 			}
 			init = varDecl
-		} else if p.tt != SemicolonToken {
+		} else if await {
 			init = p.parseExpression(OpLHS)
+		} else if p.tt != SemicolonToken {
+			init = p.parseExpression(OpExpr)
 		}
 		p.in = true
 
-		if p.tt == InToken {
+		isLHSExpr := isLHSExpr(init)
+		if isLHSExpr && p.tt == InToken {
 			if await {
 				p.fail("for statement", OfToken)
 				return
@@ -385,7 +388,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				varDecl.InForInOf = true
 			}
 			stmt = &ForInStmt{init, value, body}
-		} else if p.tt == OfToken {
+		} else if isLHSExpr && p.tt == OfToken {
 			p.next()
 			value := p.parseExpression(OpAssign)
 			if !p.consume("for statement", CloseParenToken) {
@@ -403,13 +406,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				varDecl.InForInOf = true
 			}
 			stmt = &ForOfStmt{await, init, value, body}
-		} else {
-			init = p.parseExpressionSuffix(init, OpExpr, OpLHS)
-			if p.tt != SemicolonToken {
-				p.fail("for statement", InToken, OfToken, SemicolonToken)
-				return
-			}
-
+		} else if p.tt == SemicolonToken {
 			var cond, post IExpr
 			if await {
 				p.fail("for statement", OfToken)
@@ -444,6 +441,12 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				varDecl.InFor = true
 			}
 			stmt = &ForStmt{init, cond, post, body}
+		} else if isLHSExpr {
+			p.fail("for statement", InToken, OfToken, SemicolonToken)
+			return
+		} else {
+			p.fail("for statement", SemicolonToken)
+			return
 		}
 		p.exitScope(parent)
 	case SwitchToken:
