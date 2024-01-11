@@ -27,6 +27,15 @@ func helperRandString() string {
 	return string(b)
 }
 
+func helperCaseBytes() []byte {
+	cs := []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	b := make([]byte, 100)
+	for i := range b {
+		b[i] = cs[rand.Intn(len(cs))]
+	}
+	return b
+}
+
 func init() {
 	for j := 0; j < len(n); j++ {
 		ms := map[string]bool{}
@@ -339,6 +348,30 @@ func BenchmarkMap(b *testing.B) {
 	for k := 0; k < b.N; k++ {
 		for _, ident := range identifiers {
 			_ = Keywords[string(ident)]
+		}
+	}
+}
+
+func BenchmarkCompareCase1(b *testing.B) {
+	v := helperCaseBytes()
+	b.ResetTimer()
+	for k := 0; k < b.N; k++ {
+		for _, c := range v {
+			if c == 'x' || c == 'X' {
+				z++
+			}
+		}
+	}
+}
+
+func BenchmarkCompareCase2(b *testing.B) {
+	v := helperCaseBytes()
+	b.ResetTimer()
+	for k := 0; k < b.N; k++ {
+		for _, c := range v {
+			if c|0x20 == 'x' {
+				z++
+			}
 		}
 	}
 }
