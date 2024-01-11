@@ -538,6 +538,9 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			if l.consumeHexDigit() {
 				for l.consumeHexDigit() || l.consumeNumericSeparator(l.consumeHexDigit) {
 				}
+				if l.r.Peek(0) == 'n' {
+					l.r.Move(1)
+				}
 				return HexadecimalToken
 			}
 			l.err = parse.NewErrorLexer(l.r, "invalid hexadecimal number")
@@ -547,6 +550,9 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			if l.consumeBinaryDigit() {
 				for l.consumeBinaryDigit() || l.consumeNumericSeparator(l.consumeBinaryDigit) {
 				}
+				if l.r.Peek(0) == 'n' {
+					l.r.Move(1)
+				}
 				return BinaryToken
 			}
 			l.err = parse.NewErrorLexer(l.r, "invalid binary number")
@@ -555,6 +561,9 @@ func (l *Lexer) consumeNumericToken() TokenType {
 			l.r.Move(1)
 			if l.consumeOctalDigit() {
 				for l.consumeOctalDigit() || l.consumeNumericSeparator(l.consumeOctalDigit) {
+				}
+				if l.r.Peek(0) == 'n' {
+					l.r.Move(1)
 				}
 				return OctalToken
 			}

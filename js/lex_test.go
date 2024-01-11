@@ -21,7 +21,7 @@ func TestTokens(t *testing.T) {
 		{"5.2 .04 1. 2.e3 0x0F 5e99", TTs{DecimalToken, DecimalToken, DecimalToken, DecimalToken, HexadecimalToken, DecimalToken}},
 		{"2_3 5_4.1_2 1_1n 0o2_3 0b1_1 0xF_F", TTs{DecimalToken, DecimalToken, BigIntToken, OctalToken, BinaryToken, HexadecimalToken}},
 		{"0o22 0b11", TTs{OctalToken, BinaryToken}},
-		{"0n 2345n 435.333n", TTs{BigIntToken, BigIntToken, DecimalToken, ErrorToken}},
+		{"0n 2345n 0o5n 0b1n 0x5n 435.333n", TTs{IntegerToken, IntegerToken, OctalToken, BinaryToken, HexadecimalToken, DecimalToken, ErrorToken}},
 		{"a = 'string'", TTs{IdentifierToken, EqToken, StringToken}},
 		{"/*comment*/ //comment", TTs{CommentToken, CommentToken}},
 		{"{ } ( ) [ ]", TTs{OpenBraceToken, CloseBraceToken, OpenParenToken, CloseParenToken, OpenBracketToken, CloseBracketToken}},
