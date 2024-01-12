@@ -83,6 +83,9 @@ func (l *Lexer) Next() (TokenType, []byte) {
 	prevLineTerminator := l.prevLineTerminator
 	l.prevLineTerminator = false
 
+	prevNumericLiteral := l.prevNumericLiteral
+	l.prevNumericLiteral = false
+
 	// study on 50x jQuery shows:
 	// spaces: 20k
 	// alpha: 16k
@@ -190,7 +193,10 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		}
 	default:
 		if l.consumeIdentifierToken() {
-			if keyword, ok := Keywords[string(l.r.Lexeme())]; ok {
+			if prevNumericLiteral {
+				l.err = parse.NewErrorLexer(l.r, "unexpected identifier after number")
+				return ErrorToken, nil
+			} else if keyword, ok := Keywords[string(l.r.Lexeme())]; ok {
 				return keyword, l.r.Shift()
 			}
 			return IdentifierToken, l.r.Shift()
