@@ -121,6 +121,7 @@ func TestJS(t *testing.T) {
 		{"([,,])=>P", "([,,]) => { return P; };"},
 		{"(t)=>{//!\n}", "(t) => { //! };"},
 		{"import();", "import();"},
+		{"0\n.k", "(0).k;"},
 	}
 
 	re := regexp.MustCompile("\n *")

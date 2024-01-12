@@ -1663,7 +1663,7 @@ func (n LiteralExpr) JS(w io.Writer) {
 
 // JSON writes JSON to writer.
 func (n LiteralExpr) JSON(w io.Writer) error {
-	if n.TokenType == TrueToken || n.TokenType == FalseToken || n.TokenType == NullToken || n.TokenType == DecimalToken {
+	if n.TokenType == TrueToken || n.TokenType == FalseToken || n.TokenType == NullToken || n.TokenType == DecimalToken || n.TokenType == IntegerToken {
 		w.Write(n.Data)
 		return nil
 	} else if n.TokenType == StringToken {
@@ -1996,7 +1996,7 @@ func (n DotExpr) String() string {
 // JS writes JavaScript to writer.
 func (n DotExpr) JS(w io.Writer) {
 	lit, ok := n.X.(*LiteralExpr)
-	group := ok && !n.Optional && lit.TokenType == DecimalToken
+	group := ok && !n.Optional && (lit.TokenType == DecimalToken || lit.TokenType == IntegerToken)
 	if group {
 		w.Write([]byte("("))
 	}
@@ -2168,7 +2168,7 @@ func (n UnaryExpr) JS(w io.Writer) {
 
 // JSON writes JSON to writer.
 func (n UnaryExpr) JSON(w io.Writer) error {
-	if lit, ok := n.X.(*LiteralExpr); ok && n.Op == NegToken && lit.TokenType == DecimalToken {
+	if lit, ok := n.X.(*LiteralExpr); ok && n.Op == NegToken && (lit.TokenType == DecimalToken || lit.TokenType == IntegerToken) {
 		w.Write([]byte("-"))
 		w.Write(lit.Data)
 		return nil
