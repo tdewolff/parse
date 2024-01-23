@@ -431,9 +431,11 @@ func (n Comment) String() string {
 // JS writes JavaScript to writer.
 func (n Comment) JS(w io.Writer) {
 	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+		wi.w.Write(n.Value)
+	} else {
+		w.Write(n.Value)
 	}
-	w.Write(n.Value)
+	w.Write([]byte("\n"))
 }
 
 // BlockStmt is a block statement.
@@ -557,9 +559,11 @@ func (n DoWhileStmt) JS(w io.Writer) {
 	}
 	n.Body.JS(w)
 	if _, ok := n.Body.(*VarDecl); ok {
-		w.Write([]byte(";"))
+		w.Write([]byte("; "))
+	} else if _, ok := n.Body.(*Comment); !ok {
+		w.Write([]byte(" "))
 	}
-	w.Write([]byte(" while ("))
+	w.Write([]byte("while ("))
 	n.Cond.JS(w)
 	w.Write([]byte(");"))
 }
@@ -579,9 +583,11 @@ func (n WhileStmt) JS(w io.Writer) {
 	w.Write([]byte("while ("))
 	n.Cond.JS(w)
 	w.Write([]byte(")"))
-	if _, ok := n.Body.(*EmptyStmt); !ok {
-		w.Write([]byte(" "))
+	if _, ok := n.Body.(*EmptyStmt); ok {
+		w.Write([]byte(";"))
+		return
 	}
+	w.Write([]byte(" "))
 	n.Body.JS(w)
 	if _, ok := n.Body.(*VarDecl); ok {
 		w.Write([]byte(";"))
