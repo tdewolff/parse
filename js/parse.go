@@ -27,6 +27,7 @@ type Parser struct {
 	in, await, yield, deflt, retrn bool
 	assumeArrowFunc                bool
 	allowDirectivePrologue         bool
+	comments                       []IStmt
 
 	stmtLevel int
 	exprLevel int
@@ -91,9 +92,22 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 func (p *Parser) next() {
 	p.prevLT = false
 	p.tt, p.data = p.l.Next()
-	for p.tt == WhitespaceToken || p.tt == LineTerminatorToken || (p.tt == CommentToken || p.tt == CommentLineTerminatorToken) && (p.exprLevel != 0 || len(p.data) < 3 || p.data[2] != '!') {
-		if p.tt == LineTerminatorToken || p.tt == CommentLineTerminatorToken {
+Loop:
+	for {
+		switch p.tt {
+		case WhitespaceToken:
+			// no-op
+		case LineTerminatorToken:
 			p.prevLT = true
+		case CommentToken, CommentLineTerminatorToken:
+			if 2 < len(p.data) && p.data[2] == '!' {
+				p.comments = append(p.comments, &Comment{p.data})
+			}
+			if p.tt == CommentLineTerminatorToken {
+				p.prevLT = true
+			}
+		default:
+			break Loop
 		}
 		p.tt, p.data = p.l.Next()
 	}
@@ -180,6 +194,10 @@ func (p *Parser) parseModule() (module BlockStmt) {
 	for {
 		switch p.tt {
 		case ErrorToken:
+			if 0 < len(p.comments) {
+				module.List = append(p.comments, module.List...)
+				p.comments = p.comments[:0]
+			}
 			return
 		case ImportToken:
 			p.next()
@@ -567,10 +585,6 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 	case SemicolonToken:
 		stmt = &EmptyStmt{}
 		p.next()
-	case CommentToken, CommentLineTerminatorToken:
-		// bang comment
-		stmt = &Comment{p.data}
-		p.next()
 	case ErrorToken:
 		stmt = &EmptyStmt{}
 		return
@@ -634,6 +648,10 @@ func (p *Parser) parseStmtList(in string) (list []IStmt) {
 			break
 		}
 		list = append(list, p.parseStmt(true))
+	}
+	if 0 < len(p.comments) {
+		list = append(p.comments, list...)
+		p.comments = p.comments[:0]
 	}
 	return
 }

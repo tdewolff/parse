@@ -119,10 +119,10 @@ func TestJS(t *testing.T) {
 		{"{}\n;", "{} ;"},
 		{"- - --3", "- - --3;"},
 		{"([,,])=>P", "([,,]) => { return P; };"},
-		{"(t)=>{//!\n}", "(t) => { //!  };"}, // space after //! is newline
+		{"(t)=>{//!\n}", "(t) => { //! };"}, // space after //! is newline
 		{"import();", "import();"},
 		{"0\n.k", "(0).k;"},
-		{"do//!\nwhile(1)", "do //! while (1);"}, // space after //! is newline
+		{"do//!\n; while(1)", "//! do; while (1);"}, // space after //! is newline
 	}
 
 	re := regexp.MustCompile("\n *")
