@@ -636,6 +636,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 }
 
 func (p *Parser) parseStmtList(in string) (list []IStmt) {
+	comments := len(p.comments)
 	if !p.consume(in, OpenBraceToken) {
 		return
 	}
@@ -649,9 +650,12 @@ func (p *Parser) parseStmtList(in string) (list []IStmt) {
 		}
 		list = append(list, p.parseStmt(true))
 	}
-	if 0 < len(p.comments) {
-		list = append(p.comments, list...)
-		p.comments = p.comments[:0]
+	if comments < len(p.comments) {
+		list2 := make([]IStmt, 0, len(p.comments)-comments+len(list))
+		list2 = append(list2, p.comments[comments:]...)
+		list2 = append(list2, list...)
+		list = list2
+		p.comments = p.comments[:comments]
 	}
 	return
 }
