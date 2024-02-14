@@ -75,16 +75,13 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 		}
 	}
 
-	if p.err == nil {
-		p.err = p.l.Err()
-	} else {
+	if p.err != nil {
 		offset := p.l.r.Offset() - len(p.data)
-		p.err = parse.NewError(buffer.NewReader(p.l.r.Bytes()), offset, p.err.Error())
+		return nil, parse.NewError(buffer.NewReader(p.l.r.Bytes()), offset, p.err.Error())
+	} else if p.l.Err() != nil && p.l.Err() != io.EOF {
+		return nil, p.l.Err()
 	}
-	if p.err == io.EOF {
-		p.err = nil
-	}
-	return ast, p.err
+	return ast, nil
 }
 
 ////////////////////////////////////////////////////////////////
