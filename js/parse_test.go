@@ -570,6 +570,7 @@ func TestParseError(t *testing.T) {
 		{"export {} from", "expected String instead of EOF in export statement"},
 		{"export {} from", "expected String instead of EOF in export statement"},
 		{"export async", "expected function instead of EOF in export statement"},
+		{"export default async=>a,b", "unexpected , in expression"},
 		{"throw", "unexpected EOF in expression"},
 		{"throw\n", "unexpected newline in throw statement"},
 		{"#private", "expected in instead of EOF in relational expression"},

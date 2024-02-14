@@ -828,15 +828,17 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 		exportStmt.Default = true
 		p.next()
 		if p.tt == FunctionToken {
+			// hoistable declaration
 			exportStmt.Decl = p.parseFuncDecl()
 		} else if p.tt == AsyncToken { // async function or async arrow function
 			async := p.data
 			p.next()
 			if p.tt == FunctionToken && !p.prevLT {
+				// hoistable declaration
 				exportStmt.Decl = p.parseAsyncFuncDecl()
 			} else {
 				// expression
-				exportStmt.Decl = p.parseAsyncExpression(OpExpr, async)
+				exportStmt.Decl = p.parseAsyncExpression(OpAssign, async)
 			}
 		} else if p.tt == ClassToken {
 			exportStmt.Decl = p.parseClassDecl()
