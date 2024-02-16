@@ -2002,6 +2002,9 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 		case OptChainToken:
 			if OpCall < prec {
 				return left
+			} else if precLeft < OpCall {
+				p.fail("expression")
+				return nil
 			}
 			p.next()
 			if p.tt == OpenParenToken {

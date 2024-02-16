@@ -590,6 +590,7 @@ func TestParseError(t *testing.T) {
 		{"function*a(){ (yield) => yield }", "unexpected => in expression"},
 		{"function*a(){ (yield=5) => yield }", "unexpected = in expression"},
 		{"function*a(){ (...yield) => yield }", "unexpected => in expression"},
+		{"function*a(){ yield yield\n?.() }", "unexpected ?. in expression"},
 		{"x = await\n=> a++", "unexpected => in expression"},
 		{"x=async (await,", "unexpected , in expression"},
 		{"async function a() { class a extends await", "unexpected await in expression"},
