@@ -55,13 +55,20 @@ func (ast AST) JSString() string {
 // JSON writes JSON to writer.
 func (ast AST) JSON(w io.Writer) error {
 	if 1 < len(ast.List) {
-		return ErrInvalidJSON
+		return fmt.Errorf("%v: JS must be a single statement", ErrInvalidJSON)
 	} else if len(ast.List) == 0 {
 		return nil
-	} else if expr, ok := ast.List[0].(*ExprStmt); !ok {
-		return ErrInvalidJSON
-	} else if val, ok := expr.Value.(JSONer); !ok {
-		return ErrInvalidJSON
+	}
+	exprStmt, ok := ast.List[0].(*ExprStmt)
+	if !ok {
+		return fmt.Errorf("%v: JS must be an expression statement", ErrInvalidJSON)
+	}
+	expr := exprStmt.Value
+	if group, ok := expr.(*GroupExpr); ok {
+		expr = group.X // allow parsing expr contained in group expr
+	}
+	if val, ok := expr.(JSONer); !ok {
+		return fmt.Errorf("%v: JS must be a valid JSON expression", ErrInvalidJSON)
 	} else {
 		return val.JSON(w)
 	}
@@ -430,8 +437,8 @@ func (n Comment) String() string {
 
 // JS writes JavaScript to writer.
 func (n Comment) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		wi.w.Write(n.Value)
+	if wi, ok := w.(parse.Indenter); ok {
+		wi.Writer.Write(n.Value)
 	} else {
 		w.Write(n.Value)
 	}
@@ -459,7 +466,7 @@ func (n BlockStmt) JS(w io.Writer) {
 	}
 
 	w.Write([]byte("{"))
-	wi := NewIndenter(w, 4)
+	wi := parse.NewIndenter(w, 4)
 	for _, item := range n.List {
 		wi.Write([]byte("\n"))
 		item.JS(wi)
@@ -715,7 +722,7 @@ func (n CaseClause) JS(w io.Writer) {
 		w.Write([]byte("default"))
 	}
 	w.Write([]byte(":"))
-	wi := NewIndenter(w, 4)
+	wi := parse.NewIndenter(w, 4)
 	for _, item := range n.List {
 		wi.Write([]byte("\n"))
 		item.JS(wi)
@@ -981,8 +988,8 @@ func (n ImportStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n ImportStmt) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	w.Write([]byte("import"))
 	if n.Default != nil {
@@ -1057,8 +1064,8 @@ func (n ExportStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n ExportStmt) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	w.Write([]byte("export"))
 	if n.Decl != nil {
@@ -1105,8 +1112,8 @@ func (n DirectivePrologueStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n DirectivePrologueStmt) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	w.Write(n.Value)
 	w.Write([]byte(";"))
@@ -1176,8 +1183,8 @@ func (n PropertyName) JS(w io.Writer) {
 		w.Write([]byte("]"))
 		return
 	}
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	w.Write(n.Literal.Data)
 }
@@ -1629,7 +1636,7 @@ func (n ClassDecl) JS(w io.Writer) {
 		return
 	}
 	w.Write([]byte(" {"))
-	wi := NewIndenter(w, 4)
+	wi := parse.NewIndenter(w, 4)
 	for _, item := range n.List {
 		wi.Write([]byte("\n"))
 		item.JS(wi)
@@ -1660,8 +1667,8 @@ func (n LiteralExpr) String() string {
 
 // JS writes JavaScript to writer.
 func (n LiteralExpr) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	w.Write(n.Data)
 }
@@ -1683,7 +1690,9 @@ func (n LiteralExpr) JSON(w io.Writer) error {
 		w.Write(data)
 		return nil
 	}
-	return ErrInvalidJSON
+	js := &strings.Builder{}
+	n.JS(js)
+	return fmt.Errorf("%v: literal expression is not valid JSON: %v", ErrInvalidJSON, js.String())
 }
 
 // Element is an array literal element.
@@ -1765,10 +1774,14 @@ func (n ArrayExpr) JSON(w io.Writer) error {
 			w.Write([]byte(", "))
 		}
 		if item.Value == nil || item.Spread {
-			return ErrInvalidJSON
+			js := &strings.Builder{}
+			n.JS(js)
+			return fmt.Errorf("%v: array literal is not valid JSON: %v", ErrInvalidJSON, js.String())
 		}
 		if val, ok := item.Value.(JSONer); !ok {
-			return ErrInvalidJSON
+			js := &strings.Builder{}
+			item.Value.JS(js)
+			return fmt.Errorf("%v: value is not valid JSON: %v", ErrInvalidJSON, js.String())
 		} else if err := val.JSON(w); err != nil {
 			return err
 		}
@@ -1822,19 +1835,27 @@ func (n Property) JS(w io.Writer) {
 
 // JSON writes JSON to writer.
 func (n Property) JSON(w io.Writer) error {
-	if n.Name == nil || n.Name.Literal.TokenType != StringToken && n.Name.Literal.TokenType != IdentifierToken || n.Spread || n.Init != nil {
-		return ErrInvalidJSON
-	} else if n.Name.Literal.TokenType == IdentifierToken {
+	if n.Name == nil || n.Spread || n.Init != nil {
+		js := &strings.Builder{}
+		n.JS(js)
+		return fmt.Errorf("%v: property is not valid JSON: %v", ErrInvalidJSON, js.String())
+	} else if n.Name.Literal.TokenType == StringToken {
+		_ = n.Name.Literal.JSON(w)
+	} else if n.Name.Literal.TokenType == IdentifierToken || n.Name.Literal.TokenType == IntegerToken || n.Name.Literal.TokenType == DecimalToken {
 		w.Write([]byte(`"`))
 		w.Write(n.Name.Literal.Data)
 		w.Write([]byte(`"`))
 	} else {
-		_ = n.Name.Literal.JSON(w)
+		js := &strings.Builder{}
+		n.JS(js)
+		return fmt.Errorf("%v: property is not valid JSON: %v", ErrInvalidJSON, js.String())
 	}
 	w.Write([]byte(": "))
 
 	if val, ok := n.Value.(JSONer); !ok {
-		return ErrInvalidJSON
+		js := &strings.Builder{}
+		n.Value.JS(js)
+		return fmt.Errorf("%v: value is not valid JSON: %v", ErrInvalidJSON, js.String())
 	} else if err := val.JSON(w); err != nil {
 		return err
 	}
@@ -1925,8 +1946,8 @@ func (n TemplateExpr) String() string {
 
 // JS writes JavaScript to writer.
 func (n TemplateExpr) JS(w io.Writer) {
-	if wi, ok := w.(Indenter); ok {
-		w = wi.w
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
 	}
 	if n.Tag != nil {
 		n.Tag.JS(w)
@@ -1938,6 +1959,27 @@ func (n TemplateExpr) JS(w io.Writer) {
 		item.JS(w)
 	}
 	w.Write(n.Tail)
+}
+
+// JSON writes JSON to writer.
+func (n TemplateExpr) JSON(w io.Writer) error {
+	if n.Tag != nil || len(n.List) != 0 {
+		js := &strings.Builder{}
+		n.JS(js)
+		return fmt.Errorf("%v: value is not valid JSON: %v", ErrInvalidJSON, js.String())
+	}
+
+	// allow template literal string to be converted to normal string (to allow for minified JS)
+	data := parse.Copy(n.Tail)
+	data = bytes.ReplaceAll(data, []byte("\n"), []byte("\\n"))
+	data = bytes.ReplaceAll(data, []byte("\r"), []byte("\\r"))
+	data = bytes.ReplaceAll(data, []byte("\\`"), []byte("`"))
+	data = bytes.ReplaceAll(data, []byte("\\$"), []byte("$"))
+	data = bytes.ReplaceAll(data, []byte(`"`), []byte(`\"`))
+	data[0] = '"'
+	data[len(data)-1] = '"'
+	w.Write(data)
+	return nil
 }
 
 // GroupExpr is a parenthesized expression.
@@ -2177,8 +2219,17 @@ func (n UnaryExpr) JSON(w io.Writer) error {
 		w.Write([]byte("-"))
 		w.Write(lit.Data)
 		return nil
+	} else if n.Op == NotToken && lit.TokenType == IntegerToken && (lit.Data[0] == '0' || lit.Data[0] == '1') {
+		if lit.Data[0] == '0' {
+			w.Write([]byte("true"))
+		} else {
+			w.Write([]byte("false"))
+		}
+		return nil
 	}
-	return ErrInvalidJSON
+	js := &strings.Builder{}
+	n.JS(js)
+	return fmt.Errorf("%v: unary expression is not valid JSON: %v", ErrInvalidJSON, js.String())
 }
 
 // BinaryExpr is a binary expression.
