@@ -80,6 +80,7 @@ func (l *Lexer) RegExp() (TokenType, []byte) {
 
 // Next returns the next Token. It returns ErrorToken when an error was encountered. Using Err() one can retrieve the error message.
 func (l *Lexer) Next() (TokenType, []byte) {
+	l.err = nil // clear error from previous ErrorToken
 	prevLineTerminator := l.prevLineTerminator
 	l.prevLineTerminator = false
 
