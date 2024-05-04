@@ -164,7 +164,7 @@ type BinaryWriter struct {
 
 // NewBinaryWriter returns a big endian binary file format writer.
 func NewBinaryWriter(buf []byte) *BinaryWriter {
-	return &BinaryWriter{buf[:0]}
+	return &BinaryWriter{buf}
 }
 
 // Len returns the buffer's length in bytes.
