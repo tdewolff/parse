@@ -275,6 +275,16 @@ func TestLexerErrors(t *testing.T) {
 	l.Next()
 	l.RegExp()
 	test.T(t, l.Err().(*parse.Error).Message, "unexpected EOF or newline")
+
+	// see #118
+	l = NewLexer(parse.NewInputString("\uFFFDa"))
+	tt, data := l.Next()
+	test.T(t, tt, ErrorToken)
+	test.T(t, string(data), "�")
+	test.T(t, l.Err().(*parse.Error).Message, "unexpected �")
+	tt, data = l.Next()
+	test.T(t, tt, IdentifierToken)
+	test.T(t, string(data), "a")
 }
 
 ////////////////////////////////////////////////////////////////

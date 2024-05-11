@@ -221,6 +221,7 @@ func (l *Lexer) Next() (TokenType, []byte) {
 
 	r, _ := l.r.PeekRune(0)
 	l.err = parse.NewErrorLexer(l.r, "unexpected %s", parse.Printable(r))
+	l.r.MoveRune() // allow to continue after error
 	return ErrorToken, l.r.Shift()
 }
 
