@@ -724,7 +724,8 @@ func TestParseError(t *testing.T) {
 		{"\u2010", "unexpected \u2010"},
 		{"a=\u2010", "unexpected \u2010 in expression"},
 		{"/", "unexpected EOF or newline in regular expression"},
-		{"({...[]})=>a", "unexpected => in expression"}, // go-fuzz
+		{"({...[]})=>a", "unexpected => in expression"},                   // go-fuzz
+		{`for(;;)let[a]`, `unexpected let [ in single-statement context`}, // go-fuzz
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

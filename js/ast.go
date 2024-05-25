@@ -504,7 +504,18 @@ func (n ExprStmt) String() string {
 
 // JS writes JavaScript to writer.
 func (n ExprStmt) JS(w io.Writer) {
-	n.Value.JS(w)
+	buf := &bytes.Buffer{}
+	n.Value.JS(buf)
+	expr := buf.Bytes()
+
+	group := bytes.HasPrefix(expr, []byte("let "))
+	if group {
+		w.Write([]byte("("))
+	}
+	w.Write(expr)
+	if group {
+		w.Write([]byte(")"))
+	}
 	w.Write([]byte(";"))
 }
 

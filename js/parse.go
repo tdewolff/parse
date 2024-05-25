@@ -259,6 +259,9 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 				p.fail("let declaration")
 				return
 			}
+		} else if p.tt == OpenBracketToken {
+			p.failMessage("unexpected let [ in single-statement context")
+			return
 		} else {
 			// expression
 			stmt = &ExprStmt{p.parseIdentifierExpression(OpExpr, let)}
