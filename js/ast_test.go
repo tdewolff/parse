@@ -126,6 +126,7 @@ func TestJS(t *testing.T) {
 		{"//!\nn=>{ return n }", "//! (n) => { return n; };"}, // space after //! is newline
 		{"//!\n{//!\n}", "//! { //! }"},                       // space after //! is newline
 		{`for(;;)let = 5`, `for ( ; ; ) { (let = 5); }`},
+		{"{`\n`}", "{ ` `; }"}, // space in template literal is newline
 	}
 
 	re := regexp.MustCompile("\n *")

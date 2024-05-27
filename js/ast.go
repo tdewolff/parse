@@ -505,7 +505,14 @@ func (n ExprStmt) String() string {
 // JS writes JavaScript to writer.
 func (n ExprStmt) JS(w io.Writer) {
 	buf := &bytes.Buffer{}
-	n.Value.JS(buf)
+	wb := io.Writer(buf)
+	if wi, ok := w.(parse.Indenter); ok {
+		// make sure that buf is indenter if w is so as well
+		// this is to prevent newlines in literals from indenting
+		wb = parse.NewIndenter(wb, wi.Indent())
+		w = wi.Writer
+	}
+	n.Value.JS(wb)
 	expr := buf.Bytes()
 
 	group := bytes.HasPrefix(expr, []byte("let "))
@@ -1686,6 +1693,9 @@ func (n LiteralExpr) JS(w io.Writer) {
 
 // JSON writes JSON to writer.
 func (n LiteralExpr) JSON(w io.Writer) error {
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
+	}
 	if n.TokenType == TrueToken || n.TokenType == FalseToken || n.TokenType == NullToken || n.TokenType == DecimalToken || n.TokenType == IntegerToken {
 		w.Write(n.Data)
 		return nil
@@ -1974,6 +1984,9 @@ func (n TemplateExpr) JS(w io.Writer) {
 
 // JSON writes JSON to writer.
 func (n TemplateExpr) JSON(w io.Writer) error {
+	if wi, ok := w.(parse.Indenter); ok {
+		w = wi.Writer
+	}
 	if n.Tag != nil || len(n.List) != 0 {
 		js := &strings.Builder{}
 		n.JS(js)
