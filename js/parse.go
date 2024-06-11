@@ -523,13 +523,13 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 		}
 		stmt = p.parseFuncDecl()
 	case AsyncToken: // async function
-		if !allowDeclaration {
-			p.fail("statement")
-			return
-		}
 		async := p.data
 		p.next()
 		if p.tt == FunctionToken && !p.prevLT {
+			if !allowDeclaration {
+				p.fail("statement")
+				return
+			}
 			stmt = p.parseAsyncFuncDecl()
 		} else {
 			// expression

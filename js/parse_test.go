@@ -165,6 +165,8 @@ func TestParse(t *testing.T) {
 		{"async();", "Stmt(async())"},
 		{"async(a=6, ...b)", "Stmt(async((a=6), ...b))"},
 		{"async(function(){})", "Stmt(async(Decl(function Params() Stmt({ }))))"},
+		{"async.value", "Stmt(async.value)"},
+		{"if(a)async.value", "Stmt(if a Stmt(async.value))"},
 		{"function a(){ async\nawait => b }", "Decl(function a Params() Stmt({ Stmt(async) Stmt(Params(Binding(await)) => Stmt({ Stmt(return b) })) }))"},
 		{"a + async\nb", "Stmt(a+async) Stmt(b)"},
 		{"a + async\nfunction f(){}", "Stmt(a+async) Decl(function f Params() Stmt({ }))"},
@@ -579,7 +581,7 @@ func TestParseError(t *testing.T) {
 
 		// no declarations
 		{"if(a) function f(){}", "unexpected function in statement"},
-		{"if(a) async function f(){}", "unexpected async in statement"},
+		{"if(a) async function f(){}", "unexpected function in statement"},
 		{"if(a) class c{}", "unexpected class in statement"},
 
 		// yield, async, await
