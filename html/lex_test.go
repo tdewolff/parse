@@ -65,7 +65,7 @@ func TestTokens(t *testing.T) {
 		// NULL
 		{"foo\x00bar", TTs{TextToken}},
 		{"<\x00foo>", TTs{TextToken}},
-		{"<foo\x00>", TTs{StartTagToken, AttributeToken, StartTagCloseToken}},
+		{"<foo\x00>", TTs{StartTagToken, StartTagCloseToken}},
 		{"</\x00bogus>", TTs{CommentToken}},
 		{"</foo\x00>", TTs{EndTagToken}},
 		{"<plaintext>\x00</plaintext>", TTs{StartTagToken, StartTagCloseToken, TextToken}},
@@ -110,8 +110,8 @@ func TestTags(t *testing.T) {
 		html     string
 		expected string
 	}{
-		//{"<foo:bar.qux-norf/>", "foo:bar.qux-norf"},
-		//{"<foo?bar/qux>", "foo?bar/qux"},
+		{"<foo:bar.qux-norf/>", "foo:bar.qux-norf"}, // invalid but added for leniency with XHTML
+		{"<foo?bar/qux>", "foo?bar/qux"},            // invalid but added for leniency with XHTML
 		{"<!DOCTYPE note SYSTEM \"Note.dtd\">", " note SYSTEM \"Note.dtd\""},
 		{"</foo >", "foo"},
 
@@ -193,6 +193,7 @@ func TestTemplates(t *testing.T) {
 		{"<input {{if eq .Type 0}} selected {{end}}>", []bool{true, false, true}},
 		{"{{", []bool{true}},
 		{"{{'", []bool{true}},
+		{"<tag{{.Attr}}>", []bool{true}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {
