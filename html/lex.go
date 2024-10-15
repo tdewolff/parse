@@ -362,7 +362,7 @@ func (l *Lexer) shiftBogusComment() []byte {
 
 func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 	for {
-		if c := l.r.Peek(0); (c < 'a' || 'z' < c) && (c < 'A' || 'Z' < c) && (c < '0' || '9' < c) && c != '-' {
+		if c := l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z' || '0' <= c && c <= '9' || c == '-') {
 			break
 		}
 		l.r.Move(1)
