@@ -243,6 +243,10 @@ func TestReplaceMultipleWhitespaceAndEntities(t *testing.T) {
 		entity   string
 		expected string
 	}{
+		{"  ", " "},
+		{" & a   ", " & a "},
+		{" &acute a   ", " &acute a "},
+		{"\n    Lorem & ipsum\n    dolor sid amet\n", "\nLorem & ipsum\ndolor sid amet\n"},
 		{"  &varphi;  &#34; \n ", " &phiv; \"\n"},
 	}
 	for _, tt := range entityTests {
