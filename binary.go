@@ -386,8 +386,8 @@ type binaryReaderBytes struct {
 	data []byte
 }
 
-func newBinaryReaderBytes(data []byte) (*binaryReaderBytes, error) {
-	return &binaryReaderBytes{data}, nil
+func newBinaryReaderBytes(data []byte) *binaryReaderBytes {
+	return &binaryReaderBytes{data}
 }
 
 // Close closes the reader.
@@ -414,10 +414,10 @@ type binaryReaderReader struct {
 	seeker   bool
 }
 
-func newBinaryReaderReader(r io.Reader, n int64) (*binaryReaderReader, error) {
+func newBinaryReaderReader(r io.Reader, n int64) *binaryReaderReader {
 	_, readerAt := r.(io.ReaderAt)
 	_, seeker := r.(io.Seeker)
-	return &binaryReaderReader{r, n, readerAt, seeker}, nil
+	return &binaryReaderReader{r, n, readerAt, seeker}
 }
 
 // Close closes the reader.
@@ -482,24 +482,20 @@ func NewBinaryReader2Reader(r io.Reader, n int64) (*BinaryReader2, error) {
 
 	var f IBinaryReader
 	if isReaderAt || isSeeker {
-		var err error
-		f, err = newBinaryReaderReader(r, n)
-		if err != nil {
-			return nil, err
-		}
+		f = newBinaryReaderReader(r, n)
 	} else {
 		b := make([]byte, n)
 		if _, err := io.ReadFull(r, b); err != nil {
 			return nil, err
 		}
-		f, _ = newBinaryReaderBytes(b)
+		f = newBinaryReaderBytes(b)
 	}
 	return NewBinaryReader2(f), nil
 }
 
-func NewBinaryReader2Bytes(data []byte) (*BinaryReader2, error) {
-	f, _ := newBinaryReaderBytes(data)
-	return NewBinaryReader2(f), nil
+func NewBinaryReader2Bytes(data []byte) *BinaryReader2 {
+	f := newBinaryReaderBytes(data)
+	return NewBinaryReader2(f)
 }
 
 func NewBinaryReader2File(filename string) (*BinaryReader2, error) {
@@ -641,12 +637,16 @@ func (r *BinaryReader2) ReadInt64() int64 {
 
 // BinaryWriter is a big endian binary file format writer.
 type BinaryWriter struct {
-	buf []byte
+	buf    []byte
+	Endian binary.ByteOrder
 }
 
 // NewBinaryWriter returns a big endian binary file format writer.
 func NewBinaryWriter(buf []byte) *BinaryWriter {
-	return &BinaryWriter{buf}
+	return &BinaryWriter{
+		buf:    buf,
+		Endian: binary.BigEndian,
+	}
 }
 
 // Len returns the buffer's length in bytes.
@@ -689,21 +689,21 @@ func (w *BinaryWriter) WriteUint8(v uint8) {
 func (w *BinaryWriter) WriteUint16(v uint16) {
 	pos := len(w.buf)
 	w.buf = append(w.buf, make([]byte, 2)...)
-	binary.BigEndian.PutUint16(w.buf[pos:], v)
+	w.Endian.PutUint16(w.buf[pos:], v)
 }
 
 // WriteUint32 writes the given uint32 to the buffer.
 func (w *BinaryWriter) WriteUint32(v uint32) {
 	pos := len(w.buf)
 	w.buf = append(w.buf, make([]byte, 4)...)
-	binary.BigEndian.PutUint32(w.buf[pos:], v)
+	w.Endian.PutUint32(w.buf[pos:], v)
 }
 
 // WriteUint64 writes the given uint64 to the buffer.
 func (w *BinaryWriter) WriteUint64(v uint64) {
 	pos := len(w.buf)
 	w.buf = append(w.buf, make([]byte, 8)...)
-	binary.BigEndian.PutUint64(w.buf[pos:], v)
+	w.Endian.PutUint64(w.buf[pos:], v)
 }
 
 // WriteInt8 writes the given int8 to the buffer.
