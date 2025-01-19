@@ -10,6 +10,9 @@ import (
 	"github.com/tdewolff/parse/v2/buffer"
 )
 
+var NestedStmtLimit = 1000
+var NestedExprLimit = 1000
+
 type Options struct {
 	WhileToFor bool
 	Inline     bool
@@ -223,7 +226,7 @@ func (p *Parser) parseModule() (module BlockStmt) {
 
 func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 	p.stmtLevel++
-	if 1000 < p.stmtLevel {
+	if NestedStmtLimit < p.stmtLevel {
 		p.failMessage("too many nested statements")
 		return nil
 	}
@@ -1613,7 +1616,7 @@ func (p *Parser) parseAsyncExpression(prec OpPrec, async []byte) IExpr {
 // parseExpression parses an expression that has a precedence of prec or higher.
 func (p *Parser) parseExpression(prec OpPrec) IExpr {
 	p.exprLevel++
-	if 1000 < p.exprLevel {
+	if NestedExprLimit < p.exprLevel {
 		p.failMessage("too many nested expressions")
 		return nil
 	}
