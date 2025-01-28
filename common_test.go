@@ -108,6 +108,7 @@ func TestParseDataURI(t *testing.T) {
 		{"data:;base64,()", "", "", base64.CorruptInputError(0)},
 		{"data:image/svg+xml,%3Cpath%20stroke-width='9.38%'/%3E", "image/svg+xml", "<path stroke-width='9.38%'/>", nil},
 		{"data:,%ii", "text/plain", "%ii", nil},
+		{"data:image/svg&#43;xml,%e2%ad%90", "image/svg&#43;xml", "\u2b50", nil},
 	}
 	for _, tt := range dataURITests {
 		t.Run(tt.dataURI, func(t *testing.T) {
@@ -283,7 +284,7 @@ func TestDecodeURL(t *testing.T) {
 		expected string
 	}{
 		{"%20%3F%7E", " ?~"},
-		{"%80", "%80"},
+		{"%80", "\x80"},
 		{"%2B%2b", "++"},
 		{"%' ", "%' "},
 		{"a+b", "a b"},
