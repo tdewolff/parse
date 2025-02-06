@@ -55,6 +55,11 @@ func (r *BinaryReader) Len() uint32 {
 	return uint32(len(r.buf)) - r.pos
 }
 
+// SetLen sets the remaining length of the underlying buffer.
+func (r *BinaryReader) SetLen(n uint32) {
+	r.buf = r.buf[: r.pos+n : r.pos+n]
+}
+
 // EOF returns true if we reached the end-of-file.
 func (r *BinaryReader) EOF() bool {
 	return r.eof
@@ -110,6 +115,18 @@ func (r *BinaryReader) ReadUint16() uint16 {
 	return r.Endianness.Uint16(b)
 }
 
+// ReadUint24 reads a uint24 into a uint32.
+func (r *BinaryReader) ReadUint24() uint32 {
+	b := r.ReadBytes(3)
+	if b == nil {
+		return 0
+	} else if r.Endianness == binary.LittleEndian {
+		return uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16
+	} else {
+		return uint32(b[2]) | uint32(b[1])<<8 | uint32(b[0])<<16
+	}
+}
+
 // ReadUint32 reads a uint32.
 func (r *BinaryReader) ReadUint32() uint32 {
 	b := r.ReadBytes(4)
@@ -128,22 +145,27 @@ func (r *BinaryReader) ReadUint64() uint64 {
 	return r.Endianness.Uint64(b)
 }
 
-// ReadInt8 reads a int8.
+// ReadInt8 reads an int8.
 func (r *BinaryReader) ReadInt8() int8 {
 	return int8(r.ReadByte())
 }
 
-// ReadInt16 reads a int16.
+// ReadInt16 reads an int16.
 func (r *BinaryReader) ReadInt16() int16 {
 	return int16(r.ReadUint16())
 }
 
-// ReadInt32 reads a int32.
+// ReadInt24 reads a int24 into an int32.
+func (r *BinaryReader) ReadInt24() int32 {
+	return int32(r.ReadUint24())
+}
+
+// ReadInt32 reads an int32.
 func (r *BinaryReader) ReadInt32() int32 {
 	return int32(r.ReadUint32())
 }
 
-// ReadInt64 reads a int64.
+// ReadInt64 reads an int64.
 func (r *BinaryReader) ReadInt64() int64 {
 	return int64(r.ReadUint64())
 }
