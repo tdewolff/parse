@@ -12,7 +12,7 @@ func TestParseDecimal(t *testing.T) {
 		f        string
 		expected float64
 	}{
-		{"5", 5},
+		{"5", 5.0},
 		{"5.1", 5.1},
 		{"0.0000000000000000000000000005", 5e-28},
 		{"18446744073709551620", 18446744073709551620.0},
@@ -34,10 +34,10 @@ func TestParseDecimalError(t *testing.T) {
 		n        int
 		expected float64
 	}{
-		{"+1", 0, 0},
-		{"-1", 0, 0},
-		{".", 0, 0},
-		{"1e1", 1, 1},
+		{"+1", 0, 0.0},
+		{"-1", 2, -1.0},
+		{".", 0, 0.0},
+		{"1e1", 1, 1.0},
 	}
 	for _, tt := range tests {
 		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
