@@ -48,6 +48,33 @@ func TestParseDecimalError(t *testing.T) {
 	}
 }
 
+func TestAppendDecimal(t *testing.T) {
+	tests := []struct {
+		f        float64
+		n        int
+		expected string
+	}{
+		{0.0, 0, "0"},
+		{1.0, 2, "1"},
+		{-1.0, 2, "-1"},
+		{1.2, 2, "1.2"},
+		{1.23, 2, "1.23"},
+		{1.234, 2, "1.23"},
+		{1.235, 2, "1.24"},
+		{0.1, 2, "0.1"},
+		{0.01, 2, "0.01"},
+		{0.001, 2, "0"},
+		{0.005, 2, "0.01"},
+		{-75.8077501, 6, "-75.80775"},
+	}
+	for _, tt := range tests {
+		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
+			b := AppendDecimal(nil, tt.f, tt.n)
+			test.T(t, string(b), tt.expected)
+		})
+	}
+}
+
 func FuzzParseDecimal(f *testing.F) {
 	f.Add("5")
 	f.Add("5.1")

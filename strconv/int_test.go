@@ -53,6 +53,28 @@ func TestParseIntError(t *testing.T) {
 	}
 }
 
+func TestAppendInt(t *testing.T) {
+	intTests := []struct {
+		i        int64
+		expected string
+	}{
+		{0, "0"},
+		{5, "5"},
+		{99, "99"},
+		{999, "999"},
+		{-5, "-5"},
+		{9223372036854775807, "9223372036854775807"},
+		{-9223372036854775807, "-9223372036854775807"},
+		{-9223372036854775808, "-9223372036854775808"},
+	}
+	for _, tt := range intTests {
+		t.Run(fmt.Sprint(tt.i), func(t *testing.T) {
+			b := AppendInt(nil, tt.i)
+			test.T(t, string(b), tt.expected)
+		})
+	}
+}
+
 func FuzzParseInt(f *testing.F) {
 	f.Add("5")
 	f.Add("-99")
@@ -120,7 +142,7 @@ func TestLenInt(t *testing.T) {
 		{10, 2},
 		{99, 2},
 		{9223372036854775807, 19},
-		{-9223372036854775808, 19},
+		{-9223372036854775808, 20},
 
 		// coverage
 		{100, 3},
