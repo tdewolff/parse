@@ -344,6 +344,24 @@ func TestEncodeURLRandom(t *testing.T) {
 	}
 }
 
+func TestAppendEscape(t *testing.T) {
+	var tests = []struct {
+		s        string
+		expected string
+	}{
+		{`foobar`, `foobar`},
+		{`foo\bar`, `foo\\bar`},
+		{`"foobar"`, `\"foobar\"`},
+		{`\"\\"`, `\\\"\\\\\"`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.s, func(t *testing.T) {
+			b := AppendEscape([]byte(nil), []byte(tt.s), []byte{'"'}, '\\')
+			test.T(t, string(b), tt.expected)
+		})
+	}
+}
+
 ////////////////////////////////////////////////////////////////
 
 func BenchmarkParseMediatypeStd(b *testing.B) {
