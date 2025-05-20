@@ -205,12 +205,22 @@ func (p *Parser) parseModule() (module BlockStmt) {
 				// could be an import call expression
 				left := &LiteralExpr{ImportToken, []byte("import")}
 				p.exprLevel++
-				suffix := p.parseExpressionSuffix(left, OpExpr, OpCall)
+				expr := p.parseExpressionSuffix(left, OpExpr, OpCall)
 				p.exprLevel--
-				module.List = append(module.List, &ExprStmt{suffix})
+				module.List = append(module.List, &ExprStmt{expr})
 				if !p.prevLT && p.tt == SemicolonToken {
 					p.next()
 				}
+			} else if p.tt == DotToken {
+				p.next()
+				if !p.consume("import.meta expression", MetaToken) {
+					return module
+				}
+				left := &ImportMetaExpr{}
+				p.exprLevel++
+				expr := p.parseExpressionSuffix(left, OpExpr, OpMember)
+				p.exprLevel--
+				module.List = append(module.List, &ExprStmt{expr})
 			} else {
 				importStmt := p.parseImportStmt()
 				module.List = append(module.List, &importStmt)
@@ -696,7 +706,7 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 				p.fail("import statement", IdentifierToken)
 				return
 			}
-			importStmt.List = []Alias{Alias{star, p.data}}
+			importStmt.List = []Alias{{star, p.data}}
 			p.next()
 		} else if expectClause && p.tt == OpenBraceToken {
 			p.next()
@@ -769,10 +779,10 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 					p.fail("export statement", IdentifierToken, StringToken)
 					return
 				}
-				exportStmt.List = []Alias{Alias{star, p.data}}
+				exportStmt.List = []Alias{{star, p.data}}
 				p.next()
 			} else {
-				exportStmt.List = []Alias{Alias{nil, star}}
+				exportStmt.List = []Alias{{nil, star}}
 			}
 			if p.tt != FromToken {
 				p.fail("export statement", FromToken)
