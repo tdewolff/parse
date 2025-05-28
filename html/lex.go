@@ -51,6 +51,8 @@ func (tt TokenType) String() string {
 		return "Svg"
 	case MathToken:
 		return "Math"
+	case TemplateToken:
+		return "Template"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }

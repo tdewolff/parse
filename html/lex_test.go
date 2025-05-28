@@ -82,7 +82,6 @@ func TestTokens(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {
 			l := NewLexer(parse.NewInputString(tt.html))
-			i := 0
 			tokens := []TokenType{}
 			for {
 				token, _ := l.Next()
@@ -91,7 +90,6 @@ func TestTokens(t *testing.T) {
 					break
 				}
 				tokens = append(tokens, token)
-				i++
 			}
 			test.T(t, tokens, tt.expected, "token types must match")
 		})
@@ -182,33 +180,36 @@ func TestAttributes(t *testing.T) {
 
 func TestTemplates(t *testing.T) {
 	var tests = []struct {
-		html string
-		tmpl []bool
+		html     string
+		expected []TokenType
+		tmpls    []bool
 	}{
-		{"<p>{{.}}</p>", []bool{true}},
-		{"<p> {{.}} </p>", []bool{true}},
-		{"<input type='{{.}}'/>", []bool{true}},
-		{"<input type={{.}} />", []bool{true}},
-		{"<input {{if eq .Type 0}}selected{{end}}>", []bool{true}},
-		{"<input {{if eq .Type 0}} selected {{end}}>", []bool{true, false, true}},
-		{"{{", []bool{true}},
-		{"{{'", []bool{true}},
-		{"<tag{{.Attr}}>", []bool{true}},
+		{"<p>{{.}}</p>", TTs{StartTagToken, StartTagCloseToken, TemplateToken, EndTagToken}, []bool{false, false, true, false}},
+		{"<p> {{.}} </p>", TTs{StartTagToken, StartTagCloseToken, TextToken, TemplateToken, TextToken, EndTagToken}, []bool{false, false, false, true, false, false}},
+		{"<input type='{{.}}'/>", TTs{StartTagToken, AttributeToken, StartTagVoidToken}, []bool{false, true, false}},
+		{"<input type={{.}} />", TTs{StartTagToken, AttributeToken, StartTagVoidToken}, []bool{false, true, false}},
+		{"<input {{if eq .Type 0}}selected{{end}}>", TTs{StartTagToken, AttributeToken, StartTagCloseToken}, []bool{false, true, false}},
+		{"<input {{if eq .Type 0}} selected {{end}}>", TTs{StartTagToken, AttributeToken, AttributeToken, AttributeToken, StartTagCloseToken}, []bool{false, true, false, true, false}},
+		{"{{", TTs{TemplateToken}, []bool{true}},
+		{"{{'", TTs{TemplateToken}, []bool{true}},
+		{"<tag{{.Attr}}>", TTs{StartTagToken, AttributeToken, StartTagCloseToken}, []bool{false, true, false}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {
 			l := NewTemplateLexer(parse.NewInputString(tt.html), GoTemplate)
-			tmpl := []bool{}
+			tmpls := []bool{}
+			tokens := []TokenType{}
 			for {
 				token, _ := l.Next()
 				if token == ErrorToken {
 					test.T(t, l.Err(), io.EOF)
 					break
-				} else if token == TextToken || token == AttributeToken {
-					tmpl = append(tmpl, l.HasTemplate())
 				}
+				tokens = append(tokens, token)
+				tmpls = append(tmpls, l.HasTemplate())
 			}
-			test.T(t, tmpl, tt.tmpl, "HasTemplate must match")
+			test.T(t, tokens, tt.expected, "token types must match")
+			test.T(t, tmpls, tt.tmpls, "HasTemplates must match")
 		})
 	}
 }
