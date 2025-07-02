@@ -140,6 +140,13 @@ type Lexer struct {
 	r *parse.Input
 }
 
+func CloneLexer(l *Lexer) *Lexer {
+	rr := parse.CloneInput(l.r)
+	return &Lexer{
+		r: rr,
+	}
+}
+
 // NewLexer returns a new Lexer for a given io.Reader.
 func NewLexer(r *parse.Input) *Lexer {
 	return &Lexer{

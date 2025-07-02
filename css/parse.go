@@ -27,6 +27,8 @@ const (
 	BeginRulesetGrammar
 	EndRulesetGrammar
 	DeclarationGrammar
+	BeginNestedRuleGrammar
+	EndNestedRuleGrammar
 	TokenGrammar
 	CustomPropertyGrammar
 )
@@ -56,8 +58,18 @@ func (tt GrammarType) String() string {
 		return "Token"
 	case CustomPropertyGrammar:
 		return "CustomProperty"
+	case BeginNestedRuleGrammar:
+		return "BeginNestedRule"
+	case EndNestedRuleGrammar:
+		return "EndNestedRule"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
+}
+
+////////////////////////////////////////////////////////////////
+
+func isCombinator(data byte) bool {
+	return data == ',' || data == '/' || data == ':' || data == '!' || data == '='
 }
 
 ////////////////////////////////////////////////////////////////
@@ -147,6 +159,22 @@ func (p *Parser) Values() []Token {
 	return p.buf
 }
 
+func (p *Parser) CloneParser() *Parser {
+	return &Parser{
+		l:           CloneLexer(p.l),
+		state:       append([]State{}, p.state...),
+		err:         p.err,
+		buf:         append([]Token{}, p.buf...),
+		data:        append([]byte{}, p.data...),
+		tt:          p.tt,
+		keepWS:      p.keepWS,
+		prevWS:      p.prevWS,
+		prevEnd:     p.prevEnd,
+		prevComment: p.prevComment,
+		level:       p.level,
+	}
+}
+
 func (p *Parser) popToken(allowComment bool) (TokenType, []byte) {
 	p.prevWS = false
 	p.prevComment = false
@@ -207,10 +235,39 @@ func (p *Parser) parseDeclarationList() GrammarType {
 		return ErrorGrammar
 	} else if p.tt == AtKeywordToken {
 		return p.parseAtRule()
-	} else if p.tt == IdentToken || p.tt == DelimToken {
-		return p.parseDeclaration()
 	} else if p.tt == CustomPropertyNameToken {
 		return p.parseCustomProperty()
+	}
+
+	pp := p.CloneParser()
+	// peek until we find a colon or semicolon or data length is 1 and is a combinator ->
+	// not a child rule, but a declaration
+	isDeclaration := false
+	for {
+		if pp.tt == SemicolonToken || pp.tt == RightBraceToken {
+			isDeclaration = true
+			break
+		} else if pp.tt == LeftBraceToken {
+			isDeclaration = false
+			break
+		}
+		if len(pp.data) == 1 {
+			if pp.data[0] == '&' {
+				isDeclaration = false
+				break
+			}
+			if isCombinator(pp.data[0]) {
+				isDeclaration = true
+				break
+			}
+		}
+		pp.tt, pp.data = pp.popToken(false)
+	}
+
+	if isDeclaration && (p.tt == IdentToken || p.tt == DelimToken) {
+		return p.parseDeclaration()
+	} else {
+		return p.parseQualifiedRule()
 	}
 
 	// parse error
@@ -426,7 +483,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 			}
 			p.level--
 		}
-		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+		if len(data) == 1 && isCombinator(data[0]) {
 			skipWS = true
 		} else if (p.prevWS || p.prevComment) && !skipWS {
 			p.pushBuf(WhitespaceToken, wsBytes)
