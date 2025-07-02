@@ -264,10 +264,10 @@ func (p *Parser) parseDeclarationList() GrammarType {
 		pp.tt, pp.data = pp.popToken(false)
 	}
 
-	if isDeclaration && (p.tt == IdentToken || p.tt == DelimToken) {
-		return p.parseDeclaration()
-	} else {
+	if !isDeclaration {
 		return p.parseQualifiedRule()
+	} else if p.tt == IdentToken || p.tt == DelimToken {
+		return p.parseDeclaration()
 	}
 
 	// parse error
