@@ -39,6 +39,8 @@ func TestParse(t *testing.T) {
 		{false, "@media { @viewport ; }", "@media{@viewport;}"},
 		{false, "@keyframes 'diagonal-slide' {  from { left: 0; top: 0; } to { left: 100px; top: 100px; } }", "@keyframes 'diagonal-slide'{from{left:0;top:0;}to{left:100px;top:100px;}}"},
 		{false, "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}", "@keyframes movingbox{0%{left:90%;}50%{left:10%;}100%{left:90%;}}"},
+		{false, "a { &:hover { color: #f4a; } }", "a{&:hover{color:#f4a;}}"},
+		{false, ".foo { .bar > &:hover span { backgroud: orange } ; }", ".foo{.bar>&:hover span{backgroud:orange;}}"},
 		{false, ".foo { color: #fff;}", ".foo{color:#fff;}"},
 		{false, ".foo { ; _color: #fff;}", ".foo{_color:#fff;}"},
 		{false, "a { color: red; border: 0; }", "a{color:red;border:0;}"},
@@ -81,7 +83,7 @@ func TestParse(t *testing.T) {
 		{false, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}"},
 		{false, "@media { @viewport }", "@media{@viewport;}"},
 		{false, "table { @unknown }", "table{@unknown;}"},
-		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(width:70%;})ERROR(b{width:60%;})}"},
+		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(width:70%;})b{width:60%;}}"},
 
 		// early endings
 		{false, "selector{", "selector{"},

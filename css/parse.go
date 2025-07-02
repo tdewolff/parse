@@ -27,8 +27,6 @@ const (
 	BeginRulesetGrammar
 	EndRulesetGrammar
 	DeclarationGrammar
-	BeginNestedRuleGrammar
-	EndNestedRuleGrammar
 	TokenGrammar
 	CustomPropertyGrammar
 )
@@ -58,10 +56,6 @@ func (tt GrammarType) String() string {
 		return "Token"
 	case CustomPropertyGrammar:
 		return "CustomProperty"
-	case BeginNestedRuleGrammar:
-		return "BeginNestedRule"
-	case EndNestedRuleGrammar:
-		return "EndNestedRule"
 	}
 	return "Invalid(" + strconv.Itoa(int(tt)) + ")"
 }
@@ -242,8 +236,8 @@ func (p *Parser) parseDeclarationList() GrammarType {
 	pp := p.CloneParser()
 	// peek until we find a colon or semicolon or data length is 1 and is a combinator ->
 	// not a child rule, but a declaration
-	isDeclaration := false
-	for {
+	isDeclaration := true
+	for pp.tt != ErrorToken {
 		if pp.tt == SemicolonToken || pp.tt == RightBraceToken {
 			isDeclaration = true
 			break
