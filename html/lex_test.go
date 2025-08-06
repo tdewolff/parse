@@ -42,10 +42,10 @@ func TestTokens(t *testing.T) {
 		{"<script><!--var x='<script></script>';--></script>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
 		{"<script><!--var x='<script>';--></script>", TTs{StartTagToken, StartTagCloseToken, TextToken, EndTagToken}},
 		{"<![CDATA[ test ]]>", TTs{TextToken}},
-		{"<svg>text</svg>", TTs{SvgToken}},
+		{"<svg>text</svg>", TTs{SVGToken}},
 		{"<math>text</math gibberish>", TTs{MathToken}},
-		{`<svg>text<x a="</svg>"></x></svg>`, TTs{SvgToken}},
-		{"<a><svg>text</svg></a>", TTs{StartTagToken, StartTagCloseToken, SvgToken, EndTagToken}},
+		{`<svg>text<x a="</svg>"></x></svg>`, TTs{SVGToken}},
+		{"<a><svg>text</svg></a>", TTs{StartTagToken, StartTagCloseToken, SVGToken, EndTagToken}},
 
 		// early endings
 		{"<!-- comment", TTs{CommentToken}},
