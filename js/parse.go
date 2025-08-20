@@ -993,10 +993,10 @@ func (p *Parser) parseFunc(async, expr bool) (funcDecl *FuncDecl) {
 	}
 	funcDecl.Params = p.parseFuncParams("function declaration")
 
-	prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
-	p.allowDirectivePrologue, p.exprLevel = true, 0
+	prevAllowDirectivePrologue := p.allowDirectivePrologue
+	p.allowDirectivePrologue = true
 	funcDecl.Body.List = p.parseStmtList("function declaration")
-	p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
+	p.allowDirectivePrologue = prevAllowDirectivePrologue
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1141,10 +1141,10 @@ func (p *Parser) parseClassElement() ClassElement {
 
 	method.Params = p.parseFuncParams("method definition")
 
-	prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
-	p.allowDirectivePrologue, p.exprLevel = true, 0
+	prevAllowDirectivePrologue := p.allowDirectivePrologue
+	p.allowDirectivePrologue = true
 	method.Body.List = p.parseStmtList("method function")
-	p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
+	p.allowDirectivePrologue = prevAllowDirectivePrologue
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1579,10 +1579,10 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 		prevIn, prevRetrn := p.in, p.retrn
 		p.in, p.retrn = true, true
 
-		prevAllowDirectivePrologue, prevExprLevel := p.allowDirectivePrologue, p.exprLevel
-		p.allowDirectivePrologue, p.exprLevel = true, 0
+		prevAllowDirectivePrologue := p.allowDirectivePrologue
+		p.allowDirectivePrologue = true
 		list = p.parseStmtList("arrow function")
-		p.allowDirectivePrologue, p.exprLevel = prevAllowDirectivePrologue, prevExprLevel
+		p.allowDirectivePrologue = prevAllowDirectivePrologue
 
 		p.in, p.retrn = prevIn, prevRetrn
 	} else {
