@@ -248,7 +248,7 @@ func (p *Parser) parseAtRule() GrammarType {
 		if tt == LeftBraceToken && p.level == 0 {
 			if atRule == Font_Face || atRule == Page {
 				p.state = append(p.state, (*Parser).parseAtRuleDeclarationList)
-			} else if atRule == Document || atRule == Keyframes || atRule == Media || atRule == Supports {
+			} else if atRule == Document || atRule == Keyframes || atRule == Layer || atRule == Media || atRule == Supports {
 				p.state = append(p.state, (*Parser).parseAtRuleRuleList)
 			} else {
 				p.state = append(p.state, (*Parser).parseAtRuleUnknown)
