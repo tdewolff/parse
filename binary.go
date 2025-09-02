@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sync"
 )
 
 const PageSize = 4096
@@ -45,14 +46,10 @@ func (r *binaryReaderFile) Len() int64 {
 }
 
 func (r *binaryReaderFile) Bytes(b []byte, n, off int64) ([]byte, error) {
-	if _, err := r.f.Seek(off, 0); err != nil {
-		return nil, err
-	} else if b == nil {
+	if b == nil {
 		b = make([]byte, n)
 	}
-
-	m, err := r.f.Read(b)
-	if err != nil {
+	if m, err := r.f.ReadAt(b, off); err != nil {
 		return nil, err
 	} else if int64(m) != n {
 		return nil, errors.New("file: could not read all bytes")
@@ -96,12 +93,13 @@ type binaryReaderReader struct {
 	size     int64
 	readerAt bool
 	seeker   bool
+	mu       sync.Mutex
 }
 
 func newBinaryReaderReader(r io.Reader, n int64) *binaryReaderReader {
 	_, readerAt := r.(io.ReaderAt)
 	_, seeker := r.(io.Seeker)
-	return &binaryReaderReader{r, n, readerAt, seeker}
+	return &binaryReaderReader{r, n, readerAt, seeker, sync.Mutex{}}
 }
 
 // Close closes the reader.
@@ -124,15 +122,18 @@ func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
 
 	// seeker seems faster than readerAt by 10%
 	if r.seeker {
+		r.mu.Lock()
 		if _, err := r.r.(io.Seeker).Seek(off, 0); err != nil {
+			r.mu.Unlock()
 			return nil, err
 		}
 
 		m, err := r.r.Read(b)
+		r.mu.Unlock()
 		if err != nil {
 			return nil, err
 		} else if int64(m) != n {
-			return nil, errors.New("file: could not read all bytes")
+			return nil, errors.New("reader: could not read all bytes")
 		}
 		return b, nil
 	} else if r.readerAt {
@@ -140,7 +141,7 @@ func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		} else if int64(m) != n {
-			return nil, errors.New("file: could not read all bytes")
+			return nil, errors.New("reader: could not read all bytes")
 		}
 		return b, nil
 	}
@@ -197,12 +198,8 @@ func (r *BinaryReader) IBinaryReader() IBinaryReader {
 }
 
 func (r *BinaryReader) Clone() *BinaryReader {
-	f := r.f
-	if cloner, ok := f.(interface{ Clone() IBinaryReader }); ok {
-		f = cloner.Clone()
-	}
 	return &BinaryReader{
-		f:         f,
+		f:         r.f,
 		pos:       r.pos,
 		err:       r.err,
 		ByteOrder: r.ByteOrder,
