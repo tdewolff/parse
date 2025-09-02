@@ -8,28 +8,33 @@ package css
 // Hash defines perfect hashes for a predefined list of strings
 type Hash uint32
 
-// Unique hash definitions to be used instead of strings
+// Identifiers for the hashes associated with the text in the comments.
 const (
 	Document  Hash = 0x8    // document
 	Font_Face Hash = 0x809  // font-face
 	Keyframes Hash = 0x1109 // keyframes
-	Media     Hash = 0x2105 // media
-	Page      Hash = 0x2604 // page
+	Layer     Hash = 0x2105 // layer
+	Media     Hash = 0x2605 // media
+	Page      Hash = 0x2b04 // page
 	Supports  Hash = 0x1908 // supports
 )
 
-// String returns the hash' name.
+// String returns the text associated with the hash.
 func (i Hash) String() string {
+	return string(i.Bytes())
+}
+
+// Bytes returns the text associated with the hash.
+func (i Hash) Bytes() []byte {
 	start := uint32(i >> 8)
 	n := uint32(i & 0xff)
 	if start+n > uint32(len(_Hash_text)) {
-		return ""
+		return []byte{}
 	}
 	return _Hash_text[start : start+n]
 }
 
-// ToHash returns the hash whose name is s. It returns zero if there is no
-// such hash. It is case sensitive.
+// ToHash returns a hash Hash for a given []byte. Hash is a uint32 that is associated with the text in []byte. It returns zero if no match found.
 func ToHash(s []byte) Hash {
 	if len(s) == 0 || len(s) > _Hash_maxLen {
 		return 0
@@ -61,15 +66,18 @@ NEXT:
 	return 0
 }
 
-const _Hash_hash0 = 0x9acb0442
+const _Hash_hash0 = 0x5aebcbca
 const _Hash_maxLen = 9
-const _Hash_text = "documentfont-facekeyframesupportsmediapage"
+
+var _Hash_text = []byte("" +
+	"documentfont-facekeyframesupportslayermediapage")
 
 var _Hash_table = [1 << 3]Hash{
-	0x1: 0x2604, // page
-	0x2: 0x2105, // media
+	0x0: 0x1109, // keyframes
+	0x1: 0x2b04, // page
+	0x2: 0x2605, // media
 	0x3: 0x809,  // font-face
-	0x5: 0x1109, // keyframes
+	0x4: 0x8,    // document
 	0x6: 0x1908, // supports
-	0x7: 0x8,    // document
+	0x7: 0x2105, // layer
 }
