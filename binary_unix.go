@@ -5,8 +5,8 @@ package parse
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"runtime"
 	"syscall"
 )
 
@@ -25,6 +25,8 @@ func newBinaryReaderMmap(filename string) (*binaryReaderMmap, error) {
 	info, err := f.Stat()
 	if err != nil {
 		return nil, err
+	} else if !info.Mode().IsRegular() {
+		return nil, fmt.Errorf("mmap: not a regular file: %v", filename)
 	}
 
 	size := info.Size()
@@ -48,7 +50,7 @@ func newBinaryReaderMmap(filename string) (*binaryReaderMmap, error) {
 		return nil, err
 	}
 	r := &binaryReaderMmap{data, size}
-	runtime.SetFinalizer(r, (*binaryReaderMmap).Close)
+	//runtime.SetFinalizer(r, (*binaryReaderMmap).Close)
 	return r, nil
 }
 
@@ -62,7 +64,7 @@ func (r *binaryReaderMmap) Close() error {
 	}
 	data := r.data
 	r.data = nil
-	runtime.SetFinalizer(r, nil)
+	//runtime.SetFinalizer(r, nil)
 	return syscall.Munmap(data)
 }
 
@@ -72,18 +74,24 @@ func (r *binaryReaderMmap) Len() int64 {
 }
 
 func (r *binaryReaderMmap) Bytes(b []byte, n, off int64) ([]byte, error) {
+	var err error
 	if r.data == nil {
 		return nil, errors.New("mmap: closed")
-	} else if off < 0 || n < 0 || int64(len(r.data)) < off || int64(len(r.data))-off < n {
+	} else if off < 0 || n < 0 {
 		return nil, fmt.Errorf("mmap: invalid range %d--%d", off, off+n)
+	} else if int64(len(r.data)) <= off {
+		return nil, io.EOF
+	} else if int64(len(r.data))-off <= n {
+		n = int64(len(r.data)) - off
+		err = io.EOF
 	}
 
 	data := r.data[off : off+n : off+n]
 	if b == nil {
-		return data, nil
+		return data, err
 	}
 	copy(b, data)
-	return b, nil
+	return b[:len(data)], err
 }
 
 func NewBinaryReaderMmap(filename string) (*BinaryReader, error) {
