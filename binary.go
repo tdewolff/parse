@@ -284,11 +284,8 @@ func (r *BinaryReader) ReadAt(b []byte, off int64) (int, error) {
 // ReadBytes reads n bytes.
 func (r *BinaryReader) ReadBytes(n int64) []byte {
 	data, err := r.f.Bytes(nil, n, r.pos)
-	if err != nil {
-		r.err = err
-		return nil
-	}
-	r.pos += n
+	r.pos += int64(len(data))
+	r.err = err
 	return data
 }
 
