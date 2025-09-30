@@ -399,10 +399,12 @@ func (l *Lexer) shiftStartTag() (TokenType, []byte) {
 func (l *Lexer) shiftAttribute() []byte {
 	nameStart := l.r.Pos()
 	var c byte
-	if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
-		l.r.Move(len(l.tmplBegin))
-		l.moveTemplate()
-		l.hasTmpl = true
+	if 0 < len(l.tmplBegin) {
+		for l.at(l.tmplBegin...) {
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			l.hasTmpl = true
+		}
 	}
 	for { // attribute name state
 		if c = l.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
