@@ -74,6 +74,15 @@ func NewInputBytes(b []byte) *Input {
 	return z
 }
 
+func CloneInput(z *Input) *Input {
+	return &Input{
+		buf:   append([]byte{}, z.buf...),
+		pos:   z.pos,
+		start: z.start,
+		err:   z.err,
+	}
+}
+
 // Restore restores the replaced byte past the end of the buffer by NULL.
 func (z *Input) Restore() {
 	if z.restore != nil {
