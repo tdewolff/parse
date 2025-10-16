@@ -37,6 +37,7 @@ func TestTokens(t *testing.T) {
 		{"U+1234", TTs{UnicodeRangeToken}, []string{"U+1234"}},
 		{"5.2 .4 4e-22", TTs{NumberToken, NumberToken, NumberToken}, []string{"5.2", ".4", "4e-22"}},
 		{"--custom-variable", TTs{CustomPropertyNameToken}, []string{"--custom-variable"}},
+		{"--0", TTs{CustomPropertyNameToken}, []string{"--0"}},
 
 		// unexpected ending
 		{"ident", TTs{IdentToken}, []string{"ident"}},

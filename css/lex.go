@@ -186,14 +186,14 @@ func (l *Lexer) Next() (TokenType, []byte) {
 			return t, l.r.Shift()
 		}
 	case '-':
-		if t := l.consumeNumeric(); t != ErrorToken {
-			return t, l.r.Shift()
-		} else if t := l.consumeIdentlike(); t != ErrorToken {
-			return t, l.r.Shift()
-		} else if l.consumeCDCToken() {
+		if l.consumeCDCToken() {
 			return CDCToken, l.r.Shift()
 		} else if l.consumeCustomVariableToken() {
 			return CustomPropertyNameToken, l.r.Shift()
+		} else if t := l.consumeIdentlike(); t != ErrorToken {
+			return t, l.r.Shift()
+		} else if t := l.consumeNumeric(); t != ErrorToken {
+			return t, l.r.Shift()
 		}
 	case '@':
 		if l.consumeAtKeywordToken() {
@@ -352,17 +352,24 @@ func (l *Lexer) consumeEscape() bool {
 
 func (l *Lexer) consumeIdentToken() bool {
 	mark := l.r.Pos()
+	custom := false
 	if l.r.Peek(0) == '-' {
 		l.r.Move(1)
-	}
-	c := l.r.Peek(0)
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
-		if c != '\\' || !l.consumeEscape() {
-			l.r.Rewind(mark)
-			return false
+		if l.r.Peek(0) == '-' {
+			l.r.Move(1)
+			custom = true
 		}
-	} else {
-		l.r.Move(1)
+	}
+	if !custom {
+		c := l.r.Peek(0)
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || c >= 0x80) {
+			if c != '\\' || !l.consumeEscape() {
+				l.r.Rewind(mark)
+				return false
+			}
+		} else {
+			l.r.Move(1)
+		}
 	}
 	for {
 		c := l.r.Peek(0)
@@ -380,13 +387,9 @@ func (l *Lexer) consumeIdentToken() bool {
 // support custom variables, https://www.w3.org/TR/css-variables-1/
 func (l *Lexer) consumeCustomVariableToken() bool {
 	// expect to be on a '-'
-	l.r.Move(1)
-	if l.r.Peek(0) != '-' {
-		l.r.Move(-1)
+	if l.r.Peek(1) != '-' {
 		return false
-	}
-	if !l.consumeIdentToken() {
-		l.r.Move(-1)
+	} else if !l.consumeIdentToken() {
 		return false
 	}
 	return true
