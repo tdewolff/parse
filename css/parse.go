@@ -365,9 +365,6 @@ func (p *Parser) parseQualifiedRule() GrammarType {
 			p.level--
 		}
 		if len(data) == 1 && (data[0] == ',' || data[0] == '>' || data[0] == '+' || data[0] == '~') {
-			if data[0] == ',' {
-				return QualifiedRuleGrammar
-			}
 			skipWS = true
 		} else if p.prevWS && !skipWS && !inAttrSel {
 			p.pushBuf(WhitespaceToken, wsBytes)

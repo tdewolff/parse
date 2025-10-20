@@ -51,6 +51,7 @@ func TestParse(t *testing.T) {
 		{false, "a { color: red; border: 0; }", "a{color:red;border:0;}"},
 		{false, "a { color: red; border: 0; } b { padding: 0; }", "a{color:red;border:0;}b{padding:0;}"},
 		{false, "/* comment */", "/* comment */"},
+		{false, "a,b,c{color:red;}", "a,b,c{color:red;}"},
 
 		// extraordinary
 		{true, "color: red;;", "color:red;"},
