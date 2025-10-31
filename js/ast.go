@@ -94,6 +94,7 @@ const (
 	FunctionDecl                 // function
 	ArgumentDecl                 // function and method arguments
 	LexicalDecl                  // let, const, class
+	PrivateDecl                  // private class field
 	CatchDecl                    // catch statement argument
 	ExprDecl                     // function expression name or class expression name
 )
@@ -110,6 +111,8 @@ func (decl DeclType) String() string {
 		return "ArgumentDecl"
 	case LexicalDecl:
 		return "LexicalDecl"
+	case PrivateDecl:
+		return "PrivateDecl"
 	case CatchDecl:
 		return "CatchDecl"
 	case ExprDecl:
@@ -1478,6 +1481,29 @@ func (n FuncDecl) JS(w io.Writer) {
 	n.Body.JS(w)
 }
 
+// ClassElementName is either a private method/field or a property name for a method/field.
+type ClassElementName struct {
+	PropertyName
+	Private *Var // can be nil
+}
+
+func (n ClassElementName) String() string {
+	if n.Private != nil {
+		return n.Private.String()
+	} else {
+		return n.PropertyName.String()
+	}
+}
+
+// JS writes JavaScript to writer.
+func (n ClassElementName) JS(w io.Writer) {
+	if n.Private != nil {
+		n.Private.JS(w)
+	} else {
+		n.PropertyName.JS(w)
+	}
+}
+
 // MethodDecl is a method definition in a class declaration.
 type MethodDecl struct {
 	Static    bool
@@ -1485,7 +1511,7 @@ type MethodDecl struct {
 	Generator bool
 	Get       bool
 	Set       bool
-	Name      PropertyName
+	Name      ClassElementName
 	Params    Params
 	Body      BlockStmt
 }
@@ -1559,7 +1585,7 @@ func (n MethodDecl) JS(w io.Writer) {
 // Field is a field definition in a class declaration.
 type Field struct {
 	Static bool
-	Name   PropertyName
+	Name   ClassElementName
 	Init   IExpr
 }
 
@@ -1622,6 +1648,7 @@ type ClassDecl struct {
 	Name    *Var  // can be nil
 	Extends IExpr // can be nil
 	List    []ClassElement
+	Scope   // for private elements
 }
 
 func (n ClassDecl) String() string {
@@ -2052,7 +2079,7 @@ func (n IndexExpr) JS(w io.Writer) {
 // DotExpr is a member/call expression, super property, or optional chain with a dot expression.
 type DotExpr struct {
 	X        IExpr
-	Y        LiteralExpr
+	Y        IExpr // LiteralExpr or Var
 	Prec     OpPrec
 	Optional bool
 }

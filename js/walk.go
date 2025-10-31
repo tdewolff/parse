@@ -242,7 +242,7 @@ func Walk(v IVisitor, n INode) {
 		Walk(v, n.Y)
 	case *DotExpr:
 		Walk(v, n.X)
-		Walk(v, &n.Y)
+		Walk(v, n.Y)
 	case *NewTargetExpr:
 		return
 	case *ImportMetaExpr:

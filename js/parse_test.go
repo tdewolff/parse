@@ -812,6 +812,7 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 			sv.AddStmt(item)
 		}
 	case *ClassDecl:
+		sv.AddScope(expr.Scope)
 		for _, item := range expr.List {
 			if item.Method != nil {
 				sv.AddScope(item.Method.Body.Scope)
@@ -904,6 +905,7 @@ func (sv *ScopeVars) AddStmt(istmt IStmt) {
 			sv.AddStmt(item)
 		}
 	case *ClassDecl:
+		sv.AddScope(stmt.Scope)
 		for _, item := range stmt.List {
 			if item.Method != nil {
 				sv.AddScope(item.Method.Body.Scope)
@@ -974,8 +976,10 @@ func TestParseScope(t *testing.T) {
 		{"a=function(b){var b}", "/b=2", "a=1/"},
 		{"export function a(){}", "a=1", ""},
 		{"export default function a(){}", "a=1", ""},
-		{"class a{b(){}}", "a=1/", "/"}, // classes are not tracked
-		{"!class a{b(){}}", "/", "/"},
+		{"class a{b(){}}", "a=1//", "//"},
+		{"!class a{b(){}}", "//", "//"},
+		{"class a{#b; b(){ this.#b }}", "a=1/#b=2/", "//#b=2"},
+		{"!class a{#b; b(){ x().#b }}", "/#b=2/", "x=1/x=1/x=1,#b=2"},
 		{"a => a%5", "/a=1", "/"},
 		{"a => a%b", "/a=2", "b=1/b=1"},
 		{"var a;a => a%5", "a=1/a=2", "/"},
@@ -1005,7 +1009,7 @@ func TestParseScope(t *testing.T) {
 		{"let a; {let b = a}", "a=1/b=2", "/a=1"},
 		{"let a; {var b}", "a=1,b=2/", "/b=2"}, // may remove b from uses
 		{"let a; {var b = a}", "a=1,b=2/", "/b=2,a=1"},
-		{"let a; {class b{}}", "a=1/b=2", "/"},
+		{"let a; {class b{}}", "a=1/b=2/", "//"},
 		{"a = 5; var a;", "a=1", ""},
 		{"a = 5; let a;", "a=1", ""},
 		{"a = 5; {var a}", "a=1/", "/a=1"},

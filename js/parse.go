@@ -1040,6 +1040,7 @@ func (p *Parser) parseAnyClass(expr bool) (classDecl *ClassDecl) {
 	if !p.consume("class declaration", OpenBraceToken) {
 		return
 	}
+	parent := p.enterScope(&classDecl.Scope, false)
 	for {
 		if p.tt == ErrorToken {
 			p.fail("class declaration")
@@ -1054,6 +1055,7 @@ func (p *Parser) parseAnyClass(expr bool) (classDecl *ClassDecl) {
 
 		classDecl.List = append(classDecl.List, p.parseClassElement())
 	}
+	p.exitScope(parent)
 	return
 }
 
@@ -1116,10 +1118,15 @@ func (p *Parser) parseClassElement() ClassElement {
 		isField = true
 	} else {
 		if p.tt == PrivateIdentifierToken {
-			method.Name.Literal = LiteralExpr{p.tt, p.data}
+			var ok bool
+			method.Name.Private, ok = p.scope.Declare(PrivateDecl, p.data)
+			if !ok {
+				p.failMessage("identifier %s has already been declared", string(p.data))
+				return ClassElement{}
+			}
 			p.next()
 		} else {
-			method.Name = p.parsePropertyName("method or field definition")
+			method.Name.PropertyName = p.parsePropertyName("method or field definition")
 		}
 		if (data == nil || method.Static) && p.tt != OpenParenToken {
 			isField = true
@@ -1404,7 +1411,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				method.Get = false
 				method.Set = false
 			} else if !method.Name.IsSet() { // did not parse async [LT]
-				method.Name = p.parsePropertyName("object literal")
+				method.Name.PropertyName = p.parsePropertyName("object literal")
 				if !method.Name.IsSet() {
 					return
 				}
@@ -1426,7 +1433,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 			} else if p.tt == ColonToken {
 				// PropertyName : AssignmentExpression
 				p.next()
-				property.Name = &method.Name
+				property.Name = &method.Name.PropertyName
 				property.Value = p.parseAssignExprOrParam()
 			} else if method.Name.IsComputed() || !p.isIdentifierReference(method.Name.Literal.TokenType) {
 				p.fail("object literal", ColonToken, OpenParenToken)
@@ -1435,7 +1442,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				// IdentifierReference (= AssignmentExpression)?
 				name := method.Name.Literal.Data
 				method.Name.Literal.Data = parse.Copy(method.Name.Literal.Data) // copy so that renaming doesn't rename the key
-				property.Name = &method.Name                                    // set key explicitly so after renaming the original is still known
+				property.Name = &method.Name.PropertyName                       // set key explicitly so after renaming the original is still known
 				if p.assumeArrowFunc {
 					var ok bool
 					property.Value, ok = p.scope.Declare(ArgumentDecl, name)
@@ -1853,7 +1860,7 @@ func (p *Parser) parseExpression(prec OpPrec) IExpr {
 			p.fail("expression")
 			return nil
 		}
-		left = &LiteralExpr{p.tt, p.data}
+		left = p.scope.Use(p.data)
 		p.next()
 		if p.tt != InToken {
 			p.fail("relational expression", InToken)
@@ -1953,10 +1960,11 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 			if precLeft < OpMember {
 				exprPrec = OpCall
 			}
-			if p.tt != PrivateIdentifierToken {
-				p.tt = IdentifierToken
+			if p.tt == PrivateIdentifierToken {
+				left = &DotExpr{left, p.scope.Use(p.data), exprPrec, false}
+			} else {
+				left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}, exprPrec, false}
 			}
-			left = &DotExpr{left, LiteralExpr{p.tt, p.data}, exprPrec, false}
 			p.next()
 			if precLeft < OpMember {
 				precLeft = OpCall
