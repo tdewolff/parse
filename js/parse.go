@@ -221,6 +221,9 @@ func (p *Parser) parseModule() (module BlockStmt) {
 				expr := p.parseExpressionSuffix(left, OpExpr, OpMember)
 				p.exprLevel--
 				module.List = append(module.List, &ExprStmt{expr})
+				if !p.prevLT && p.tt == SemicolonToken {
+					p.next()
+				}
 			} else {
 				importStmt := p.parseImportStmt()
 				module.List = append(module.List, &importStmt)
