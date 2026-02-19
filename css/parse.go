@@ -10,6 +10,7 @@ import (
 )
 
 var wsBytes = []byte(" ")
+var colonBytes = []byte(":")
 var endBytes = []byte("}")
 var emptyBytes = []byte("")
 
@@ -85,12 +86,13 @@ type Parser struct {
 	buf   []Token
 	level int
 
-	data        []byte
-	tt          TokenType
-	keepWS      bool
-	prevWS      bool
-	prevEnd     bool
-	prevComment bool
+	data         []byte
+	tt           TokenType
+	keepWS       bool
+	prevWS       bool
+	prevEnd      bool
+	prevComment  bool
+	isStylesheet bool
 }
 
 // NewParser returns a new CSS parser from an io.Reader. isInline specifies whether this is an inline style attribute.
@@ -105,6 +107,7 @@ func NewParser(r *parse.Input, isInline bool) *Parser {
 		p.state = append(p.state, (*Parser).parseDeclarationList)
 	} else {
 		p.state = append(p.state, (*Parser).parseStylesheet)
+		p.isStylesheet = true
 	}
 	return p
 }
@@ -404,6 +407,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 		p.pushBuf(ttName, dataName)
 		return p.parseDeclarationError(tt, data)
 	}
+	wsBeforeColon := p.prevWS
 
 	skipWS := true
 	for {
@@ -411,6 +415,16 @@ func (p *Parser) parseDeclaration() GrammarType {
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
 			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar
+		} else if tt == LeftBraceToken && p.level == 0 && p.isStylesheet {
+			if wsBeforeColon {
+				p.buf = append([]Token{{ttName, dataName}, {WhitespaceToken, wsBytes}, {ColonToken, colonBytes}}, p.buf...)
+			} else {
+				p.buf = append([]Token{{ttName, dataName}, {ColonToken, colonBytes}}, p.buf...)
+			}
+			p.tt = WhitespaceToken
+			p.data = emptyBytes
+			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
+			return BeginRulesetGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {

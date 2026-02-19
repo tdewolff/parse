@@ -89,26 +89,27 @@ func TestParse(t *testing.T) {
 		{false, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}"},
 		{false, "@media { @viewport }", "@media{@viewport;}"},
 		{false, "table { @unknown }", "table{@unknown;}"},
-		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(width:70%;})ERROR(b{width:60%;})}"},
+		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(unexpected ending in qualified rule})ERROR(expected colon in declaration)}"},
+		{false, "a{& :is(b) { }}", "a{& :is(b){}}"},
 
 		// early endings
 		{false, "selector{", "selector{"},
 		{false, "@media{selector{", "@media{selector{"},
 
 		// bad grammar
-		{false, "}", "ERROR(})"},
-		{true, "}", "ERROR(})"},
-		{true, "~color:red", "ERROR(~color:red)"},
-		{true, "(color;red)", "ERROR((color;red))"},
-		{true, "color(;red)", "ERROR(color(;red))"},
+		{false, "}", "ERROR(unexpected ending in qualified rule)"},
+		{true, "}", "ERROR(unexpected token '}' in declaration)"},
+		{true, "~color:red", "ERROR(expected colon in declaration)"},
+		{true, "(color;red)", "ERROR(unexpected token '(' in declaration)"},
+		{true, "color(;red)", "ERROR(unexpected token 'color(' in declaration)"},
 		{false, ".foo { *color: #fff;}", ".foo{*color:#fff;}"},
 		{true, "*color: red; font-size: 12pt;", "*color:red;font-size:12pt;"},
 		{true, "*--custom: red;", "*--custom: red;"},
 		{true, "_color: red; font-size: 12pt;", "_color:red;font-size:12pt;"},
-		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(baddecl)}.bar{color:red;}"},
-		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{ERROR(baddecl baddecl baddecl;)height:100px;}.bar{color:red;}"},
-		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(”)}.bar{color:red;}"},
-		{false, ".foo { baddecl (; color:red; }", ".foo{ERROR(baddecl (; color:red; })"},
+		{false, ".foo { baddecl } .bar { color:red; }", ".foo{ERROR(expected colon in declaration)}.bar{color:red;}"},
+		{false, ".foo { baddecl baddecl baddecl; height:100px } .bar { color:red; }", ".foo{ERROR(expected colon in declaration)height:100px;}.bar{color:red;}"},
+		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(expected colon in declaration)}.bar{color:red;}"},
+		{false, ".foo { baddecl (; color:red; }", ".foo{ERROR(expected colon in declaration)"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6
@@ -128,11 +129,7 @@ func TestParse(t *testing.T) {
 				data = parse.Copy(data)
 				if grammar == ErrorGrammar {
 					if err := p.Err(); err != io.EOF {
-						data = []byte("ERROR(")
-						for _, val := range p.Values() {
-							data = append(data, val.Data...)
-						}
-						data = append(data, ")"...)
+						data = []byte(fmt.Sprintf("ERROR(%v)", p.err))
 					} else {
 						break
 					}
