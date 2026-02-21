@@ -395,27 +395,26 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseDeclaration() GrammarType {
-	var offset int
+	var offset int // first colon offset
 	p.initBuf()
 	p.pushBuf(p.tt, p.data)
 	for {
 		tt, data := p.popToken(false)
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
 			// regular declaration
-			p.data = parse.ToLower(parse.Copy(p.data))
-
-			p.buf = p.buf[1:]
-			for 0 < len(p.buf) && p.buf[0].TokenType == WhitespaceToken {
-				p.buf = p.buf[1:]
+			i := 1
+			for i < len(p.buf) && p.buf[i].TokenType == WhitespaceToken {
+				i++
 			}
-			if len(p.buf) == 0 || p.buf[0].TokenType != ColonToken {
+			if len(p.buf) == i || p.buf[i].TokenType != ColonToken {
 				if offset == 0 {
 					offset = p.l.r.Offset()
 				}
 				p.err, p.errPos = "expected colon in declaration", offset
 				return p.parseDeclarationError(tt, data)
 			}
-			p.buf = p.buf[1:]
+
+			p.buf = p.buf[i+1:]
 			for 0 < len(p.buf) && p.buf[0].TokenType == WhitespaceToken {
 				p.buf = p.buf[1:]
 			}
@@ -436,6 +435,7 @@ func (p *Parser) parseDeclaration() GrammarType {
 					i++
 				}
 			}
+			p.data = parse.ToLower(parse.Copy(p.data))
 			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar
 		} else if tt == LeftBraceToken && p.level == 0 && p.isStylesheet {
