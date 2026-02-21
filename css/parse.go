@@ -395,32 +395,51 @@ func (p *Parser) parseQualifiedRuleDeclarationList() GrammarType {
 }
 
 func (p *Parser) parseDeclaration() GrammarType {
+	var offset int
 	p.initBuf()
-	p.data = parse.ToLower(parse.Copy(p.data))
-
-	ttName, dataName := p.tt, p.data
-	tt, data := p.popToken(false)
-	if tt != ColonToken {
-		p.l.r.Move(-len(data))
-		p.err, p.errPos = "expected colon in declaration", p.l.r.Offset()
-		p.l.r.Move(len(data))
-		p.pushBuf(ttName, dataName)
-		return p.parseDeclarationError(tt, data)
-	}
-	wsBeforeColon := p.prevWS
-
-	skipWS := true
+	p.pushBuf(p.tt, p.data)
 	for {
 		tt, data := p.popToken(false)
 		if (tt == SemicolonToken || tt == RightBraceToken) && p.level == 0 || tt == ErrorToken {
+			// regular declaration
+			p.data = parse.ToLower(parse.Copy(p.data))
+
+			p.buf = p.buf[1:]
+			for 0 < len(p.buf) && p.buf[0].TokenType == WhitespaceToken {
+				p.buf = p.buf[1:]
+			}
+			if len(p.buf) == 0 || p.buf[0].TokenType != ColonToken {
+				if offset == 0 {
+					offset = p.l.r.Offset()
+				}
+				p.err, p.errPos = "expected colon in declaration", offset
+				return p.parseDeclarationError(tt, data)
+			}
+			p.buf = p.buf[1:]
+			for 0 < len(p.buf) && p.buf[0].TokenType == WhitespaceToken {
+				p.buf = p.buf[1:]
+			}
+			for i := 0; i < len(p.buf); i++ {
+				if p.buf[i].TokenType == WhitespaceToken {
+					if 0 < i {
+						if data := p.buf[i-1].Data; len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+							p.buf = append(p.buf[:i], p.buf[i+1:]...)
+							continue
+						}
+					}
+					if i+1 < len(p.buf) {
+						if data := p.buf[i+1].Data; len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+							p.buf = append(p.buf[:i], p.buf[i+1:]...)
+							continue
+						}
+					}
+					i++
+				}
+			}
 			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar
 		} else if tt == LeftBraceToken && p.level == 0 && p.isStylesheet {
-			if wsBeforeColon {
-				p.buf = append([]Token{{ttName, dataName}, {WhitespaceToken, wsBytes}, {ColonToken, colonBytes}}, p.buf...)
-			} else {
-				p.buf = append([]Token{{ttName, dataName}, {ColonToken, colonBytes}}, p.buf...)
-			}
+			// nested ruleset
 			p.tt = WhitespaceToken
 			p.data = emptyBytes
 			p.state = append(p.state, (*Parser).parseQualifiedRuleDeclarationList)
@@ -429,22 +448,18 @@ func (p *Parser) parseDeclaration() GrammarType {
 			p.level++
 		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
 			if p.level == 0 {
-				// TODO: buggy
 				p.err, p.errPos = "unexpected ending in declaration", p.l.r.Offset()
-				p.pushBuf(ttName, dataName)
-				p.pushBuf(ColonToken, []byte{':'})
 				return p.parseDeclarationError(tt, data)
 			}
 			p.level--
 		}
-		if len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
-			skipWS = true
-		} else if (p.prevWS || p.prevComment) && !skipWS {
+		if (p.prevWS || p.prevComment) && p.buf[len(p.buf)-1].TokenType != WhitespaceToken {
 			p.pushBuf(WhitespaceToken, wsBytes)
-		} else {
-			skipWS = false
 		}
 		p.pushBuf(tt, data)
+		if offset == 0 {
+			offset = p.l.r.Offset() - len(data)
+		}
 	}
 }
 

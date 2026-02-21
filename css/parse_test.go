@@ -89,8 +89,9 @@ func TestParse(t *testing.T) {
 		{false, "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}", "[class*=\"column\"]+[class*=\"column\"]:last-child{a:b;}"},
 		{false, "@media { @viewport }", "@media{@viewport;}"},
 		{false, "table { @unknown }", "table{@unknown;}"},
-		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(unexpected ending in qualified rule})ERROR(expected colon in declaration)}"},
+		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(unexpected ending in qualified rule)b{width:60%;}}"},
 		{false, "a{& :is(b) { }}", "a{& :is(b){}}"},
+		{false, "a{&:is(b) :is(c) { }}", "a{&:is(b) :is(c){}}"},
 
 		// early endings
 		{false, "selector{", "selector{"},
