@@ -23,8 +23,9 @@ const (
 	OpExp                    // a**b
 	OpUnary                  // ++x, --x, delete x, void x, typeof x, +x, -x, ~x, !x, await x
 	OpUpdate                 // x++, x--
-	OpLHS                    // CallExpr/OptChainExpr or NewExpr
-	OpCall                   // a?.b, a(b), super(a), import(a)
+	OpLHS                    // NewExpr, CallExpr, OptChainExpr
+	OpOpt                    // a?.b, a?.(), a?.[], a?.``
+	OpCall                   // a(b), super(a), import(a)
 	OpNew                    // new a
 	OpMember                 // a[b], a.b, a`b`, super[x], super.x, new.target, import.meta, new a(b)
 	OpPrimary                // literal, function, class, parenthesized
@@ -66,6 +67,8 @@ func (prec OpPrec) String() string {
 		return "OpUpdate"
 	case OpLHS:
 		return "OpLHS"
+	case OpOpt:
+		return "OpOpt"
 	case OpCall:
 		return "OpCall"
 	case OpNew:

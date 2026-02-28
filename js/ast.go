@@ -2211,6 +2211,7 @@ func (n NewExpr) JS(w io.Writer) {
 type CallExpr struct {
 	X        IExpr
 	Args     Args
+	Prec     OpPrec
 	Optional bool
 }
 
