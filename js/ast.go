@@ -1844,7 +1844,7 @@ type Property struct {
 	// if Init is set then Value is IdentifierReference, otherwise it can also be MethodDefinition
 	Name   *PropertyName // can be nil
 	Spread bool
-	Value  IExpr
+	Value  IExpr // Var, MethodDecl, AssignExpr, or IdentExpr
 	Init   IExpr // can be nil
 }
 

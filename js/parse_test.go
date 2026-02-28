@@ -849,6 +849,12 @@ func (sv *ScopeVars) AddExpr(iexpr IExpr) {
 		for _, item := range expr.List {
 			sv.AddExpr(item)
 		}
+	case *ObjectExpr:
+		for _, item := range expr.List {
+			if method, ok := item.Value.(*MethodDecl); ok {
+				sv.AddScope(method.Body.Scope)
+			}
+		}
 	}
 }
 
@@ -1054,6 +1060,8 @@ func TestParseScope(t *testing.T) {
 		{`for(var b of c){let b;{b}}`, "b=1/b=3/", "c=2/b=1,c=2/b=3"},
 		{`for(var b of c){var b;{b}}`, "b=1//", "c=2/b=1,c=2/b=1"},
 		{`function a(b){for(let c of b){let b;}}`, "a=1/b=2/c=3,b=4", "//b=2"},
+		{`({a(key){if(x){b.push({key})}}})`, "/key=3", "x=1,b=2/x=1,b=2"},
+		{`({a(key){if(x){b.push({key:key})}}})`, "/key=3", "x=1,b=2/x=1,b=2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.js, func(t *testing.T) {

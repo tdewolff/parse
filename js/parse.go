@@ -1425,6 +1425,7 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				parent := p.enterScope(&method.Body.Scope, true)
 				prevAwait, prevYield, prevRetrn := p.await, p.yield, p.retrn
 				p.await, p.yield, p.retrn = method.Async, method.Generator, true
+				p.assumeArrowFunc = false
 
 				method.Params = p.parseFuncParams("method definition")
 				method.Body.List = p.parseStmtList("method definition")
@@ -1432,7 +1433,6 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 				p.exitScope(parent)
 				property.Value = &method
-				p.assumeArrowFunc = false
 			} else if p.tt == ColonToken {
 				// PropertyName : AssignmentExpression
 				p.next()
