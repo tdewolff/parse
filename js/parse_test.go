@@ -123,6 +123,7 @@ func TestParse(t *testing.T) {
 		{"class A { get }", "Decl(class A Field(get))"},
 		{"class A { field static get method(){ return 5 } }", "Decl(class A Field(field) Method(static get method Params() Stmt({ Stmt(return 5) })))"},
 		{"class A { static { this.field = 5 } }", "Decl(class A Static(Stmt({ Stmt((this.field)=5) })))"},
+		{"class A { get #a(){} set #a(x){} }", "Decl(class A Method(get #a Params() Stmt({ })) Method(set #a Params(Binding(x)) Stmt({ })))"},
 		//{"class A { get get get(){} }", "Decl(class A Definition(get) Method(get get Params() Stmt({ })))"}, // doesn't look like this should be supported
 		{"`tmpl`", "Stmt(`tmpl`)"},
 		{"`tmpl${x}`", "Stmt(`tmpl${x}`)"},

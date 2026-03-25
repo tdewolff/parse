@@ -91,10 +91,10 @@ type DeclType uint16
 const (
 	NoDecl       DeclType = iota // undeclared variables
 	VariableDecl                 // var
+	PrivateDecl                  // private class field
 	FunctionDecl                 // function
 	ArgumentDecl                 // function and method arguments
 	LexicalDecl                  // let, const, class
-	PrivateDecl                  // private class field
 	CatchDecl                    // catch statement argument
 	ExprDecl                     // function expression name or class expression name
 )
@@ -105,14 +105,14 @@ func (decl DeclType) String() string {
 		return "NoDecl"
 	case VariableDecl:
 		return "VariableDecl"
+	case PrivateDecl:
+		return "PrivateDecl"
 	case FunctionDecl:
 		return "FunctionDecl"
 	case ArgumentDecl:
 		return "ArgumentDecl"
 	case LexicalDecl:
 		return "LexicalDecl"
-	case PrivateDecl:
-		return "PrivateDecl"
 	case CatchDecl:
 		return "CatchDecl"
 	case ExprDecl:
@@ -231,7 +231,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	if v := s.findDeclared(name, true); v != nil {
 		// variable already declared, might be an error or a duplicate declaration
 		if (ArgumentDecl < v.Decl || FunctionDecl < decl) && v.Decl != ExprDecl {
-			// only allow (v.Decl,decl) of: (var|function|argument,var|function), (expr,*), any other combination is a syntax error
+			// only allow (v.Decl,decl) of: (var|private|function|argument,var|private|function), (expr,*), any other combination is a syntax error
 			return nil, false
 		}
 		if v.Decl == ExprDecl {
