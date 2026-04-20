@@ -185,6 +185,8 @@ func (p *Parser) parseStylesheet() GrammarType {
 		return p.parseAtRule()
 	} else if p.tt == CommentToken {
 		return CommentGrammar
+	} else if p.tt == CustomPropertyNameToken {
+		return p.parseCustomProperty()
 	} else if p.tt == ErrorToken {
 		return ErrorGrammar
 	}
