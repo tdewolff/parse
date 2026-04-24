@@ -105,7 +105,7 @@ func TestAppendFloat(t *testing.T) {
 	}
 	for _, tt := range floatTests {
 		t.Run(fmt.Sprint(tt.f), func(t *testing.T) {
-			f, _ := AppendFloat([]byte{}, tt.f, tt.prec)
+			f := AppendFloat([]byte{}, tt.f, tt.prec)
 			test.String(t, string(f), tt.expected)
 		})
 	}
@@ -188,7 +188,7 @@ func TestAppendFloatRandom(t *testing.T) {
 		f := r.ExpFloat64()
 		//f = math.Floor(f*float64(prec)) / float64(prec)
 
-		b, _ := AppendFloat([]byte{}, f, -1)
+		b := AppendFloat([]byte{}, f, -1)
 		f2, _ := strconv.ParseFloat(string(b), 64)
 		if math.Abs(f-f2) > 1e-6 {
 			fmt.Println("Bad:", f, "!=", f2, "in", string(b))
@@ -208,7 +208,7 @@ func BenchmarkFloatToBytes2(b *testing.B) {
 	r := make([]byte, 10)
 	f := 123.456
 	for i := 0; i < b.N; i++ {
-		r, _ = AppendFloat(r[:0], f, 6)
+		r = AppendFloat(r[:0], f, 6)
 	}
 }
 
