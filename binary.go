@@ -39,9 +39,11 @@ func (r *binaryReaderBytes) Bytes(b []byte, n, off int64) ([]byte, error) {
 	var err error
 	if off < 0 || n < 0 {
 		return nil, fmt.Errorf("bytes: invalid range %d--%d", off, off+n)
+	} else if n == 0 {
+		return nil, nil
 	} else if int64(len(r.data)) <= off {
 		return nil, io.EOF
-	} else if int64(len(r.data))-off <= n {
+	} else if int64(len(r.data))-off < n {
 		n = int64(len(r.data)) - off
 		err = io.EOF
 	}
@@ -79,6 +81,8 @@ func (r *binaryReaderReader) Len() int64 {
 func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
 	if off != r.pos {
 		return nil, errors.New("reader: does not implement io.Seeker or io.ReaderAt")
+	} else if n == 0 {
+		return nil, nil
 	} else if b == nil {
 		b = make([]byte, n)
 	}
@@ -92,9 +96,6 @@ func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
 		} else if m == 0 {
 			return b[:i], errors.New("reader: could not read all bytes")
 		}
-	}
-	if off+n == r.size {
-		return b, io.EOF
 	}
 	return b, nil
 }
@@ -123,6 +124,9 @@ func (r *binaryReaderSeeker) Len() int64 {
 }
 
 func (r *binaryReaderSeeker) Bytes(b []byte, n, off int64) ([]byte, error) {
+	if n == 0 {
+		return nil, nil
+	}
 	if b == nil {
 		b = make([]byte, n)
 	}
@@ -143,9 +147,6 @@ func (r *binaryReaderSeeker) Bytes(b []byte, n, off int64) ([]byte, error) {
 	}
 	r.mu.Unlock()
 
-	if off+n == r.size {
-		return b, io.EOF
-	}
 	return b, nil
 }
 
@@ -172,13 +173,14 @@ func (r *binaryReaderReaderAt) Len() int64 {
 }
 
 func (r *binaryReaderReaderAt) Bytes(b []byte, n, off int64) ([]byte, error) {
+	if n == 0 {
+		return nil, nil
+	}
 	if b == nil {
 		b = make([]byte, n)
 	}
 	if m, err := r.r.ReadAt(b, off); err != nil {
 		return b[:m], err
-	} else if off+int64(m) == r.size {
-		return b[:m], io.EOF
 	} else if int64(m) != n {
 		return b[:m], errors.New("reader: could not read all bytes")
 	}
