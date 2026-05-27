@@ -126,8 +126,7 @@ func (r *binaryReaderSeeker) Len() int64 {
 func (r *binaryReaderSeeker) Bytes(b []byte, n, off int64) ([]byte, error) {
 	if n == 0 {
 		return nil, nil
-	}
-	if b == nil {
+	} else if b == nil {
 		b = make([]byte, n)
 	}
 
@@ -175,8 +174,7 @@ func (r *binaryReaderReaderAt) Len() int64 {
 func (r *binaryReaderReaderAt) Bytes(b []byte, n, off int64) ([]byte, error) {
 	if n == 0 {
 		return nil, nil
-	}
-	if b == nil {
+	} else if b == nil {
 		b = make([]byte, n)
 	}
 	if m, err := r.r.ReadAt(b, off); err != nil {

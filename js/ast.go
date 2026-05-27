@@ -1586,7 +1586,7 @@ func (n MethodDecl) JS(w io.Writer) {
 type Field struct {
 	Static bool
 	Name   ClassElementName
-	Init   IExpr
+	Init   IExpr // can be nil
 }
 
 func (n Field) String() string {
