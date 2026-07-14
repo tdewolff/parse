@@ -3,6 +3,7 @@ package parse
 import (
 	"bytes"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -84,11 +85,11 @@ func TestPrintable(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.s, func(t *testing.T) {
-			printable := ""
+			var printable strings.Builder
 			for _, r := range tt.s {
-				printable += Printable(r)
+				printable.WriteString(Printable(r))
 			}
-			test.T(t, printable, tt.printable)
+			test.T(t, printable.String(), tt.printable)
 		})
 	}
 }

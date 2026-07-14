@@ -784,12 +784,12 @@ func (sv *ScopeVars) AddScope(scope Scope) {
 
 	uses := []string{}
 	for _, v := range scope.Undeclared {
-		links := ""
+		var links strings.Builder
 		for v.Link != nil {
 			v = v.Link
-			links += "*"
+			links.WriteString("*")
 		}
-		uses = append(uses, fmt.Sprintf("%s=%d%s", string(v.Data), sv.Ref(v), links))
+		uses = append(uses, fmt.Sprintf("%s=%d%s", string(v.Data), sv.Ref(v), links.String()))
 	}
 	sv.uses += strings.Join(uses, ",")
 }

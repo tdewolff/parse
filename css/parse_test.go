@@ -3,6 +3,7 @@ package css
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -124,7 +125,7 @@ func TestParse(t *testing.T) {
 	}
 	for _, tt := range parseTests {
 		t.Run(tt.css, func(t *testing.T) {
-			output := ""
+			var output strings.Builder
 			p := NewParser(parse.NewInputString(tt.css), tt.inline)
 			for {
 				grammar, _, data := p.Next()
@@ -150,9 +151,9 @@ func TestParse(t *testing.T) {
 						data = append(data, ","...)
 					}
 				}
-				output += string(data)
+				output.WriteString(string(data))
 			}
-			test.String(t, output, tt.expected)
+			test.String(t, output.String(), tt.expected)
 		})
 	}
 
@@ -237,28 +238,28 @@ func BenchmarkMemFuncPtr(b *testing.B) {
 
 func ExampleNewParser() {
 	p := NewParser(parse.NewInputString("color: red;"), true) // false because this is the content of an inline style attribute
-	out := ""
+	var out strings.Builder
 	for {
 		gt, _, data := p.Next()
 		if gt == ErrorGrammar {
 			break
 		} else if gt == AtRuleGrammar || gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar || gt == DeclarationGrammar {
-			out += string(data)
+			out.WriteString(string(data))
 			if gt == DeclarationGrammar {
-				out += ":"
+				out.WriteString(":")
 			}
 			for _, val := range p.Values() {
-				out += string(val.Data)
+				out.WriteString(string(val.Data))
 			}
 			if gt == BeginAtRuleGrammar || gt == BeginRulesetGrammar {
-				out += "{"
+				out.WriteString("{")
 			} else if gt == AtRuleGrammar || gt == DeclarationGrammar {
-				out += ";"
+				out.WriteString(";")
 			}
 		} else {
-			out += string(data)
+			out.WriteString(string(data))
 		}
 	}
-	fmt.Println(out)
+	fmt.Println(out.String())
 	// Output: color:red;
 }

@@ -3,6 +3,7 @@ package json
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -191,19 +192,19 @@ func TestOffset(t *testing.T) {
 
 func ExampleNewParser() {
 	p := NewParser(parse.NewInputString(`{"key": 5}`))
-	out := ""
+	var out strings.Builder
 	for {
 		state := p.State()
 		gt, data := p.Next()
 		if gt == ErrorGrammar {
 			break
 		}
-		out += string(data)
+		out.WriteString(string(data))
 		if state == ObjectKeyState && gt != EndObjectGrammar {
-			out += ":"
+			out.WriteString(":")
 		}
 		// not handling comma insertion
 	}
-	fmt.Println(out)
+	fmt.Println(out.String())
 	// Output: {"key":5}
 }

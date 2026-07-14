@@ -3,6 +3,7 @@ package css
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -158,7 +159,7 @@ func TestOffset(t *testing.T) {
 
 func ExampleNewLexer() {
 	l := NewLexer(parse.NewInputString("color: red;"))
-	out := ""
+	var out strings.Builder
 	for {
 		tt, data := l.Next()
 		if tt == ErrorToken {
@@ -166,8 +167,8 @@ func ExampleNewLexer() {
 		} else if tt == WhitespaceToken || tt == CommentToken {
 			continue
 		}
-		out += string(data)
+		out.WriteString(string(data))
 	}
-	fmt.Println(out)
+	fmt.Println(out.String())
 	// Output: color:red;
 }

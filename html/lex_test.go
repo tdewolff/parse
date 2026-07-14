@@ -3,6 +3,7 @@ package html
 import (
 	"fmt"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/parse/v2"
@@ -386,14 +387,14 @@ func BenchmarkWhitespace3(b *testing.B) {
 
 func ExampleNewLexer() {
 	l := NewLexer(parse.NewInputString("<span class='user'>John Doe</span>"))
-	out := ""
+	var out strings.Builder
 	for {
 		tt, data := l.Next()
 		if tt == ErrorToken {
 			break
 		}
-		out += string(data)
+		out.WriteString(string(data))
 	}
-	fmt.Println(out)
+	fmt.Println(out.String())
 	// Output: <span class='user'>John Doe</span>
 }
