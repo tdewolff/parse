@@ -139,8 +139,10 @@ func (r *binaryReaderSeeker) Bytes(b []byte, n, off int64) ([]byte, error) {
 		m, err := r.r.Read(b[i:])
 		i += m
 		if err != nil {
+			r.mu.Unlock()
 			return b[:i], err
 		} else if m == 0 {
+			r.mu.Unlock()
 			return b[:i], errors.New("reader: could not read all bytes")
 		}
 	}
@@ -203,7 +205,9 @@ func NewBinaryReader(f IBinaryReader) *BinaryReader {
 // Will use Bytes when interface { Bytes() []byte } is implemented (n not used), Seeker when io.Seeker is implemented (negative n tolerated), ReaderAt when io.ReaderAt is implemented, otherwise it will read all bytes if n is negative or returns a non-Seeking/non-ReaderAt reader that does not allow Seek.
 func NewBinaryReaderReader(r io.Reader, n int64) (*BinaryReader, error) {
 	var f IBinaryReader
-	if b, ok := r.(interface{ Bytes() []byte }); ok {
+	if z, ok := r.(*BinaryReader); ok {
+		return z, nil
+	} else if b, ok := r.(interface{ Bytes() []byte }); ok {
 		f = newBinaryReaderBytes(b.Bytes())
 	} else if seeker, ok := r.(io.ReadSeeker); ok {
 		// seeker seems faster than readerAt by 10%
@@ -217,10 +221,7 @@ func NewBinaryReaderReader(r io.Reader, n int64) (*BinaryReader, error) {
 			}
 		}
 		f = newBinaryReaderSeeker(seeker, n)
-	} else if readerAt, ok := r.(io.ReaderAt); ok {
-		if n < 0 {
-			return nil, fmt.Errorf("invalid negative size")
-		}
+	} else if readerAt, ok := r.(io.ReaderAt); ok && 0 < n {
 		f = newBinaryReaderReaderAt(readerAt, n)
 	} else if n < 0 {
 		b, err := io.ReadAll(r)
