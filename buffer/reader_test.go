@@ -31,7 +31,7 @@ func TestReader(t *testing.T) {
 	test.That(t, n == 0, "third read must read 0 characters")
 
 	n, err = r.Read(nil)
-	test.T(t, err, nil, "error")
+	test.T(t, err, io.EOF, "error")
 	test.That(t, n == 0, "read to nil buffer must return 0 characters read")
 
 	r.Reset()
