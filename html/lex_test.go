@@ -195,6 +195,7 @@ func TestTemplates(t *testing.T) {
 		{"{{'", TTs{TemplateToken}, []bool{true}},
 		{"<tag{{.Attr}}>", TTs{StartTagToken, AttributeToken, StartTagCloseToken}, []bool{false, true, false}},
 		{"<tag {{.Foo}}{{xx .Bar}}>", TTs{StartTagToken, AttributeToken, StartTagCloseToken}, []bool{false, true, false}},
+		{"<div {{if .Item.IsOpen}}data-item-open{{end}}{{if .Item.Archived}} data-item-archived{{end}}>", TTs{StartTagToken, AttributeToken, AttributeToken, StartTagCloseToken}, []bool{false, true, true, false}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.html, func(t *testing.T) {

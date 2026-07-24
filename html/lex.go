@@ -407,7 +407,12 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 	}
 	for { // attribute name state
-		if c = l.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
+		if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			l.hasTmpl = true
+			continue
+		} else if c = l.r.Peek(0); c == ' ' || c == '=' || c == '>' || c == '/' && l.r.Peek(1) == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
 			break
 		}
 		l.r.Move(1)
@@ -432,27 +437,35 @@ func (l *Lexer) shiftAttribute() []byte {
 		}
 		attrPos := l.r.Pos()
 		delim := c
-		if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
+		if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			for l.at(l.tmplBegin...) {
+				l.r.Move(len(l.tmplBegin))
+				l.moveTemplate()
+			}
+			l.hasTmpl = true
+		} else if delim == '"' || delim == '\'' { // attribute value single- and double-quoted state
 			l.r.Move(1)
 			for {
 				c := l.r.Peek(0)
-				if c == delim {
-					l.r.Move(1)
-					break
-				} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
+				if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
 					l.r.Move(len(l.tmplBegin))
 					l.moveTemplate()
+					for l.at(l.tmplBegin...) {
+						l.r.Move(len(l.tmplBegin))
+						l.moveTemplate()
+					}
 					l.hasTmpl = true
+				} else if c == delim {
+					l.r.Move(1)
+					break
 				} else if c == 0 && l.r.Err() != nil {
 					break
 				} else {
 					l.r.Move(1)
 				}
 			}
-		} else if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
-			l.r.Move(len(l.tmplBegin))
-			l.moveTemplate()
-			l.hasTmpl = true
 		} else { // attribute value unquoted state
 			for {
 				if c := l.r.Peek(0); c == ' ' || c == '>' || c == '\t' || c == '\n' || c == '\r' || c == '\f' || c == 0 && l.r.Err() != nil {
@@ -466,10 +479,12 @@ func (l *Lexer) shiftAttribute() []byte {
 		l.r.Rewind(nameEnd)
 		l.attrVal = nil
 	}
-	if 0 < len(l.tmplBegin) && l.at(l.tmplBegin...) {
-		l.r.Move(len(l.tmplBegin))
-		l.moveTemplate()
-		l.hasTmpl = true
+	if 0 < len(l.tmplBegin) {
+		for l.at(l.tmplBegin...) {
+			l.r.Move(len(l.tmplBegin))
+			l.moveTemplate()
+			l.hasTmpl = true
+		}
 	}
 	l.text = l.r.Lexeme()[nameStart:nameEnd]
 	if !nameHasTmpl {
