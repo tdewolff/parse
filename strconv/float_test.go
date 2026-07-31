@@ -5,6 +5,7 @@ import (
 	"math"
 	"math/rand"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/tdewolff/test"
@@ -23,6 +24,26 @@ func TestParseFloat(t *testing.T) {
 		{"0.0e1", 0.0e1},
 		{"18446744073709551620", 18446744073709551620.0},
 		{"1e23", 1e23},
+		// mantissa truncated in the integer part, with a dot
+		{"123456789123456789123.5", 1.234567891234568e+20},
+		{"123456789123456789123.", 1.234567891234568e+20},
+		{"-123456789123456789123.5", -1.234567891234568e+20},
+		{"123456789123456789123.5e3", 1.234567891234568e+23},
+		{"99999999999999999999.0", 1e20},
+		{"1234567891234567891234.25", 1.234567891234568e+21},
+		// uint64 accumulator at its limit
+		{"18446744073709551615", 18446744073709551615.0},
+		{"18446744073709551616", 1.8446744073709552e+19},
+		{"18446744073709551616.5", 1.8446744073709552e+19},
+		{"-18446744073709551616", -1.8446744073709552e+19},
+		{"184467440737095516165", 1.844674407370955e+20},
+		// 15 digits with 22 < exp, so the int*10^k path bails out
+		{"993349238352373e23", 9.93349238352373e+37},
+		// math.Pow10 is 0 below 1e-323 and infinite above 1e308
+		{"0.0000000000000000000001610832207361e330", 1.610832207361e+308},
+		{"5e-324", 5e-324},
+		{"9e-324", 1e-323},
+		{"0e309", 0},
 		// TODO: hard to test due to float imprecision
 		// {"1.7976931348623e+308", 1.7976931348623e+308)
 		// {"4.9406564584124e-308", 4.9406564584124e-308)
@@ -32,6 +53,30 @@ func TestParseFloat(t *testing.T) {
 			f, n := ParseFloat([]byte(tt.f))
 			test.T(t, n, len(tt.f))
 			test.T(t, f, tt.expected)
+		})
+	}
+}
+
+// Literals that need scaling in more than one step, where a single math.Pow10
+// leaves its domain. Compared against the stdlib within a few ULP.
+func TestParseFloatScaling(t *testing.T) {
+	floatTests := []string{
+		"1" + strings.Repeat("0", 41) + "e-330",
+		"1" + strings.Repeat("0", 60) + "e-360",
+		"0." + strings.Repeat("0", 100) + "1e400",
+		"0." + strings.Repeat("0", 200) + "5e450",
+		"-1" + strings.Repeat("0", 41) + "e-330",
+		"-0e309",
+	}
+	for _, tt := range floatTests {
+		t.Run(fmt.Sprint(len(tt)), func(t *testing.T) {
+			expected, err := strconv.ParseFloat(tt, 64)
+			test.Error(t, err)
+			f, n := ParseFloat([]byte(tt))
+			test.T(t, n, len(tt))
+			if math.Abs(f-expected) > 1e-14*math.Abs(expected) {
+				test.Fail(t, fmt.Sprintf("%v != %v for %v", f, expected, tt))
+			}
 		})
 	}
 }
@@ -176,6 +221,52 @@ func FuzzAppendFloat(f *testing.F) {
 }
 
 ////////////////////////////////////////////////////////////////
+
+// ParseFloat keeps at most 19-20 significant digits, so it is not bit-exact
+// against the stdlib, but it must stay within a few ULP of it.
+func TestParseFloatRandom(t *testing.T) {
+	N := int(2e5)
+	if testing.Short() {
+		N = int(1e4)
+	}
+	r := rand.New(rand.NewSource(6))
+	bad := 0
+	for i := 0; i < N; i++ {
+		var sb strings.Builder
+		if r.Intn(4) == 0 {
+			sb.WriteByte('-')
+		}
+		// vary the integer length across the uint64 accumulator limit
+		sb.WriteByte(byte('1' + r.Intn(9)))
+		for j := 1 + r.Intn(30); 0 < j; j-- {
+			sb.WriteByte(byte('0' + r.Intn(10)))
+		}
+		if frac := r.Intn(14); 0 < frac || r.Intn(4) == 0 {
+			sb.WriteByte('.')
+			for ; 0 < frac; frac-- {
+				sb.WriteByte(byte('0' + r.Intn(10)))
+			}
+		}
+		if r.Intn(2) == 0 {
+			sb.WriteString("e")
+			sb.WriteString(strconv.Itoa(r.Intn(700) - 350))
+		}
+		s := sb.String()
+		expected, err := strconv.ParseFloat(s, 64)
+		if err != nil || math.IsInf(expected, 0) || math.Abs(expected) < 1e-280 {
+			continue // below 1e-280 scaling runs into subnormals
+		}
+		f, n := ParseFloat([]byte(s))
+		if n != len(s) || math.Abs(f-expected) > 1e-14*math.Abs(expected) {
+			if bad++; bad < 10 {
+				t.Errorf("ParseFloat(%v): %v (%v bytes) != %v", s, f, n, expected)
+			}
+		}
+	}
+	if 0 < bad {
+		t.Errorf("%v of %v literals differ from strconv.ParseFloat", bad, N)
+	}
+}
 
 func TestAppendFloatRandom(t *testing.T) {
 	N := int(1e6)
