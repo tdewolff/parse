@@ -48,6 +48,23 @@ func TestParseDecimalError(t *testing.T) {
 	}
 }
 
+func TestParseDecimalNegativeFastPath(t *testing.T) {
+	// Dividing by an exact power of ten rounds differently from multiplying
+	// by math.Pow10's inexact reciprocal for some values (e.g. 3 * 0.1 != 3 / 10).
+	for _, tt := range []struct {
+		in   string
+		want float64
+	}{
+		{"0.3", 0.3},
+		{"0.7", 0.7},
+	} {
+		f, n := ParseDecimal([]byte(tt.in))
+		if n != len(tt.in) || f != tt.want {
+			t.Errorf("%s: got %v (n=%d), want %v", tt.in, f, n, tt.want)
+		}
+	}
+}
+
 func TestAppendDecimal(t *testing.T) {
 	tests := []struct {
 		f        float64
