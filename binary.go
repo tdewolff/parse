@@ -18,15 +18,19 @@ type IBinaryReader interface {
 }
 
 type binaryReaderBytes struct {
-	data []byte
+	data   []byte
+	closer io.Closer
 }
 
 func newBinaryReaderBytes(data []byte) *binaryReaderBytes {
-	return &binaryReaderBytes{data}
+	return &binaryReaderBytes{data: data}
 }
 
 // Close closes the reader.
 func (r *binaryReaderBytes) Close() error {
+	if r.closer != nil {
+		return r.closer.Close()
+	}
 	return nil
 }
 
@@ -208,7 +212,11 @@ func NewBinaryReaderReader(r io.Reader, n int64) (*BinaryReader, error) {
 	if z, ok := r.(*BinaryReader); ok {
 		return z, nil
 	} else if b, ok := r.(interface{ Bytes() []byte }); ok {
-		f = newBinaryReaderBytes(b.Bytes())
+		fb := newBinaryReaderBytes(b.Bytes())
+		if closer, ok := r.(io.Closer); ok {
+			fb.closer = closer
+		}
+		f = fb
 	} else if seeker, ok := r.(io.ReadSeeker); ok {
 		// seeker seems faster than readerAt by 10%
 		if n < 0 {
@@ -228,7 +236,11 @@ func NewBinaryReaderReader(r io.Reader, n int64) (*BinaryReader, error) {
 		if err != nil {
 			return nil, err
 		}
-		f = newBinaryReaderBytes(b)
+		fb := newBinaryReaderBytes(b)
+		if closer, ok := r.(io.Closer); ok {
+			fb.closer = closer
+		}
+		f = fb
 	} else {
 		f = newBinaryReaderReader(r, n)
 	}
