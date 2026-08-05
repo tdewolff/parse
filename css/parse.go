@@ -416,27 +416,40 @@ func (p *Parser) parseDeclaration() GrammarType {
 				return p.parseDeclarationError(tt, data)
 			}
 
+			// remove superfluous whitespace
 			p.buf = p.buf[i+1:]
 			for 0 < len(p.buf) && p.buf[0].TokenType == WhitespaceToken {
 				p.buf = p.buf[1:]
 			}
-			for i := 0; i < len(p.buf); i++ {
+			var j int
+			for i := 0; i < len(p.buf); {
 				if p.buf[i].TokenType == WhitespaceToken {
-					if 0 < i {
-						if data := p.buf[i-1].Data; len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
-							p.buf = append(p.buf[:i], p.buf[i+1:]...)
+					// remove whitespace preceded or followed by any of ,/:!=
+					if 0 < j {
+						if data := p.buf[j-1].Data; len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
+							i++
 							continue
 						}
 					}
 					if i+1 < len(p.buf) {
 						if data := p.buf[i+1].Data; len(data) == 1 && (data[0] == ',' || data[0] == '/' || data[0] == ':' || data[0] == '!' || data[0] == '=') {
-							p.buf = append(p.buf[:i], p.buf[i+1:]...)
+							i++
 							continue
 						}
+						if j < i {
+							p.buf[j] = p.buf[i]
+						}
+						j++
+						i++
 					}
-					i++
 				}
+				if j < i {
+					p.buf[j] = p.buf[i]
+				}
+				j++
+				i++
 			}
+			p.buf = p.buf[:j]
 			p.data = parse.ToLower(parse.Copy(p.data))
 			p.prevEnd = (tt == RightBraceToken)
 			return DeclarationGrammar

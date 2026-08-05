@@ -93,6 +93,7 @@ func TestParse(t *testing.T) {
 		{false, "a{@media{width:70%;} b{width:60%;}}", "a{@media{ERROR(unexpected ending in qualified rule)b{width:60%;}}"},
 		{false, "a{& :is(b) { }}", "a{& :is(b){}}"},
 		{false, "a{&:is(b) :is(c) { }}", "a{&:is(b) :is(c){}}"},
+		{false, "a{b: 2   ,,  =   3}", "a{b:2,,=3;}"},
 
 		// early endings
 		{false, "selector{", "selector{"},
