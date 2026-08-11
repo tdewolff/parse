@@ -986,6 +986,7 @@ func TestParseScope(t *testing.T) {
 		{"class a{b(){}}", "a=1//", "//"},
 		{"!class a{b(){}}", "//", "//"},
 		{"class a{#b; b(){ this.#b }}", "a=1/#b=2/", "//#b=2"},
+		{"class a{#b; b(){ this?.#b }}", "a=1/#b=2/", "//#b=2"},
 		{"!class a{#b; b(){ x().#b }}", "/#b=2/", "x=1/x=1/x=1,#b=2"},
 		{"a => a%5", "/a=1", "/"},
 		{"a => a%b", "/a=2", "b=1/b=1"},

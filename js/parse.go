@@ -2037,7 +2037,7 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				left = &DotExpr{left, LiteralExpr{IdentifierToken, p.data}, OpOpt, true}
 				p.next()
 			} else if p.tt == PrivateIdentifierToken {
-				left = &DotExpr{left, LiteralExpr{p.tt, p.data}, OpOpt, true}
+				left = &DotExpr{left, p.scope.Use(p.data), OpOpt, true}
 				p.next()
 			} else {
 				p.fail("optional chaining expression", IdentifierToken, OpenParenToken, OpenBracketToken, TemplateToken)
