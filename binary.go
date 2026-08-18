@@ -385,7 +385,7 @@ func (r *BinaryReader) ReadUint8() uint8 {
 // ReadUint16 reads a uint16.
 func (r *BinaryReader) ReadUint16() uint16 {
 	data := r.ReadBytes(2)
-	if data == nil {
+	if len(data) < 2 {
 		return 0
 	} else if r.ByteOrder == binary.LittleEndian {
 		return uint16(data[1])<<8 | uint16(data[0])
@@ -396,7 +396,7 @@ func (r *BinaryReader) ReadUint16() uint16 {
 // ReadUint24 reads a uint24 into a uint32.
 func (r *BinaryReader) ReadUint24() uint32 {
 	b := r.ReadBytes(3)
-	if b == nil {
+	if len(b) < 3 {
 		return 0
 	} else if r.ByteOrder == binary.LittleEndian {
 		return uint32(b[0]) | uint32(b[1])<<8 | uint32(b[2])<<16
@@ -408,7 +408,7 @@ func (r *BinaryReader) ReadUint24() uint32 {
 // ReadUint32 reads a uint32.
 func (r *BinaryReader) ReadUint32() uint32 {
 	data := r.ReadBytes(4)
-	if data == nil {
+	if len(data) < 4 {
 		return 0
 	} else if r.ByteOrder == binary.LittleEndian {
 		return uint32(data[3])<<24 | uint32(data[2])<<16 | uint32(data[1])<<8 | uint32(data[0])
@@ -419,7 +419,7 @@ func (r *BinaryReader) ReadUint32() uint32 {
 // ReadUint64 reads a uint64.
 func (r *BinaryReader) ReadUint64() uint64 {
 	data := r.ReadBytes(8)
-	if data == nil {
+	if len(data) < 8 {
 		return 0
 	} else if r.ByteOrder == binary.LittleEndian {
 		return uint64(data[7])<<56 | uint64(data[6])<<48 | uint64(data[5])<<40 | uint64(data[4])<<32 | uint64(data[3])<<24 | uint64(data[2])<<16 | uint64(data[1])<<8 | uint64(data[0])
