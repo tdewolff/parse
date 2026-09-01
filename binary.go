@@ -329,7 +329,7 @@ func (r *BinaryReader) Seek(off int64, whence int) (int64, error) {
 		if off < -r.f.Len() || 0 < off {
 			return 0, fmt.Errorf("invalid offset")
 		}
-		r.pos = r.f.Len() - off
+		r.pos = r.f.Len() + off
 	} else {
 		return 0, fmt.Errorf("invalid whence")
 	}
@@ -439,7 +439,8 @@ func (r *BinaryReader) ReadInt16() int16 {
 
 // ReadInt24 reads a int24 into an int32.
 func (r *BinaryReader) ReadInt24() int32 {
-	return int32(r.ReadUint24())
+	// no int24 to convert through, so sign-extend from bit 23
+	return int32(r.ReadUint24()<<8) >> 8
 }
 
 // ReadInt32 reads a int32.
