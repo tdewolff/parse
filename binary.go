@@ -63,10 +63,15 @@ func (r *binaryReaderBytes) Bytes(b []byte, n, off int64) ([]byte, error) {
 type binaryReaderReader struct {
 	r         io.Reader
 	pos, size int64
+	mu        sync.Mutex
 }
 
 func newBinaryReaderReader(r io.Reader, n int64) *binaryReaderReader {
-	return &binaryReaderReader{r, 0, n}
+	return &binaryReaderReader{
+		r:    r,
+		pos:  0,
+		size: n,
+	}
 }
 
 // Close closes the reader.
@@ -83,9 +88,12 @@ func (r *binaryReaderReader) Len() int64 {
 }
 
 func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
+	r.mu.Lock()
 	if off != r.pos {
+		r.mu.Unlock()
 		return nil, errors.New("reader: does not implement io.Seeker or io.ReaderAt")
 	} else if n == 0 {
+		r.mu.Unlock()
 		return nil, nil
 	} else if b == nil {
 		b = make([]byte, n)
@@ -96,11 +104,14 @@ func (r *binaryReaderReader) Bytes(b []byte, n, off int64) ([]byte, error) {
 		r.pos += int64(m)
 		i += m
 		if err != nil {
+			r.mu.Unlock()
 			return b[:i], err
 		} else if m == 0 {
+			r.mu.Unlock()
 			return b[:i], errors.New("reader: could not read all bytes")
 		}
 	}
+	r.mu.Unlock()
 	return b, nil
 }
 
@@ -278,8 +289,12 @@ func (r *BinaryReader) IBinaryReader() IBinaryReader {
 }
 
 func (r *BinaryReader) Clone() *BinaryReader {
+	f := r.f
+	if cloner, ok := f.(interface{ Clone() IBinaryReader }); ok {
+		f = cloner.Clone()
+	}
 	return &BinaryReader{
-		f:         r.f,
+		f:         f,
 		pos:       r.pos,
 		err:       r.err,
 		ByteOrder: r.ByteOrder,
