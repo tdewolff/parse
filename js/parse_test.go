@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/tdewolff/parse/v2"
 	"github.com/tdewolff/test"
@@ -1101,6 +1102,22 @@ func TestScope(t *testing.T) {
 	test.T(t, ast.List[3].(*BlockStmt).Scope.String(), "Scope{Declared: [], Undeclared: [Var{NoDecl d 0 2}]}")
 	test.T(t, ast.List[4].(*BlockStmt).Scope.String(), "Scope{Declared: [], Undeclared: [Var{NoDecl d 0 2}]}")
 	test.T(t, ast.List[4].(*BlockStmt).List[0].(*BlockStmt).Scope.String(), "Scope{Declared: [], Undeclared: [Var{NoDecl d 1 2}]}")
+}
+
+func TestVariableLookup(t *testing.T) {
+	var sb strings.Builder
+	sb.WriteString("v0")
+	for i := 1; i < 11000; i++ {
+		fmt.Fprintf(&sb, ";v%d", i) // approximately 64 KiB
+	}
+	src := strings.Repeat("{", 990) + sb.String() + strings.Repeat("}", 990)
+
+	t0 := time.Now()
+	_, err := Parse(parse.NewInputString(src), Options{})
+	test.Error(t, err)
+
+	dur := time.Since(t0)
+	test.That(t, dur < time.Second, fmt.Sprintf("variable lookup took %v", dur))
 }
 
 func TestParseInputError(t *testing.T) {

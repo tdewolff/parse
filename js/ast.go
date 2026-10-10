@@ -11,6 +11,7 @@ import (
 )
 
 var ErrInvalidJSON = fmt.Errorf("invalid JSON")
+var VariableIndexingThreshold = 16 // threshold for number of declared/undeclared variables in scope, above which the variable index map is filled
 
 type JSONer interface {
 	JSON(io.Writer) error
@@ -201,10 +202,11 @@ type Scope struct {
 	Parent, Func   *Scope   // Parent is nil for global scope
 	Declared       VarArray // Link in Var are always nil
 	Undeclared     VarArray
+	VarIndices     map[string][]int // indices into Declared (index) and Undeclared (-index-1), only used with more than VariableIndexingThreshold
 	VarDecls       []*VarDecl
-	NumForDecls    uint16 // offset into Declared to mark variables used in for statements
-	NumFuncArgs    uint16 // offset into Declared to mark variables used in function arguments
-	NumArgUses     uint16 // offset into Undeclared to mark variables used in arguments
+	NumForDecls    int // offset into Declared to mark variables used in for statements
+	NumFuncArgs    int // offset into Declared to mark variables used in function arguments
+	NumArgUses     int // offset into Undeclared to mark variables used in arguments
 	IsGlobalOrFunc bool
 	HasWith        bool
 }
@@ -254,7 +256,26 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 			if 0 < uv.Uses && uv.Decl == NoDecl && bytes.Equal(name, uv.Data) {
 				// must be NoDecl so that it can't be a var declaration that has been added
 				v = uv
-				s.Undeclared = append(s.Undeclared[:int(s.NumArgUses)+i], s.Undeclared[int(s.NumArgUses)+i+1:]...)
+				s.Undeclared = append(s.Undeclared[:s.NumArgUses+i], s.Undeclared[s.NumArgUses+i+1:]...)
+				if s.VarIndices != nil {
+					index := -(s.NumArgUses + i) - 1
+					for name, indices := range s.VarIndices {
+						var update bool
+						for i := 0; i < len(indices); i++ {
+							if indices[i] < index {
+								indices[i]++
+								update = true
+							} else if indices[i] == index {
+								indices = append(indices[:i], indices[i+1:]...)
+								update = true
+								i--
+							}
+						}
+						if update {
+							s.VarIndices[name] = indices
+						}
+					}
+				}
 				break
 			}
 		}
@@ -266,7 +287,7 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 		v.Decl = decl
 	}
 	v.Uses++
-	s.Declared = append(s.Declared, v)
+	s.addDeclared(v)
 	for s != curScope {
 		curScope.AddUndeclared(v) // add variable declaration as used variable to the current scope
 		curScope = curScope.Parent
@@ -284,7 +305,7 @@ func (s *Scope) Use(name []byte) *Var {
 		if v == nil {
 			// add variable to the context list and to the scope's undeclared
 			v = &Var{name, nil, 0, NoDecl}
-			s.Undeclared = append(s.Undeclared, v)
+			s.addUndeclared(v)
 		}
 	}
 	v.Uses++
@@ -296,8 +317,22 @@ func (s *Scope) findDeclared(name []byte, skipForDeclared bool) *Var {
 	start := 0
 	if skipForDeclared {
 		// we skip the for initializer for declarations (only has effect for let/const)
-		start = int(s.NumForDecls)
+		start = s.NumForDecls
 	}
+	if s.VarIndices != nil {
+		indices := s.VarIndices[string(name)]
+		// reverse order to find the inner let first in `for(let a in []){let a; {a}}`
+		for i := len(indices) - 1; 0 <= i; i-- {
+			if start <= indices[i] {
+				return s.Declared[indices[i]]
+			} else if 0 <= indices[i] {
+				// in for
+				break
+			}
+		}
+		return nil
+	}
+
 	// reverse order to find the inner let first in `for(let a in []){let a; {a}}`
 	for i := len(s.Declared) - 1; start <= i; i-- {
 		v := s.Declared[i]
@@ -311,6 +346,17 @@ func (s *Scope) findDeclared(name []byte, skipForDeclared bool) *Var {
 
 // findUndeclared finds an undeclared variable in the current and contained scopes.
 func (s *Scope) findUndeclared(name []byte) *Var {
+	if s.VarIndices != nil {
+		for _, index := range s.VarIndices[string(name)] {
+			if index < 0 {
+				if v := s.Undeclared[-index-1]; 0 < v.Uses {
+					return v
+				}
+			}
+		}
+		return nil
+	}
+
 	for _, v := range s.Undeclared {
 		// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
 		if 0 < v.Uses && bytes.Equal(name, v.Data) {
@@ -323,46 +369,122 @@ func (s *Scope) findUndeclared(name []byte) *Var {
 // add undeclared variable to scope, this is called for the block scope when declaring a var in it
 func (s *Scope) AddUndeclared(v *Var) {
 	// don't add undeclared symbol if it's already there
-	for _, vorig := range s.Undeclared {
-		if v == vorig {
-			return
+	if s.VarIndices != nil {
+		for _, index := range s.VarIndices[string(v.Data)] {
+			if index < 0 {
+				if vorig := s.Undeclared[-index-1]; v == vorig {
+					return
+				}
+			}
+		}
+	} else {
+		for _, vorig := range s.Undeclared {
+			if v == vorig {
+				return
+			}
 		}
 	}
-	s.Undeclared = append(s.Undeclared, v) // add variable declaration as used variable to the current scope
+	s.addUndeclared(v) // add variable declaration as used variable to the current scope
+}
+
+func (s *Scope) buildVarIndices() {
+	s.VarIndices = make(map[string][]int, len(s.Declared)+len(s.Undeclared))
+	for index, v := range s.Declared {
+		s.VarIndices[string(v.Data)] = append(s.VarIndices[string(v.Data)], index)
+	}
+	for index, v := range s.Undeclared {
+		s.VarIndices[string(v.Data)] = append(s.VarIndices[string(v.Data)], -index-1)
+	}
+}
+
+func (s *Scope) addDeclared(vs ...*Var) {
+	s.Declared = append(s.Declared, vs...)
+	if s.VarIndices != nil {
+		offset := len(s.Declared) - len(vs)
+		for i, v := range vs {
+			s.VarIndices[string(v.Data)] = append(s.VarIndices[string(v.Data)], offset+i)
+		}
+	} else if VariableIndexingThreshold <= len(s.Declared)+len(s.Undeclared) {
+		s.buildVarIndices()
+	}
+}
+
+func (s *Scope) addUndeclared(vs ...*Var) {
+	s.Undeclared = append(s.Undeclared, vs...)
+	if s.VarIndices != nil {
+		offset := len(s.Undeclared) - len(vs) + 1
+		for i, v := range vs {
+			s.VarIndices[string(v.Data)] = append(s.VarIndices[string(v.Data)], -offset-i)
+		}
+	} else if VariableIndexingThreshold <= len(s.Declared)+len(s.Undeclared) {
+		s.buildVarIndices()
+	}
 }
 
 // MarkForStmt marks the declared variables in current scope as for statement initializer to distinguish from declarations in body.
 func (s *Scope) MarkForStmt() {
-	s.NumForDecls = uint16(len(s.Declared))
-	s.NumArgUses = uint16(len(s.Undeclared)) // ensures for different b's in for(var a in b){let b}
+	s.NumForDecls = len(s.Declared)
+	s.NumArgUses = len(s.Undeclared) // ensures for different b's in for(var a in b){let b}
 }
 
 // MarkFuncArgs marks the declared/undeclared variables in the current scope as function arguments.
 func (s *Scope) MarkFuncArgs() {
-	s.NumFuncArgs = uint16(len(s.Declared))
-	s.NumArgUses = uint16(len(s.Undeclared)) // ensures different b's in `function f(a=b){var b}`.
+	s.NumFuncArgs = len(s.Declared)
+	s.NumArgUses = len(s.Undeclared) // ensures different b's in `function f(a=b){var b}`.
 }
 
 // HoistUndeclared copies all undeclared variables of the current scope to the parent scope.
 func (s *Scope) HoistUndeclared() {
+	hoist := make([]*Var, 0, len(s.Undeclared))
+Loop:
 	for i, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
-			if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
-				// check if variable is declared in parent scope
-				v.Uses += vorig.Uses
-				vorig.Link = v
-				s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
-			} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
-				// check if variable is already used before in parent scope
-				v.Uses += vorig.Uses
-				vorig.Link = v
-				s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
-			} else {
+			if s.VarIndices != nil {
+				indices := s.VarIndices[string(vorig.Data)]
+				for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
+					if 0 <= indices[i] {
+						v := s.Declared[indices[i]]
+						// check if variable is declared in parent scope
+						v.Uses += vorig.Uses
+						vorig.Link = v
+						s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+						continue Loop
+					}
+				}
+				for _, index := range indices { // findUndeclared
+					if index < 0 {
+						if v := s.Undeclared[-index-1]; 0 < v.Uses {
+							// check if variable is already used before in parent scope
+							v.Uses += vorig.Uses
+							vorig.Link = v
+							s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+							continue Loop
+						}
+					}
+				}
 				// add variable to the context list and to the scope's undeclared
-				s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
+				hoist = append(hoist, vorig)
+			} else {
+				if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
+					// check if variable is declared in parent scope
+					v.Uses += vorig.Uses
+					vorig.Link = v
+					s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+				} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
+					// check if variable is already used before in parent scope
+					v.Uses += vorig.Uses
+					vorig.Link = v
+					s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+				} else {
+					// add variable to the context list and to the scope's undeclared
+					hoist = append(hoist, vorig)
+				}
 			}
 		}
+	}
+	if 0 < len(hoist) {
+		s.Parent.addUndeclared(hoist...)
 	}
 }
 
@@ -370,22 +492,53 @@ func (s *Scope) HoistUndeclared() {
 // Called when possible arrow func ends up being a parenthesized expression, scope is not further used.
 func (s *Scope) UndeclareScope() {
 	// look if the variable already exists in the parent scope, if so replace the Var pointer in original use
+	hoist := make([]*Var, 0, len(s.Undeclared))
+Loop:
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
-		if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
-			// check if variable has been declared in this scope
-			v.Uses += vorig.Uses
-			vorig.Link = v
-		} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
-			// check if variable is already used before in the current or lower scopes
-			v.Uses += vorig.Uses
-			vorig.Link = v
-		} else {
+		if s.VarIndices != nil {
+			indices := s.VarIndices[string(vorig.Data)]
+			for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
+				if 0 <= indices[i] {
+					v := s.Declared[indices[i]]
+					// check if variable has been declared in this scope
+					v.Uses += vorig.Uses
+					vorig.Link = v
+					continue Loop
+				}
+			}
+			for _, index := range indices { // findUndeclared
+				if index < 0 {
+					if v := s.Undeclared[-index-1]; 0 < v.Uses {
+						// check if variable is already used before in the current or lower scopes
+						v.Uses += vorig.Uses
+						vorig.Link = v
+						continue Loop
+					}
+				}
+			}
 			// add variable to the context list and to the scope's undeclared
 			vorig.Decl = NoDecl
-			s.Parent.Undeclared = append(s.Parent.Undeclared, vorig)
+			hoist = append(hoist, vorig)
+		} else {
+			if v := s.Parent.findDeclared(vorig.Data, false); v != nil {
+				// check if variable has been declared in this scope
+				v.Uses += vorig.Uses
+				vorig.Link = v
+			} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
+				// check if variable is already used before in the current or lower scopes
+				v.Uses += vorig.Uses
+				vorig.Link = v
+			} else {
+				// add variable to the context list and to the scope's undeclared
+				vorig.Decl = NoDecl
+				hoist = append(hoist, vorig)
+			}
 		}
+	}
+	if 0 < len(hoist) {
+		s.Parent.addUndeclared(hoist...)
 	}
 	s.Declared = s.Declared[:0]
 	s.Undeclared = s.Undeclared[:0]
@@ -393,11 +546,9 @@ func (s *Scope) UndeclareScope() {
 
 // Unscope moves all declared variables of the current scope to the parent scope. Undeclared variables are already in the parent scope.
 func (s *Scope) Unscope() {
-	for _, vorig := range s.Declared {
-		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
-		// vorig.Uses will be atleast 1
-		s.Parent.Declared = append(s.Parent.Declared, vorig)
-	}
+	// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
+	// vorig.Uses will be atleast 1
+	s.Parent.addDeclared(s.Declared...)
 	s.Declared = s.Declared[:0]
 	s.Undeclared = s.Undeclared[:0]
 }
