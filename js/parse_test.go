@@ -1105,19 +1105,27 @@ func TestScope(t *testing.T) {
 }
 
 func TestVariableLookup(t *testing.T) {
-	var sb strings.Builder
-	sb.WriteString("v0")
-	for i := 1; i < 11000; i++ {
-		fmt.Fprintf(&sb, ";v%d", i) // approximately 64 KiB
-	}
-	src := strings.Repeat("{", 990) + sb.String() + strings.Repeat("}", 990)
+	t.Run("slow lookup", func(t *testing.T) {
+		var sb strings.Builder
+		sb.WriteString("v0")
+		for i := 1; i < 11000; i++ {
+			fmt.Fprintf(&sb, ";v%d", i) // approximately 64 KiB
+		}
+		src := strings.Repeat("{", 990) + sb.String() + strings.Repeat("}", 990)
 
-	t0 := time.Now()
-	_, err := Parse(parse.NewInputString(src), Options{})
-	test.Error(t, err)
+		t0 := time.Now()
+		_, err := Parse(parse.NewInputString(src), Options{})
+		test.Error(t, err)
 
-	dur := time.Since(t0)
-	test.That(t, dur < time.Second, fmt.Sprintf("variable lookup took %v", dur))
+		dur := time.Since(t0)
+		test.That(t, dur < time.Second, fmt.Sprintf("variable lookup took %v", dur))
+	})
+
+	t.Run("lookup panic", func(t *testing.T) {
+		src := "function f(x=a){let b0,b1,b2,b3,b4,b5,b6,b7,b8,b9,b10,b11,b12,b13,a}"
+		_, err := Parse(parse.NewInputString(src), Options{})
+		test.Error(t, err)
+	})
 }
 
 func TestParseInputError(t *testing.T) {

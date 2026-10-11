@@ -437,7 +437,7 @@ func (s *Scope) MarkFuncArgs() {
 func (s *Scope) HoistUndeclared() {
 	hoist := make([]*Var, 0, len(s.Undeclared))
 Loop:
-	for i, vorig := range s.Undeclared {
+	for j, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
 			if s.VarIndices != nil {
@@ -448,7 +448,7 @@ Loop:
 						// check if variable is declared in parent scope
 						v.Uses += vorig.Uses
 						vorig.Link = v
-						s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+						s.Undeclared[j] = v // point reference to existing var (to avoid many Link chains)
 						continue Loop
 					}
 				}
@@ -458,7 +458,7 @@ Loop:
 							// check if variable is already used before in parent scope
 							v.Uses += vorig.Uses
 							vorig.Link = v
-							s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+							s.Undeclared[j] = v // point reference to existing var (to avoid many Link chains)
 							continue Loop
 						}
 					}
@@ -470,12 +470,12 @@ Loop:
 					// check if variable is declared in parent scope
 					v.Uses += vorig.Uses
 					vorig.Link = v
-					s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+					s.Undeclared[j] = v // point reference to existing var (to avoid many Link chains)
 				} else if v := s.Parent.findUndeclared(vorig.Data); v != nil {
 					// check if variable is already used before in parent scope
 					v.Uses += vorig.Uses
 					vorig.Link = v
-					s.Undeclared[i] = v // point reference to existing var (to avoid many Link chains)
+					s.Undeclared[j] = v // point reference to existing var (to avoid many Link chains)
 				} else {
 					// add variable to the context list and to the scope's undeclared
 					hoist = append(hoist, vorig)
