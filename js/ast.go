@@ -441,10 +441,10 @@ Loop:
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
 			if s.VarIndices != nil {
-				indices := s.VarIndices[string(vorig.Data)]
+				indices := s.Parent.VarIndices[string(vorig.Data)]
 				for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
 					if 0 <= indices[i] {
-						v := s.Declared[indices[i]]
+						v := s.Parent.Declared[indices[i]]
 						// check if variable is declared in parent scope
 						v.Uses += vorig.Uses
 						vorig.Link = v
@@ -454,7 +454,7 @@ Loop:
 				}
 				for _, index := range indices { // findUndeclared
 					if index < 0 {
-						if v := s.Undeclared[-index-1]; 0 < v.Uses {
+						if v := s.Parent.Undeclared[-index-1]; 0 < v.Uses {
 							// check if variable is already used before in parent scope
 							v.Uses += vorig.Uses
 							vorig.Link = v
@@ -498,10 +498,10 @@ Loop:
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
 		if s.VarIndices != nil {
-			indices := s.VarIndices[string(vorig.Data)]
+			indices := s.Parent.VarIndices[string(vorig.Data)]
 			for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
 				if 0 <= indices[i] {
-					v := s.Declared[indices[i]]
+					v := s.Parent.Declared[indices[i]]
 					// check if variable has been declared in this scope
 					v.Uses += vorig.Uses
 					vorig.Link = v
@@ -510,7 +510,7 @@ Loop:
 			}
 			for _, index := range indices { // findUndeclared
 				if index < 0 {
-					if v := s.Undeclared[-index-1]; 0 < v.Uses {
+					if v := s.Parent.Undeclared[-index-1]; 0 < v.Uses {
 						// check if variable is already used before in the current or lower scopes
 						v.Uses += vorig.Uses
 						vorig.Link = v
