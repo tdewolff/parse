@@ -1559,8 +1559,24 @@ func (p *Parser) parseIdentifierArrowFunc(v *Var) (arrowFunc *ArrowFunc) {
 	} else {
 		// if v.Uses==1 it must be undeclared and be the last added
 		p.scope.Parent.Undeclared = p.scope.Parent.Undeclared[:len(p.scope.Parent.Undeclared)-1]
+		if p.scope.Parent.VarIndices != nil {
+			index := -len(p.scope.Parent.Undeclared) - 1
+			for name, indices := range p.scope.Parent.VarIndices {
+				var updated bool
+				for i := 0; i < len(indices); i++ {
+					if indices[i] == index {
+						indices = append(indices[:i], indices[i+1:]...)
+						updated = true
+						i--
+					}
+				}
+				if updated {
+					p.scope.Parent.VarIndices[name] = indices
+				}
+			}
+		}
 		v.Decl = ArgumentDecl
-		p.scope.Declared = append(p.scope.Declared, v)
+		p.scope.addDeclared(v)
 	}
 
 	arrowFunc.Params.List = []BindingElement{{v, nil}}

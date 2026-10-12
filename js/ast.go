@@ -537,6 +537,7 @@ Loop:
 	}
 	s.Declared = s.Declared[:0]
 	s.Undeclared = s.Undeclared[:0]
+	s.VarIndices = nil
 }
 
 // Unscope moves all declared variables of the current scope to the parent scope. Undeclared variables are already in the parent scope.
@@ -546,6 +547,7 @@ func (s *Scope) Unscope() {
 	s.Parent.addDeclared(s.Declared...)
 	s.Declared = s.Declared[:0]
 	s.Undeclared = s.Undeclared[:0]
+	s.VarIndices = nil
 }
 
 ////////////////////////////////////////////////////////////////
