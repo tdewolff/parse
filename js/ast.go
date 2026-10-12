@@ -251,32 +251,27 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 	var v *Var
 	// reuse variable if previously used, as in:  a;var a
 	if decl != ArgumentDecl { // in case of function f(a=b,b), where the first b is different from the second
-		for i, uv := range s.Undeclared[s.NumArgUses:] {
-			// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
-			if 0 < uv.Uses && uv.Decl == NoDecl && bytes.Equal(name, uv.Data) {
-				// must be NoDecl so that it can't be a var declaration that has been added
-				v = uv
-				s.Undeclared = append(s.Undeclared[:s.NumArgUses+i], s.Undeclared[s.NumArgUses+i+1:]...)
-				if s.VarIndices != nil {
-					index := -(s.NumArgUses + i) - 1
-					for name, indices := range s.VarIndices {
-						var update bool
-						for i := 0; i < len(indices); i++ {
-							if indices[i] < index {
-								indices[i]++
-								update = true
-							} else if indices[i] == index {
-								indices = append(indices[:i], indices[i+1:]...)
-								update = true
-								i--
-							}
-						}
-						if update {
-							s.VarIndices[name] = indices
-						}
+		if s.VarIndices != nil {
+			for _, index := range s.VarIndices[string(name)] {
+				if index < -s.NumArgUses {
+					// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
+					// must be NoDecl so that it can't be a var declaration that has been added
+					if uv := s.Undeclared[-index-1]; 0 < uv.Uses && uv.Decl == NoDecl {
+						uv.Decl = decl
+						v = uv
+						break
 					}
 				}
-				break
+			}
+		} else {
+			for i, uv := range s.Undeclared[s.NumArgUses:] {
+				// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
+				// must be NoDecl so that it can't be a var declaration that has been added
+				if 0 < uv.Uses && uv.Decl == NoDecl && bytes.Equal(name, uv.Data) {
+					v = uv
+					s.Undeclared = append(s.Undeclared[:s.NumArgUses+i], s.Undeclared[s.NumArgUses+i+1:]...)
+					break
+				}
 			}
 		}
 	}
