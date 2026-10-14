@@ -435,7 +435,7 @@ Loop:
 	for j, vorig := range s.Undeclared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same
 		if 0 < vorig.Uses && vorig.Decl == NoDecl {
-			if s.VarIndices != nil {
+			if s.Parent.VarIndices != nil {
 				indices := s.Parent.VarIndices[string(vorig.Data)]
 				for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
 					if 0 <= indices[i] {
@@ -492,7 +492,7 @@ Loop:
 	for _, vorig := range s.Declared {
 		// no need to evaluate vorig.Link as vorig.Data stays the same, and Link is always nil in Declared
 		// vorig.Uses will be atleast 1
-		if s.VarIndices != nil {
+		if s.Parent.VarIndices != nil {
 			indices := s.Parent.VarIndices[string(vorig.Data)]
 			for i := len(indices) - 1; 0 <= i; i-- { // findDeclared
 				if 0 <= indices[i] {
