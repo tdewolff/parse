@@ -1017,6 +1017,7 @@ func TestParseScope(t *testing.T) {
 		{"async function a(){ b => await%5 }", "a=1//b=3", "await=2/await=2/await=2"},
 		{"let a; {let b = a}", "a=1/b=2", "/a=1"},
 		{"let a; {var b}", "a=1,b=2/", "/b=2"}, // may remove b from uses
+		{"let a; {var b,c,d,e,f,g,h,i,j,k,l,m,n,o,p; a}", "a=1,b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9,j=10,k=11,l=12,m=13,n=14,o=15,p=16/", "/b=2,c=3,d=4,e=5,f=6,g=7,h=8,i=9,j=10,k=11,l=12,m=13,n=14,o=15,p=16,a=1"},
 		{"let a; {var b = a}", "a=1,b=2/", "/b=2,a=1"},
 		{"let a; {class b{}}", "a=1/b=2/", "//"},
 		{"a = 5; var a;", "a=1", ""},
@@ -1083,6 +1084,89 @@ func TestParseScope(t *testing.T) {
 	}
 }
 
+type scopeDisjointVisitor struct {
+	t *testing.T
+}
+
+func (v scopeDisjointVisitor) Enter(n INode) IVisitor {
+	var scope *Scope
+	switch n := n.(type) {
+	case *BlockStmt:
+		scope = &n.Scope
+	case *ClassDecl:
+		scope = &n.Scope
+	case *SwitchStmt:
+		scope = &n.Scope
+	}
+	if scope != nil {
+		if scope.NumArgUses > len(scope.Undeclared) {
+			v.t.Errorf("argument uses offset %d exceeds %d undeclared variables", scope.NumArgUses, len(scope.Undeclared))
+		}
+		for name, indices := range scope.VarIndices {
+			for _, index := range indices {
+				if index < 0 {
+					if len(scope.Undeclared) <= -index-1 || string(scope.Undeclared[-index-1].Data) != name {
+						v.t.Errorf("invalid undeclared index %d for %s", index, name)
+					}
+				} else if len(scope.Declared) <= index || string(scope.Declared[index].Data) != name {
+					v.t.Errorf("invalid declared index %d for %s", index, name)
+				}
+			}
+		}
+		declared := make(map[*Var]bool, len(scope.Declared))
+		for _, variable := range scope.Declared {
+			declared[variable] = true
+		}
+		for _, variable := range scope.Undeclared {
+			for variable.Link != nil {
+				variable = variable.Link
+			}
+			if declared[variable] {
+				v.t.Errorf("%s is both declared and undeclared", variable.Data)
+			}
+		}
+	}
+	return v
+}
+
+func (v scopeDisjointVisitor) Exit(n INode) {}
+
+func TestParseScopeDisjoint(t *testing.T) {
+	for _, count := range []int{1, 15, 16, 32} {
+		var reads, names strings.Builder
+		for i := 0; i < count; i++ {
+			fmt.Fprintf(&reads, "a%d;", i)
+			if i != 0 {
+				names.WriteString(",")
+			}
+			fmt.Fprintf(&names, "a%d", i)
+		}
+		body := reads.String() + "var " + names.String() + ";outside;"
+		for _, src := range []string{
+			body,
+			"function f(){" + body + "}",
+			"function f(){function g(){" + body + "} " + body + "}",
+			"function f(x=a0){" + body + "}",
+			"(x=a0)=>{" + body + "}",
+			"{" + reads.String() + "let " + names.String() + ";}",
+			"for(let first=a0,a0;outside;){" + reads.String() + "let " + names.String() + ";}",
+			"for(let first=(" + names.String() + ")," + names.String() + ";outside;){}",
+			"class C { m(){" + body + "} }",
+			"switch(outside){case 0:" + reads.String() + "let " + names.String() + ";}",
+		} {
+			for _, inline := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%d/%s/inline=%v", count, src, inline), func(t *testing.T) {
+					ast, err := Parse(parse.NewInputString(src), Options{Inline: inline})
+					if err != nil {
+						t.Fatal(err)
+					}
+					Walk(scopeDisjointVisitor{t}, ast)
+				})
+			}
+		}
+	}
+}
+
 func TestScope(t *testing.T) {
 	js := "let a,b; b = 5; var c; {d}{{d}}"
 	ast, err := Parse(parse.NewInputString(js), Options{})
@@ -1130,12 +1214,12 @@ func TestVariableLookup(t *testing.T) {
 	t.Run("slow Declare", func(t *testing.T) {
 		var sb strings.Builder
 		sb.WriteString("v0")
-		for i := 1; i < 11000; i++ {
-			fmt.Fprintf(&sb, ";v%d", i) // approximately 64 KiB
+		for i := 1; i < 32000; i++ {
+			fmt.Fprintf(&sb, ";v%d", i)
 		}
 		sb.WriteString(";var v0")
-		for i := 1; i < 11000; i++ {
-			fmt.Fprintf(&sb, ",v%d", i) // approximately 64 KiB
+		for i := 1; i < 32000; i++ {
+			fmt.Fprintf(&sb, ",v%d", i)
 		}
 		src := sb.String()
 
@@ -1144,6 +1228,7 @@ func TestVariableLookup(t *testing.T) {
 		test.Error(t, err)
 
 		dur := time.Since(t0)
+		t.Logf("read-then-declare took %v", dur)
 		test.That(t, dur < 1*time.Second, fmt.Sprintf("variable lookup took %v", dur))
 	})
 }
