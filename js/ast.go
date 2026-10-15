@@ -258,24 +258,6 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 					// must be NoDecl so that it can't be a var declaration that has been added
 					if uv := s.Undeclared[-index-1]; 0 < uv.Uses && uv.Decl == NoDecl {
 						v = uv
-						s.Undeclared = append(s.Undeclared[:-index-1], s.Undeclared[-index:]...)
-
-						for name, indices := range s.VarIndices {
-							var updated bool
-							for i := 0; i < len(indices); i++ {
-								if indices[i] == index {
-									indices = append(indices[:i], indices[i+1:]...)
-									updated = true
-									i--
-								} else if indices[i] < index {
-									indices[i]++
-									updated = true
-								}
-							}
-							if updated {
-								s.VarIndices[name] = indices
-							}
-						}
 						break
 					}
 				}
@@ -447,6 +429,34 @@ func (s *Scope) MarkFuncArgs() {
 
 // HoistUndeclared copies all undeclared variables of the current scope to the parent scope.
 func (s *Scope) HoistUndeclared() {
+	// Remove reused declarations once the scope closes, keeping references to outer declarations.
+	if s.VarIndices != nil {
+		n := 0
+		numArgUses := s.NumArgUses
+	UndeclaredLoop:
+		for i, v := range s.Undeclared {
+			if v.Decl != NoDecl {
+				for _, index := range s.VarIndices[string(v.Data)] {
+					if 0 <= index && s.Declared[index] == v {
+						if i < numArgUses {
+							s.NumArgUses--
+						}
+						continue UndeclaredLoop
+					}
+				}
+			}
+			s.Undeclared[n] = v
+			n++
+		}
+		if n != len(s.Undeclared) {
+			s.Undeclared = s.Undeclared[:n]
+			s.buildVarIndices()
+		}
+	}
+	if s.Parent == nil {
+		return
+	}
+
 	hoist := make([]*Var, 0, len(s.Undeclared))
 Loop:
 	for j, vorig := range s.Undeclared {
