@@ -257,8 +257,25 @@ func (s *Scope) Declare(decl DeclType, name []byte) (*Var, bool) {
 					// no need to evaluate v.Link as v.Data stays the same and Link is nil in the active scope
 					// must be NoDecl so that it can't be a var declaration that has been added
 					if uv := s.Undeclared[-index-1]; 0 < uv.Uses && uv.Decl == NoDecl {
-						uv.Decl = decl
 						v = uv
+						s.Undeclared = append(s.Undeclared[:-index-1], s.Undeclared[-index:]...)
+
+						for name, indices := range s.VarIndices {
+							var updated bool
+							for i := 0; i < len(indices); i++ {
+								if indices[i] == index {
+									indices = append(indices[:i], indices[i+1:]...)
+									updated = true
+									i--
+								} else if indices[i] < index {
+									indices[i]++
+									updated = true
+								}
+							}
+							if updated {
+								s.VarIndices[name] = indices
+							}
+						}
 						break
 					}
 				}
