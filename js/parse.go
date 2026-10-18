@@ -60,6 +60,7 @@ func Parse(r *parse.Input, o Options) (*AST, error) {
 			}
 			ast.BlockStmt.List = append(ast.BlockStmt.List, p.parseStmt(true))
 		}
+		p.exitScope(nil)
 	} else {
 		// catch shebang in first line
 		var shebang []byte
@@ -198,6 +199,7 @@ func (p *Parser) parseModule() (module BlockStmt) {
 				module.List = append(p.comments, module.List...)
 				p.comments = p.comments[:0]
 			}
+			p.exitScope(nil)
 			return
 		case ImportToken:
 			p.next()
