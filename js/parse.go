@@ -216,7 +216,7 @@ func (p *Parser) parseModule() (module BlockStmt) {
 			} else if p.tt == DotToken {
 				p.next()
 				if !p.consume("import.meta expression", MetaToken) {
-					return module
+					return
 				}
 				left := &ImportMetaExpr{}
 				p.exprLevel++
