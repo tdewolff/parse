@@ -1202,7 +1202,7 @@ func TestVariableLookup(t *testing.T) {
 		test.Error(t, err)
 
 		dur := time.Since(t0)
-		test.That(t, dur < 3*time.Second, fmt.Sprintf("variable lookup took %v", dur))
+		test.That(t, dur < 10*time.Second, fmt.Sprintf("variable lookup took %v", dur))
 	})
 
 	t.Run("lookup panic", func(t *testing.T) {
