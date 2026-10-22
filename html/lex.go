@@ -545,7 +545,9 @@ func (l *Lexer) shiftXML(rawTag Hash) []byte {
 				}
 				l.r.Move(1)
 			}
-			if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[start:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
+			if !isEnd && l.r.Peek(0) == '/' {
+				// ignore self-closing tag
+			} else if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[start:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
 				if isEnd {
 					if nested == 0 {
 						break

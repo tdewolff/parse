@@ -46,7 +46,8 @@ func TestTokens(t *testing.T) {
 		{"<svg>text</svg>", TTs{SVGToken}},
 		{"<math>text</math gibberish>", TTs{MathToken}},
 		{`<svg>text<x a="</svg>"></x></svg>`, TTs{SVGToken}},
-		{`<svg><svg></svg></svg>`, TTs{SVGToken}},
+		{`<svg><svg></svg></svg>text`, TTs{SVGToken, TextToken}},
+		{`<svg><svg/></svg>text`, TTs{SVGToken, TextToken}},
 		{"<a><svg>text</svg></a>", TTs{StartTagToken, StartTagCloseToken, SVGToken, EndTagToken}},
 
 		// early endings
