@@ -522,23 +522,38 @@ func (l *Lexer) shiftEndTag() []byte {
 // shiftXML parses the content of a svg or math tag according to the XML 1.1 specifications, including the tag itself.
 // So far we have already parsed `<svg` or `<math`.
 func (l *Lexer) shiftXML(rawTag Hash) []byte {
+	nested := 0
 	inQuote := false
 	for {
 		c := l.r.Peek(0)
 		if c == '"' {
 			inQuote = !inQuote
 			l.r.Move(1)
-		} else if c == '<' && !inQuote && l.r.Peek(1) == '/' {
-			mark := l.r.Pos()
-			l.r.Move(2)
+		} else if c == '<' && !inQuote {
+			start := l.r.Pos()
+			isEnd := l.r.Peek(1) == '/'
+			if isEnd {
+				l.r.Move(2)
+				start += 2
+			} else {
+				l.r.Move(1)
+				start += 1
+			}
 			for {
 				if c = l.r.Peek(0); !('a' <= c && c <= 'z' || 'A' <= c && c <= 'Z') {
 					break
 				}
 				l.r.Move(1)
 			}
-			if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[mark+2:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
-				break
+			if h := ToHash(parse.ToLower(parse.Copy(l.r.Lexeme()[start:]))); h == rawTag { // copy so that ToLower doesn't change the case of the underlying slice
+				if isEnd {
+					if nested == 0 {
+						break
+					}
+					nested--
+				} else {
+					nested++
+				}
 			}
 		} else if c == 0 {
 			if l.r.Err() == nil {
@@ -550,6 +565,7 @@ func (l *Lexer) shiftXML(rawTag Hash) []byte {
 		}
 	}
 
+	// finish reading end token
 	for {
 		c := l.r.Peek(0)
 		if c == '>' {
