@@ -303,6 +303,15 @@ func (l *Lexer) shiftRawText() []byte {
 func (l *Lexer) readMarkup() (TokenType, []byte) {
 	if l.at('-', '-') {
 		l.r.Move(2)
+		if l.at('>') || l.at('-', '>') {
+			// <!--> and <!---> abruptly close an empty comment
+			l.text = l.r.Lexeme()[4:4]
+			for l.r.Peek(0) != '>' {
+				l.r.Move(1)
+			}
+			l.r.Move(1)
+			return CommentToken, l.r.Shift()
+		}
 		for {
 			if l.r.Peek(0) == 0 && l.r.Err() != nil {
 				l.text = l.r.Lexeme()[4:]
