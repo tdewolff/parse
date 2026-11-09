@@ -189,6 +189,11 @@ func (l *Lexer) Next() (TokenType, []byte) {
 		if l.consumeCDCToken() {
 			return CDCToken, l.r.Shift()
 		} else if l.consumeCustomVariableToken() {
+			if l.r.Peek(0) == '(' {
+				// a dashed ident followed by ( is a function token, e.g. --fn(1px)
+				l.r.Move(1)
+				return FunctionToken, l.r.Shift()
+			}
 			return CustomPropertyNameToken, l.r.Shift()
 		} else if t := l.consumeIdentlike(); t != ErrorToken {
 			return t, l.r.Shift()

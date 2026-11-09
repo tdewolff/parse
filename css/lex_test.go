@@ -39,6 +39,9 @@ func TestTokens(t *testing.T) {
 		{"5.2 .4 4e-22", TTs{NumberToken, NumberToken, NumberToken}, []string{"5.2", ".4", "4e-22"}},
 		{"--custom-variable", TTs{CustomPropertyNameToken}, []string{"--custom-variable"}},
 		{"--0", TTs{CustomPropertyNameToken}, []string{"--0"}},
+		{"--fn(1px)", TTs{FunctionToken, DimensionToken, RightParenthesisToken}, []string{"--fn(", "1px", ")"}},
+		{"--fn (", TTs{CustomPropertyNameToken, LeftParenthesisToken}, []string{"--fn", "("}},
+		{"--x:--fn()", TTs{CustomPropertyNameToken, ColonToken, FunctionToken, RightParenthesisToken}, []string{"--x", ":", "--fn(", ")"}},
 
 		// unexpected ending
 		{"ident", TTs{IdentToken}, []string{"ident"}},
