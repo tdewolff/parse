@@ -114,6 +114,10 @@ func TestParse(t *testing.T) {
 		{false, ".foo { visibility: hidden;” } .bar { color:red; }", ".foo{visibility:hidden;ERROR(expected colon in declaration)}.bar{color:red;}"},
 		{false, ".foo { baddecl (; color:red; }", ".foo{ERROR(expected colon in declaration)"},
 		{true, "color=blue;", "ERROR(expected colon in declaration)"},
+		{true, "color:red);display:none", "ERROR(unexpected ending in declaration)display:none;"},
+		{true, "color:red];display:none", "ERROR(unexpected ending in declaration)display:none;"},
+		{false, ".foo { color:red); display:none } .bar { color:red; }", ".foo{ERROR(unexpected ending in declaration)display:none;}.bar{color:red;}"},
+		{false, "@foo { a) } .bar { color:red; }", "@foo{a) }.bar{color:red;}"},
 
 		// issues
 		{false, "@media print {.class{width:5px;}}", "@media print{.class{width:5px;}}"},                  // #6

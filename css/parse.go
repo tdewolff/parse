@@ -327,7 +327,8 @@ func (p *Parser) parseAtRuleUnknown() GrammarType {
 	}
 	if p.tt == LeftParenthesisToken || p.tt == LeftBraceToken || p.tt == LeftBracketToken || p.tt == FunctionToken {
 		p.level++
-	} else if p.tt == RightParenthesisToken || p.tt == RightBraceToken || p.tt == RightBracketToken {
+	} else if (p.tt == RightParenthesisToken || p.tt == RightBraceToken || p.tt == RightBracketToken) && 0 < p.level {
+		// a closing token without its opening one is not a level
 		p.level--
 	}
 	return TokenGrammar
@@ -490,7 +491,8 @@ func (p *Parser) parseDeclarationError(tt TokenType, data []byte) GrammarType {
 			return ErrorGrammar
 		} else if tt == LeftParenthesisToken || tt == LeftBraceToken || tt == LeftBracketToken || tt == FunctionToken {
 			p.level++
-		} else if tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken {
+		} else if (tt == RightParenthesisToken || tt == RightBraceToken || tt == RightBracketToken) && 0 < p.level {
+			// a closing token without its opening one (the offending token of the error) is not a level
 			p.level--
 		}
 
