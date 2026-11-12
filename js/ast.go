@@ -1151,11 +1151,56 @@ func (alias Alias) JS(w io.Writer) {
 	w.Write(alias.Binding)
 }
 
+// ImportAttribute is a key and value in the with clause of an import or export statement, such as type: "json".
+type ImportAttribute struct {
+	Key   []byte // identifier name or string literal
+	Value []byte // string literal
+}
+
+func (attr ImportAttribute) String() string {
+	return string(attr.Key) + ": " + string(attr.Value)
+}
+
+// JS writes JavaScript to writer.
+func (attr ImportAttribute) JS(w io.Writer) {
+	w.Write(attr.Key)
+	w.Write([]byte(": "))
+	w.Write(attr.Value)
+}
+
+func importAttributesString(attrs []ImportAttribute) string {
+	s := "with {"
+	for i, attr := range attrs {
+		if i != 0 {
+			s += " ,"
+		}
+		s += " " + attr.String()
+	}
+	return s + " }"
+}
+
+func importAttributesJS(w io.Writer, attrs []ImportAttribute) {
+	if len(attrs) == 0 {
+		w.Write([]byte("with {}"))
+		return
+	}
+	w.Write([]byte("with {"))
+	for i, attr := range attrs {
+		if i != 0 {
+			w.Write([]byte(","))
+		}
+		w.Write([]byte(" "))
+		attr.JS(w)
+	}
+	w.Write([]byte(" }"))
+}
+
 // ImportStmt is an import statement.
 type ImportStmt struct {
-	List    []Alias
-	Default []byte // can be nil
-	Module  []byte
+	List       []Alias
+	Default    []byte // can be nil
+	Module     []byte
+	Attributes []ImportAttribute // nil if there is no with clause
 }
 
 func (n ImportStmt) String() string {
@@ -1184,7 +1229,11 @@ func (n ImportStmt) String() string {
 	if n.Default != nil || n.List != nil {
 		s.WriteString(" from")
 	}
-	return s.String() + " " + string(n.Module) + ")"
+	s.WriteString(" " + string(n.Module))
+	if n.Attributes != nil {
+		s.WriteString(" " + importAttributesString(n.Attributes))
+	}
+	return s.String() + ")"
 }
 
 // JS writes JavaScript to writer.
@@ -1225,15 +1274,20 @@ func (n ImportStmt) JS(w io.Writer) {
 	}
 	w.Write([]byte(" "))
 	w.Write(n.Module)
+	if n.Attributes != nil {
+		w.Write([]byte(" "))
+		importAttributesJS(w, n.Attributes)
+	}
 	w.Write([]byte(";"))
 }
 
 // ExportStmt is an export statement.
 type ExportStmt struct {
-	List    []Alias
-	Module  []byte // can be nil
-	Default bool
-	Decl    IExpr
+	List       []Alias
+	Module     []byte // can be nil
+	Default    bool
+	Decl       IExpr
+	Attributes []ImportAttribute // nil if there is no with clause
 }
 
 func (n ExportStmt) String() string {
@@ -1259,6 +1313,9 @@ func (n ExportStmt) String() string {
 	}
 	if n.Module != nil {
 		s += " from " + string(n.Module)
+	}
+	if n.Attributes != nil {
+		s += " " + importAttributesString(n.Attributes)
 	}
 	return s + ")"
 }
@@ -1298,6 +1355,10 @@ func (n ExportStmt) JS(w io.Writer) {
 	if n.Module != nil {
 		w.Write([]byte(" from "))
 		w.Write(n.Module)
+	}
+	if n.Attributes != nil {
+		w.Write([]byte(" "))
+		importAttributesJS(w, n.Attributes)
 	}
 	w.Write([]byte(";"))
 }
