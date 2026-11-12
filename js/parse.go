@@ -1913,7 +1913,11 @@ func (p *Parser) parseExpressionSuffix(left IExpr, prec, precLeft OpPrec) IExpr 
 				return nil
 			}
 			p.next()
+			// the right-hand side is never a binding, even when the left-hand side is a binding pattern with an initializer in arrow function parameters
+			prevAssumeArrowFunc := p.assumeArrowFunc
+			p.assumeArrowFunc = false
 			left = &BinaryExpr{tt, left, p.parseExpression(OpAssign)}
+			p.assumeArrowFunc = prevAssumeArrowFunc && tt == EqToken
 			precLeft = OpAssign
 		case LtToken, LtEqToken, GtToken, GtEqToken, InToken, InstanceofToken:
 			if OpCompare < prec || !p.in && tt == InToken {

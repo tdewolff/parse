@@ -345,6 +345,10 @@ func TestParse(t *testing.T) {
 		{"x = (a = 5) => {a++}", "Stmt(x=(Params(Binding(a = 5)) => Stmt({ Stmt(a++) })))"},
 		{"x = ({a = 5}) => {a++}", "Stmt(x=(Params(Binding({ Binding(a = 5) })) => Stmt({ Stmt(a++) })))"},
 		{`({a:b=1}={})=>b`, `Stmt(Params(Binding({ a: Binding(b = 1) } = {})) => Stmt({ Stmt(return b) }))`},
+		{"([a] = [5]) => a", "Stmt(Params(Binding([ Binding(a) ] = [5])) => Stmt({ Stmt(return a) }))"},
+		{"({a} = {a:5}) => a", "Stmt(Params(Binding({ Binding(a) } = {a: 5})) => Stmt({ Stmt(return a) }))"},
+		{"([[a] = [5]]) => a", "Stmt(Params(Binding([ Binding([ Binding(a) ] = [5]) ])) => Stmt({ Stmt(return a) }))"},
+		{"(a, [b] = [a]) => b", "Stmt(Params(Binding(a), Binding([ Binding(b) ] = [a])) => Stmt({ Stmt(return b) }))"},
 
 		// expression precedence
 		{"!!a", "Stmt(!(!a))"},
@@ -1004,6 +1008,10 @@ func TestParseScope(t *testing.T) {
 		{"({[a+b]:c}) => {}", "/c=3", "a=1,b=2/a=1,b=2"},
 		{"({a:b, c=d, ...e}=f) => 5", "/b=3,c=4,e=5", "d=1,f=2/d=1,f=2"},
 		{"([a, b=c, ...d]=e) => 5", "/a=3,b=4,d=5", "c=1,e=2/c=1,e=2"},
+		{"([a]=[b]) => a+b", "/a=2", "b=1/b=1"},
+		{"({a}={b}) => a+b", "/a=2", "b=1/b=1"},
+		{"({a}={a:b}) => a+b", "/a=2", "b=1/b=1"},
+		{"(a, [b]=[a, c]) => b", "/a=2,b=3", "c=1/c=1"},
 		{"(a) + ((b,c) => {var d; e = 5; return e})", "/b=3,c=4,d=5", "a=1,e=2/e=2"},
 		{"(a) + ((a,b) => {var c; d = 5; return d})", "/a=3,b=4,c=5", "a=1,d=2/d=2"},
 		{"{(a) + ((a,b) => {var c; d = 5; return d})}", "//a=3,b=4,c=5", "a=1,d=2/a=1,d=2/d=2"},
