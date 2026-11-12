@@ -763,10 +763,49 @@ func (p *Parser) parseImportStmt() (importStmt ImportStmt) {
 		importStmt.Module = p.data
 		p.next()
 	}
+	if p.tt == WithToken {
+		if importStmt.Attributes = p.parseWithClause("import statement"); importStmt.Attributes == nil {
+			return
+		}
+	}
 	if p.tt == SemicolonToken {
 		p.next()
 	}
 	return
+}
+
+// parseWithClause parses the import attributes of an import or export statement, it returns nil on error
+func (p *Parser) parseWithClause(in string) []ImportAttribute {
+	// assume we're at with
+	p.next()
+	if !p.consume(in, OpenBraceToken) {
+		return nil
+	}
+	attrs := []ImportAttribute{}
+	for p.tt != CloseBraceToken {
+		if !IsIdentifierName(p.tt) && p.tt != StringToken {
+			p.fail(in, IdentifierToken, StringToken, CloseBraceToken)
+			return nil
+		}
+		key := p.data
+		p.next()
+		if !p.consume(in, ColonToken) {
+			return nil
+		} else if p.tt != StringToken {
+			p.fail(in, StringToken)
+			return nil
+		}
+		attrs = append(attrs, ImportAttribute{key, p.data})
+		p.next()
+		if p.tt == CommaToken {
+			p.next()
+		} else if p.tt != CloseBraceToken {
+			p.fail(in, CommaToken, CloseBraceToken)
+			return nil
+		}
+	}
+	p.next()
+	return attrs
 }
 
 func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
@@ -829,6 +868,11 @@ func (p *Parser) parseExportStmt() (exportStmt ExportStmt) {
 			}
 			exportStmt.Module = p.data
 			p.next()
+			if p.tt == WithToken {
+				if exportStmt.Attributes = p.parseWithClause("export statement"); exportStmt.Attributes == nil {
+					return
+				}
+			}
 		}
 	} else if p.tt == VarToken || p.tt == ConstToken || p.tt == LetToken {
 		tt := p.tt
