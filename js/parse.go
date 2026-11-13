@@ -30,6 +30,7 @@ type Parser struct {
 	in, await, yield, deflt, retrn bool
 	assumeArrowFunc                bool
 	allowDirectivePrologue         bool
+	strict                         bool // inside strict mode code, due to a "use strict" directive or a class
 	comments                       []IStmt
 
 	stmtLevel int
@@ -643,6 +644,7 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			} else if lit, ok := stmt.(*ExprStmt).Value.(*LiteralExpr); ok && allowDirectivePrologue && lit.TokenType == StringToken && len(lit.Data) == 12 && bytes.Equal(lit.Data[1:11], []byte("use strict")) {
 				stmt = &DirectivePrologueStmt{lit.Data}
 				p.allowDirectivePrologue = true
+				p.strict = true
 			}
 		}
 	}
@@ -958,21 +960,58 @@ func (p *Parser) parseVarDecl(tt TokenType, canBeHoisted bool) (varDecl *VarDecl
 	return
 }
 
-func (p *Parser) parseFuncParams(in string) (params Params) {
+func (p *Parser) parseFuncParams(in string, allowDuplicates bool) (params Params, duplicate []byte) {
 	// FormalParameters
 	if !p.consume(in, OpenParenToken) {
 		return
 	}
 
+	// non-strict functions with a simple parameter list may repeat a parameter name, as in `function f(a,a){}`
+	// the repeated parameters share the same variable, the last one gets the argument value
+	simple := true
 	for p.tt != CloseParenToken && p.tt != ErrorToken {
 		if p.tt == EllipsisToken {
+			if duplicate != nil {
+				p.failMessage("identifier %s has already been declared", string(duplicate))
+				return
+			}
 			// binding rest element
 			p.next()
 			params.Rest = p.parseBinding(ArgumentDecl)
 			p.consume(in, CloseParenToken)
 			return
 		}
-		params.List = append(params.List, p.parseBindingElement(ArgumentDecl))
+
+		var bindingElement BindingElement
+		if allowDuplicates && simple && p.isIdentifierReference(p.tt) {
+			if v := p.scope.findDeclared(p.data, true); v != nil && v.Decl == ArgumentDecl {
+				if duplicate == nil {
+					duplicate = v.Data
+				}
+				v.Uses++
+				bindingElement.Binding = v
+				p.next()
+			}
+		}
+		if bindingElement.Binding == nil {
+			if duplicate != nil && !p.isIdentifierReference(p.tt) {
+				p.failMessage("identifier %s has already been declared", string(duplicate))
+				return
+			}
+			bindingElement.Binding = p.parseBinding(ArgumentDecl)
+		}
+		if p.tt == EqToken {
+			p.next()
+			bindingElement.Default = p.parseExpression(OpAssign)
+		}
+		if _, ok := bindingElement.Binding.(*Var); !ok || bindingElement.Default != nil {
+			simple = false
+			if duplicate != nil {
+				p.failMessage("identifier %s has already been declared", string(duplicate))
+				return
+			}
+		}
+		params.List = append(params.List, bindingElement)
 		if p.tt != CommaToken {
 			break
 		}
@@ -1040,12 +1079,20 @@ func (p *Parser) parseFunc(async, expr bool) (funcDecl *FuncDecl) {
 	if expr && name != nil {
 		funcDecl.Name, _ = p.scope.Declare(ExprDecl, name) // cannot fail
 	}
-	funcDecl.Params = p.parseFuncParams("function declaration")
+	prevStrict := p.strict
+	var duplicate []byte
+	funcDecl.Params, duplicate = p.parseFuncParams("function declaration", !p.strict)
 
 	prevAllowDirectivePrologue := p.allowDirectivePrologue
 	p.allowDirectivePrologue = true
 	funcDecl.Body.List = p.parseStmtList("function declaration")
 	p.allowDirectivePrologue = prevAllowDirectivePrologue
+	if duplicate != nil && p.strict {
+		// a "use strict" directive in the body also applies to the parameters
+		p.failMessage("identifier %s has already been declared", string(duplicate))
+		return
+	}
+	p.strict = prevStrict
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1063,6 +1110,8 @@ func (p *Parser) parseClassExpr() (classDecl *ClassDecl) {
 func (p *Parser) parseAnyClass(expr bool) (classDecl *ClassDecl) {
 	// assume we're at class
 	p.next()
+	prevStrict := p.strict
+	p.strict = true // all parts of a class are strict mode code
 	classDecl = &ClassDecl{}
 	if IsIdentifier(p.tt) || p.tt == YieldToken || p.tt == AwaitToken {
 		if !expr {
@@ -1105,6 +1154,7 @@ func (p *Parser) parseAnyClass(expr bool) (classDecl *ClassDecl) {
 		classDecl.List = append(classDecl.List, p.parseClassElement())
 	}
 	p.exitScope(parent)
+	p.strict = prevStrict
 	return
 }
 
@@ -1195,12 +1245,12 @@ func (p *Parser) parseClassElement() ClassElement {
 	prevAwait, prevYield, prevRetrn := p.await, p.yield, p.retrn
 	p.await, p.yield, p.retrn = method.Async, method.Generator, true
 
-	method.Params = p.parseFuncParams("method definition")
+	method.Params, _ = p.parseFuncParams("method definition", false)
 
-	prevAllowDirectivePrologue := p.allowDirectivePrologue
+	prevAllowDirectivePrologue, prevStrict := p.allowDirectivePrologue, p.strict
 	p.allowDirectivePrologue = true
 	method.Body.List = p.parseStmtList("method function")
-	p.allowDirectivePrologue = prevAllowDirectivePrologue
+	p.allowDirectivePrologue, p.strict = prevAllowDirectivePrologue, prevStrict
 
 	p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 	p.exitScope(parent)
@@ -1473,8 +1523,10 @@ func (p *Parser) parseObjectLiteral() (object ObjectExpr) {
 				p.await, p.yield, p.retrn = method.Async, method.Generator, true
 				p.assumeArrowFunc = false
 
-				method.Params = p.parseFuncParams("method definition")
+				prevStrict := p.strict
+				method.Params, _ = p.parseFuncParams("method definition", false)
 				method.Body.List = p.parseStmtList("method definition")
+				p.strict = prevStrict
 
 				p.await, p.yield, p.retrn = prevAwait, prevYield, prevRetrn
 				p.exitScope(parent)
@@ -1580,7 +1632,7 @@ func (p *Parser) parseAsyncArrowFunc() (arrowFunc *ArrowFunc) {
 		p.next()
 		arrowFunc.Params.List = []BindingElement{{Binding: ref}}
 	} else {
-		arrowFunc.Params = p.parseFuncParams("arrow function")
+		arrowFunc.Params, _ = p.parseFuncParams("arrow function", false)
 		// CallExpression of 'async(params)' already handled
 	}
 
@@ -1651,10 +1703,10 @@ func (p *Parser) parseArrowFuncBody() (list []IStmt) {
 		prevIn, prevRetrn := p.in, p.retrn
 		p.in, p.retrn = true, true
 
-		prevAllowDirectivePrologue := p.allowDirectivePrologue
+		prevAllowDirectivePrologue, prevStrict := p.allowDirectivePrologue, p.strict
 		p.allowDirectivePrologue = true
 		list = p.parseStmtList("arrow function")
-		p.allowDirectivePrologue = prevAllowDirectivePrologue
+		p.allowDirectivePrologue, p.strict = prevAllowDirectivePrologue, prevStrict
 
 		p.in, p.retrn = prevIn, prevRetrn
 	} else {
