@@ -646,11 +646,20 @@ func (p *Parser) parseStmt(allowDeclaration bool) (stmt IStmt) {
 			}
 		}
 	}
-	if !p.prevLT && p.tt == SemicolonToken {
+	if p.tt == SemicolonToken && (!p.prevLT || endsWithSemicolon(stmt)) {
 		p.next()
 	}
 	p.stmtLevel--
 	return
+}
+
+// endsWithSemicolon returns true for statements that are terminated by a semicolon. ASI only inserts a semicolon when the next token is not allowed, so a semicolon after a line terminator still ends these statements and is not an empty statement.
+func endsWithSemicolon(stmt IStmt) bool {
+	switch stmt.(type) {
+	case *ExprStmt, *VarDecl, *DoWhileStmt, *BranchStmt, *ReturnStmt, *ThrowStmt, *DebuggerStmt, *DirectivePrologueStmt:
+		return true
+	}
+	return false
 }
 
 func (p *Parser) parseStmtList(in string) (list []IStmt) {
