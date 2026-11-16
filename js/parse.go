@@ -1224,7 +1224,7 @@ func (p *Parser) parsePropertyName(in string) (propertyName PropertyName) {
 		// reinterpret string as identifier or number if we can, except for empty strings
 		if isIdent := AsIdentifierName(p.data[1 : len(p.data)-1]); isIdent {
 			propertyName.Literal = LiteralExpr{IdentifierToken, p.data[1 : len(p.data)-1]}
-		} else if isNum := AsDecimalLiteral(p.data[1 : len(p.data)-1]); isNum {
+		} else if isNum := AsNumericPropertyKey(p.data[1 : len(p.data)-1]); isNum {
 			propertyName.Literal = LiteralExpr{DecimalToken, p.data[1 : len(p.data)-1]}
 		} else {
 			propertyName.Literal = LiteralExpr{p.tt, p.data}

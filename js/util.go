@@ -1,5 +1,7 @@
 package js
 
+import "strconv"
+
 func isLHSExpr(i IExpr) bool {
 	switch i.(type) {
 	case *CommaExpr, *CondExpr, *YieldExpr, *ArrowFunc, *BinaryExpr, *UnaryExpr:
@@ -23,6 +25,21 @@ func AsIdentifierName(b []byte) bool {
 		}
 	}
 	return true
+}
+
+// AsNumericPropertyKey returns true if the string property key b can be written as a numeric
+// literal without changing the key. A numeric key is converted with ToString(ToNumber(b)), so this
+// only holds when that gives back b exactly: {"1.0":x} is not {1.0:x}, which is {"1":x}.
+func AsNumericPropertyKey(b []byte) bool {
+	if !AsDecimalLiteral(b) || b[0] == '.' || b[len(b)-1] == '.' {
+		return false
+	}
+	f, err := strconv.ParseFloat(string(b), 64)
+	if err != nil || 1e21 <= f {
+		// ToString uses exponent notation from 1e21 onwards
+		return false
+	}
+	return strconv.FormatFloat(f, 'f', -1, 64) == string(b)
 }
 
 // AsDecimalLiteral returns true if a valid decimal literal is given.
